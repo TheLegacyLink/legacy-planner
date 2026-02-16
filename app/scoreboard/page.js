@@ -21,6 +21,7 @@ function normalizeRows(payload) {
   if (Array.isArray(payload.data)) return payload.data;
   if (Array.isArray(payload.rows)) return payload.rows;
   if (Array.isArray(payload.results)) return payload.results;
+  if (Array.isArray(payload.leaders)) return payload.leaders;
   return [];
 }
 

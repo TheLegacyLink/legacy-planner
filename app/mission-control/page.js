@@ -29,12 +29,13 @@ function toChicagoTime(iso) {
 }
 
 function normalizeRows(payload) {
-  // Supports both: [{agent_name, referral_count, app_submitted_count, last_activity}] and raw event arrays
+  // Supports both: [{agent_name, referral_count, app_submitted_count, last_activity}] and wrapped shapes.
   if (!payload) return [];
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload.data)) return payload.data;
   if (Array.isArray(payload.rows)) return payload.rows;
   if (Array.isArray(payload.results)) return payload.results;
+  if (Array.isArray(payload.leaders)) return payload.leaders;
   return [];
 }
 
