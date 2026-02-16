@@ -281,6 +281,35 @@ textarea {
   background: #101512;
 }
 
+.badgeWall { display: grid; gap: 12px; }
+.badgeGrid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; margin-top: 10px; }
+.badgeCard {
+  border: 1px solid #2a312b;
+  border-radius: 12px;
+  background: #101512;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+.badgeCard.unlocked { border-color: #4d7c60; box-shadow: inset 0 0 0 1px rgba(212,175,55,0.25); }
+.badgeCard.locked { opacity: 0.75; }
+.badgeCard.tier-bronze { border-left: 3px solid #9c6a3a; }
+.badgeCard.tier-silver { border-left: 3px solid #8f9aa3; }
+.badgeCard.tier-gold { border-left: 3px solid var(--gold); }
+.badgeCard.tier-black { border-left: 3px solid #6d5a2b; background: linear-gradient(180deg, #111311, #0a0b0a); }
+.progressWrap {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #1c231f;
+  border: 1px solid #2f3a33;
+}
+.progressBar {
+  height: 100%;
+  background: linear-gradient(90deg, #2a7d52, #d4af37);
+}
+
 .logForm {
   display: grid;
   grid-template-columns: repeat(2, minmax(0,1fr));
@@ -302,6 +331,7 @@ textarea { min-height: 180px; margin-top: 8px; }
   .grid4 { grid-template-columns: 1fr 1fr; }
   .split { grid-template-columns: 1fr; }
   .kanbanGrid { grid-template-columns: 1fr 1fr; }
+  .badgeGrid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 640px) {
