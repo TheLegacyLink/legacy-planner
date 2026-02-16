@@ -5,6 +5,8 @@ import AppShell from '../../components/AppShell';
 
 const LEADERBOARD_URL =
   'https://legacylink.app/functions/innerCircleWebhookLeaderboardPublic?key=21689754egt41fadto56216ma444god';
+const REVENUE_URL =
+  'https://legacylink.app/functions/openClawRevenueData?key=21689754egt41fadto56216ma444god';
 
 const AGENTS = [
   'Kimora Link',
@@ -22,10 +24,10 @@ const BADGE_RULES = [
   { id: 'policy-5', label: 'Policy Producer', metric: 'apps', threshold: 5, tier: 'bronze' },
   { id: 'policy-20', label: 'Policy Performer', metric: 'apps', threshold: 20, tier: 'silver' },
   { id: 'policy-50', label: 'Policy Titan', metric: 'apps', threshold: 50, tier: 'gold' },
-  { id: 'club-10', label: '$10K Club', metric: 'score', threshold: 10, tier: 'silver' },
-  { id: 'club-20', label: '$20K Club', metric: 'score', threshold: 20, tier: 'gold' },
-  { id: 'club-50', label: '$50K Club', metric: 'score', threshold: 50, tier: 'black' },
-  { id: 'club-100', label: 'Six-Figure Club', metric: 'score', threshold: 100, tier: 'black' }
+  { id: 'club-10', label: '$10K Club', metric: 'revenue', threshold: 10000, tier: 'silver' },
+  { id: 'club-20', label: '$20K Club', metric: 'revenue', threshold: 20000, tier: 'gold' },
+  { id: 'club-50', label: '$50K Club', metric: 'revenue', threshold: 50000, tier: 'black' },
+  { id: 'club-100', label: 'Six-Figure Club', metric: 'revenue', threshold: 100000, tier: 'black' }
 ];
 
 function normalizeRows(payload) {
@@ -37,14 +39,20 @@ function normalizeRows(payload) {
   return [];
 }
 
+function money(n) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0);
+}
+
 function resolveMetric(rule, stats) {
   if (rule.metric === 'referrals') return stats.referrals;
   if (rule.metric === 'apps') return stats.apps;
+  if (rule.metric === 'revenue') return stats.revenue;
   return stats.score;
 }
 
 export default function BadgesPage() {
   const [rows, setRows] = useState([]);
+  const [revenueRows, setRevenueRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -53,10 +61,20 @@ export default function BadgesPage() {
     async function load() {
       setLoading(true);
       try {
-        const response = await fetch(LEADERBOARD_URL, { cache: 'no-store' });
-        if (!response.ok) return;
-        const data = await response.json();
-        if (mounted) setRows(normalizeRows(data));
+        const [leaderboardResponse, revenueResponse] = await Promise.all([
+          fetch(LEADERBOARD_URL, { cache: 'no-store' }),
+          fetch(REVENUE_URL, { cache: 'no-store' })
+        ]);
+
+        if (leaderboardResponse.ok) {
+          const leaderboardData = await leaderboardResponse.json();
+          if (mounted) setRows(normalizeRows(leaderboardData));
+        }
+
+        if (revenueResponse.ok) {
+          const revenueData = await revenueResponse.json();
+          if (mounted) setRevenueRows(normalizeRows(revenueData));
+        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -72,13 +90,25 @@ export default function BadgesPage() {
 
   const members = useMemo(() => {
     return AGENTS.map((name) => {
-      const match = rows.find((r) => r.agent_name === name || r.agentName === name || r.name === name);
-      const referrals = Number(match?.referral_count ?? match?.referrals ?? 0) || 0;
-      const apps = Number(match?.app_submitted_count ?? match?.apps_submitted ?? match?.apps ?? 0) || 0;
+      const activityMatch = rows.find((r) => r.agent_name === name || r.agentName === name || r.name === name);
+      const revenueMatch = revenueRows.find((r) => r.agent_name === name || r.agentName === name || r.name === name);
+
+      const referrals = Number(activityMatch?.referral_count ?? activityMatch?.referrals ?? 0) || 0;
+      const apps = Number(activityMatch?.app_submitted_count ?? activityMatch?.apps_submitted ?? activityMatch?.apps ?? 0) || 0;
       const score = referrals + apps;
 
+      const revenue =
+        Number(
+          revenueMatch?.revenue ??
+            revenueMatch?.total_revenue ??
+            revenueMatch?.commission ??
+            revenueMatch?.amount ??
+            revenueMatch?.premium ??
+            0
+        ) || 0;
+
       const badges = BADGE_RULES.map((rule) => {
-        const current = resolveMetric(rule, { referrals, apps, score });
+        const current = resolveMetric(rule, { referrals, apps, score, revenue });
         const unlocked = current >= rule.threshold;
         return {
           ...rule,
@@ -92,22 +122,20 @@ export default function BadgesPage() {
         referrals,
         apps,
         score,
+        revenue,
         unlockedCount: badges.filter((b) => b.unlocked).length,
         badges
       };
-    }).sort((a, b) => b.unlockedCount - a.unlockedCount || b.score - a.score);
-  }, [rows]);
+    }).sort((a, b) => b.unlockedCount - a.unlockedCount || b.revenue - a.revenue || b.score - a.score);
+  }, [rows, revenueRows]);
 
   return (
     <AppShell title="Badges">
       <div className="panel">
         <div className="panelRow">
-          <h3>Badge Economy (Live Prototype)</h3>
-          <span className="muted">Using current Base44 leaderboard data</span>
+          <h3>Badge Economy (Live)</h3>
+          <span className="muted">Production + Revenue data connected</span>
         </div>
-        <p className="muted">
-          Revenue club badges are currently mapped to total activity score until payout data is wired.
-        </p>
       </div>
 
       {loading ? <div className="panel"><p>Loading badge progress…</p></div> : null}
@@ -119,13 +147,17 @@ export default function BadgesPage() {
               <h3>{member.name}</h3>
               <span className="pill onpace">{member.unlockedCount} unlocked</span>
             </div>
-            <p className="muted">Referrals: {member.referrals} • Apps: {member.apps} • Score: {member.score}</p>
+            <p className="muted">
+              Referrals: {member.referrals} • Apps: {member.apps} • Revenue: {money(member.revenue)}
+            </p>
 
             <div className="badgeGrid">
               {member.badges.map((badge) => (
                 <div key={`${member.name}-${badge.id}`} className={`badgeCard ${badge.unlocked ? 'unlocked' : 'locked'} tier-${badge.tier}`}>
                   <strong>{badge.label}</strong>
-                  <small>{badge.metric} ≥ {badge.threshold}</small>
+                  <small>
+                    {badge.metric} ≥ {badge.metric === 'revenue' ? money(badge.threshold) : badge.threshold}
+                  </small>
                   <div className="progressWrap">
                     <div className="progressBar" style={{ width: `${badge.progress}%` }} />
                   </div>
