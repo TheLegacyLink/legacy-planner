@@ -100,7 +100,10 @@ export default function BadgesPage() {
       const activityMatch = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
       const revenueMatch = revenueRows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
 
-      const referrals = Number(activityMatch?.referral_count ?? activityMatch?.referrals ?? 0) || 0;
+      const referralsFromLeaderboard = Number(activityMatch?.referral_count ?? activityMatch?.referrals ?? 0) || 0;
+      const referralsFromApprovals = Number(revenueMatch?.activity_bonus ?? 0) || 0;
+      const referrals = Math.max(referralsFromLeaderboard, referralsFromApprovals);
+
       const apps = Number(activityMatch?.app_submitted_count ?? activityMatch?.apps_submitted ?? activityMatch?.apps ?? 0) || 0;
       const score = referrals + apps;
 
