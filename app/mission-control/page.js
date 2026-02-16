@@ -3,298 +3,183 @@
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 
-const STORAGE_KEY = 'legacy-planner-mission-control-v2';
+const LEADERBOARD_URL =
+  'https://legacylink.app/functions/innerCircleWebhookLeaderboardPublic?key=21689754egt41fadto56216ma444god';
 
-const TEAM_SEED = [
-  { name: 'Kimora', calls: 22, followUps: 35, appointments: 6, apps: 2 },
-  { name: 'Ari', calls: 18, followUps: 28, appointments: 4, apps: 1 },
-  { name: 'Noel', calls: 12, followUps: 17, appointments: 3, apps: 1 },
-  { name: 'Jade', calls: 8, followUps: 11, appointments: 1, apps: 0 }
+const AGENTS = [
+  'Kimora Link',
+  'Jamal Holmes',
+  'Mahogany Burns',
+  'Leticia Wright',
+  'Kelin Brown',
+  'Madalyn Adams'
 ];
 
-const TARGETS = {
-  calls: 100,
-  followUps: 200,
-  appointments: 40,
-  apps: 15
-};
+function toChicagoTime(iso) {
+  if (!iso) return '—';
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return '—';
+  return dt.toLocaleString('en-US', {
+    timeZone: 'America/Chicago',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+}
 
-const DEFAULT_PREVIEW = `FRIDAY LEADERBOARD + RECOGNITION
-🏆 Top Sponsorship Referrals:
-📄 Top Apps Submitted:
-🌟 Most Improved:
+function normalizeRows(payload) {
+  // Supports both: [{agent_name, referral_count, app_submitted_count, last_activity}] and raw event arrays
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.data)) return payload.data;
+  if (Array.isArray(payload.rows)) return payload.rows;
+  if (Array.isArray(payload.results)) return payload.results;
+  return [];
+}
 
-Celebrate winners. Study what worked. Run it back stronger next week.`;
-
-function getPaceStatus(value, target) {
-  const pct = value / target;
-  if (pct >= 0.9) return 'On Pace';
-  if (pct >= 0.65) return 'At Risk';
-  return 'Off Pace';
+function getStatus(referrals, apps) {
+  // Per user instruction: any activity = On Pace
+  return referrals + apps >= 1 ? 'On Pace' : 'Off Pace';
 }
 
 export default function MissionControl() {
-  const [team, setTeam] = useState(TEAM_SEED);
-  const [fridayPreview, setFridayPreview] = useState(DEFAULT_PREVIEW);
-  const [savedStamp, setSavedStamp] = useState('');
-  const [form, setForm] = useState({
-    agent: 'Kimora',
-    calls: 0,
-    followUps: 0,
-    appointments: 0,
-    apps: 0
-  });
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed.team?.length) setTeam(parsed.team);
-      if (typeof parsed.fridayPreview === 'string') setFridayPreview(parsed.fridayPreview);
-      if (parsed.savedStamp) setSavedStamp(parsed.savedStamp);
-    } catch {
-      // Ignore bad local state
+    let mounted = true;
+
+    async function load() {
+      setLoading(true);
+      setError('');
+      try {
+        const response = await fetch(LEADERBOARD_URL, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const json = await response.json();
+        if (!mounted) return;
+        setRows(normalizeRows(json));
+      } catch (err) {
+        if (!mounted) return;
+        setError(`Could not load Base44 leaderboard (${err.message}).`);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     }
+
+    load();
+    const interval = setInterval(load, 60_000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, []);
+
+  const team = useMemo(() => {
+    return AGENTS.map((agent) => {
+      const match = rows.find(
+        (r) =>
+          r.agent_name === agent ||
+          r.agentName === agent ||
+          r.name === agent
+      );
+
+      const referrals = Number(
+        match?.referral_count ?? match?.referrals ?? (match?.event_type === 'referral' ? 1 : 0) ?? 0
+      ) || 0;
+
+      const apps = Number(
+        match?.app_submitted_count ?? match?.apps_submitted ?? match?.apps ?? (match?.event_type === 'app_submitted' ? 1 : 0) ?? 0
+      ) || 0;
+
+      const lastActivity =
+        match?.last_activity ??
+        match?.lastActivity ??
+        match?.created_date ??
+        match?.timestamp ??
+        null;
+
+      return {
+        name: agent,
+        referrals,
+        apps,
+        lastActivity,
+        status: getStatus(referrals, apps)
+      };
+    });
+  }, [rows]);
 
   const totals = useMemo(
     () =>
       team.reduce(
         (acc, row) => ({
-          calls: acc.calls + row.calls,
-          followUps: acc.followUps + row.followUps,
-          appointments: acc.appointments + row.appointments,
-          apps: acc.apps + row.apps
+          referrals: acc.referrals + row.referrals,
+          apps: acc.apps + row.apps,
+          active: acc.active + (row.referrals + row.apps >= 1 ? 1 : 0)
         }),
-        { calls: 0, followUps: 0, appointments: 0, apps: 0 }
+        { referrals: 0, apps: 0, active: 0 }
       ),
     [team]
   );
 
-  const cards = useMemo(
-    () => [
-      {
-        title: 'Today Activity',
-        value: totals.calls,
-        target: TARGETS.calls,
-        status: getPaceStatus(totals.calls, TARGETS.calls)
-      },
-      {
-        title: 'Follow-ups Sent',
-        value: totals.followUps,
-        target: TARGETS.followUps,
-        status: getPaceStatus(totals.followUps, TARGETS.followUps)
-      },
-      {
-        title: 'Appointments Set',
-        value: totals.appointments,
-        target: TARGETS.appointments,
-        status: getPaceStatus(totals.appointments, TARGETS.appointments)
-      },
-      {
-        title: 'Submitted Apps',
-        value: totals.apps,
-        target: TARGETS.apps,
-        status: getPaceStatus(totals.apps, TARGETS.apps)
-      }
-    ],
-    [totals]
-  );
-
-  const alerts = useMemo(() => {
-    const nowHour = new Date().getHours();
-    const noActivity = totals.calls + totals.followUps + totals.appointments + totals.apps === 0;
-
-    return [
-      {
-        label: '11:00 AM No-Activity Check',
-        state: nowHour < 11 ? 'Pending' : noActivity ? 'Action Now' : 'Clear'
-      },
-      {
-        label: '1:00 PM Pace Check',
-        state:
-          nowHour < 13
-            ? 'Pending'
-            : cards.every((card) => card.status !== 'Off Pace')
-            ? 'On Track'
-            : 'Action Now'
-      },
-      {
-        label: '9:00 PM Closeout Check',
-        state: nowHour < 21 ? 'Pending' : cards.some((card) => card.status === 'Off Pace') ? 'Review Needed' : 'Clear'
-      }
-    ];
-  }, [cards, totals]);
-
-  const saveState = (nextTeam = team, nextPreview = fridayPreview) => {
-    const stamp = new Date().toLocaleString('en-US', { hour12: true });
-    setSavedStamp(stamp);
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        team: nextTeam,
-        fridayPreview: nextPreview,
-        savedStamp: stamp
-      })
-    );
-  };
-
-  const handleLogActivity = (event) => {
-    event.preventDefault();
-
-    const nextTeam = team.map((row) =>
-      row.name !== form.agent
-        ? row
-        : {
-            ...row,
-            calls: row.calls + Number(form.calls || 0),
-            followUps: row.followUps + Number(form.followUps || 0),
-            appointments: row.appointments + Number(form.appointments || 0),
-            apps: row.apps + Number(form.apps || 0)
-          }
-    );
-
-    setTeam(nextTeam);
-    setForm({ ...form, calls: 0, followUps: 0, appointments: 0, apps: 0 });
-    saveState(nextTeam, fridayPreview);
-  };
-
-  const handleSavePreview = () => {
-    saveState(team, fridayPreview);
-  };
-
   return (
     <AppShell title="Mission Control">
       <div className="grid4">
-        {cards.map((card) => (
-          <div className="card" key={card.title}>
-            <p>{card.title}</p>
-            <h2>
-              {card.value}/{card.target}
-            </h2>
-            <span className={`pill ${card.status.replace(/\s/g, '').toLowerCase()}`}>{card.status}</span>
-          </div>
-        ))}
+        <div className="card">
+          <p>Sponsorship Referrals (Today)</p>
+          <h2>{totals.referrals}</h2>
+          <span className="pill onpace">Live from Base44</span>
+        </div>
+        <div className="card">
+          <p>Apps Submitted (Today)</p>
+          <h2>{totals.apps}</h2>
+          <span className="pill onpace">Live from Base44</span>
+        </div>
+        <div className="card">
+          <p>Agents Active Today</p>
+          <h2>{totals.active}/{AGENTS.length}</h2>
+          <span className={`pill ${totals.active >= 1 ? 'onpace' : 'offpace'}`}>{totals.active >= 1 ? 'On Pace' : 'Off Pace'}</span>
+        </div>
+        <div className="card">
+          <p>Data Refresh</p>
+          <h2>{loading ? 'Syncing…' : 'Live'}</h2>
+          <span className={`pill ${error ? 'offpace' : 'onpace'}`}>{error ? 'Attention' : 'Connected'}</span>
+        </div>
       </div>
 
-      <div className="split">
-        <div className="panel">
-          <div className="panelRow">
-            <h3>Team Pace</h3>
-            <span className="muted">Live Model • API-ready shape</span>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Agent</th>
-                <th>Calls</th>
-                <th>Follow-ups</th>
-                <th>Apps</th>
-                <th>Status</th>
+      <div className="panel">
+        <div className="panelRow">
+          <h3>Inner Circle Scoreboard</h3>
+          <span className="muted">Status rule: any activity today = On Pace</span>
+        </div>
+
+        {error ? <p className="red">{error}</p> : null}
+
+        <table>
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Referrals</th>
+              <th>Apps Submitted</th>
+              <th>Last Activity</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {team.map((row) => (
+              <tr key={row.name}>
+                <td>{row.name}</td>
+                <td>{row.referrals}</td>
+                <td>{row.apps}</td>
+                <td>{toChicagoTime(row.lastActivity)}</td>
+                <td>
+                  <span className={`pill ${row.status === 'On Pace' ? 'onpace' : 'offpace'}`}>{row.status}</span>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {team.map((row) => {
-                const status = getPaceStatus(row.calls, 25);
-                return (
-                  <tr key={row.name}>
-                    <td>{row.name}</td>
-                    <td>{row.calls}</td>
-                    <td>{row.followUps}</td>
-                    <td>{row.apps}</td>
-                    <td>
-                      <span className={`pill ${status.replace(/\s/g, '').toLowerCase()}`}>{status}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="panel">
-          <h3>Alert Engine</h3>
-          <ul className="alerts">
-            {alerts.map((alert) => (
-              <li key={alert.label}>
-                <span>{alert.label}</span>
-                <strong className={alert.state.includes('Action') || alert.state.includes('Review') ? 'red' : 'green'}>
-                  {alert.state}
-                </strong>
-              </li>
             ))}
-          </ul>
-        </div>
-      </div>
-
-      <div className="split">
-        <div className="panel">
-          <h3>Log Activity</h3>
-          <form className="logForm" onSubmit={handleLogActivity}>
-            <label>
-              Agent
-              <select
-                value={form.agent}
-                onChange={(e) => setForm((prev) => ({ ...prev, agent: e.target.value }))}
-              >
-                {team.map((row) => (
-                  <option key={row.name} value={row.name}>
-                    {row.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Calls
-              <input
-                type="number"
-                min="0"
-                value={form.calls}
-                onChange={(e) => setForm((prev) => ({ ...prev, calls: e.target.value }))}
-              />
-            </label>
-            <label>
-              Follow-ups
-              <input
-                type="number"
-                min="0"
-                value={form.followUps}
-                onChange={(e) => setForm((prev) => ({ ...prev, followUps: e.target.value }))}
-              />
-            </label>
-            <label>
-              Appointments
-              <input
-                type="number"
-                min="0"
-                value={form.appointments}
-                onChange={(e) => setForm((prev) => ({ ...prev, appointments: e.target.value }))}
-              />
-            </label>
-            <label>
-              Apps
-              <input
-                type="number"
-                min="0"
-                value={form.apps}
-                onChange={(e) => setForm((prev) => ({ ...prev, apps: e.target.value }))}
-              />
-            </label>
-            <button type="submit">Save KPI Log</button>
-          </form>
-        </div>
-
-        <div className="panel">
-          <div className="panelRow">
-            <h3>Friday Preview</h3>
-            <button className="ghost" onClick={handleSavePreview}>
-              Save Preview
-            </button>
-          </div>
-          <textarea value={fridayPreview} onChange={(e) => setFridayPreview(e.target.value)} />
-          <p className="muted">{savedStamp ? `Last saved: ${savedStamp}` : 'Not saved yet'}</p>
-        </div>
+          </tbody>
+        </table>
       </div>
     </AppShell>
   );
