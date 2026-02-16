@@ -5,6 +5,8 @@ import AppShell from '../../components/AppShell';
 
 const LEADERBOARD_URL =
   'https://legacylink.app/functions/innerCircleWebhookLeaderboardPublic?key=21689754egt41fadto56216ma444god';
+const REVENUE_URL =
+  'https://legacylink.app/functions/openClawRevenueData?key=21689754egt41fadto56216ma444god';
 
 const AGENTS = [
   'Kimora Link',
@@ -12,8 +14,13 @@ const AGENTS = [
   'Mahogany Burns',
   'Leticia Wright',
   'Kelin Brown',
-  'Madalyn Adams'
+  'Madalyn Adams',
+  'Breanna James'
 ];
+
+function cleanName(value = '') {
+  return String(value).toLowerCase().replace('dr. ', '').trim();
+}
 
 function toChicagoTime(iso) {
   if (!iso) return '—';
@@ -29,23 +36,23 @@ function toChicagoTime(iso) {
 }
 
 function normalizeRows(payload) {
-  // Supports both: [{agent_name, referral_count, app_submitted_count, last_activity}] and wrapped shapes.
   if (!payload) return [];
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload.data)) return payload.data;
   if (Array.isArray(payload.rows)) return payload.rows;
   if (Array.isArray(payload.results)) return payload.results;
   if (Array.isArray(payload.leaders)) return payload.leaders;
+  if (Array.isArray(payload.revenue_data)) return payload.revenue_data;
   return [];
 }
 
 function getStatus(referrals, apps) {
-  // Per user instruction: any activity = On Pace
   return referrals + apps >= 1 ? 'On Pace' : 'Off Pace';
 }
 
 export default function MissionControl() {
   const [rows, setRows] = useState([]);
+  const [revenueRows, setRevenueRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -56,14 +63,22 @@ export default function MissionControl() {
       setLoading(true);
       setError('');
       try {
-        const response = await fetch(LEADERBOARD_URL, { cache: 'no-store' });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const json = await response.json();
+        const [leaderboardRes, revenueRes] = await Promise.all([
+          fetch(LEADERBOARD_URL, { cache: 'no-store' }),
+          fetch(REVENUE_URL, { cache: 'no-store' })
+        ]);
+
+        if (!leaderboardRes.ok) throw new Error(`Leaderboard HTTP ${leaderboardRes.status}`);
+
+        const leaderboardJson = await leaderboardRes.json();
+        const revenueJson = revenueRes.ok ? await revenueRes.json() : null;
+
         if (!mounted) return;
-        setRows(normalizeRows(json));
+        setRows(normalizeRows(leaderboardJson));
+        setRevenueRows(normalizeRows(revenueJson));
       } catch (err) {
         if (!mounted) return;
-        setError(`Could not load Base44 leaderboard (${err.message}).`);
+        setError(`Could not load sync data (${err.message}).`);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -79,27 +94,18 @@ export default function MissionControl() {
 
   const team = useMemo(() => {
     return AGENTS.map((agent) => {
-      const match = rows.find(
-        (r) =>
-          r.agent_name === agent ||
-          r.agentName === agent ||
-          r.name === agent
-      );
+      const match = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
+      const revenueMatch = revenueRows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
 
-      const referrals = Number(
-        match?.referral_count ?? match?.referrals ?? (match?.event_type === 'referral' ? 1 : 0) ?? 0
-      ) || 0;
+      const leaderboardReferrals =
+        Number(match?.referral_count ?? match?.referrals ?? (match?.event_type === 'referral' ? 1 : 0) ?? 0) || 0;
+      const fallbackReferrals = Number(revenueMatch?.activity_bonus ?? 0) || 0;
+      const referrals = Math.max(leaderboardReferrals, fallbackReferrals);
 
-      const apps = Number(
-        match?.app_submitted_count ?? match?.apps_submitted ?? match?.apps ?? (match?.event_type === 'app_submitted' ? 1 : 0) ?? 0
-      ) || 0;
+      const apps =
+        Number(match?.app_submitted_count ?? match?.apps_submitted ?? match?.apps ?? (match?.event_type === 'app_submitted' ? 1 : 0) ?? 0) || 0;
 
-      const lastActivity =
-        match?.last_activity ??
-        match?.lastActivity ??
-        match?.created_date ??
-        match?.timestamp ??
-        null;
+      const lastActivity = match?.last_activity ?? match?.lastActivity ?? match?.created_date ?? match?.timestamp ?? null;
 
       return {
         name: agent,
@@ -109,7 +115,7 @@ export default function MissionControl() {
         status: getStatus(referrals, apps)
       };
     });
-  }, [rows]);
+  }, [rows, revenueRows]);
 
   const totals = useMemo(
     () =>
@@ -130,7 +136,7 @@ export default function MissionControl() {
         <div className="card">
           <p>Sponsorship Referrals (Today)</p>
           <h2>{totals.referrals}</h2>
-          <span className="pill onpace">Live from Base44</span>
+          <span className="pill onpace">Live sync (Leaderboard + approvals fallback)</span>
         </div>
         <div className="card">
           <p>Apps Submitted (Today)</p>

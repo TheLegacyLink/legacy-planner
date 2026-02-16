@@ -14,7 +14,8 @@ const AGENTS = [
   'Mahogany Burns',
   'Leticia Wright',
   'Kelin Brown',
-  'Madalyn Adams'
+  'Madalyn Adams',
+  'Breanna James'
 ];
 
 const BADGE_RULES = [
@@ -37,7 +38,12 @@ function normalizeRows(payload) {
   if (Array.isArray(payload.rows)) return payload.rows;
   if (Array.isArray(payload.results)) return payload.results;
   if (Array.isArray(payload.leaders)) return payload.leaders;
+  if (Array.isArray(payload.revenue_data)) return payload.revenue_data;
   return [];
+}
+
+function cleanName(value = '') {
+  return String(value).toLowerCase().replace('dr. ', '').trim();
 }
 
 function money(n) {
@@ -91,8 +97,8 @@ export default function BadgesPage() {
 
   const members = useMemo(() => {
     return AGENTS.map((name) => {
-      const activityMatch = rows.find((r) => r.agent_name === name || r.agentName === name || r.name === name);
-      const revenueMatch = revenueRows.find((r) => r.agent_name === name || r.agentName === name || r.name === name);
+      const activityMatch = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
+      const revenueMatch = revenueRows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
 
       const referrals = Number(activityMatch?.referral_count ?? activityMatch?.referrals ?? 0) || 0;
       const apps = Number(activityMatch?.app_submitted_count ?? activityMatch?.apps_submitted ?? activityMatch?.apps ?? 0) || 0;
