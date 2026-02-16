@@ -59,6 +59,64 @@ th, td { border-bottom:1px solid #25252b; padding:8px; text-align:left; }
   background:#0f0f13;
 }
 
+.checklist { list-style:none; margin:10px 0; padding:0; display:grid; gap:8px; }
+.checklist li {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  border:1px solid #25252b;
+  border-radius:10px;
+  padding:10px;
+}
+.checklist li.done { opacity:0.7; }
+.checklist label { display:flex; align-items:center; gap:10px; }
+
+.inlineForm { display:flex; gap:8px; margin-top:10px; }
+.inlineForm input {
+  flex:1;
+  background:#0e0e11;
+  color:#fff;
+  border:1px solid #333;
+  border-radius:10px;
+  padding:10px;
+}
+.inlineForm button {
+  background:#1f5334;
+  color:#fff;
+  border:1px solid #2f8051;
+  border-radius:10px;
+  padding:10px 14px;
+}
+
+.timeline { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:10px; }
+.timeline li {
+  display:grid;
+  gap:3px;
+  border-left:2px solid #2f8051;
+  padding:6px 0 6px 10px;
+}
+
+.kanbanGrid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin-top:10px; }
+.kanbanCol {
+  border:1px solid #25252b;
+  border-radius:12px;
+  background:#0f0f13;
+  padding:12px;
+}
+.kanbanCol h4 { margin:0 0 8px; font-size:14px; color:#d8d8df; }
+.kanbanCount { font-size:28px; font-weight:700; margin:0 0 10px; }
+.kanbanCol input {
+  width:100%;
+  background:#0e0e11;
+  color:#fff;
+  border:1px solid #333;
+  border-radius:10px;
+  padding:8px;
+}
+
+.rowActions { display:flex; gap:8px; }
+
 .logForm {
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
@@ -93,6 +151,7 @@ textarea { min-height:180px; margin-top:8px; }
   .sidebar { border-right:none; border-bottom:1px solid #222; }
   .grid4 { grid-template-columns: 1fr 1fr; }
   .split { grid-template-columns: 1fr; }
+  .kanbanGrid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 640px) {
   .grid4 { grid-template-columns: 1fr; }
@@ -102,4 +161,6 @@ textarea { min-height:180px; margin-top:8px; }
   .subbar { flex-direction:column; gap:8px; }
   .logForm { grid-template-columns:1fr; }
   .logForm button { grid-column:span 1; }
+  .rowActions { flex-direction:column; }
+  .kanbanGrid { grid-template-columns: 1fr; }
 }
