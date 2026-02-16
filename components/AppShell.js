@@ -14,10 +14,18 @@ const tabs = [
 
 export default function AppShell({ title, children }) {
   const pathname = usePathname();
+
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">🔗 Legacy Planner</div>
+        <div className="brandWrap">
+          <div className="brandMark">🔗</div>
+          <div>
+            <div className="brand">Legacy Planner</div>
+            <small className="brandSub">The Legacy Link • Mission OS</small>
+          </div>
+        </div>
+
         <nav className="tabs">
           {tabs.map((tab) => (
             <Link
@@ -29,6 +37,7 @@ export default function AppShell({ title, children }) {
             </Link>
           ))}
         </nav>
+
         <div className="actions">
           <button>+ New Task</button>
           <button>Log KPI</button>
@@ -37,23 +46,45 @@ export default function AppShell({ title, children }) {
       </header>
 
       <div className="subbar">
-        <div>Kimora • Today</div>
+        <div className="subbarLeft">Kimora • Today • Inner Circle</div>
         <div className="toggles">
-          <button>Today</button><button>Week</button><button>Month</button>
+          <button>Today</button>
+          <button>Week</button>
+          <button>Month</button>
         </div>
-        <div>Sync: Live</div>
+        <div className="subbarRight">Sync: Live</div>
+      </div>
+
+      <div className="execStrip">
+        <div>
+          <span className="execLabel">Priority</span>
+          <strong>Referral + Application Production</strong>
+        </div>
+        <div>
+          <span className="execLabel">Focus Window</span>
+          <strong>Power Hour + Follow-up Blocks</strong>
+        </div>
+        <div>
+          <span className="execLabel">Standard</span>
+          <strong>No Zero Activity Days</strong>
+        </div>
       </div>
 
       <main className="layout">
         <aside className="sidebar">
           <h3>Top 3 Today</h3>
           <ol>
-            <li>Calls block</li>
-            <li>Follow-up block</li>
-            <li>Sponsor outreach</li>
+            <li>Sponsorship asks before noon</li>
+            <li>Applications submitted by 6 PM</li>
+            <li>9 PM closeout accountability</li>
           </ol>
-          <h4>Alerts</h4>
-          <p className="red">2 Action Now</p>
+
+          <h4>Standards</h4>
+          <ul className="sideMeta">
+            <li>Any activity = On Pace</li>
+            <li>Missed day = corrective plan</li>
+            <li>Leaderboard updates every minute</li>
+          </ul>
         </aside>
 
         <section className="content">
