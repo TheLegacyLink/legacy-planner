@@ -243,6 +243,44 @@ textarea {
 
 .rowActions { display: flex; gap: 8px; }
 
+.panel button,
+.inlineForm button,
+.logForm button {
+  background: linear-gradient(180deg, #2d7b50, #1f5a3a);
+  color: #fff;
+  border: 1px solid #3fa56b;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 600;
+}
+.panel button:hover,
+.inlineForm button:hover,
+.logForm button:hover {
+  cursor: pointer;
+  filter: brightness(1.08);
+}
+
+.settingsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+.settingsGrid label { display: grid; gap: 6px; font-size: 13px; color: #b9c2bc; }
+
+.roster { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 8px; }
+.roster li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #273129;
+  border-radius: 10px;
+  padding: 10px;
+  background: #101512;
+}
+
 .logForm {
   display: grid;
   grid-template-columns: repeat(2, minmax(0,1fr));
@@ -268,6 +306,7 @@ textarea { min-height: 180px; margin-top: 8px; }
 
 @media (max-width: 640px) {
   .grid4 { grid-template-columns: 1fr; }
+  .settingsGrid { grid-template-columns: 1fr; }
   .topbar { flex-direction: column; align-items: flex-start; }
   .actions { display: flex; flex-wrap: wrap; gap: 6px; }
   .actions button { margin-left: 0; }
