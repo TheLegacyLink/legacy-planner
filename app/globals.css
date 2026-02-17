@@ -243,6 +243,20 @@ textarea {
 
 .rowActions { display: flex; gap: 8px; }
 
+.leaderboardTabs { display:flex; gap:8px; margin:10px 0; }
+.leaderboardTabs button {
+  background:#111613;
+  color:#d6dfd9;
+  border:1px solid #2f3a33;
+  border-radius:999px;
+  padding:7px 12px;
+}
+.leaderboardTabs button.active {
+  background: linear-gradient(180deg, #2d7b50, #1f5a3a);
+  border-color:#3fa56b;
+  color:#fff;
+}
+
 .panel button,
 .inlineForm button,
 .logForm button {
