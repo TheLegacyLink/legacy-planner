@@ -118,6 +118,24 @@ export default function ScoreboardPage() {
 
   const leader = ranked[0];
 
+  const yearlyCrown = useMemo(() => {
+    const year = new Date().getFullYear();
+    const thisYear = winners.filter((w) => String(w.month || '').startsWith(`${year}-`));
+    if (!thisYear.length) return null;
+
+    const tally = {};
+    for (const item of thisYear) {
+      const key = item.winner;
+      if (!tally[key]) tally[key] = { winner: key, wins: 0, points: 0, apps: 0, referrals: 0 };
+      tally[key].wins += 1;
+      tally[key].points += Number(item.points || 0);
+      tally[key].apps += Number(item.apps || 0);
+      tally[key].referrals += Number(item.referrals || 0);
+    }
+
+    return Object.values(tally).sort((a, b) => b.wins - a.wins || b.points - a.points || b.apps - a.apps || b.referrals - a.referrals)[0];
+  }, [winners]);
+
   const closeCurrentMonth = () => {
     if (!leader) return;
     const month = currentMonthKey();
@@ -196,6 +214,18 @@ export default function ScoreboardPage() {
         ) : (
           <>
             <p className="muted">Monthly winner ledger. Reward Model C: $300 + 7-day lead priority + spotlight.</p>
+            {yearlyCrown ? (
+              <div className="panel" style={{ marginBottom: 10 }}>
+                <div className="panelRow">
+                  <h3>👑 Crown Holder ({new Date().getFullYear()})</h3>
+                  <span className="pill onpace">{yearlyCrown.wins} AOTM Wins</span>
+                </div>
+                <p className="muted">
+                  {yearlyCrown.winner} • Points: {yearlyCrown.points} • Apps: {yearlyCrown.apps} • Referrals: {yearlyCrown.referrals}
+                </p>
+                <p className="muted">Year-end reward track: $2,000 bonus + Legacy Crown badge + trip priority.</p>
+              </div>
+            ) : null}
             <table>
               <thead>
                 <tr>
@@ -211,7 +241,10 @@ export default function ScoreboardPage() {
                 {winners.length ? winners.map((w) => (
                   <tr key={w.month}>
                     <td>{w.month}</td>
-                    <td>{w.winner}</td>
+                    <td>
+                      {w.winner}{' '}
+                      {yearlyCrown && yearlyCrown.winner === w.winner ? <span className="pill onpace">Crown Track</span> : null}
+                    </td>
                     <td>{w.points}</td>
                     <td>{w.referrals}</td>
                     <td>{w.apps}</td>
