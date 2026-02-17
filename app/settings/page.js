@@ -2,21 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
-
-const LEADERBOARD_URL =
-  'https://legacylink.app/functions/innerCircleWebhookLeaderboardPublic?key=21689754egt41fadto56216ma444god';
-const REVENUE_URL =
-  'https://legacylink.app/functions/openClawRevenueData?key=21689754egt41fadto56216ma444god';
-
-const defaultAgents = [
-  'Kimora Link',
-  'Jamal Holmes',
-  'Mahogany Burns',
-  'Leticia Wright',
-  'Kelin Brown',
-  'Madalyn Adams',
-  'Breanna James'
-];
+import {
+  DEFAULT_CONFIG,
+  loadRuntimeConfig,
+  saveRuntimeConfig
+} from '../../lib/runtimeConfig';
 
 function cleanName(value = '') {
   return String(value).toLowerCase().replace('dr. ', '').trim();
@@ -34,11 +24,12 @@ function normalizeRows(payload) {
 }
 
 export default function SettingsPage() {
-  const [timezone, setTimezone] = useState('America/Chicago');
-  const [refreshInterval, setRefreshInterval] = useState('60');
-  const [onPaceThreshold, setOnPaceThreshold] = useState('1');
-  const [leaderboardUrl, setLeaderboardUrl] = useState(LEADERBOARD_URL);
-  const [agents, setAgents] = useState(defaultAgents);
+  const [timezone, setTimezone] = useState(DEFAULT_CONFIG.timezone);
+  const [refreshInterval, setRefreshInterval] = useState(String(DEFAULT_CONFIG.refreshIntervalSec));
+  const [onPaceThreshold, setOnPaceThreshold] = useState(String(DEFAULT_CONFIG.onPaceThreshold));
+  const [leaderboardUrl, setLeaderboardUrl] = useState(DEFAULT_CONFIG.leaderboardUrl);
+  const [revenueUrl, setRevenueUrl] = useState(DEFAULT_CONFIG.revenueUrl);
+  const [agents, setAgents] = useState(DEFAULT_CONFIG.agents);
   const [newAgent, setNewAgent] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
 
@@ -49,6 +40,25 @@ export default function SettingsPage() {
     revenue: { ok: false, status: 'Not checked', rows: 0 },
     mismatches: []
   });
+
+  useEffect(() => {
+    const cfg = loadRuntimeConfig();
+    setTimezone(cfg.timezone);
+    setRefreshInterval(String(cfg.refreshIntervalSec));
+    setOnPaceThreshold(String(cfg.onPaceThreshold));
+    setLeaderboardUrl(cfg.leaderboardUrl);
+    setRevenueUrl(cfg.revenueUrl);
+    setAgents(cfg.agents);
+  }, []);
+
+  const currentConfig = {
+    timezone,
+    refreshIntervalSec: Number(refreshInterval || 60),
+    onPaceThreshold: Number(onPaceThreshold || 1),
+    leaderboardUrl,
+    revenueUrl,
+    agents
+  };
 
   const addAgent = (event) => {
     event.preventDefault();
@@ -63,6 +73,7 @@ export default function SettingsPage() {
   };
 
   const saveSettings = () => {
+    saveRuntimeConfig(currentConfig);
     setSaveMessage(`Saved at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`);
   };
 
@@ -72,7 +83,7 @@ export default function SettingsPage() {
     try {
       const [leaderboardRes, revenueRes] = await Promise.all([
         fetch(leaderboardUrl, { cache: 'no-store' }),
-        fetch(REVENUE_URL, { cache: 'no-store' })
+        fetch(revenueUrl, { cache: 'no-store' })
       ]);
 
       const leaderboardJson = leaderboardRes.ok ? await leaderboardRes.json() : null;
@@ -96,12 +107,12 @@ export default function SettingsPage() {
       setHealth({
         leaderboard: {
           ok: leaderboardRes.ok,
-          status: leaderboardRes.ok ? `HTTP ${leaderboardRes.status}` : `HTTP ${leaderboardRes.status}`,
+          status: `HTTP ${leaderboardRes.status}`,
           rows: leaderboardRows.length
         },
         revenue: {
           ok: revenueRes.ok,
-          status: revenueRes.ok ? `HTTP ${revenueRes.status}` : `HTTP ${revenueRes.status}`,
+          status: `HTTP ${revenueRes.status}`,
           rows: revenueRows.length
         },
         mismatches
@@ -133,7 +144,7 @@ export default function SettingsPage() {
         <div className="panel">
           <div className="panelRow">
             <h3>Data Source Configuration</h3>
-            <span className="muted">Controls for Mission Control and Scoreboard sync</span>
+            <span className="muted">Persistent runtime config (saved locally)</span>
           </div>
 
           <div className="settingsGrid">
@@ -168,8 +179,13 @@ export default function SettingsPage() {
             </label>
 
             <label>
-              Base44 Leaderboard Endpoint
+              Leaderboard Endpoint
               <input value={leaderboardUrl} onChange={(e) => setLeaderboardUrl(e.target.value)} />
+            </label>
+
+            <label>
+              Revenue Endpoint
+              <input value={revenueUrl} onChange={(e) => setRevenueUrl(e.target.value)} />
             </label>
           </div>
 

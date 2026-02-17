@@ -2,32 +2,20 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
+import { loadRuntimeConfig } from '../../lib/runtimeConfig';
 
-const LEADERBOARD_URL =
-  'https://legacylink.app/functions/innerCircleWebhookLeaderboardPublic?key=21689754egt41fadto56216ma444god';
-const REVENUE_URL =
-  'https://legacylink.app/functions/openClawRevenueData?key=21689754egt41fadto56216ma444god';
-
-const AGENTS = [
-  'Kimora Link',
-  'Jamal Holmes',
-  'Mahogany Burns',
-  'Leticia Wright',
-  'Kelin Brown',
-  'Madalyn Adams',
-  'Breanna James'
-];
+const DEFAULTS = loadRuntimeConfig();
 
 function cleanName(value = '') {
   return String(value).toLowerCase().replace('dr. ', '').trim();
 }
 
-function toChicagoTime(iso) {
+function toLocalTime(iso, timezone) {
   if (!iso) return '—';
   const dt = new Date(iso);
   if (Number.isNaN(dt.getTime())) return '—';
   return dt.toLocaleString('en-US', {
-    timeZone: 'America/Chicago',
+    timeZone: timezone,
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -51,10 +39,15 @@ function getStatus(referrals, apps) {
 }
 
 export default function MissionControl() {
+  const [config, setConfig] = useState(DEFAULTS);
   const [rows, setRows] = useState([]);
   const [revenueRows, setRevenueRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    setConfig(loadRuntimeConfig());
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -64,8 +57,8 @@ export default function MissionControl() {
       setError('');
       try {
         const [leaderboardRes, revenueRes] = await Promise.all([
-          fetch(LEADERBOARD_URL, { cache: 'no-store' }),
-          fetch(REVENUE_URL, { cache: 'no-store' })
+          fetch(config.leaderboardUrl, { cache: 'no-store' }),
+          fetch(config.revenueUrl, { cache: 'no-store' })
         ]);
 
         if (!leaderboardRes.ok) throw new Error(`Leaderboard HTTP ${leaderboardRes.status}`);
@@ -85,15 +78,15 @@ export default function MissionControl() {
     }
 
     load();
-    const interval = setInterval(load, 60_000);
+    const interval = setInterval(load, Math.max(15, Number(config.refreshIntervalSec || 60)) * 1000);
     return () => {
       mounted = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [config.leaderboardUrl, config.revenueUrl, config.refreshIntervalSec]);
 
   const team = useMemo(() => {
-    return AGENTS.map((agent) => {
+    return config.agents.map((agent) => {
       const match = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
       const revenueMatch = revenueRows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
 
@@ -115,7 +108,7 @@ export default function MissionControl() {
         status: getStatus(referrals, apps)
       };
     });
-  }, [rows, revenueRows]);
+  }, [rows, revenueRows, config.agents]);
 
   const totals = useMemo(
     () =>
@@ -145,7 +138,7 @@ export default function MissionControl() {
         </div>
         <div className="card">
           <p>Agents Active Today</p>
-          <h2>{totals.active}/{AGENTS.length}</h2>
+          <h2>{totals.active}/{config.agents.length}</h2>
           <span className={`pill ${totals.active >= 1 ? 'onpace' : 'offpace'}`}>{totals.active >= 1 ? 'On Pace' : 'Off Pace'}</span>
         </div>
         <div className="card">
@@ -179,7 +172,7 @@ export default function MissionControl() {
                 <td>{row.name}</td>
                 <td>{row.referrals}</td>
                 <td>{row.apps}</td>
-                <td>{toChicagoTime(row.lastActivity)}</td>
+                <td>{toLocalTime(row.lastActivity, config.timezone)}</td>
                 <td>
                   <span className={`pill ${row.status === 'On Pace' ? 'onpace' : 'offpace'}`}>{row.status}</span>
                 </td>

@@ -2,21 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
+import { loadRuntimeConfig } from '../../lib/runtimeConfig';
 
-const LEADERBOARD_URL =
-  'https://legacylink.app/functions/innerCircleWebhookLeaderboardPublic?key=21689754egt41fadto56216ma444god';
-const REVENUE_URL =
-  'https://legacylink.app/functions/openClawRevenueData?key=21689754egt41fadto56216ma444god';
-
-const AGENTS = [
-  'Kimora Link',
-  'Jamal Holmes',
-  'Mahogany Burns',
-  'Leticia Wright',
-  'Kelin Brown',
-  'Madalyn Adams',
-  'Breanna James'
-];
+const DEFAULTS = loadRuntimeConfig();
 
 function cleanName(value = '') {
   return String(value).toLowerCase().replace('dr. ', '').trim();
@@ -34,8 +22,13 @@ function normalizeRows(payload) {
 }
 
 export default function ScoreboardPage() {
+  const [config, setConfig] = useState(DEFAULTS);
   const [rows, setRows] = useState([]);
   const [revenueRows, setRevenueRows] = useState([]);
+
+  useEffect(() => {
+    setConfig(loadRuntimeConfig());
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -43,8 +36,8 @@ export default function ScoreboardPage() {
     async function load() {
       try {
         const [leaderboardRes, revenueRes] = await Promise.all([
-          fetch(LEADERBOARD_URL, { cache: 'no-store' }),
-          fetch(REVENUE_URL, { cache: 'no-store' })
+          fetch(config.leaderboardUrl, { cache: 'no-store' }),
+          fetch(config.revenueUrl, { cache: 'no-store' })
         ]);
 
         if (leaderboardRes.ok) {
@@ -62,22 +55,21 @@ export default function ScoreboardPage() {
     }
 
     load();
-    const interval = setInterval(load, 60_000);
+    const interval = setInterval(load, Math.max(15, Number(config.refreshIntervalSec || 60)) * 1000);
     return () => {
       mounted = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [config.leaderboardUrl, config.revenueUrl, config.refreshIntervalSec]);
 
   const ranked = useMemo(() => {
-    const list = AGENTS.map((name) => {
+    const list = config.agents.map((name) => {
       const match = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
       const revenueMatch = revenueRows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
 
       const referralsFromLeaderboard = Number(match?.referral_count ?? match?.referrals ?? 0) || 0;
       const referralsFromApprovals = Number(revenueMatch?.activity_bonus ?? 0) || 0;
       const referrals = Math.max(referralsFromLeaderboard, referralsFromApprovals);
-
       const apps = Number(match?.app_submitted_count ?? match?.apps_submitted ?? match?.apps ?? 0) || 0;
 
       return {
@@ -89,7 +81,7 @@ export default function ScoreboardPage() {
     });
 
     return list.sort((a, b) => b.score - a.score);
-  }, [rows, revenueRows]);
+  }, [rows, revenueRows, config.agents]);
 
   return (
     <AppShell title="Scoreboard">

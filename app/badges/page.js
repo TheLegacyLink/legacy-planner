@@ -2,21 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
+import { loadRuntimeConfig } from '../../lib/runtimeConfig';
 
-const LEADERBOARD_URL =
-  'https://legacylink.app/functions/innerCircleWebhookLeaderboardPublic?key=21689754egt41fadto56216ma444god';
-const REVENUE_URL =
-  'https://legacylink.app/functions/openClawRevenueData?key=21689754egt41fadto56216ma444god';
-
-const AGENTS = [
-  'Kimora Link',
-  'Jamal Holmes',
-  'Mahogany Burns',
-  'Leticia Wright',
-  'Kelin Brown',
-  'Madalyn Adams',
-  'Breanna James'
-];
+const DEFAULTS = loadRuntimeConfig();
 
 const BADGE_RULES = [
   { id: 'sponsor-5', label: 'Sponsorship Starter', metric: 'referrals', threshold: 5, tier: 'bronze' },
@@ -58,9 +46,14 @@ function resolveMetric(rule, stats) {
 }
 
 export default function BadgesPage() {
+  const [config, setConfig] = useState(DEFAULTS);
   const [rows, setRows] = useState([]);
   const [revenueRows, setRevenueRows] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setConfig(loadRuntimeConfig());
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -69,8 +62,8 @@ export default function BadgesPage() {
       setLoading(true);
       try {
         const [leaderboardResponse, revenueResponse] = await Promise.all([
-          fetch(LEADERBOARD_URL, { cache: 'no-store' }),
-          fetch(REVENUE_URL, { cache: 'no-store' })
+          fetch(config.leaderboardUrl, { cache: 'no-store' }),
+          fetch(config.revenueUrl, { cache: 'no-store' })
         ]);
 
         if (leaderboardResponse.ok) {
@@ -88,22 +81,21 @@ export default function BadgesPage() {
     }
 
     load();
-    const interval = setInterval(load, 60_000);
+    const interval = setInterval(load, Math.max(15, Number(config.refreshIntervalSec || 60)) * 1000);
     return () => {
       mounted = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [config.leaderboardUrl, config.revenueUrl, config.refreshIntervalSec]);
 
   const members = useMemo(() => {
-    return AGENTS.map((name) => {
+    return config.agents.map((name) => {
       const activityMatch = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
       const revenueMatch = revenueRows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
 
       const referralsFromLeaderboard = Number(activityMatch?.referral_count ?? activityMatch?.referrals ?? 0) || 0;
       const referralsFromApprovals = Number(revenueMatch?.activity_bonus ?? 0) || 0;
       const referrals = Math.max(referralsFromLeaderboard, referralsFromApprovals);
-
       const apps = Number(activityMatch?.app_submitted_count ?? activityMatch?.apps_submitted ?? activityMatch?.apps ?? 0) || 0;
       const score = referrals + apps;
 
@@ -137,7 +129,7 @@ export default function BadgesPage() {
         badges
       };
     }).sort((a, b) => b.unlockedCount - a.unlockedCount || b.revenue - a.revenue || b.score - a.score);
-  }, [rows, revenueRows]);
+  }, [rows, revenueRows, config.agents]);
 
   return (
     <AppShell title="Badges">
