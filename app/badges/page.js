@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { loadRuntimeConfig } from '../../lib/runtimeConfig';
+import { applyReferralCorrections, loadReferralCorrections } from '../../lib/referralCorrections';
 
 const DEFAULTS = loadRuntimeConfig();
 
@@ -49,10 +50,12 @@ export default function BadgesPage() {
   const [config, setConfig] = useState(DEFAULTS);
   const [rows, setRows] = useState([]);
   const [revenueRows, setRevenueRows] = useState([]);
+  const [corrections, setCorrections] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setConfig(loadRuntimeConfig());
+    setCorrections(loadReferralCorrections());
   }, []);
 
   useEffect(() => {
@@ -89,13 +92,24 @@ export default function BadgesPage() {
   }, [config.leaderboardUrl, config.revenueUrl, config.refreshIntervalSec]);
 
   const members = useMemo(() => {
-    return config.agents.map((name) => {
+    const baseReferralsByAgent = {};
+
+    config.agents.forEach((name) => {
       const activityMatch = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
       const revenueMatch = revenueRows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
 
       const referralsFromLeaderboard = Number(activityMatch?.referral_count ?? activityMatch?.referrals ?? 0) || 0;
       const referralsFromApprovals = Number(revenueMatch?.activity_bonus ?? 0) || 0;
-      const referrals = Math.max(referralsFromLeaderboard, referralsFromApprovals);
+      baseReferralsByAgent[name] = Math.max(referralsFromLeaderboard, referralsFromApprovals);
+    });
+
+    const adjustedReferralsByAgent = applyReferralCorrections(baseReferralsByAgent, corrections);
+
+    return config.agents.map((name) => {
+      const activityMatch = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
+      const revenueMatch = revenueRows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
+
+      const referrals = Number(adjustedReferralsByAgent[name] || 0);
       const apps = Number(activityMatch?.app_submitted_count ?? activityMatch?.apps_submitted ?? activityMatch?.apps ?? 0) || 0;
       const score = referrals + apps;
 
@@ -129,7 +143,7 @@ export default function BadgesPage() {
         badges
       };
     }).sort((a, b) => b.unlockedCount - a.unlockedCount || b.revenue - a.revenue || b.score - a.score);
-  }, [rows, revenueRows, config.agents]);
+  }, [rows, revenueRows, config.agents, corrections]);
 
   return (
     <AppShell title="Badges">

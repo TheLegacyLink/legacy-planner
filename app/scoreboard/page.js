@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { loadRuntimeConfig } from '../../lib/runtimeConfig';
+import { applyReferralCorrections, loadReferralCorrections } from '../../lib/referralCorrections';
 
 const DEFAULTS = loadRuntimeConfig();
 
@@ -25,9 +26,11 @@ export default function ScoreboardPage() {
   const [config, setConfig] = useState(DEFAULTS);
   const [rows, setRows] = useState([]);
   const [revenueRows, setRevenueRows] = useState([]);
+  const [corrections, setCorrections] = useState([]);
 
   useEffect(() => {
     setConfig(loadRuntimeConfig());
+    setCorrections(loadReferralCorrections());
   }, []);
 
   useEffect(() => {
@@ -63,13 +66,22 @@ export default function ScoreboardPage() {
   }, [config.leaderboardUrl, config.revenueUrl, config.refreshIntervalSec]);
 
   const ranked = useMemo(() => {
-    const list = config.agents.map((name) => {
+    const baseReferralsByAgent = {};
+
+    config.agents.forEach((name) => {
       const match = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
       const revenueMatch = revenueRows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
 
       const referralsFromLeaderboard = Number(match?.referral_count ?? match?.referrals ?? 0) || 0;
       const referralsFromApprovals = Number(revenueMatch?.activity_bonus ?? 0) || 0;
-      const referrals = Math.max(referralsFromLeaderboard, referralsFromApprovals);
+      baseReferralsByAgent[name] = Math.max(referralsFromLeaderboard, referralsFromApprovals);
+    });
+
+    const adjustedReferralsByAgent = applyReferralCorrections(baseReferralsByAgent, corrections);
+
+    const list = config.agents.map((name) => {
+      const match = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
+      const referrals = Number(adjustedReferralsByAgent[name] || 0);
       const apps = Number(match?.app_submitted_count ?? match?.apps_submitted ?? match?.apps ?? 0) || 0;
 
       return {
@@ -81,7 +93,7 @@ export default function ScoreboardPage() {
     });
 
     return list.sort((a, b) => b.score - a.score);
-  }, [rows, revenueRows, config.agents]);
+  }, [rows, revenueRows, config.agents, corrections]);
 
   return (
     <AppShell title="Scoreboard">

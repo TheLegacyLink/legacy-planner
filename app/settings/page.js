@@ -7,6 +7,10 @@ import {
   loadRuntimeConfig,
   saveRuntimeConfig
 } from '../../lib/runtimeConfig';
+import {
+  loadReferralCorrections,
+  saveReferralCorrections
+} from '../../lib/referralCorrections';
 
 function cleanName(value = '') {
   return String(value).toLowerCase().replace('dr. ', '').trim();
@@ -41,6 +45,12 @@ export default function SettingsPage() {
     mismatches: []
   });
 
+  const [corrections, setCorrections] = useState([]);
+  const [fromAgent, setFromAgent] = useState(DEFAULT_CONFIG.agents[0]);
+  const [toAgent, setToAgent] = useState(DEFAULT_CONFIG.agents[1]);
+  const [correctionCount, setCorrectionCount] = useState('1');
+  const [correctionReason, setCorrectionReason] = useState('Referral owner corrected after approval review');
+
   useEffect(() => {
     const cfg = loadRuntimeConfig();
     setTimezone(cfg.timezone);
@@ -49,6 +59,9 @@ export default function SettingsPage() {
     setLeaderboardUrl(cfg.leaderboardUrl);
     setRevenueUrl(cfg.revenueUrl);
     setAgents(cfg.agents);
+    setFromAgent(cfg.agents[0] || '');
+    setToAgent(cfg.agents[1] || cfg.agents[0] || '');
+    setCorrections(loadReferralCorrections());
   }, []);
 
   const currentConfig = {
@@ -75,6 +88,34 @@ export default function SettingsPage() {
   const saveSettings = () => {
     saveRuntimeConfig(currentConfig);
     setSaveMessage(`Saved at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`);
+  };
+
+  const addCorrection = (event) => {
+    event.preventDefault();
+    const count = Math.max(1, Number(correctionCount || 1));
+    if (!fromAgent || !toAgent || fromAgent === toAgent) return;
+
+    const next = [
+      {
+        id: `${Date.now()}-${fromAgent}-${toAgent}`,
+        fromAgent,
+        toAgent,
+        count,
+        reason: correctionReason || 'Referral ownership correction',
+        createdAt: new Date().toISOString()
+      },
+      ...corrections
+    ];
+
+    setCorrections(next);
+    saveReferralCorrections(next);
+    setCorrectionCount('1');
+  };
+
+  const removeCorrection = (id) => {
+    const next = corrections.filter((item) => item.id !== id);
+    setCorrections(next);
+    saveReferralCorrections(next);
   };
 
   const runHealthCheck = async () => {
@@ -135,6 +176,11 @@ export default function SettingsPage() {
   useEffect(() => {
     runHealthCheck();
   }, []);
+
+  useEffect(() => {
+    if (!agents.includes(fromAgent)) setFromAgent(agents[0] || '');
+    if (!agents.includes(toAgent)) setToAgent(agents[1] || agents[0] || '');
+  }, [agents, fromAgent, toAgent]);
 
   const healthy = useMemo(() => health.leaderboard.ok && health.revenue.ok, [health]);
 
@@ -252,6 +298,62 @@ export default function SettingsPage() {
             <small>No activity today</small>
           </li>
         </ul>
+      </div>
+
+      <div className="panel">
+        <div className="panelRow">
+          <h3>Referral Attribution Corrections</h3>
+          <span className="muted">Retroactive ownership fixes (audit-safe ledger)</span>
+        </div>
+
+        <form className="settingsGrid" onSubmit={addCorrection}>
+          <label>
+            Move From
+            <select value={fromAgent} onChange={(e) => setFromAgent(e.target.value)}>
+              {agents.map((agent) => (
+                <option key={agent} value={agent}>{agent}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Move To
+            <select value={toAgent} onChange={(e) => setToAgent(e.target.value)}>
+              {agents.map((agent) => (
+                <option key={agent} value={agent}>{agent}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Referral Count
+            <input type="number" min="1" value={correctionCount} onChange={(e) => setCorrectionCount(e.target.value)} />
+          </label>
+
+          <label>
+            Reason
+            <input value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} />
+          </label>
+
+          <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
+            <button type="submit">Add Correction</button>
+          </div>
+        </form>
+
+        {corrections.length ? (
+          <ul className="roster">
+            {corrections.map((item) => (
+              <li key={item.id}>
+                <span>
+                  {item.fromAgent} → {item.toAgent} ({item.count}) • {item.reason}
+                </span>
+                <button className="ghost" onClick={() => removeCorrection(item.id)}>Remove</button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">No corrections logged yet.</p>
+        )}
       </div>
 
       <div className="panel">

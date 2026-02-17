@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { loadRuntimeConfig } from '../../lib/runtimeConfig';
+import { applyReferralCorrections, loadReferralCorrections } from '../../lib/referralCorrections';
 
 const DEFAULTS = loadRuntimeConfig();
 
@@ -42,11 +43,13 @@ export default function MissionControl() {
   const [config, setConfig] = useState(DEFAULTS);
   const [rows, setRows] = useState([]);
   const [revenueRows, setRevenueRows] = useState([]);
+  const [corrections, setCorrections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     setConfig(loadRuntimeConfig());
+    setCorrections(loadReferralCorrections());
   }, []);
 
   useEffect(() => {
@@ -86,15 +89,24 @@ export default function MissionControl() {
   }, [config.leaderboardUrl, config.revenueUrl, config.refreshIntervalSec]);
 
   const team = useMemo(() => {
-    return config.agents.map((agent) => {
+    const baseReferralsByAgent = {};
+
+    config.agents.forEach((agent) => {
       const match = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
       const revenueMatch = revenueRows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
 
       const leaderboardReferrals =
         Number(match?.referral_count ?? match?.referrals ?? (match?.event_type === 'referral' ? 1 : 0) ?? 0) || 0;
       const fallbackReferrals = Number(revenueMatch?.activity_bonus ?? 0) || 0;
-      const referrals = Math.max(leaderboardReferrals, fallbackReferrals);
+      baseReferralsByAgent[agent] = Math.max(leaderboardReferrals, fallbackReferrals);
+    });
 
+    const adjustedReferralsByAgent = applyReferralCorrections(baseReferralsByAgent, corrections);
+
+    return config.agents.map((agent) => {
+      const match = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
+
+      const referrals = Number(adjustedReferralsByAgent[agent] || 0);
       const apps =
         Number(match?.app_submitted_count ?? match?.apps_submitted ?? match?.apps ?? (match?.event_type === 'app_submitted' ? 1 : 0) ?? 0) || 0;
 
@@ -108,7 +120,7 @@ export default function MissionControl() {
         status: getStatus(referrals, apps)
       };
     });
-  }, [rows, revenueRows, config.agents]);
+  }, [rows, revenueRows, config.agents, corrections]);
 
   const totals = useMemo(
     () =>
