@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { loadRuntimeConfig } from '../../lib/runtimeConfig';
 import { applyReferralCorrections, loadReferralCorrections } from '../../lib/referralCorrections';
+import { loadCompetitionState } from '../../lib/competitionEngine';
 
 const DEFAULTS = loadRuntimeConfig();
 
@@ -17,7 +18,9 @@ const BADGE_RULES = [
   { id: 'club-10', label: '$10K Club', metric: 'revenue', threshold: 10000, tier: 'silver' },
   { id: 'club-20', label: '$20K Club', metric: 'revenue', threshold: 20000, tier: 'gold' },
   { id: 'club-50', label: '$50K Club', metric: 'revenue', threshold: 50000, tier: 'black' },
-  { id: 'club-100', label: 'Six-Figure Club', metric: 'revenue', threshold: 100000, tier: 'black' }
+  { id: 'club-100', label: 'Six-Figure Club', metric: 'revenue', threshold: 100000, tier: 'black' },
+  { id: 'weekly-1', label: 'Weekly Challenge Winner', metric: 'weeklyWins', threshold: 1, tier: 'silver' },
+  { id: 'improved-1', label: 'Most Improved', metric: 'improvedWins', threshold: 1, tier: 'gold' }
 ];
 
 function normalizeRows(payload) {
@@ -43,6 +46,8 @@ function resolveMetric(rule, stats) {
   if (rule.metric === 'referrals') return stats.referrals;
   if (rule.metric === 'apps') return stats.apps;
   if (rule.metric === 'revenue') return stats.revenue;
+  if (rule.metric === 'weeklyWins') return stats.weeklyWins;
+  if (rule.metric === 'improvedWins') return stats.improvedWins;
   return stats.score;
 }
 
@@ -51,11 +56,13 @@ export default function BadgesPage() {
   const [rows, setRows] = useState([]);
   const [revenueRows, setRevenueRows] = useState([]);
   const [corrections, setCorrections] = useState([]);
+  const [competition, setCompetition] = useState({ weeklyWinners: [], monthlyMostImproved: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setConfig(loadRuntimeConfig());
     setCorrections(loadReferralCorrections());
+    setCompetition(loadCompetitionState());
   }, []);
 
   useEffect(() => {
@@ -123,8 +130,11 @@ export default function BadgesPage() {
             0
         ) || 0;
 
+      const weeklyWins = (competition.weeklyWinners || []).filter((w) => cleanName(w.winner) === cleanName(name)).length;
+      const improvedWins = (competition.monthlyMostImproved || []).filter((w) => cleanName(w.winner) === cleanName(name)).length;
+
       const badges = BADGE_RULES.map((rule) => {
-        const current = resolveMetric(rule, { referrals, apps, score, revenue });
+        const current = resolveMetric(rule, { referrals, apps, score, revenue, weeklyWins, improvedWins });
         const unlocked = current >= rule.threshold;
         return {
           ...rule,
@@ -139,11 +149,13 @@ export default function BadgesPage() {
         apps,
         score,
         revenue,
+        weeklyWins,
+        improvedWins,
         unlockedCount: badges.filter((b) => b.unlocked).length,
         badges
       };
     }).sort((a, b) => b.unlockedCount - a.unlockedCount || b.revenue - a.revenue || b.score - a.score);
-  }, [rows, revenueRows, config.agents, corrections]);
+  }, [rows, revenueRows, config.agents, corrections, competition]);
 
   return (
     <AppShell title="Badges">
@@ -166,6 +178,7 @@ export default function BadgesPage() {
             <p className="muted">
               Referrals: {member.referrals} • Apps: {member.apps} • Revenue: {money(member.revenue)}
             </p>
+            <p className="muted">Weekly Wins: {member.weeklyWins} • Most Improved Wins: {member.improvedWins}</p>
 
             <div className="badgeGrid">
               {member.badges.map((badge) => (

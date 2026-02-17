@@ -5,6 +5,12 @@ import AppShell from '../../components/AppShell';
 import { loadRuntimeConfig } from '../../lib/runtimeConfig';
 import { applyReferralCorrections, loadReferralCorrections } from '../../lib/referralCorrections';
 import { currentMonthKey, loadMonthlyWinners, saveMonthlyWinners } from '../../lib/monthlyWinners';
+import {
+  loadCompetitionState,
+  saveCompetitionState,
+  weekKey,
+  monthKey
+} from '../../lib/competitionEngine';
 
 const DEFAULTS = loadRuntimeConfig();
 const POINTS = { referral: 1, app: 4 };
@@ -48,11 +54,14 @@ export default function ScoreboardPage() {
   const [view, setView] = useState('leaderboard');
   const [winners, setWinners] = useState([]);
   const [winnerMsg, setWinnerMsg] = useState('');
+  const [competition, setCompetition] = useState({ weeklyWinners: [], monthlyMostImproved: [], monthSnapshots: {} });
 
   useEffect(() => {
     setConfig(loadRuntimeConfig());
     setCorrections(loadReferralCorrections());
     setWinners(loadMonthlyWinners());
+    const c = loadCompetitionState();
+    setCompetition({ ...c, monthSnapshots: c.monthSnapshots || {} });
   }, []);
 
   useEffect(() => {
@@ -156,6 +165,94 @@ export default function ScoreboardPage() {
     setWinnerMsg(`Saved Agent of the Month for ${month}: ${leader.name}`);
   };
 
+  const closeWeeklyChallenge = () => {
+    if (!leader) return;
+    const wk = weekKey();
+    const exists = competition.weeklyWinners.find((w) => w.week === wk);
+    if (exists) {
+      setWinnerMsg(`Weekly challenge already closed for ${wk}.`);
+      return;
+    }
+    const next = {
+      ...competition,
+      weeklyWinners: [
+        {
+          week: wk,
+          winner: leader.name,
+          points: leader.score,
+          createdAt: new Date().toISOString(),
+          badge: 'Weekly Challenge Winner'
+        },
+        ...competition.weeklyWinners
+      ]
+    };
+    setCompetition(next);
+    saveCompetitionState(next);
+    setWinnerMsg(`Weekly challenge winner saved for ${wk}: ${leader.name}`);
+  };
+
+  const snapshotCurrentMonth = () => {
+    const mk = monthKey();
+    const snapshot = ranked.reduce((acc, r) => {
+      acc[r.name] = r.score;
+      return acc;
+    }, {});
+    const next = {
+      ...competition,
+      monthSnapshots: {
+        ...(competition.monthSnapshots || {}),
+        [mk]: snapshot
+      }
+    };
+    setCompetition(next);
+    saveCompetitionState(next);
+    setWinnerMsg(`Saved month snapshot for ${mk}.`);
+  };
+
+  const closeMostImproved = () => {
+    const now = new Date();
+    const thisMonth = monthKey(now);
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonth = monthKey(prev);
+    const prevSnap = competition.monthSnapshots?.[prevMonth];
+    if (!prevSnap) {
+      setWinnerMsg(`No previous month snapshot found for ${prevMonth}.`);
+      return;
+    }
+
+    const candidates = ranked.map((r) => ({
+      name: r.name,
+      gain: r.score - Number(prevSnap[r.name] || 0),
+      score: r.score
+    }));
+    candidates.sort((a, b) => b.gain - a.gain || b.score - a.score);
+    const top = candidates[0];
+    if (!top) return;
+
+    const exists = competition.monthlyMostImproved.find((m) => m.month === thisMonth);
+    if (exists) {
+      setWinnerMsg(`Most Improved already saved for ${thisMonth}.`);
+      return;
+    }
+
+    const next = {
+      ...competition,
+      monthlyMostImproved: [
+        {
+          month: thisMonth,
+          winner: top.name,
+          gain: top.gain,
+          createdAt: new Date().toISOString(),
+          badge: 'Most Improved'
+        },
+        ...competition.monthlyMostImproved
+      ]
+    };
+    setCompetition(next);
+    saveCompetitionState(next);
+    setWinnerMsg(`Most Improved saved for ${thisMonth}: ${top.name} (+${top.gain}).`);
+  };
+
   return (
     <AppShell title="Scoreboard">
       <div className="panel">
@@ -240,8 +337,11 @@ export default function ScoreboardPage() {
               </tbody>
             </table>
 
-            <div className="rowActions" style={{ marginTop: 10 }}>
+            <div className="rowActions" style={{ marginTop: 10, flexWrap: 'wrap' }}>
               <button onClick={closeCurrentMonth}>Close Current Month Winner</button>
+              <button onClick={closeWeeklyChallenge}>Close Weekly Challenge</button>
+              <button onClick={snapshotCurrentMonth}>Snapshot Month Points</button>
+              <button onClick={closeMostImproved}>Close Most Improved</button>
               {winnerMsg ? <span className="muted">{winnerMsg}</span> : null}
             </div>
           </>
@@ -286,11 +386,47 @@ export default function ScoreboardPage() {
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={6}>No winners saved yet.</td>
+                    <td colSpan={6}>No monthly winners saved yet.</td>
                   </tr>
                 )}
               </tbody>
             </table>
+
+            <div className="split" style={{ marginTop: 10 }}>
+              <div className="panel">
+                <div className="panelRow">
+                  <h3>Weekly Challenge Winners</h3>
+                  <span className="pill atrisk">Badge: Weekly Challenge Winner</span>
+                </div>
+                <table>
+                  <thead>
+                    <tr><th>Week</th><th>Winner</th><th>Points</th></tr>
+                  </thead>
+                  <tbody>
+                    {competition.weeklyWinners?.length ? competition.weeklyWinners.map((w) => (
+                      <tr key={w.week}><td>{w.week}</td><td>{w.winner}</td><td>{w.points}</td></tr>
+                    )) : <tr><td colSpan={3}>No weekly winners saved yet.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="panel">
+                <div className="panelRow">
+                  <h3>Most Improved Winners</h3>
+                  <span className="pill onpace">Badge: Most Improved</span>
+                </div>
+                <table>
+                  <thead>
+                    <tr><th>Month</th><th>Winner</th><th>Point Gain</th></tr>
+                  </thead>
+                  <tbody>
+                    {competition.monthlyMostImproved?.length ? competition.monthlyMostImproved.map((m) => (
+                      <tr key={m.month}><td>{m.month}</td><td>{m.winner}</td><td>+{m.gain}</td></tr>
+                    )) : <tr><td colSpan={3}>No most-improved winners saved yet.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </>
         )}
       </div>
