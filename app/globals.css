@@ -269,6 +269,22 @@ textarea {
 }
 .settingsGrid label { display: grid; gap: 6px; font-size: 13px; color: #b9c2bc; }
 
+.healthGrid { display: grid; gap: 10px; margin-top: 10px; }
+.healthRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 10px;
+  align-items: center;
+  border: 1px solid #273129;
+  border-radius: 10px;
+  padding: 10px;
+  background: #101512;
+}
+.healthRow small {
+  grid-column: 1 / -1;
+  color: #9fb0a3;
+}
+
 .roster { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 8px; }
 .roster li {
   display: flex;
