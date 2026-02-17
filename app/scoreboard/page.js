@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { loadRuntimeConfig } from '../../lib/runtimeConfig';
 import { applyReferralCorrections, loadReferralCorrections } from '../../lib/referralCorrections';
+import { currentMonthKey, loadMonthlyWinners, saveMonthlyWinners } from '../../lib/monthlyWinners';
 
 const DEFAULTS = loadRuntimeConfig();
 const POINTS = { referral: 1, app: 4 };
@@ -44,10 +45,14 @@ export default function ScoreboardPage() {
   const [revenueRows, setRevenueRows] = useState([]);
   const [corrections, setCorrections] = useState([]);
   const [scope, setScope] = useState('monthly');
+  const [view, setView] = useState('leaderboard');
+  const [winners, setWinners] = useState([]);
+  const [winnerMsg, setWinnerMsg] = useState('');
 
   useEffect(() => {
     setConfig(loadRuntimeConfig());
     setCorrections(loadReferralCorrections());
+    setWinners(loadMonthlyWinners());
   }, []);
 
   useEffect(() => {
@@ -70,7 +75,7 @@ export default function ScoreboardPage() {
           if (mounted) setRevenueRows(normalizeRows(data));
         }
       } catch {
-        // silent fail for now
+        // silent fail
       }
     }
 
@@ -105,7 +110,6 @@ export default function ScoreboardPage() {
       const baseApps = Number(match?.app_submitted_count ?? match?.apps_submitted ?? match?.apps ?? 0) || 0;
       const apps = scopedApps ?? baseApps;
       const score = referrals * POINTS.referral + apps * POINTS.app;
-
       return { name, referrals, apps, score };
     });
 
@@ -114,54 +118,114 @@ export default function ScoreboardPage() {
 
   const leader = ranked[0];
 
+  const closeCurrentMonth = () => {
+    if (!leader) return;
+    const month = currentMonthKey();
+    const next = [
+      {
+        month,
+        winner: leader.name,
+        points: leader.score,
+        referrals: leader.referrals,
+        apps: leader.apps,
+        createdAt: new Date().toISOString(),
+        rewardModel: 'C'
+      },
+      ...winners.filter((w) => w.month !== month)
+    ];
+    setWinners(next);
+    saveMonthlyWinners(next);
+    setWinnerMsg(`Saved Agent of the Month for ${month}: ${leader.name}`);
+  };
+
   return (
     <AppShell title="Scoreboard">
       <div className="panel">
         <div className="panelRow">
-          <h3>Inner Circle Leaderboard</h3>
+          <h3>Inner Circle Score System</h3>
           <span className="muted">Points: Referral = 1 • App Submitted = 4</span>
         </div>
 
         <div className="leaderboardTabs">
-          <button className={scope === 'monthly' ? 'active' : ''} onClick={() => setScope('monthly')}>Monthly</button>
-          <button className={scope === 'ytd' ? 'active' : ''} onClick={() => setScope('ytd')}>YTD</button>
-          <button className={scope === 'all_time' ? 'active' : ''} onClick={() => setScope('all_time')}>All-Time</button>
+          <button className={view === 'leaderboard' ? 'active' : ''} onClick={() => setView('leaderboard')}>Leaderboard</button>
+          <button className={view === 'hall' ? 'active' : ''} onClick={() => setView('hall')}>Hall of Fame</button>
         </div>
 
-        {leader ? (
-          <p className="muted">
-            👑 {scope === 'monthly' ? 'Agent of the Month' : 'Current Leader'}: <strong>{leader.name}</strong>
-          </p>
-        ) : null}
+        {view === 'leaderboard' ? (
+          <>
+            <div className="leaderboardTabs">
+              <button className={scope === 'monthly' ? 'active' : ''} onClick={() => setScope('monthly')}>Monthly</button>
+              <button className={scope === 'ytd' ? 'active' : ''} onClick={() => setScope('ytd')}>YTD</button>
+              <button className={scope === 'all_time' ? 'active' : ''} onClick={() => setScope('all_time')}>All-Time</button>
+            </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Agent</th>
-              <th>Referrals</th>
-              <th>Apps</th>
-              <th>Points</th>
-              <th>Recognition</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ranked.map((row, index) => (
-              <tr key={row.name}>
-                <td>#{index + 1}</td>
-                <td>{row.name}</td>
-                <td>{row.referrals}</td>
-                <td>{row.apps}</td>
-                <td><strong>{row.score}</strong></td>
-                <td>{scope === 'monthly' && index === 0 ? <span className="pill onpace">Agent of the Month</span> : '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            {leader ? (
+              <p className="muted">👑 {scope === 'monthly' ? 'Agent of the Month' : 'Current Leader'}: <strong>{leader.name}</strong></p>
+            ) : null}
 
-        <p className="muted" style={{ marginTop: 10 }}>
-          Historical month switching will use month-specific feed fields as they become available.
-        </p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Agent</th>
+                  <th>Referrals</th>
+                  <th>Apps</th>
+                  <th>Points</th>
+                  <th>Recognition</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ranked.map((row, index) => (
+                  <tr key={row.name}>
+                    <td>#{index + 1}</td>
+                    <td>{row.name}</td>
+                    <td>{row.referrals}</td>
+                    <td>{row.apps}</td>
+                    <td><strong>{row.score}</strong></td>
+                    <td>{scope === 'monthly' && index === 0 ? <span className="pill onpace">Agent of the Month</span> : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="rowActions" style={{ marginTop: 10 }}>
+              <button onClick={closeCurrentMonth}>Close Current Month Winner</button>
+              {winnerMsg ? <span className="muted">{winnerMsg}</span> : null}
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="muted">Monthly winner ledger. Reward Model C: $300 + 7-day lead priority + spotlight.</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Winner</th>
+                  <th>Points</th>
+                  <th>Referrals</th>
+                  <th>Apps</th>
+                  <th>Reward Model</th>
+                </tr>
+              </thead>
+              <tbody>
+                {winners.length ? winners.map((w) => (
+                  <tr key={w.month}>
+                    <td>{w.month}</td>
+                    <td>{w.winner}</td>
+                    <td>{w.points}</td>
+                    <td>{w.referrals}</td>
+                    <td>{w.apps}</td>
+                    <td>{w.rewardModel}</td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={6}>No winners saved yet.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </>
+        )}
       </div>
     </AppShell>
   );
