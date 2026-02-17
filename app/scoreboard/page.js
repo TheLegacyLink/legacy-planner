@@ -181,6 +181,40 @@ export default function ScoreboardPage() {
               <p className="muted">👑 {scope === 'monthly' ? 'Agent of the Month' : 'Current Leader'}: <strong>{leader.name}</strong></p>
             ) : null}
 
+            <div className="split" style={{ marginBottom: 10 }}>
+              <div className="panel">
+                <div className="panelRow">
+                  <h3>Weekly Challenge</h3>
+                  <span className="pill atrisk">Target: 25 Points</span>
+                </div>
+                <p className="muted">First to 25 points wins a momentum shoutout + challenge badge.</p>
+                <div className="healthGrid">
+                  {ranked.slice(0, 3).map((r) => (
+                    <div className="healthRow" key={`challenge-${r.name}`}>
+                      <strong>{r.name}</strong>
+                      <span className={`pill ${r.score >= 25 ? 'onpace' : 'atrisk'}`}>{Math.min(100, Math.round((r.score / 25) * 100))}%</span>
+                      <small>{r.score}/25 points</small>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="panel">
+                <div className="panelRow">
+                  <h3>Comeback Watch</h3>
+                  <span className="pill onpace">Most Improved Track</span>
+                </div>
+                <p className="muted">Proposed badge: biggest month-over-month point gain.</p>
+                <ul className="checklist">
+                  {ranked.slice().reverse().slice(0, 2).map((r) => (
+                    <li key={`comeback-${r.name}`}>
+                      <span>{r.name}</span>
+                      <small>Needs +{Math.max(1, 10 - r.score)} points to enter mid-pack</small>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
             <table>
               <thead>
                 <tr>

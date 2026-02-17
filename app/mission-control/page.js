@@ -46,6 +46,7 @@ export default function MissionControl() {
   const [corrections, setCorrections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [lastSyncAt, setLastSyncAt] = useState(null);
 
   useEffect(() => {
     setConfig(loadRuntimeConfig());
@@ -72,6 +73,7 @@ export default function MissionControl() {
         if (!mounted) return;
         setRows(normalizeRows(leaderboardJson));
         setRevenueRows(normalizeRows(revenueJson));
+        setLastSyncAt(new Date().toISOString());
       } catch (err) {
         if (!mounted) return;
         setError(`Could not load sync data (${err.message}).`);
@@ -135,18 +137,29 @@ export default function MissionControl() {
     [team]
   );
 
+  const dataConfidence = useMemo(() => {
+    if (error) return { label: 'Low', tone: 'offpace', score: 35 };
+    const roster = Math.max(1, config.agents.length);
+    const rowCoverage = Math.min(1, (rows.length + revenueRows.length) / roster);
+    const activityCoverage = team.filter((t) => t.referrals + t.apps > 0).length / roster;
+    const score = Math.round((rowCoverage * 0.6 + activityCoverage * 0.4) * 100);
+    if (score >= 75) return { label: 'High', tone: 'onpace', score };
+    if (score >= 45) return { label: 'Medium', tone: 'atrisk', score };
+    return { label: 'Low', tone: 'offpace', score };
+  }, [error, config.agents.length, rows.length, revenueRows.length, team]);
+
   return (
     <AppShell title="Mission Control">
       <div className="grid4">
         <div className="card">
           <p>Sponsorship Referrals (Today)</p>
           <h2>{totals.referrals}</h2>
-          <span className="pill onpace">Live sync (Leaderboard + approvals fallback)</span>
+          <span className="pill onpace">Source: Leaderboard + Revenue approvals</span>
         </div>
         <div className="card">
           <p>Apps Submitted (Today)</p>
           <h2>{totals.apps}</h2>
-          <span className="pill onpace">Live from Base44</span>
+          <span className="pill onpace">Source: Base44 leaderboard</span>
         </div>
         <div className="card">
           <p>Agents Active Today</p>
@@ -154,10 +167,19 @@ export default function MissionControl() {
           <span className={`pill ${totals.active >= 1 ? 'onpace' : 'offpace'}`}>{totals.active >= 1 ? 'On Pace' : 'Off Pace'}</span>
         </div>
         <div className="card">
-          <p>Data Refresh</p>
-          <h2>{loading ? 'Syncing…' : 'Live'}</h2>
-          <span className={`pill ${error ? 'offpace' : 'onpace'}`}>{error ? 'Attention' : 'Connected'}</span>
+          <p>Data Confidence</p>
+          <h2>{dataConfidence.score}%</h2>
+          <span className={`pill ${dataConfidence.tone}`}>{dataConfidence.label}</span>
         </div>
+      </div>
+
+      <div className="panel">
+        <div className="panelRow">
+          <h3>Sync Health</h3>
+          <span className={`pill ${error ? 'offpace' : 'onpace'}`}>{error ? 'Issue Detected' : 'Connected'}</span>
+        </div>
+        <p className="muted">Last Successful Sync: {lastSyncAt ? toLocalTime(lastSyncAt, config.timezone) : 'No successful sync yet'}</p>
+        <p className="muted">Sources: Leaderboard endpoint + Revenue endpoint + Correction ledger.</p>
       </div>
 
       <div className="panel">
