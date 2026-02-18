@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import {
   DEFAULT_CONFIG,
@@ -118,7 +118,7 @@ export default function SettingsPage() {
     saveReferralCorrections(next);
   };
 
-  const runHealthCheck = async () => {
+  const runHealthCheck = useCallback(async () => {
     setHealthLoading(true);
 
     try {
@@ -171,11 +171,11 @@ export default function SettingsPage() {
     } finally {
       setHealthLoading(false);
     }
-  };
+  }, [agents, leaderboardUrl, revenueUrl]);
 
   useEffect(() => {
     runHealthCheck();
-  }, []);
+  }, [runHealthCheck]);
 
   useEffect(() => {
     if (!agents.includes(fromAgent)) setFromAgent(agents[0] || '');

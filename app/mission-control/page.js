@@ -7,6 +7,21 @@ import { applyReferralCorrections, loadReferralCorrections } from '../../lib/ref
 
 const DEFAULTS = loadRuntimeConfig();
 
+function byScope(obj, scope, aliases = []) {
+  const prefix = scope === 'monthly' ? 'month' : scope === 'ytd' ? 'ytd' : 'all_time';
+  for (const name of aliases) {
+    const candidates = [
+      `${name}_${prefix}`,
+      `${name}${prefix === 'all_time' ? 'AllTime' : prefix === 'ytd' ? 'Ytd' : 'Month'}`,
+      `${scope}_${name}`
+    ];
+    for (const key of candidates) {
+      if (obj?.[key] != null) return Number(obj[key]) || 0;
+    }
+  }
+  return null;
+}
+
 function cleanName(value = '') {
   return String(value).toLowerCase().replace('dr. ', '').trim();
 }
@@ -47,6 +62,7 @@ export default function MissionControl() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastSyncAt, setLastSyncAt] = useState(null);
+  const [scope, setScope] = useState('today');
 
   useEffect(() => {
     setConfig(loadRuntimeConfig());
@@ -84,7 +100,8 @@ export default function MissionControl() {
 
     load();
     const interval = setInterval(load, Math.max(15, Number(config.refreshIntervalSec || 60)) * 1000);
-    return () => {
+
+      return () => {
       mounted = false;
       clearInterval(interval);
     };
@@ -98,7 +115,9 @@ export default function MissionControl() {
       const revenueMatch = revenueRows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
 
       const leaderboardReferrals =
-        Number(match?.referral_count ?? match?.referrals ?? (match?.event_type === 'referral' ? 1 : 0) ?? 0) || 0;
+        scope === 'month'
+          ? Number(byScope(match, 'monthly', ['referral_count', 'referrals'])) ?? 0
+          : Number(match?.referral_count ?? match?.referrals ?? (match?.event_type === 'referral' ? 1 : 0) ?? 0) || 0;
       const fallbackReferrals = Number(revenueMatch?.activity_bonus ?? 0) || 0;
       baseReferralsByAgent[agent] = Math.max(leaderboardReferrals, fallbackReferrals);
     });
@@ -110,7 +129,9 @@ export default function MissionControl() {
 
       const referrals = Number(adjustedReferralsByAgent[agent] || 0);
       const apps =
-        Number(match?.app_submitted_count ?? match?.apps_submitted ?? match?.apps ?? (match?.event_type === 'app_submitted' ? 1 : 0) ?? 0) || 0;
+        scope === 'month'
+          ? Number(byScope(match, 'monthly', ['app_submitted_count', 'apps_submitted', 'apps'])) ?? 0
+          : Number(match?.app_submitted_count ?? match?.apps_submitted ?? match?.apps ?? (match?.event_type === 'app_submitted' ? 1 : 0) ?? 0) || 0;
 
       const lastActivity = match?.last_activity ?? match?.lastActivity ?? match?.created_date ?? match?.timestamp ?? null;
 
@@ -122,7 +143,7 @@ export default function MissionControl() {
         status: getStatus(referrals, apps)
       };
     });
-  }, [rows, revenueRows, config.agents, corrections]);
+  }, [rows, revenueRows, config.agents, corrections, scope]);
 
   const totals = useMemo(
     () =>
@@ -136,6 +157,8 @@ export default function MissionControl() {
       ),
     [team]
   );
+
+  const scopeLabel = scope === 'today' ? 'Today' : 'This Month';
 
   const dataConfidence = useMemo(() => {
     if (error) return { label: 'Low', tone: 'offpace', score: 35 };
@@ -152,17 +175,17 @@ export default function MissionControl() {
     <AppShell title="Mission Control">
       <div className="grid4">
         <div className="card">
-          <p>Sponsorship Referrals (Today)</p>
+          <p>Sponsorship Referrals ({scopeLabel})</p>
           <h2>{totals.referrals}</h2>
           <span className="pill onpace">Source: Leaderboard + Revenue approvals</span>
         </div>
         <div className="card">
-          <p>Apps Submitted (Today)</p>
+          <p>Apps Submitted ({scopeLabel})</p>
           <h2>{totals.apps}</h2>
           <span className="pill onpace">Source: Base44 leaderboard</span>
         </div>
         <div className="card">
-          <p>Agents Active Today</p>
+          <p>Agents Active ({scopeLabel})</p>
           <h2>{totals.active}/{config.agents.length}</h2>
           <span className={`pill ${totals.active >= 1 ? 'onpace' : 'offpace'}`}>{totals.active >= 1 ? 'On Pace' : 'Off Pace'}</span>
         </div>
@@ -183,9 +206,21 @@ export default function MissionControl() {
       </div>
 
       <div className="panel">
-        <div className="panelRow">
-          <h3>Inner Circle Scoreboard</h3>
-          <span className="muted">Status rule: any activity today = On Pace</span>
+        <div className="panelRow" style={{ gap: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <h3>Inner Circle Scoreboard</h3>
+            <span className="muted">
+              Status rule: any activity {scope === 'today' ? 'today' : 'this month'} = On Pace
+            </span>
+          </div>
+          <div className="leaderboardTabs" style={{ marginLeft: 'auto' }}>
+            <button className={scope === 'today' ? 'active' : ''} onClick={() => setScope('today')}>
+              Today
+            </button>
+            <button className={scope === 'month' ? 'active' : ''} onClick={() => setScope('month')}>
+              Month
+            </button>
+          </div>
         </div>
 
         {error ? <p className="red">{error}</p> : null}
