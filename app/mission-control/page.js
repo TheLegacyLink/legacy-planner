@@ -173,6 +173,23 @@ export default function MissionControl() {
 
   return (
     <AppShell title="Mission Control">
+      <div className="panelRow" style={{ gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <div>
+          <h3 style={{ margin: 0 }}>Mission Control Overview</h3>
+          <p className="muted" style={{ margin: 0 }}>
+            Metrics below update when you switch the execution window.
+          </p>
+        </div>
+        <div className="leaderboardTabs" style={{ marginLeft: 'auto' }}>
+          <button className={scope === 'today' ? 'active' : ''} onClick={() => setScope('today')}>
+            Today
+          </button>
+          <button className={scope === 'month' ? 'active' : ''} onClick={() => setScope('month')}>
+            Month
+          </button>
+        </div>
+      </div>
+
       <div className="grid4">
         <div className="card">
           <p>Sponsorship Referrals ({scopeLabel})</p>
@@ -189,11 +206,6 @@ export default function MissionControl() {
           <h2>{totals.active}/{config.agents.length}</h2>
           <span className={`pill ${totals.active >= 1 ? 'onpace' : 'offpace'}`}>{totals.active >= 1 ? 'On Pace' : 'Off Pace'}</span>
         </div>
-        <div className="card">
-          <p>Data Confidence</p>
-          <h2>{dataConfidence.score}%</h2>
-          <span className={`pill ${dataConfidence.tone}`}>{dataConfidence.label}</span>
-        </div>
       </div>
 
       <div className="panel">
@@ -203,6 +215,9 @@ export default function MissionControl() {
         </div>
         <p className="muted">Last Successful Sync: {lastSyncAt ? toLocalTime(lastSyncAt, config.timezone) : 'No successful sync yet'}</p>
         <p className="muted">Sources: Leaderboard endpoint + Revenue endpoint + Correction ledger.</p>
+        <p className={`pill ${dataConfidence.tone}`} style={{ display: 'inline-block' }}>
+          Data Confidence: {dataConfidence.score}% ({dataConfidence.label})
+        </p>
       </div>
 
       <div className="panel">
@@ -212,14 +227,6 @@ export default function MissionControl() {
             <span className="muted">
               Status rule: any activity {scope === 'today' ? 'today' : 'this month'} = On Pace
             </span>
-          </div>
-          <div className="leaderboardTabs" style={{ marginLeft: 'auto' }}>
-            <button className={scope === 'today' ? 'active' : ''} onClick={() => setScope('today')}>
-              Today
-            </button>
-            <button className={scope === 'month' ? 'active' : ''} onClick={() => setScope('month')}>
-              Month
-            </button>
           </div>
         </div>
 
