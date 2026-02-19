@@ -138,7 +138,7 @@ export default function MissionControl() {
       const todayReferrals = Number(match?.referrals_count_today ?? match?.referral_count_today ?? match?.referrals_today ?? 0) || 0;
       const todayApps = Number(match?.apps_submitted_count_today ?? match?.app_submitted_count_today ?? match?.apps_today ?? 0) || 0;
 
-      const lastActivity = match?.last_activity ?? match?.lastActivity ?? match?.created_date ?? match?.timestamp ?? null;
+      const roi = monthReferrals ? monthApps / monthReferrals : monthApps > 0 ? monthApps : 0;
 
       return {
         name: agent,
@@ -146,7 +146,7 @@ export default function MissionControl() {
         monthApps,
         todayReferrals,
         todayApps,
-        lastActivity,
+        roi,
         status: getStatus(monthReferrals, monthApps)
       };
     });
@@ -251,7 +251,7 @@ export default function MissionControl() {
               <th>Agent</th>
               <th>Referrals</th>
               <th>Apps Submitted</th>
-              <th>Last Activity</th>
+              <th>ROI</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -261,7 +261,11 @@ export default function MissionControl() {
                 <td>{row.name}</td>
                 <td>{row.monthReferrals}</td>
                 <td>{row.monthApps}</td>
-                <td>{toLocalTime(row.lastActivity, config.timezone)}</td>
+                <td>
+                  <span className={`pill ${row.roi >= 1 ? 'onpace' : row.roi >= 0.5 ? 'atrisk' : 'offpace'}`}>
+                    {row.monthReferrals === 0 && row.monthApps === 0 ? '—' : `${(row.roi || 0).toFixed(2)}x`}
+                  </span>
+                </td>
                 <td>
                   <span className={`pill ${row.status === 'On Pace' ? 'onpace' : 'offpace'}`}>{row.status}</span>
                 </td>
