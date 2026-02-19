@@ -128,21 +128,26 @@ export default function MissionControl() {
     return config.agents.map((agent) => {
       const match = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
 
-      const referrals = Number(adjustedReferralsByAgent[agent] || 0);
+      const monthReferrals = Number(adjustedReferralsByAgent[agent] || 0);
       const monthlyApps = byScope(match, 'monthly', ['app_submitted_count', 'apps_submitted', 'apps']);
-      const apps =
+      const monthApps =
         monthlyApps !== null
           ? monthlyApps
           : Number(match?.app_submitted_count ?? match?.apps_submitted ?? match?.apps ?? (match?.event_type === 'app_submitted' ? 1 : 0) ?? 0) || 0;
+
+      const todayReferrals = Number(match?.referrals_count_today ?? match?.referral_count_today ?? match?.referrals_today ?? 0) || 0;
+      const todayApps = Number(match?.apps_submitted_count_today ?? match?.app_submitted_count_today ?? match?.apps_today ?? 0) || 0;
 
       const lastActivity = match?.last_activity ?? match?.lastActivity ?? match?.created_date ?? match?.timestamp ?? null;
 
       return {
         name: agent,
-        referrals,
-        apps,
+        monthReferrals,
+        monthApps,
+        todayReferrals,
+        todayApps,
         lastActivity,
-        status: getStatus(referrals, apps)
+        status: getStatus(monthReferrals, monthApps)
       };
     });
   }, [rows, revenueRows, config.agents, corrections]);
@@ -150,12 +155,15 @@ export default function MissionControl() {
   const totals = useMemo(
     () =>
       team.reduce(
-        (acc, row) => ({
-          referrals: acc.referrals + row.referrals,
-          apps: acc.apps + row.apps,
-          active: acc.active + (row.referrals + row.apps >= 1 ? 1 : 0)
-        }),
-        { referrals: 0, apps: 0, active: 0 }
+        (acc, row) => {
+          acc.month.referrals += row.monthReferrals;
+          acc.month.apps += row.monthApps;
+          acc.month.active += row.monthReferrals + row.monthApps >= 1 ? 1 : 0;
+          acc.today.referrals += row.todayReferrals;
+          acc.today.apps += row.todayApps;
+          return acc;
+        },
+        { month: { referrals: 0, apps: 0, active: 0 }, today: { referrals: 0, apps: 0 } }
       ),
     [team]
   );
@@ -164,7 +172,7 @@ export default function MissionControl() {
     if (error) return { label: 'Low', tone: 'offpace', score: 35 };
     const roster = Math.max(1, config.agents.length);
     const rowCoverage = Math.min(1, (rows.length + revenueRows.length) / roster);
-    const activityCoverage = team.filter((t) => t.referrals + t.apps > 0).length / roster;
+    const activityCoverage = team.filter((t) => t.monthReferrals + t.monthApps > 0).length / roster;
     const score = Math.round((rowCoverage * 0.6 + activityCoverage * 0.4) * 100);
     if (score >= 75) return { label: 'High', tone: 'onpace', score };
     if (score >= 45) return { label: 'Medium', tone: 'atrisk', score };
@@ -185,18 +193,31 @@ export default function MissionControl() {
       <div className="grid4">
         <div className="card">
           <p>Sponsorship Referrals ({scopeLabel})</p>
-          <h2>{totals.referrals}</h2>
+          <h2>{totals.month.referrals}</h2>
           <span className="pill onpace">Source: Leaderboard + Revenue approvals</span>
         </div>
         <div className="card">
           <p>Apps Submitted ({scopeLabel})</p>
-          <h2>{totals.apps}</h2>
+          <h2>{totals.month.apps}</h2>
           <span className="pill onpace">Source: Base44 leaderboard</span>
         </div>
         <div className="card">
           <p>Agents Active ({scopeLabel})</p>
-          <h2>{totals.active}/{config.agents.length}</h2>
-          <span className={`pill ${totals.active >= 1 ? 'onpace' : 'offpace'}`}>{totals.active >= 1 ? 'On Pace' : 'Off Pace'}</span>
+          <h2>{totals.month.active}/{config.agents.length}</h2>
+          <span className={`pill ${totals.month.active >= 1 ? 'onpace' : 'offpace'}`}>{totals.month.active >= 1 ? 'On Pace' : 'Off Pace'}</span>
+        </div>
+      </div>
+
+      <div className="grid4">
+        <div className="card">
+          <p>Sponsorship Referrals (Today)</p>
+          <h2>{totals.today.referrals}</h2>
+          <span className="pill onpace">Daily production</span>
+        </div>
+        <div className="card">
+          <p>Apps Submitted (Today)</p>
+          <h2>{totals.today.apps}</h2>
+          <span className="pill onpace">Daily production</span>
         </div>
       </div>
 
@@ -238,8 +259,8 @@ export default function MissionControl() {
             {team.map((row) => (
               <tr key={row.name}>
                 <td>{row.name}</td>
-                <td>{row.referrals}</td>
-                <td>{row.apps}</td>
+                <td>{row.monthReferrals}</td>
+                <td>{row.monthApps}</td>
                 <td>{toLocalTime(row.lastActivity, config.timezone)}</td>
                 <td>
                   <span className={`pill ${row.status === 'On Pace' ? 'onpace' : 'offpace'}`}>{row.status}</span>
