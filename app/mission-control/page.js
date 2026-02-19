@@ -62,7 +62,7 @@ export default function MissionControl() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastSyncAt, setLastSyncAt] = useState(null);
-  const [scope, setScope] = useState('today');
+  const scopeLabel = 'This Month';
 
   useEffect(() => {
     setConfig(loadRuntimeConfig());
@@ -114,9 +114,10 @@ export default function MissionControl() {
       const match = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
       const revenueMatch = revenueRows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
 
+      const monthlyReferrals = byScope(match, 'monthly', ['referral_count', 'referrals']);
       const leaderboardReferrals =
-        scope === 'month'
-          ? Number(byScope(match, 'monthly', ['referral_count', 'referrals'])) ?? 0
+        monthlyReferrals !== null
+          ? monthlyReferrals
           : Number(match?.referral_count ?? match?.referrals ?? (match?.event_type === 'referral' ? 1 : 0) ?? 0) || 0;
       const fallbackReferrals = Number(revenueMatch?.activity_bonus ?? 0) || 0;
       baseReferralsByAgent[agent] = Math.max(leaderboardReferrals, fallbackReferrals);
@@ -128,9 +129,10 @@ export default function MissionControl() {
       const match = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
 
       const referrals = Number(adjustedReferralsByAgent[agent] || 0);
+      const monthlyApps = byScope(match, 'monthly', ['app_submitted_count', 'apps_submitted', 'apps']);
       const apps =
-        scope === 'month'
-          ? Number(byScope(match, 'monthly', ['app_submitted_count', 'apps_submitted', 'apps'])) ?? 0
+        monthlyApps !== null
+          ? monthlyApps
           : Number(match?.app_submitted_count ?? match?.apps_submitted ?? match?.apps ?? (match?.event_type === 'app_submitted' ? 1 : 0) ?? 0) || 0;
 
       const lastActivity = match?.last_activity ?? match?.lastActivity ?? match?.created_date ?? match?.timestamp ?? null;
@@ -143,7 +145,7 @@ export default function MissionControl() {
         status: getStatus(referrals, apps)
       };
     });
-  }, [rows, revenueRows, config.agents, corrections, scope]);
+  }, [rows, revenueRows, config.agents, corrections]);
 
   const totals = useMemo(
     () =>
@@ -157,8 +159,6 @@ export default function MissionControl() {
       ),
     [team]
   );
-
-  const scopeLabel = scope === 'today' ? 'Today' : 'This Month';
 
   const dataConfidence = useMemo(() => {
     if (error) return { label: 'Low', tone: 'offpace', score: 35 };
@@ -177,16 +177,8 @@ export default function MissionControl() {
         <div>
           <h3 style={{ margin: 0 }}>Mission Control Overview</h3>
           <p className="muted" style={{ margin: 0 }}>
-            Metrics below update when you switch the execution window.
+            Metrics below reflect current month-to-date execution.
           </p>
-        </div>
-        <div className="leaderboardTabs" style={{ marginLeft: 'auto' }}>
-          <button className={scope === 'today' ? 'active' : ''} onClick={() => setScope('today')}>
-            Today
-          </button>
-          <button className={scope === 'month' ? 'active' : ''} onClick={() => setScope('month')}>
-            Month
-          </button>
         </div>
       </div>
 
@@ -225,7 +217,7 @@ export default function MissionControl() {
           <div>
             <h3>Inner Circle Scoreboard</h3>
             <span className="muted">
-              Status rule: any activity {scope === 'today' ? 'today' : 'this month'} = On Pace
+              Status rule: any activity this month = On Pace
             </span>
           </div>
         </div>
