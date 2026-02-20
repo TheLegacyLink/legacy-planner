@@ -9,13 +9,20 @@
     "state_code": "VA",
     "license_status": "Active",
     "carriers_active": [
+      "F&G",
       "Mutual of Omaha"
     ],
     "carriers_all": [
+      "F&G",
       "Mutual of Omaha",
       "National Life Group"
     ],
     "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000576030"
+      },
       {
         "carrier": "Mutual of Omaha",
         "contract_status": "Active",
@@ -37,9 +44,19 @@
     "home_state": "MD",
     "state_code": "MD",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "BA57985000"
+      }
+    ]
   },
   {
     "agent_id": "000599702",
@@ -51,13 +68,20 @@
     "state_code": "NY",
     "license_status": "Active",
     "carriers_active": [
+      "F&G",
       "Mutual of Omaha"
     ],
     "carriers_all": [
+      "F&G",
       "Mutual of Omaha",
       "National Life Group"
     ],
     "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000599702"
+      },
       {
         "carrier": "Mutual of Omaha",
         "contract_status": "Active",
@@ -79,9 +103,19 @@
     "home_state": "NY",
     "state_code": "NY",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000643945"
+      }
+    ]
   },
   {
     "agent_id": "CL371C4000",
@@ -138,9 +172,19 @@
     "home_state": "AZ",
     "state_code": "AZ",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000658783"
+      }
+    ]
   },
   {
     "agent_id": "BR247C4590",
@@ -174,9 +218,19 @@
     "home_state": "AL",
     "state_code": "AL",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "BU25235000"
+      }
+    ]
   },
   {
     "agent_id": "BU34325000",
@@ -187,9 +241,19 @@
     "home_state": "MO",
     "state_code": "MO",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "BU34325000"
+      }
+    ]
   },
   {
     "agent_id": "CA37555000",
@@ -200,9 +264,19 @@
     "home_state": "MI",
     "state_code": "MI",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "CA37555000"
+      }
+    ]
   },
   {
     "agent_id": "000594631",
@@ -213,11 +287,19 @@
     "home_state": "MO",
     "state_code": "MO",
     "license_status": "Active",
-    "carriers_active": [],
+    "carriers_active": [
+      "F&G"
+    ],
     "carriers_all": [
+      "F&G",
       "National Life Group"
     ],
     "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000594631"
+      },
       {
         "carrier": "National Life Group",
         "contract_status": "Holding in SureLC",
@@ -263,9 +345,19 @@
     "home_state": "MO",
     "state_code": "MO",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000641968"
+      }
+    ]
   },
   {
     "agent_id": "000649572",
@@ -276,9 +368,19 @@
     "home_state": "CA",
     "state_code": "CA",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000649572"
+      }
+    ]
   },
   {
     "agent_id": "DU44715000",
@@ -289,11 +391,19 @@
     "home_state": "CA",
     "state_code": "CA",
     "license_status": "Pending",
-    "carriers_active": [],
+    "carriers_active": [
+      "F&G"
+    ],
     "carriers_all": [
+      "F&G",
       "National Life Group"
     ],
     "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "DU44715000"
+      },
       {
         "carrier": "National Life Group",
         "contract_status": "Holding for More Info",
@@ -310,9 +420,19 @@
     "home_state": "TX",
     "state_code": "TX",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000738491"
+      }
+    ]
   },
   {
     "agent_id": "000603553",
@@ -324,13 +444,20 @@
     "state_code": "FL",
     "license_status": "Active",
     "carriers_active": [
+      "F&G",
       "Mutual of Omaha"
     ],
     "carriers_all": [
+      "F&G",
       "Mutual of Omaha",
       "National Life Group"
     ],
     "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000603553"
+      },
       {
         "carrier": "Mutual of Omaha",
         "contract_status": "Active",
@@ -352,9 +479,19 @@
     "home_state": "MD",
     "state_code": "MD",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "FI21675000"
+      }
+    ]
   },
   {
     "agent_id": "000643793",
@@ -365,9 +502,19 @@
     "home_state": "GA",
     "state_code": "GA",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000643793"
+      }
+    ]
   },
   {
     "agent_id": "000738769",
@@ -378,9 +525,19 @@
     "home_state": "MI",
     "state_code": "MI",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000738769"
+      }
+    ]
   },
   {
     "agent_id": "000604110",
@@ -391,9 +548,19 @@
     "home_state": "FL",
     "state_code": "FL",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000604110"
+      }
+    ]
   },
   {
     "agent_id": "HA43025000",
@@ -404,9 +571,19 @@
     "home_state": "AR",
     "state_code": "AR",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "HA43025000"
+      }
+    ]
   },
   {
     "agent_id": "HO06125000",
@@ -446,9 +623,19 @@
     "home_state": "TX",
     "state_code": "TX",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "HU04395000"
+      }
+    ]
   },
   {
     "agent_id": "000725627",
@@ -459,9 +646,19 @@
     "home_state": "NC",
     "state_code": "NC",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000725627"
+      }
+    ]
   },
   {
     "agent_id": "000640231",
@@ -472,9 +669,19 @@
     "home_state": "TX",
     "state_code": "TX",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000640231"
+      }
+    ]
   },
   {
     "agent_id": "JO438A5000",
@@ -485,9 +692,19 @@
     "home_state": "LA",
     "state_code": "LA",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "JO438A5000"
+      }
+    ]
   },
   {
     "agent_id": "000655502",
@@ -498,11 +715,19 @@
     "home_state": "MD",
     "state_code": "MD",
     "license_status": "Active",
-    "carriers_active": [],
+    "carriers_active": [
+      "F&G"
+    ],
     "carriers_all": [
+      "F&G",
       "National Life Group"
     ],
     "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000655502"
+      },
       {
         "carrier": "National Life Group",
         "contract_status": "Holding for More Info",
@@ -543,12 +768,19 @@
     "state_code": "GA",
     "license_status": "Active",
     "carriers_active": [
+      "F&G",
       "Mutual of Omaha"
     ],
     "carriers_all": [
+      "F&G",
       "Mutual of Omaha"
     ],
     "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000650403"
+      },
       {
         "carrier": "Mutual of Omaha",
         "contract_status": "Active",
@@ -1332,9 +1564,19 @@
     "home_state": "TX",
     "state_code": "TX",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000727828"
+      }
+    ]
   },
   {
     "agent_id": "000225829",
@@ -1345,9 +1587,19 @@
     "home_state": "TX",
     "state_code": "TX",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000225829"
+      }
+    ]
   },
   {
     "agent_id": "010654839",
@@ -1358,9 +1610,19 @@
     "home_state": "VA",
     "state_code": "VA",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "010654839"
+      }
+    ]
   },
   {
     "agent_id": "000634217",
@@ -1371,9 +1633,19 @@
     "home_state": "MO",
     "state_code": "MO",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000634217"
+      }
+    ]
   },
   {
     "agent_id": "000647242",
@@ -1384,9 +1656,19 @@
     "home_state": "FL",
     "state_code": "FL",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000647242"
+      }
+    ]
   },
   {
     "agent_id": "000334698",
@@ -1397,9 +1679,19 @@
     "home_state": "GA",
     "state_code": "GA",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000334698"
+      }
+    ]
   },
   {
     "agent_id": "ST262C4000",
@@ -1410,9 +1702,19 @@
     "home_state": "CO",
     "state_code": "CO",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "ST262C4000"
+      }
+    ]
   },
   {
     "agent_id": "000610049",
@@ -1424,13 +1726,20 @@
     "state_code": "GA",
     "license_status": "Active",
     "carriers_active": [
+      "F&G",
       "Mutual of Omaha"
     ],
     "carriers_all": [
+      "F&G",
       "Mutual of Omaha",
       "National Life Group"
     ],
     "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000610049"
+      },
       {
         "carrier": "Mutual of Omaha",
         "contract_status": "Active",
@@ -1453,12 +1762,19 @@
     "state_code": "OH",
     "license_status": "Active",
     "carriers_active": [
+      "F&G",
       "Mutual of Omaha"
     ],
     "carriers_all": [
+      "F&G",
       "Mutual of Omaha"
     ],
     "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000582208"
+      },
       {
         "carrier": "Mutual of Omaha",
         "contract_status": "Active",
@@ -1475,11 +1791,19 @@
     "home_state": "MO",
     "state_code": "MO",
     "license_status": "Active",
-    "carriers_active": [],
+    "carriers_active": [
+      "F&G"
+    ],
     "carriers_all": [
+      "F&G",
       "National Life Group"
     ],
     "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000591422"
+      },
       {
         "carrier": "National Life Group",
         "contract_status": "Holding in SureLC",
@@ -1496,9 +1820,19 @@
     "home_state": "NJ",
     "state_code": "NJ",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "TH139A4000"
+      }
+    ]
   },
   {
     "agent_id": "TH43765000",
@@ -1509,9 +1843,19 @@
     "home_state": "MO",
     "state_code": "MO",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "TH43765000"
+      }
+    ]
   },
   {
     "agent_id": "TO42035000",
@@ -1522,9 +1866,19 @@
     "home_state": "TX",
     "state_code": "TX",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "TO42035000"
+      }
+    ]
   },
   {
     "agent_id": "000664120",
@@ -1559,13 +1913,20 @@
     "state_code": "TX",
     "license_status": "Active",
     "carriers_active": [
+      "F&G",
       "Mutual of Omaha"
     ],
     "carriers_all": [
+      "F&G",
       "Mutual of Omaha",
       "National Life Group"
     ],
     "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "UP63265000"
+      },
       {
         "carrier": "Mutual of Omaha",
         "contract_status": "Active",
@@ -1588,13 +1949,20 @@
     "state_code": "MO",
     "license_status": "Active",
     "carriers_active": [
+      "F&G",
       "Mutual of Omaha"
     ],
     "carriers_all": [
+      "F&G",
       "Mutual of Omaha",
       "National Life Group"
     ],
     "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "WA49325000"
+      },
       {
         "carrier": "Mutual of Omaha",
         "contract_status": "Active",
@@ -1640,13 +2008,20 @@
     "state_code": "FL",
     "license_status": "Active",
     "carriers_active": [
+      "F&G",
       "Mutual of Omaha"
     ],
     "carriers_all": [
+      "F&G",
       "Mutual of Omaha",
       "National Life Group"
     ],
     "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000526817"
+      },
       {
         "carrier": "Mutual of Omaha",
         "contract_status": "Active",
@@ -1669,14 +2044,21 @@
     "state_code": "CO",
     "license_status": "Active",
     "carriers_active": [
+      "F&G",
       "Mutual of Omaha",
       "National Life Group"
     ],
     "carriers_all": [
+      "F&G",
       "Mutual of Omaha",
       "National Life Group"
     ],
     "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000591457"
+      },
       {
         "carrier": "Mutual of Omaha",
         "contract_status": "Active",
@@ -1698,11 +2080,19 @@
     "home_state": "NJ",
     "state_code": "NJ",
     "license_status": "Active",
-    "carriers_active": [],
+    "carriers_active": [
+      "F&G"
+    ],
     "carriers_all": [
+      "F&G",
       "National Life Group"
     ],
     "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000620914"
+      },
       {
         "carrier": "National Life Group",
         "contract_status": "Holding in SureLC",
@@ -1719,9 +2109,19 @@
     "home_state": "PA",
     "state_code": "PA",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "YA17626000"
+      }
+    ]
   },
   {
     "agent_id": "000626349",
@@ -1732,8 +2132,18 @@
     "home_state": "KS",
     "state_code": "KS",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000626349"
+      }
+    ]
   }
 ]

@@ -157,7 +157,7 @@ export default function LicensedAgentsPage() {
       const agent = map.get(id);
       const st = normalize(row.state_code);
       if (st) agent.states.add(st);
-      const carrierList = Array.isArray(row.carriers_active) ? row.carriers_active : [];
+      const carrierList = Array.isArray(row.carriers_all) ? row.carriers_all : [];
       for (const carrier of carrierList) {
         if (carrier) agent.carriers.add(carrier);
       }
