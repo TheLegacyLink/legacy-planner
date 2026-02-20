@@ -11,7 +11,7 @@ const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit#gid=$
 const STORAGE_KEY = 'sponsorship_workflow_v1';
 const OPERATOR_KEY = 'sponsorship_operator_name_v1';
 
-const STAGES = ['New', 'Assigned', 'Called', 'Appointment Set', 'Submitted', 'Completed'];
+const STAGES = ['New', 'Called', 'Appointment Set', 'Completed'];
 const STANDALONE_PASSCODE = 'LegacyLinkIC2026';
 const ACCESS_KEY = 'sponsorship_standalone_access_v1';
 
@@ -175,7 +175,7 @@ export default function SponsorshipsPage() {
       called: !currentlyCalled
     };
 
-    if (!currentlyCalled && (!wf?.stage || wf?.stage === 'New' || wf?.stage === 'Assigned')) {
+    if (!currentlyCalled && (!wf?.stage || wf?.stage === 'New')) {
       patch.stage = 'Called';
     }
 
