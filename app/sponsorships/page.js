@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import licensedAgents from '../../data/licensedAgents.json';
+import fngPolicies from '../../data/fngPolicies.json';
 
 const SHEET_ID = '123FyOP10FMJtYYy2HE9M9RrY7ariQ5ayMsfPvEcaPVY';
 const GID = '839080285';
@@ -46,6 +47,20 @@ const PHONE_BY_NAME = (() => {
   return map;
 })();
 
+const COMPLETED_NAME_SET = (() => {
+  const set = new Set();
+  for (const policy of fngPolicies) {
+    const status = String(policy.policy_status || '').toLowerCase();
+    if (!status) continue;
+    const qualifying = ['active', 'pending lapse', 'issued', 'inforce', 'in force', 'lapsed'];
+    if (!qualifying.some((s) => status.includes(s))) continue;
+
+    const owner = normalizeName(policy.owner_name || '');
+    if (owner) set.add(owner);
+  }
+  return set;
+})();
+
 function parseGvizDate(value) {
   if (!value || typeof value !== 'string') return null;
   const m = value.match(/Date\((\d+),(\d+),(\d+)/);
@@ -85,7 +100,7 @@ function rowKey(row) {
 
 function isCompleted(row, wf) {
   const manual = (row.manualStatus || '').toLowerCase();
-  return wf?.stage === 'Completed' || manual.includes('complete') || manual.includes('issued');
+  return Boolean(row.autoCompleted) || wf?.stage === 'Completed' || manual.includes('complete') || manual.includes('issued');
 }
 
 export default function SponsorshipsPage() {
@@ -212,11 +227,34 @@ export default function SponsorshipsPage() {
             dueDate: due,
             hoursLeft: hLeft,
             systemStatus: statusFromHours(hLeft),
-            manualStatus: cells[cStatus]?.v ? String(cells[cStatus].v) : ''
+            manualStatus: cells[cStatus]?.v ? String(cells[cStatus].v) : '',
+            autoCompleted: COMPLETED_NAME_SET.has(normalizeName(String(name)))
           });
         }
 
-        if (active) setRows(out);
+        const dedupedMap = new Map();
+        for (const row of out) {
+          const key = normalizeName(row.name);
+          if (!key) continue;
+
+          if (!dedupedMap.has(key)) {
+            dedupedMap.set(key, row);
+            continue;
+          }
+
+          const prev = dedupedMap.get(key);
+          const prevApproved = prev.approvedDate ? prev.approvedDate.getTime() : 0;
+          const curApproved = row.approvedDate ? row.approvedDate.getTime() : 0;
+
+          const pickCurrent =
+            curApproved > prevApproved ||
+            (!prev.phone && Boolean(row.phone)) ||
+            (!prev.autoCompleted && Boolean(row.autoCompleted));
+
+          dedupedMap.set(key, pickCurrent ? row : prev);
+        }
+
+        if (active) setRows(Array.from(dedupedMap.values()));
       } catch (err) {
         console.error(err);
       } finally {
@@ -239,7 +277,8 @@ export default function SponsorshipsPage() {
       .filter((r) => (statusFilter === 'All' ? true : r.systemStatus === statusFilter))
       .filter((r) => {
         const wf = workflow[rowKey(r)] || {};
-        return stageFilter === 'All' ? true : (wf.stage || 'New') === stageFilter;
+        const effectiveStage = wf.stage || (r.autoCompleted ? 'Completed' : 'New');
+        return stageFilter === 'All' ? true : effectiveStage === stageFilter;
       })
       .filter((r) => {
         if (!q) return true;
@@ -412,7 +451,7 @@ export default function SponsorshipsPage() {
                   <td>{r.referredBy || '—'}</td>
                   <td>{formatDate(r.approvedDate)}</td>
                   <td>{done ? 'Completed' : formatDate(r.dueDate)}</td>
-                  <td>{done ? 'Completed' : (r.hoursLeft === null ? '—' : `${r.hoursLeft}h`)}</td>
+                  <td>{done ? 'Policy' : (r.hoursLeft === null ? '—' : `${r.hoursLeft}h`)}</td>
                   <td>
                     {done ? (
                       <span className="pill" style={{ background: '#166534', color: '#fff' }}>Completed</span>
@@ -443,7 +482,7 @@ export default function SponsorshipsPage() {
                     />
                   </td>
                   <td>
-                    <select value={wf.stage || 'New'} onChange={(e) => updateWorkflow(key, { stage: e.target.value })}>
+                    <select value={wf.stage || (r.autoCompleted ? 'Completed' : 'New')} onChange={(e) => updateWorkflow(key, { stage: e.target.value })}>
                       {STAGES.map((s) => (
                         <option key={s} value={s}>{s}</option>
                       ))}
