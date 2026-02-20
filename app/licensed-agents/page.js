@@ -148,6 +148,7 @@ export default function LicensedAgentsPage() {
           city: row.city || '',
           home_state: row.home_state || '',
           states: new Set(),
+          carriers: new Set(),
           hasActive: false
         });
       }
@@ -155,6 +156,11 @@ export default function LicensedAgentsPage() {
       const agent = map.get(id);
       const st = normalize(row.state_code);
       if (st) agent.states.add(st);
+      const carrierList = Array.isArray(row.carriers_active) ? row.carriers_active : [];
+      for (const carrier of carrierList) {
+        if (carrier) agent.carriers.add(carrier);
+      }
+
       if (String(row.license_status).toLowerCase() === 'active') {
         agent.hasActive = true;
       }
@@ -163,7 +169,8 @@ export default function LicensedAgentsPage() {
     return Array.from(map.values())
       .map((agent) => ({
         ...agent,
-        states: Array.from(agent.states).sort()
+        states: Array.from(agent.states).sort(),
+        carriers: Array.from(agent.carriers).sort()
       }))
       .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
   }, []);
@@ -191,7 +198,15 @@ export default function LicensedAgentsPage() {
 
         if (!normalizedTerm) return true;
 
-        return [agent.full_name, agent.email, agent.phone, agent.city, agent.home_state, agent.agent_id]
+        return [
+          agent.full_name,
+          agent.email,
+          agent.phone,
+          agent.city,
+          agent.home_state,
+          agent.agent_id,
+          agent.carriers.join(' ')
+        ]
           .join(' ')
           .toLowerCase()
           .includes(normalizedTerm);
@@ -205,7 +220,7 @@ export default function LicensedAgentsPage() {
           <div>
             <h3 style={{ margin: 0 }}>Legacy Link Licensing Directory</h3>
             <p className="muted" style={{ margin: '6px 0 0' }}>
-              One row per agent. Filter by state to instantly find who can write in that state.
+              One row per agent. Filter by state to instantly find who can write in that state and see carrier contracts.
             </p>
           </div>
           <span className="pill onpace">{filteredRows.length} Agents</span>
@@ -239,6 +254,7 @@ export default function LicensedAgentsPage() {
               <th>Name</th>
               <th>Licensed States</th>
               <th>Home State</th>
+              <th>Carriers</th>
               <th>Phone</th>
               <th>Email</th>
               <th>City</th>
@@ -251,6 +267,7 @@ export default function LicensedAgentsPage() {
                 <td>{row.full_name || '—'}</td>
                 <td>{row.states.length ? row.states.join(', ') : '—'}</td>
                 <td>{row.home_state || '—'}</td>
+                <td>{row.carriers?.length ? row.carriers.join(', ') : '—'}</td>
                 <td>{row.phone || '—'}</td>
                 <td>{row.email || '—'}</td>
                 <td>{row.city || '—'}</td>
