@@ -143,10 +143,21 @@ function contractedStatus(row, wf) {
   return row.autoContracted ? 'Yes' : 'No';
 }
 
-function processLabel(row, wf) {
-  if (isCompleted(row, wf)) return 'Policy Completed';
+function effectiveLicensingStatus(row, wf) {
+  // If contracted, they are licensed by definition.
+  if (contractedStatus(row, wf) === 'Yes') return 'Licensed';
+  return wf?.licensingStatus || 'Unknown';
+}
 
-  const licensing = wf?.licensingStatus || 'Unknown';
+function effectiveStage(row, wf) {
+  if (isCompleted(row, wf)) return 'Completed';
+  return wf?.stage || 'New';
+}
+
+function processLabel(row, wf) {
+  if (isCompleted(row, wf)) return 'First Policy Completed';
+
+  const licensing = effectiveLicensingStatus(row, wf);
   const contracted = contractedStatus(row, wf);
 
   if (licensing === 'Unlicensed') return 'Needs Pre-licensing';
@@ -339,8 +350,7 @@ export default function SponsorshipsPage() {
       .filter((r) => (statusFilter === 'All' ? true : r.systemStatus === statusFilter))
       .filter((r) => {
         const wf = workflow[rowKey(r)] || {};
-        const effectiveStage = wf.stage || (r.autoCompleted ? 'Completed' : 'New');
-        return stageFilter === 'All' ? true : effectiveStage === stageFilter;
+        return stageFilter === 'All' ? true : effectiveStage(r, wf) === stageFilter;
       })
       .filter((r) => {
         if (!stuckOnly) return true;
@@ -439,7 +449,7 @@ export default function SponsorshipsPage() {
       if (ageDays < stuckDays) continue;
 
       const upline = (r.referredBy || 'UNASSIGNED UPLINE').trim();
-      const stage = wf.stage || 'New';
+      const stage = effectiveStage(r, wf);
       if (!groups.has(upline)) groups.set(upline, []);
       groups.get(upline).push(`- ${r.name} | ${stage} | ${ageDays}d stuck`);
     }
@@ -678,7 +688,12 @@ export default function SponsorshipsPage() {
                     />
                   </td>
                   <td>
-                    <select value={wf.stage || (r.autoCompleted ? 'Completed' : 'New')} onChange={(e) => updateWorkflow(key, { stage: e.target.value })}>
+                    <select
+                      value={effectiveStage(r, wf)}
+                      onChange={(e) => updateWorkflow(key, { stage: e.target.value })}
+                      disabled={done}
+                      style={done ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
+                    >
                       {STAGES.map((s) => (
                         <option key={s} value={s}>{s}</option>
                       ))}
@@ -686,8 +701,10 @@ export default function SponsorshipsPage() {
                   </td>
                   <td>
                     <select
-                      value={wf.licensingStatus || 'Unknown'}
+                      value={effectiveLicensingStatus(r, wf)}
                       onChange={(e) => updateWorkflow(key, { licensingStatus: e.target.value })}
+                      disabled={contractedStatus(r, wf) === 'Yes'}
+                      style={contractedStatus(r, wf) === 'Yes' ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
                     >
                       {['Unknown', 'Unlicensed', 'Pre-licensing', 'Licensed'].map((s) => (
                         <option key={s} value={s}>{s}</option>
