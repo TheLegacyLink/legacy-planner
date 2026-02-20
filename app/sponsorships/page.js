@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
+import licensedAgents from '../../data/licensedAgents.json';
 
 const SHEET_ID = '123FyOP10FMJtYYy2HE9M9RrY7ariQ5ayMsfPvEcaPVY';
 const GID = '839080285';
@@ -10,6 +11,40 @@ const STORAGE_KEY = 'sponsorship_workflow_v1';
 const OPERATOR_KEY = 'sponsorship_operator_name_v1';
 
 const STAGES = ['New', 'Assigned', 'Called', 'Appointment Set', 'Submitted', 'Completed'];
+const STANDALONE_PASSCODE = 'LegacyLinkIC2026';
+const ACCESS_KEY = 'sponsorship_standalone_access_v1';
+
+function normalizeName(value = '') {
+  return String(value).toUpperCase().replace(/[^A-Z ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function normalizePhone(value = '') {
+  return String(value).replace(/\D/g, '');
+}
+
+function formatPhone(value = '') {
+  const digits = normalizePhone(value);
+  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `${digits.slice(1, 4)}-${digits.slice(4, 7)}-${digits.slice(7)}`;
+  return value ? String(value) : '';
+}
+
+const PHONE_BY_NAME = (() => {
+  const map = new Map();
+  for (const row of licensedAgents) {
+    const n = normalizeName(row.full_name || '');
+    const p = formatPhone(row.phone || '');
+    if (!n || !p) continue;
+    if (!map.has(n)) map.set(n, p);
+
+    if (n.includes(',')) {
+      const [last, first] = n.split(',').map((x) => x.trim());
+      const flipped = normalizeName(`${first} ${last}`);
+      if (flipped && !map.has(flipped)) map.set(flipped, p);
+    }
+  }
+  return map;
+})();
 
 function parseGvizDate(value) {
   if (!value || typeof value !== 'string') return null;
@@ -63,11 +98,19 @@ export default function SponsorshipsPage() {
   const [sortMode, setSortMode] = useState('Newest In');
   const [workflow, setWorkflow] = useState({});
   const [operatorName, setOperatorName] = useState('');
+  const [accessGranted, setAccessGranted] = useState(false);
+  const [passcodeInput, setPasscodeInput] = useState('');
+  const [passError, setPassError] = useState('');
 
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      setStandalone(params.get('standalone') === '1');
+      const isStandalone = params.get('standalone') === '1';
+      setStandalone(isStandalone);
+
+      if (!isStandalone || localStorage.getItem(ACCESS_KEY) === 'ok') {
+        setAccessGranted(true);
+      }
 
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) setWorkflow(JSON.parse(raw));
@@ -86,6 +129,16 @@ export default function SponsorshipsPage() {
   function updateOperatorName(name) {
     setOperatorName(name);
     localStorage.setItem(OPERATOR_KEY, name);
+  }
+
+  function unlockStandalone() {
+    if (passcodeInput === STANDALONE_PASSCODE) {
+      localStorage.setItem(ACCESS_KEY, 'ok');
+      setAccessGranted(true);
+      setPassError('');
+      return;
+    }
+    setPassError('Incorrect passcode. Try again.');
   }
 
   function updateWorkflow(key, patch) {
@@ -147,9 +200,13 @@ export default function SponsorshipsPage() {
           const due = dueRaw || (approved ? new Date(approved.getTime() + 24 * 60 * 60 * 1000) : null);
           const hLeft = hoursLeft(due);
 
+          const phoneCell = cells[cPhone] || {};
+          const phoneFromSheet = formatPhone(phoneCell.f || (phoneCell.v != null ? String(phoneCell.v) : ''));
+          const phoneFromDirectory = PHONE_BY_NAME.get(normalizeName(String(name))) || '';
+
           out.push({
             name: String(name),
-            phone: cells[cPhone]?.v ? String(cells[cPhone].v) : '',
+            phone: phoneFromSheet || phoneFromDirectory,
             referredBy: cells[cRef]?.v ? String(cells[cRef].v) : '',
             approvedDate: approved,
             dueDate: due,
@@ -239,6 +296,29 @@ export default function SponsorshipsPage() {
     }
     return out;
   }, [rows, workflow]);
+
+  if (standalone && !accessGranted) {
+    return (
+      <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#0a0a0a', color: '#fff', padding: 16 }}>
+        <div style={{ width: '100%', maxWidth: 420, border: '1px solid #333', borderRadius: 12, padding: 20, background: '#111' }}>
+          <h2 style={{ marginTop: 0 }}>Sponsorship Tracker Access</h2>
+          <p style={{ color: '#bbb' }}>Enter passcode to view this board.</p>
+          <input
+            type="password"
+            value={passcodeInput}
+            onChange={(e) => setPasscodeInput(e.target.value)}
+            placeholder="Passcode"
+            style={{ width: '100%', marginBottom: 10 }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') unlockStandalone();
+            }}
+          />
+          <button type="button" onClick={unlockStandalone}>Unlock</button>
+          {passError ? <p style={{ color: '#f87171' }}>{passError}</p> : null}
+        </div>
+      </main>
+    );
+  }
 
   const core = (
     <div className="panel" style={{ background: '#0a0a0a', border: '1px solid #3a3a3a' }}>
