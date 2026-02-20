@@ -130,6 +130,7 @@ function resolveStateInput(raw = '') {
 
 export default function LicensedAgentsPage() {
   const [stateFilter, setStateFilter] = useState('ALL');
+  const [carrierFilter, setCarrierFilter] = useState('ALL');
   const [search, setSearch] = useState('');
 
   const groupedAgents = useMemo(() => {
@@ -183,6 +184,14 @@ export default function LicensedAgentsPage() {
     return ['ALL', ...Array.from(set).sort()];
   }, [groupedAgents]);
 
+  const carriers = useMemo(() => {
+    const set = new Set();
+    for (const agent of groupedAgents) {
+      for (const c of agent.carriers || []) set.add(c);
+    }
+    return ['ALL', ...Array.from(set).sort()];
+  }, [groupedAgents]);
+
   const filteredRows = useMemo(() => {
     const term = search.trim();
     const normalizedTerm = term.toLowerCase();
@@ -190,6 +199,7 @@ export default function LicensedAgentsPage() {
 
     return groupedAgents
       .filter((agent) => (stateFilter === 'ALL' ? true : agent.states.includes(stateFilter)))
+      .filter((agent) => (carrierFilter === 'ALL' ? true : (agent.carriers || []).includes(carrierFilter)))
       .filter((agent) => {
         // If search looks like a state code/name, enforce exact state match only.
         if (stateFromSearch) {
@@ -211,7 +221,7 @@ export default function LicensedAgentsPage() {
           .toLowerCase()
           .includes(normalizedTerm);
       });
-  }, [groupedAgents, stateFilter, search]);
+  }, [groupedAgents, stateFilter, carrierFilter, search]);
 
   return (
     <AppShell title="Licensed Agents Directory">
@@ -233,6 +243,17 @@ export default function LicensedAgentsPage() {
               {states.map((state) => (
                 <option key={state} value={state}>
                   {state === 'ALL' ? 'All States' : `${state} — ${STATE_CODE_TO_NAME[state] || state}`}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label style={{ display: 'grid', gap: '6px' }}>
+            <span className="muted">Carrier</span>
+            <select value={carrierFilter} onChange={(e) => setCarrierFilter(e.target.value)}>
+              {carriers.map((carrier) => (
+                <option key={carrier} value={carrier}>
+                  {carrier === 'ALL' ? 'All Carriers' : carrier}
                 </option>
               ))}
             </select>
