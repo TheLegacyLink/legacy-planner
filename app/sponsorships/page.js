@@ -6,6 +6,9 @@ import AppShell from '../../components/AppShell';
 const SHEET_ID = '123FyOP10FMJtYYy2HE9M9RrY7ariQ5ayMsfPvEcaPVY';
 const GID = '839080285';
 const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit#gid=${GID}`;
+const STORAGE_KEY = 'sponsorship_workflow_v1';
+
+const STAGES = ['New', 'Assigned', 'Called', 'Appointment Set', 'Submitted', 'Completed'];
 
 function parseGvizDate(value) {
   if (!value || typeof value !== 'string') return null;
@@ -36,11 +39,42 @@ function statusFromHours(hours) {
   return 'On Track';
 }
 
+function rowKey(row) {
+  return [row.name, row.phone, row.approvedDate ? row.approvedDate.toISOString().slice(0, 10) : ''].join('|').toUpperCase();
+}
+
+function isCompleted(row, wf) {
+  const manual = (row.manualStatus || '').toLowerCase();
+  return wf?.stage === 'Completed' || manual.includes('complete') || manual.includes('issued');
+}
+
 export default function SponsorshipsPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [workflow, setWorkflow] = useState({});
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) setWorkflow(JSON.parse(raw));
+    } catch {
+      setWorkflow({});
+    }
+  }, []);
+
+  function updateWorkflow(key, patch) {
+    const next = {
+      ...workflow,
+      [key]: {
+        ...(workflow[key] || {}),
+        ...patch
+      }
+    };
+    setWorkflow(next);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  }
 
   useEffect(() => {
     let active = true;
@@ -109,24 +143,32 @@ export default function SponsorshipsPage() {
       .filter((r) => (statusFilter === 'All' ? true : r.systemStatus === statusFilter))
       .filter((r) => {
         if (!q) return true;
-        return [r.name, r.phone, r.referredBy, r.manualStatus, r.systemStatus].join(' ').toLowerCase().includes(q);
+        const wf = workflow[rowKey(r)] || {};
+        return [r.name, r.phone, r.referredBy, r.manualStatus, r.systemStatus, wf.owner, wf.stage, wf.notes].join(' ').toLowerCase().includes(q);
       })
       .sort((a, b) => {
+        const awf = workflow[rowKey(a)] || {};
+        const bwf = workflow[rowKey(b)] || {};
+        const aDone = isCompleted(a, awf);
+        const bDone = isCompleted(b, bwf);
+        if (aDone !== bDone) return aDone ? 1 : -1;
+
         const ah = a.hoursLeft ?? 10_000;
         const bh = b.hoursLeft ?? 10_000;
         return ah - bh;
       });
-  }, [rows, search, statusFilter]);
+  }, [rows, search, statusFilter, workflow]);
 
   const stats = useMemo(() => {
-    const out = { total: rows.length, overdue: 0, urgent: 0, dueSoon: 0 };
+    const out = { total: rows.length, overdue: 0, urgent: 0, dueSoon: 0, completed: 0 };
     for (const r of rows) {
       if (r.systemStatus === 'Overdue') out.overdue += 1;
       if (r.systemStatus === 'Urgent') out.urgent += 1;
       if (r.systemStatus === 'Due Soon') out.dueSoon += 1;
+      if (isCompleted(r, workflow[rowKey(r)] || {})) out.completed += 1;
     }
     return out;
-  }, [rows]);
+  }, [rows, workflow]);
 
   return (
     <AppShell title="Sponsorship Tracker">
@@ -136,6 +178,7 @@ export default function SponsorshipsPage() {
           <span className="pill atrisk">Overdue: {stats.overdue}</span>
           <span className="pill atrisk">Urgent: {stats.urgent}</span>
           <span className="pill">Due Soon: {stats.dueSoon}</span>
+          <span className="pill onpace">Completed: {stats.completed}</span>
           <a href={SHEET_URL} target="_blank" rel="noreferrer" style={{ marginLeft: 'auto' }}>
             <button type="button">Open Google Sheet</button>
           </a>
@@ -153,7 +196,7 @@ export default function SponsorshipsPage() {
 
           <label style={{ display: 'grid', gap: 6, minWidth: 280, flex: 1 }}>
             <span className="muted">Search</span>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, phone, referred by..." />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, phone, referred by, owner, notes..." />
           </label>
         </div>
 
@@ -170,26 +213,56 @@ export default function SponsorshipsPage() {
                 <th>Due (24h)</th>
                 <th>Time Left</th>
                 <th>System Status</th>
-                <th>Manual Note</th>
+                <th>Owner</th>
+                <th>Stage</th>
+                <th>Notes</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => (
-                <tr key={`${r.name}-${r.phone}`}>
-                  <td>{r.name}</td>
-                  <td>{r.phone || '—'}</td>
-                  <td>{r.referredBy || '—'}</td>
-                  <td>{formatDate(r.approvedDate)}</td>
-                  <td>{formatDate(r.dueDate)}</td>
-                  <td>{r.hoursLeft === null ? '—' : `${r.hoursLeft}h`}</td>
-                  <td>
-                    <span className={`pill ${r.systemStatus === 'Overdue' || r.systemStatus === 'Urgent' ? 'atrisk' : 'onpace'}`}>
-                      {r.systemStatus}
-                    </span>
-                  </td>
-                  <td>{r.manualStatus || '—'}</td>
-                </tr>
-              ))}
+              {filtered.map((r) => {
+                const key = rowKey(r);
+                const wf = workflow[key] || {};
+                const done = isCompleted(r, wf);
+
+                return (
+                  <tr key={key} style={done ? { backgroundColor: 'rgba(34, 197, 94, 0.2)' } : undefined}>
+                    <td>{r.name}</td>
+                    <td>{r.phone || '—'}</td>
+                    <td>{r.referredBy || '—'}</td>
+                    <td>{formatDate(r.approvedDate)}</td>
+                    <td>{formatDate(r.dueDate)}</td>
+                    <td>{r.hoursLeft === null ? '—' : `${r.hoursLeft}h`}</td>
+                    <td>
+                      <span className={`pill ${r.systemStatus === 'Overdue' || r.systemStatus === 'Urgent' ? 'atrisk' : 'onpace'}`}>
+                        {r.systemStatus}
+                      </span>
+                    </td>
+                    <td>
+                      <input
+                        value={wf.owner || ''}
+                        onChange={(e) => updateWorkflow(key, { owner: e.target.value })}
+                        placeholder="Who is taking it?"
+                        style={{ minWidth: 140 }}
+                      />
+                    </td>
+                    <td>
+                      <select value={wf.stage || 'New'} onChange={(e) => updateWorkflow(key, { stage: e.target.value })}>
+                        {STAGES.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        value={wf.notes || ''}
+                        onChange={(e) => updateWorkflow(key, { notes: e.target.value })}
+                        placeholder="Called? appt set? context..."
+                        style={{ minWidth: 220 }}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
