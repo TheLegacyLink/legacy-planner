@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import fngPolicies from '../../data/fngPolicies.json';
 
@@ -31,6 +31,7 @@ export default function FngPoliciesPage() {
   const [cutoffDate, setCutoffDate] = useState(CUTOFF_DEFAULT);
   const [threshold, setThreshold] = useState(THRESHOLD_DEFAULT);
   const [programOverrides, setProgramOverrides] = useState({});
+  const importRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -41,6 +42,11 @@ export default function FngPoliciesPage() {
     }
   }, []);
 
+  function persistOverrides(next) {
+    setProgramOverrides(next);
+    localStorage.setItem('fng_program_overrides_v1', JSON.stringify(next));
+  }
+
   function setOverride(policyNumber, value) {
     const next = { ...programOverrides };
     if (value === 'auto') {
@@ -48,8 +54,40 @@ export default function FngPoliciesPage() {
     } else {
       next[policyNumber] = value;
     }
-    setProgramOverrides(next);
-    localStorage.setItem('fng_program_overrides_v1', JSON.stringify(next));
+    persistOverrides(next);
+  }
+
+  function exportOverrides() {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      overrides: programOverrides
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fng-program-overrides.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function importOverrides(file) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const incoming = parsed?.overrides && typeof parsed.overrides === 'object' ? parsed.overrides : {};
+      const cleaned = {};
+      for (const [policy, type] of Object.entries(incoming)) {
+        if (!policy) continue;
+        if (['regular', 'sponsorship', 'jumpstart'].includes(String(type).toLowerCase())) {
+          cleaned[policy] = String(type).toLowerCase();
+        }
+      }
+      persistOverrides(cleaned);
+    } catch {
+      alert('Import failed. Please upload a valid fng-program-overrides.json file.');
+    }
   }
 
   const enriched = useMemo(() => {
@@ -139,6 +177,19 @@ export default function FngPoliciesPage() {
           <span className="pill">10/11/12-Mo Pay Window: {stats.payWindow}</span>
           <span className="pill onpace">Sponsorship Monthly: ${stats.sponsorshipMonthly.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
           <span className="pill onpace">Sponsored People: {stats.sponsorshipPeople}</span>
+        </div>
+
+        <div className="panelRow" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+          <button type="button" onClick={exportOverrides}>Export Tags</button>
+          <button type="button" onClick={() => importRef.current?.click()}>Import Tags</button>
+          <input
+            ref={importRef}
+            type="file"
+            accept="application/json"
+            style={{ display: 'none' }}
+            onChange={(e) => importOverrides(e.target.files?.[0])}
+          />
+          <span className="muted">Tag edits auto-save on this browser. Export/import to carry to another device.</span>
         </div>
 
         <div className="panelRow" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
