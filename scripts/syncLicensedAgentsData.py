@@ -65,9 +65,12 @@ def load_carriers(path):
 
 def build_rows(agents_by_id, licenses_path, carriers_by_agent):
     rows = []
+    agents_with_license = set()
+
     with licenses_path.open() as f:
         for row in csv.DictReader(f):
             aid = row['agent_id']
+            agents_with_license.add(aid)
             agent = agents_by_id.get(aid, {})
             carrier_info = carriers_by_agent.get(aid, {})
             rows.append(
@@ -85,6 +88,27 @@ def build_rows(agents_by_id, licenses_path, carriers_by_agent):
                     'carrier_details': carrier_info.get('carrier_details', [])
                 }
             )
+
+    # Include carrier-only agents even if they do not have a state license row yet.
+    for aid, carrier_info in carriers_by_agent.items():
+        if aid in agents_with_license:
+            continue
+        agent = agents_by_id.get(aid, {})
+        rows.append(
+            {
+                'agent_id': aid,
+                'full_name': agent.get('full_name', ''),
+                'email': agent.get('email', ''),
+                'phone': agent.get('phone', ''),
+                'city': agent.get('city', ''),
+                'home_state': agent.get('home_state', ''),
+                'state_code': '',
+                'license_status': '',
+                'carriers_active': carrier_info.get('carriers_active', []),
+                'carriers_all': carrier_info.get('carriers_all', []),
+                'carrier_details': carrier_info.get('carrier_details', [])
+            }
+        )
 
     rows.sort(key=lambda r: ((r.get('full_name') or '').upper(), r.get('state_code') or ''))
     return rows

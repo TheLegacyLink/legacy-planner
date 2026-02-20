@@ -36,6 +36,52 @@
     ]
   },
   {
+    "agent_id": "MOO-2058919",
+    "full_name": "Allen, Antonia",
+    "email": "meadreenterprises@gmail.com",
+    "phone": "9172261069",
+    "city": "Edgewater",
+    "home_state": "NJ",
+    "state_code": "NJ",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2058919"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-653G4",
+    "full_name": "Bartley, Alfie",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "653G4"
+      }
+    ]
+  },
+  {
     "agent_id": "BA57985000",
     "full_name": "BARTLEY, ALFIE J",
     "email": "alfiebartley@outlook.com",
@@ -141,6 +187,58 @@
     ]
   },
   {
+    "agent_id": "MOO-2060620",
+    "full_name": "Brisbon, Tanaisha",
+    "email": "tanaishabrisbon@gmail.com",
+    "phone": "",
+    "city": "Laurel",
+    "home_state": "MD",
+    "state_code": "MD",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060620"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060672",
+    "full_name": "Brown, Kelin",
+    "email": "kelinb63@gmail.com",
+    "phone": "",
+    "city": "Clearlake",
+    "home_state": "CA",
+    "state_code": "CA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060672"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP101222"
+      }
+    ]
+  },
+  {
     "agent_id": "000650794",
     "full_name": "BROWN, KELIN D",
     "email": "kelinb63@gmail.com",
@@ -187,6 +285,58 @@
     ]
   },
   {
+    "agent_id": "MOO-2061786",
+    "full_name": "Brown, Taneisha",
+    "email": "consulttay101@gmail.com",
+    "phone": "",
+    "city": "Portageville",
+    "home_state": "MO",
+    "state_code": "MO",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2061786"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2061837",
+    "full_name": "Brown-Shaw, Krystle",
+    "email": "krystle.legacylink@gmail.com",
+    "phone": "",
+    "city": "North Charleston",
+    "home_state": "SC",
+    "state_code": "SC",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2061837"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP101531"
+      }
+    ]
+  },
+  {
     "agent_id": "BR247C4590",
     "full_name": "BROWN-SHAW, KRYSTLE S",
     "email": "krystle.legacylink@gmail.com",
@@ -206,6 +356,50 @@
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "BR247C4590"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060545",
+    "full_name": "Brunson, Paul",
+    "email": "",
+    "phone": "9083973556",
+    "city": "Philadelphia",
+    "home_state": "PA",
+    "state_code": "PA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060545"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-AIP101942",
+    "full_name": "Buchanan, Terrikia",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP101942"
       }
     ]
   },
@@ -252,6 +446,27 @@
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "BU34325000"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-AIP102119",
+    "full_name": "Canty, Donna",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP102119"
       }
     ]
   },
@@ -308,6 +523,27 @@
     ]
   },
   {
+    "agent_id": "NLG-AIP100589",
+    "full_name": "Castillo, Jenniffer",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP100589"
+      }
+    ]
+  },
+  {
     "agent_id": "CH27845D80",
     "full_name": "CHAMBERS, TIARA",
     "email": "tchamberslsw@gmail.com",
@@ -337,6 +573,117 @@
     ]
   },
   {
+    "agent_id": "NLG-AIP101511",
+    "full_name": "Clemons, Alpha",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Pending",
+        "carrier_agent_id": "AIP101511"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060616",
+    "full_name": "Collier, Ira Jeffrey",
+    "email": "icollierinsurance@gmail.com",
+    "phone": "2157566575",
+    "city": "Philadelphia",
+    "home_state": "PA",
+    "state_code": "PA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060616"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2061804",
+    "full_name": "Corprew, Tracy",
+    "email": "tracycorprewinsurance@gmail.com",
+    "phone": "",
+    "city": "Goldsboro",
+    "home_state": "NC",
+    "state_code": "NC",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2061804"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060704",
+    "full_name": "Cox, Veveca",
+    "email": "vevecastory@gmail.com",
+    "phone": "",
+    "city": "Snellville",
+    "home_state": "GA",
+    "state_code": "GA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060704"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-AIP101281",
+    "full_name": "Davis, Zackary",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP101281"
+      }
+    ]
+  },
+  {
     "agent_id": "000641968",
     "full_name": "DAVIS, ZACKARY M",
     "email": "coveredbymyles@gmail.com",
@@ -356,6 +703,29 @@
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "000641968"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060742",
+    "full_name": "Davis, Zackary Myles",
+    "email": "coveredbymyles@gmail.com",
+    "phone": "",
+    "city": "Saint Louis",
+    "home_state": "MO",
+    "state_code": "MO",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060742"
       }
     ]
   },
@@ -408,6 +778,29 @@
         "carrier": "National Life Group",
         "contract_status": "Holding for More Info",
         "carrier_agent_id": "AIP101679"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060590",
+    "full_name": "Durham, Tony",
+    "email": "dreambig.td@gmail.com",
+    "phone": "",
+    "city": "Dumfries",
+    "home_state": "VA",
+    "state_code": "VA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060590"
       }
     ]
   },
@@ -471,6 +864,42 @@
     ]
   },
   {
+    "agent_id": "000603553",
+    "full_name": "ENGRAM, CHANDRIA",
+    "email": "chandriaengram@gmail.com",
+    "phone": "407-558-5233",
+    "city": "ORLANDO",
+    "home_state": "FL",
+    "state_code": "TX",
+    "license_status": "Active",
+    "carriers_active": [
+      "F&G",
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "F&G",
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000603553"
+      },
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2061864"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP101597"
+      }
+    ]
+  },
+  {
     "agent_id": "FI21675000",
     "full_name": "FIELDS FOREMAN, SAMANTHA V",
     "email": "samanthafieldsforeman@gmail.com",
@@ -490,6 +919,71 @@
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "FI21675000"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2063062",
+    "full_name": "Fields Foreman, Samantha Viola",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Pending",
+        "carrier_agent_id": "2063062"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2058139",
+    "full_name": "Flowers, Tawanna",
+    "email": "",
+    "phone": "",
+    "city": "Arlington",
+    "home_state": "TX",
+    "state_code": "TX",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2058139"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-AIP102116",
+    "full_name": "Foreman, Samantha Fields",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Pending",
+        "carrier_agent_id": "AIP102116"
       }
     ]
   },
@@ -517,6 +1011,52 @@
     ]
   },
   {
+    "agent_id": "MOO-2060585",
+    "full_name": "Foster, MacDaniel Everette",
+    "email": "kmfoster21@gmail.com",
+    "phone": "",
+    "city": "Grovetown",
+    "home_state": "GA",
+    "state_code": "GA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060585"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2061872",
+    "full_name": "French, Brickell Montrice",
+    "email": "brickell.french@gmail.com",
+    "phone": "",
+    "city": "Henrico",
+    "home_state": "VA",
+    "state_code": "VA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2061872"
+      }
+    ]
+  },
+  {
     "agent_id": "000738769",
     "full_name": "GIPLAYE, SUE N",
     "email": "suegiplaye@gmail.com",
@@ -536,6 +1076,48 @@
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "000738769"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-550026314302",
+    "full_name": "Graf, Robert",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Terminated",
+        "carrier_agent_id": "5500263143-02"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2062936",
+    "full_name": "Gray, Leggerd",
+    "email": "msleggerdgray@msn.com",
+    "phone": "",
+    "city": "Harahan",
+    "home_state": "LA",
+    "state_code": "LA",
+    "license_status": "Active",
+    "carriers_active": [],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Pending",
+        "carrier_agent_id": "2062936"
       }
     ]
   },
@@ -563,6 +1145,27 @@
     ]
   },
   {
+    "agent_id": "NLG-AIP101636",
+    "full_name": "Hawkins, Daneia",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP101636"
+      }
+    ]
+  },
+  {
     "agent_id": "HA43025000",
     "full_name": "HAWKINS, DANEIA A",
     "email": "daneia817@gmail.com",
@@ -582,6 +1185,29 @@
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "HA43025000"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2063402",
+    "full_name": "Hilliard, Marlene",
+    "email": "marlenedhilliard@gmail.com",
+    "phone": "",
+    "city": "Houston",
+    "home_state": "TX",
+    "state_code": "TX",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2063402"
       }
     ]
   },
@@ -638,6 +1264,29 @@
     ]
   },
   {
+    "agent_id": "MOO-2063474",
+    "full_name": "Hughes, Frederick Lenard",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2063474"
+      }
+    ]
+  },
+  {
     "agent_id": "000725627",
     "full_name": "HUNTER, OCTAVIA",
     "email": "ohunter704@gmail.com",
@@ -657,6 +1306,73 @@
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "000725627"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-543I5",
+    "full_name": "James, Breanna",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "543I5"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060778",
+    "full_name": "James, Breanna Michelle",
+    "email": "drboss637@gmail.com",
+    "phone": "",
+    "city": "Oakley",
+    "home_state": "CA",
+    "state_code": "CA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060778"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-AIP100883",
+    "full_name": "Johnson, Kristi",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP100883"
       }
     ]
   },
@@ -707,6 +1423,29 @@
     ]
   },
   {
+    "agent_id": "MOO-2063220",
+    "full_name": "Johnson, Stacy Kyra",
+    "email": "",
+    "phone": "",
+    "city": "New Orleans",
+    "home_state": "LA",
+    "state_code": "LA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2063220"
+      }
+    ]
+  },
+  {
     "agent_id": "000655502",
     "full_name": "JONES, GLENN",
     "email": "glennjinsure@gmail.com",
@@ -736,6 +1475,35 @@
     ]
   },
   {
+    "agent_id": "MOO-2060659",
+    "full_name": "Jones, Latanya",
+    "email": "",
+    "phone": "",
+    "city": "Atlanta",
+    "home_state": "GA",
+    "state_code": "GA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060659"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP100967"
+      }
+    ]
+  },
+  {
     "agent_id": "000657051",
     "full_name": "JONES, LATANYA R",
     "email": "lrjworldwideenterprises@gmail.com",
@@ -755,6 +1523,48 @@
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "000657051"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-AIP101987",
+    "full_name": "Jr., Mardell Miller",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP101987"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-AIP89490",
+    "full_name": "Kavanaght, Allen",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP89490"
       }
     ]
   },
@@ -789,6 +1599,35 @@
     ]
   },
   {
+    "agent_id": "MOO-2060559",
+    "full_name": "Lassiter, Angelica",
+    "email": "alassiter@yahoo.com",
+    "phone": "3233561338",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060559"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP100843"
+      }
+    ]
+  },
+  {
     "agent_id": "000623962",
     "full_name": "LASSITER, ANGELICA M",
     "email": "alassiter1@yahoo.com",
@@ -808,6 +1647,52 @@
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "000623962"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2058469",
+    "full_name": "Lee, Emani",
+    "email": "emani.daniellelee@gmail.com",
+    "phone": "6463095781",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2058469"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060653",
+    "full_name": "Lemons, Regina",
+    "email": "",
+    "phone": "",
+    "city": "Humble",
+    "home_state": "TX",
+    "state_code": "TX",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060653"
       }
     ]
   },
@@ -1464,6 +2349,96 @@
     ]
   },
   {
+    "agent_id": "MOO-2061900",
+    "full_name": "Lykes, Sherry",
+    "email": "ladysherrylykes@gmail.com",
+    "phone": "",
+    "city": "Statesville",
+    "home_state": "NC",
+    "state_code": "NC",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2061900"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060764",
+    "full_name": "Malachi, Chauncey",
+    "email": "chmalachi5@gmail.com",
+    "phone": "",
+    "city": "Cheraw",
+    "home_state": "SC",
+    "state_code": "SC",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060764"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060673",
+    "full_name": "Matta-Field, Danisha",
+    "email": "danishalol@gmail.com",
+    "phone": "",
+    "city": "Tampa",
+    "home_state": "FL",
+    "state_code": "FL",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060673"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-AIP101419",
+    "full_name": "Maxwell, Shannon",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP101419"
+      }
+    ]
+  },
+  {
     "agent_id": "000659497",
     "full_name": "MAXWELL, SHANNON N",
     "email": "smaxwell32@gmail.com",
@@ -1483,6 +2458,73 @@
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "000659497"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060783",
+    "full_name": "Maxwell, Shannon Nicole",
+    "email": "smaxwellsfg@gmail.com",
+    "phone": "",
+    "city": "Lilbourn",
+    "home_state": "MO",
+    "state_code": "MO",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060783"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2061867",
+    "full_name": "Moody, Elijah",
+    "email": "mrmoody954@gmail.com",
+    "phone": "",
+    "city": "Greenacres",
+    "home_state": "FL",
+    "state_code": "FL",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2061867"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-AIP102058",
+    "full_name": "Morris, Almeta",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP102058"
       }
     ]
   },
@@ -1510,6 +2552,109 @@
     ]
   },
   {
+    "agent_id": "MOO-2063058",
+    "full_name": "Morris, Almeta Unicia",
+    "email": "teeny7@att.net",
+    "phone": "",
+    "city": "Reynoldsburg",
+    "home_state": "OH",
+    "state_code": "OH",
+    "license_status": "Active",
+    "carriers_active": [],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Pending",
+        "carrier_agent_id": "2063058"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2063034",
+    "full_name": "Nhaway, Tywanya",
+    "email": "tywanya@gmail.com",
+    "phone": "",
+    "city": "Bala Cynwyd",
+    "home_state": "PA",
+    "state_code": "PA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2063034"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "495E4-01"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060593",
+    "full_name": "Ogbueze, Braxton",
+    "email": "bjo1123@gmail.com",
+    "phone": "",
+    "city": "Charlotte",
+    "home_state": "NC",
+    "state_code": "NC",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060593"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060557",
+    "full_name": "Payne, Jenequa",
+    "email": "jeneluis4you@gmail.com",
+    "phone": "4692451558",
+    "city": "Waxahachie",
+    "home_state": "TX",
+    "state_code": "TX",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060557"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding for More Info",
+        "carrier_agent_id": "AIP100828"
+      }
+    ]
+  },
+  {
     "agent_id": "000637502",
     "full_name": "PAYNE, JENEQUA L",
     "email": "jeneluis4you@gmail.com",
@@ -1529,6 +2674,29 @@
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "000637502"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2061881",
+    "full_name": "Piper, Jadine Shibahn",
+    "email": "jadine.piper@gmail.com",
+    "phone": "",
+    "city": "Upper Marlboro",
+    "home_state": "MD",
+    "state_code": "MD",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2061881"
       }
     ]
   },
@@ -1556,6 +2724,29 @@
     ]
   },
   {
+    "agent_id": "MOO-2063024",
+    "full_name": "Reyes, Jahaira",
+    "email": "jahfx20@gmail.com",
+    "phone": "",
+    "city": "Allentown",
+    "home_state": "PA",
+    "state_code": "PA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2063024"
+      }
+    ]
+  },
+  {
     "agent_id": "000727828",
     "full_name": "RICHARDSON, DONYELL O",
     "email": "donyellrichardson80@gmail.com",
@@ -1565,16 +2756,46 @@
     "state_code": "TX",
     "license_status": "Active",
     "carriers_active": [
-      "F&G"
+      "F&G",
+      "Mutual of Omaha"
     ],
     "carriers_all": [
-      "F&G"
+      "F&G",
+      "Mutual of Omaha"
     ],
     "carrier_details": [
       {
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "000727828"
+      },
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2063485"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2062956",
+    "full_name": "Riley, Valerie",
+    "email": "",
+    "phone": "",
+    "city": "Sterling Heights",
+    "home_state": "MI",
+    "state_code": "MI",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2062956"
       }
     ]
   },
@@ -1602,6 +2823,29 @@
     ]
   },
   {
+    "agent_id": "MOO-2060558",
+    "full_name": "Roseboro, Gina",
+    "email": "ginaroseffl@gmail.com",
+    "phone": "3478522886",
+    "city": "Smithfield",
+    "home_state": "NC",
+    "state_code": "NC",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060558"
+      }
+    ]
+  },
+  {
     "agent_id": "010654839",
     "full_name": "RUTHERFORD, MERCEDEZ ANNE",
     "email": "mercedezrutherford@gmail.com",
@@ -1621,6 +2865,52 @@
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "010654839"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2063048",
+    "full_name": "Rutherford, Rakeem",
+    "email": "rutherfordnc@gmail.com",
+    "phone": "",
+    "city": "Abingdon",
+    "home_state": "VA",
+    "state_code": "VA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2063048"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2061902",
+    "full_name": "Shivers, Vaughn",
+    "email": "vaughnshivers@gmail.com",
+    "phone": "",
+    "city": "Saint Peters",
+    "home_state": "MO",
+    "state_code": "MO",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2061902"
       }
     ]
   },
@@ -1648,6 +2938,35 @@
     ]
   },
   {
+    "agent_id": "MOO-2060671",
+    "full_name": "Small, Kirkland",
+    "email": "kirklandrsmall@gmail.com",
+    "phone": "",
+    "city": "Lakewood Ranch",
+    "home_state": "FL",
+    "state_code": "FL",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060671"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding in SureLC",
+        "carrier_agent_id": "AIP101106"
+      }
+    ]
+  },
+  {
     "agent_id": "000647242",
     "full_name": "SMALL, KIRKLAND R",
     "email": "kirklandrsmall@gmail.com",
@@ -1671,6 +2990,29 @@
     ]
   },
   {
+    "agent_id": "MOO-2063376",
+    "full_name": "Smith, Cortez",
+    "email": "coachcorteztll@gmail.com",
+    "phone": "",
+    "city": "Athens",
+    "home_state": "GA",
+    "state_code": "GA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2063376"
+      }
+    ]
+  },
+  {
     "agent_id": "000334698",
     "full_name": "SMITH, CORTEZ DERRICO",
     "email": "coachcortezttl@gmail.com",
@@ -1690,6 +3032,73 @@
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "000334698"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-AIP101750",
+    "full_name": "Smith, Princess",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding in SureLC",
+        "carrier_agent_id": "AIP101750"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2062917",
+    "full_name": "Smith, Princess Tashana",
+    "email": "multiplemarket@gmail.com",
+    "phone": "",
+    "city": "Bronx",
+    "home_state": "NY",
+    "state_code": "NY",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2062917"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2061865",
+    "full_name": "Stephens Davis, Chineta",
+    "email": "chinetadavis@outlook.com",
+    "phone": "",
+    "city": "Colorado Springs",
+    "home_state": "CO",
+    "state_code": "CO",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2061865"
       }
     ]
   },
@@ -1783,6 +3192,50 @@
     ]
   },
   {
+    "agent_id": "MOO-2063367",
+    "full_name": "Taylor, Cameron",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Pending",
+        "carrier_agent_id": "2063367"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060532",
+    "full_name": "Taylor, David Wayne",
+    "email": "taylorgroup101@gmail.com",
+    "phone": "4695258454",
+    "city": "Acworth",
+    "home_state": "GA",
+    "state_code": "GA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060532"
+      }
+    ]
+  },
+  {
     "agent_id": "000591422",
     "full_name": "TAYLOR, TANEISHA",
     "email": "tking756@gmail.com",
@@ -1812,6 +3265,50 @@
     ]
   },
   {
+    "agent_id": "MOO-2061796",
+    "full_name": "Taylor, William Charles",
+    "email": "",
+    "phone": "",
+    "city": "Bonaire",
+    "home_state": "GA",
+    "state_code": "GA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2061796"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-AIP101375",
+    "full_name": "Thomas, Stephanie",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding in SureLC",
+        "carrier_agent_id": "AIP101375"
+      }
+    ]
+  },
+  {
     "agent_id": "TH139A4000",
     "full_name": "THOMAS, STEPHANIE R",
     "email": "stephanie_thomas@devoreinsurance.com",
@@ -1835,6 +3332,50 @@
     ]
   },
   {
+    "agent_id": "MOO-2060775",
+    "full_name": "Thomas, Stephanie Renee",
+    "email": "",
+    "phone": "",
+    "city": "Woodbury Heights",
+    "home_state": "NJ",
+    "state_code": "NJ",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060775"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-AIP102187",
+    "full_name": "Thompson, Cathy",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding in SureLC",
+        "carrier_agent_id": "AIP102187"
+      }
+    ]
+  },
+  {
     "agent_id": "TH43765000",
     "full_name": "THOMPSON, CATHY E",
     "email": "cathythompsoninsuranceagent@gmail.com",
@@ -1854,6 +3395,50 @@
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "TH43765000"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060688",
+    "full_name": "Thompson, Cathy Edwards",
+    "email": "cathythompsoninsuranceagent@gmail.com",
+    "phone": "",
+    "city": "Kansas City",
+    "home_state": "MO",
+    "state_code": "MO",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060688"
+      }
+    ]
+  },
+  {
+    "agent_id": "NLG-AIP101937",
+    "full_name": "Toombs, Chimere",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "",
+    "carriers_active": [],
+    "carriers_all": [
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Holding in SureLC",
+        "carrier_agent_id": "AIP101937"
       }
     ]
   },
@@ -1940,6 +3525,52 @@
     ]
   },
   {
+    "agent_id": "MOO-2062961",
+    "full_name": "Walker, Alqadir",
+    "email": "walqadir@gmail.com",
+    "phone": "",
+    "city": "Ridgewood",
+    "home_state": "NY",
+    "state_code": "NY",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2062961"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2061901",
+    "full_name": "Washington, Steven",
+    "email": "swash07@comcast.net",
+    "phone": "",
+    "city": "Fall River",
+    "home_state": "MA",
+    "state_code": "MA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2061901"
+      }
+    ]
+  },
+  {
     "agent_id": "WA49325000",
     "full_name": "WATTS, FREEMAN",
     "email": "fwattswork@gmail.com",
@@ -1976,6 +3607,35 @@
     ]
   },
   {
+    "agent_id": "MOO-2062939",
+    "full_name": "Weaver, Tenesha",
+    "email": "weavertv@icloud.com",
+    "phone": "",
+    "city": "Thousand Oaks",
+    "home_state": "CA",
+    "state_code": "CA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2062939"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Pending",
+        "carrier_agent_id": "AIP101803"
+      }
+    ]
+  },
+  {
     "agent_id": "WE55325000",
     "full_name": "WEAVER, TENESHA V",
     "email": "weavertv@icloud.com",
@@ -1995,6 +3655,52 @@
         "carrier": "F&G",
         "contract_status": "Active",
         "carrier_agent_id": "WE55325000"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060544",
+    "full_name": "White, Shadae",
+    "email": "",
+    "phone": "4704186081",
+    "city": "Fairburn",
+    "home_state": "GA",
+    "state_code": "GA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060544"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060691",
+    "full_name": "Williams, Tanesha",
+    "email": "nesha1118@icloud.com",
+    "phone": "",
+    "city": "Edison",
+    "home_state": "NJ",
+    "state_code": "NJ",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060691"
       }
     ]
   },
