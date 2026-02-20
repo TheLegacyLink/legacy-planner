@@ -427,8 +427,61 @@ export default function SponsorshipsPage() {
     return [`Stuck records (>= ${stuckDays} days):`, ...lines].join('\n');
   }, [rows, workflow, stuckDays]);
 
+  const uplineAlertsDigest = useMemo(() => {
+    const groups = new Map();
+
+    for (const r of rows) {
+      const wf = workflow[rowKey(r)] || {};
+      if (isCompleted(r, wf)) continue;
+
+      const anchor = wf.updatedAt || (r.approvedDate ? r.approvedDate.toISOString() : '');
+      const ageDays = daysSince(anchor);
+      if (ageDays < stuckDays) continue;
+
+      const upline = (r.referredBy || 'UNASSIGNED UPLINE').trim();
+      const stage = wf.stage || 'New';
+      if (!groups.has(upline)) groups.set(upline, []);
+      groups.get(upline).push(`- ${r.name} | ${stage} | ${ageDays}d stuck`);
+    }
+
+    if (!groups.size) return `No upline alerts (>= ${stuckDays} days stuck) right now.`;
+
+    const parts = [`Upline Alerts (>= ${stuckDays} days stuck):`];
+    for (const [upline, items] of groups.entries()) {
+      parts.push(`\n${upline}`);
+      parts.push(...items);
+    }
+    return parts.join('\n');
+  }, [rows, workflow, stuckDays]);
+
+  const dailySummaryDigest = useMemo(() => {
+    const active = rows.filter((r) => !isCompleted(r, workflow[rowKey(r)] || {}));
+    const completed = rows.filter((r) => isCompleted(r, workflow[rowKey(r)] || {}));
+    const stuck = active.filter((r) => {
+      const wf = workflow[rowKey(r)] || {};
+      const anchor = wf.updatedAt || (r.approvedDate ? r.approvedDate.toISOString() : '');
+      return daysSince(anchor) >= stuckDays;
+    });
+
+    return [
+      `Daily Sponsorship Summary`,
+      `- Active: ${active.length}`,
+      `- Stuck (>= ${stuckDays}d): ${stuck.length}`,
+      `- Completed: ${completed.length}`,
+      `- Called: ${stats.called}`
+    ].join('\n');
+  }, [rows, workflow, stuckDays, stats.called]);
+
   function copyStuckDigest() {
     navigator.clipboard.writeText(stuckDigest).catch(() => {});
+  }
+
+  function copyUplineAlertsDigest() {
+    navigator.clipboard.writeText(uplineAlertsDigest).catch(() => {});
+  }
+
+  function copyDailySummaryDigest() {
+    navigator.clipboard.writeText(dailySummaryDigest).catch(() => {});
   }
 
   if (!accessGranted) {
@@ -541,6 +594,8 @@ export default function SponsorshipsPage() {
         </label>
 
         <button type="button" onClick={copyStuckDigest}>Copy Stuck Digest</button>
+        <button type="button" onClick={copyUplineAlertsDigest}>Copy Upline Alerts</button>
+        <button type="button" onClick={copyDailySummaryDigest}>Copy Daily Summary</button>
 
         {!standalone && (
           <a href="/sponsorships?standalone=1" target="_blank" rel="noreferrer">
