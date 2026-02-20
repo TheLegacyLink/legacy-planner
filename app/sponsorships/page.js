@@ -224,27 +224,31 @@ export default function SponsorshipsPage() {
   }, [rows, search, statusFilter, stageFilter, sortMode, workflow]);
 
   const stats = useMemo(() => {
-    const out = { total: rows.length, overdue: 0, urgent: 0, dueSoon: 0, completed: 0, called: 0 };
+    const out = { total: rows.length, overdueOpen: 0, urgentOpen: 0, dueSoonOpen: 0, completed: 0, called: 0 };
     for (const r of rows) {
       const wf = workflow[rowKey(r)] || {};
-      if (r.systemStatus === 'Overdue') out.overdue += 1;
-      if (r.systemStatus === 'Urgent') out.urgent += 1;
-      if (r.systemStatus === 'Due Soon') out.dueSoon += 1;
-      if (isCompleted(r, wf)) out.completed += 1;
+      const done = isCompleted(r, wf);
+      if (done) {
+        out.completed += 1;
+      } else {
+        if (r.systemStatus === 'Overdue') out.overdueOpen += 1;
+        if (r.systemStatus === 'Urgent') out.urgentOpen += 1;
+        if (r.systemStatus === 'Due Soon') out.dueSoonOpen += 1;
+      }
       if (wf.called) out.called += 1;
     }
     return out;
   }, [rows, workflow]);
 
   const core = (
-    <div className="panel" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', border: '1px solid #334155' }}>
+    <div className="panel" style={{ background: '#0a0a0a', border: '1px solid #3a3a3a' }}>
       <div className="panelRow" style={{ marginBottom: 12, gap: 10, flexWrap: 'wrap' }}>
-        <span className="pill">Total: {stats.total}</span>
-        <span className="pill atrisk">Overdue: {stats.overdue}</span>
-        <span className="pill atrisk">Urgent: {stats.urgent}</span>
-        <span className="pill">Due Soon: {stats.dueSoon}</span>
-        <span className="pill">Called: {stats.called}</span>
-        <span className="pill onpace">Completed: {stats.completed}</span>
+        <span className="pill" style={{ background: '#1a1a1a', color: '#fff' }}>Total: {stats.total}</span>
+        <span className="pill" style={{ background: '#7f1d1d', color: '#fff' }}>Overdue (Open): {stats.overdueOpen}</span>
+        <span className="pill" style={{ background: '#b45309', color: '#fff' }}>Urgent (Open): {stats.urgentOpen}</span>
+        <span className="pill" style={{ background: '#a16207', color: '#fff' }}>Due Soon (Open): {stats.dueSoonOpen}</span>
+        <span className="pill" style={{ background: '#1a1a1a', color: '#fff' }}>Called: {stats.called}</span>
+        <span className="pill" style={{ background: '#166534', color: '#fff' }}>Completed: {stats.completed}</span>
         <a href={SHEET_URL} target="_blank" rel="noreferrer" style={{ marginLeft: 'auto' }}>
           <button type="button">Open Google Sheet</button>
         </a>
@@ -298,7 +302,7 @@ export default function SponsorshipsPage() {
       {loading ? (
         <p className="muted">Loading sponsorship sheet...</p>
       ) : (
-        <table>
+        <table style={{ background: '#0f0f0f', color: '#f5f5f5' }}>
           <thead>
             <tr>
               <th>Name</th>
@@ -322,17 +326,28 @@ export default function SponsorshipsPage() {
               const done = isCompleted(r, wf);
 
               return (
-                <tr key={key} style={done ? { backgroundColor: 'rgba(34, 197, 94, 0.2)' } : undefined}>
+                <tr key={key} style={done ? { backgroundColor: 'rgba(34, 197, 94, 0.25)', color: '#eaffea' } : { backgroundColor: '#111111', color: '#f5f5f5' }}>
                   <td>{r.name}</td>
                   <td>{r.phone || '—'}</td>
                   <td>{r.referredBy || '—'}</td>
                   <td>{formatDate(r.approvedDate)}</td>
-                  <td>{formatDate(r.dueDate)}</td>
-                  <td>{r.hoursLeft === null ? '—' : `${r.hoursLeft}h`}</td>
+                  <td>{done ? 'Completed' : formatDate(r.dueDate)}</td>
+                  <td>{done ? 'Completed' : (r.hoursLeft === null ? '—' : `${r.hoursLeft}h`)}</td>
                   <td>
-                    <span className={`pill ${r.systemStatus === 'Overdue' || r.systemStatus === 'Urgent' ? 'atrisk' : 'onpace'}`}>
-                      {r.systemStatus}
-                    </span>
+                    {done ? (
+                      <span className="pill" style={{ background: '#166534', color: '#fff' }}>Completed</span>
+                    ) : (
+                      <span
+                        className="pill"
+                        style={{
+                          background:
+                            r.systemStatus === 'Overdue' ? '#7f1d1d' : r.systemStatus === 'Urgent' || r.systemStatus === 'Due Soon' ? '#a16207' : '#1f2937',
+                          color: '#fff'
+                        }}
+                      >
+                        {r.systemStatus}
+                      </span>
+                    )}
                   </td>
                   <td>
                     <button type="button" onClick={() => toggleCalled(key, wf)}>
