@@ -8,6 +8,60 @@ function normalize(value = '') {
   return String(value).trim().toUpperCase();
 }
 
+const STATE_CODE_TO_NAME = {
+  AL: 'Alabama',
+  AK: 'Alaska',
+  AZ: 'Arizona',
+  AR: 'Arkansas',
+  CA: 'California',
+  CO: 'Colorado',
+  CT: 'Connecticut',
+  DE: 'Delaware',
+  DC: 'District of Columbia',
+  FL: 'Florida',
+  GA: 'Georgia',
+  HI: 'Hawaii',
+  ID: 'Idaho',
+  IL: 'Illinois',
+  IN: 'Indiana',
+  IA: 'Iowa',
+  KS: 'Kansas',
+  KY: 'Kentucky',
+  LA: 'Louisiana',
+  ME: 'Maine',
+  MD: 'Maryland',
+  MA: 'Massachusetts',
+  MI: 'Michigan',
+  MN: 'Minnesota',
+  MS: 'Mississippi',
+  MO: 'Missouri',
+  MT: 'Montana',
+  NE: 'Nebraska',
+  NV: 'Nevada',
+  NH: 'New Hampshire',
+  NJ: 'New Jersey',
+  NM: 'New Mexico',
+  NY: 'New York',
+  NC: 'North Carolina',
+  ND: 'North Dakota',
+  OH: 'Ohio',
+  OK: 'Oklahoma',
+  OR: 'Oregon',
+  PA: 'Pennsylvania',
+  RI: 'Rhode Island',
+  SC: 'South Carolina',
+  SD: 'South Dakota',
+  TN: 'Tennessee',
+  TX: 'Texas',
+  UT: 'Utah',
+  VT: 'Vermont',
+  VA: 'Virginia',
+  WA: 'Washington',
+  WV: 'West Virginia',
+  WI: 'Wisconsin',
+  WY: 'Wyoming'
+};
+
 const STATE_NAME_TO_CODE = {
   ALABAMA: 'AL',
   ALASKA: 'AK',
@@ -159,11 +213,11 @@ export default function LicensedAgentsPage() {
 
         <div className="panelRow" style={{ gap: '10px', flexWrap: 'wrap' }}>
           <label style={{ display: 'grid', gap: '6px' }}>
-            <span className="muted">State</span>
+            <span className="muted">State Filter (full name helper)</span>
             <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
               {states.map((state) => (
                 <option key={state} value={state}>
-                  {state}
+                  {state === 'ALL' ? 'All States' : `${state} — ${STATE_CODE_TO_NAME[state] || state}`}
                 </option>
               ))}
             </select>
