@@ -1,35 +1,5 @@
 [
   {
-    "agent_id": "000225829",
-    "full_name": "ROPP, ROXANNE K",
-    "email": "roppbiz@yahoo.com",
-    "phone": "281-989-8787",
-    "city": "SPRING",
-    "home_state": "TX",
-    "state_code": "TX",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000334698",
-    "full_name": "SMITH, CORTEZ DERRICO",
-    "email": "coachcortezttl@gmail.com",
-    "phone": "706-255-0337",
-    "city": "ATHENS",
-    "home_state": "GA",
-    "state_code": "GA",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000526817",
-    "full_name": "WOODIE, REGINALD",
-    "email": "insureiqfinancial@gmail.com",
-    "phone": "929-909-5493",
-    "city": "GROVELAND",
-    "home_state": "FL",
-    "state_code": "FL",
-    "license_status": "Active"
-  },
-  {
     "agent_id": "000576030",
     "full_name": "ADAMS, MADALYN",
     "email": "madalynm13@gmail.com",
@@ -40,43 +10,63 @@
     "license_status": "Active"
   },
   {
-    "agent_id": "000582208",
-    "full_name": "SUBLETT, JUVINA",
-    "email": "jnjconsultingnservices@gmail.com",
-    "phone": "513-713-2672",
-    "city": "CINCINNATI",
-    "home_state": "OH",
-    "state_code": "OH",
+    "agent_id": "000615922",
+    "full_name": "ANGELIC, (ALT)",
+    "email": "angelic.alt@gmail.com",
+    "phone": "312-555-0122",
+    "city": "CHICAGO",
+    "home_state": "IL",
+    "state_code": "IL",
     "license_status": "Active"
   },
   {
-    "agent_id": "000585853",
-    "full_name": "RAULSTON, KYESHA",
-    "email": "kysha.r@gmail.com",
-    "phone": "501-392-4427",
-    "city": "LITTLE ROCK",
-    "home_state": "AR",
-    "state_code": "AR",
+    "agent_id": "000626210",
+    "full_name": "ANISH, (LAST NAME)",
+    "email": "anish@gmail.com",
+    "phone": "470-555-0167",
+    "city": "ATLANTA",
+    "home_state": "GA",
+    "state_code": "GA",
     "license_status": "Active"
   },
   {
-    "agent_id": "000591422",
-    "full_name": "TAYLOR, TANEISHA",
-    "email": "taylorfinancialsolutionsllc@gmail.com",
-    "phone": "816-457-3535",
-    "city": "KANSAS CITY",
-    "home_state": "MO",
-    "state_code": "MO",
+    "agent_id": "000622118",
+    "full_name": "ANTHONY, FLACK",
+    "email": "anthonyflack@gmail.com",
+    "phone": "312-555-0190",
+    "city": "CHICAGO",
+    "home_state": "IL",
+    "state_code": "IL",
     "license_status": "Active"
   },
   {
-    "agent_id": "000591457",
-    "full_name": "WRIGHT, LETICIA",
-    "email": "leticiamwright@gmail.com",
-    "phone": "719-476-8150",
-    "city": "DENVER",
-    "home_state": "CO",
-    "state_code": "CO",
+    "agent_id": "000599702",
+    "full_name": "BENOIT, JAMES",
+    "email": "jbenoit17@icloud.com",
+    "phone": "716-444-8069",
+    "city": "BUFFALO",
+    "home_state": "NY",
+    "state_code": "NY",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000621003",
+    "full_name": "BIG MONEY MIKE, (LAST NAME)",
+    "email": "bigmoneymike@gmail.com",
+    "phone": "404-555-0111",
+    "city": "ATLANTA",
+    "home_state": "GA",
+    "state_code": "GA",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000614201",
+    "full_name": "BREANNA, DR",
+    "email": "drbreanna@gmail.com",
+    "phone": "515-555-0137",
+    "city": "DES MOINES",
+    "home_state": "IA",
+    "state_code": "IA",
     "license_status": "Active"
   },
   {
@@ -90,13 +80,53 @@
     "license_status": "Active"
   },
   {
-    "agent_id": "000599702",
-    "full_name": "BENOIT, JAMES",
-    "email": "jbenoit17@icloud.com",
-    "phone": "716-444-8069",
-    "city": "BUFFALO",
-    "home_state": "NY",
-    "state_code": "NY",
+    "agent_id": "000610494",
+    "full_name": "CLARK, DAVION",
+    "email": "davionclark@gmail.com",
+    "phone": "214-555-0172",
+    "city": "DALLAS",
+    "home_state": "TX",
+    "state_code": "TX",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000628410",
+    "full_name": "DAVIS, SHANICE",
+    "email": "shanicedavis@gmail.com",
+    "phone": "303-555-0140",
+    "city": "DENVER",
+    "home_state": "CO",
+    "state_code": "CO",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000611023",
+    "full_name": "DIOP, TRISTAN",
+    "email": "tristandiop@gmail.com",
+    "phone": "201-555-0103",
+    "city": "JERSEY CITY",
+    "home_state": "NJ",
+    "state_code": "NJ",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000624988",
+    "full_name": "DR. BRIANNA, (ALT)",
+    "email": "drbrianna@gmail.com",
+    "phone": "515-555-0121",
+    "city": "DES MOINES",
+    "home_state": "IA",
+    "state_code": "IA",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000616501",
+    "full_name": "EZRIA, (LAST NAME)",
+    "email": "ezria@gmail.com",
+    "phone": "213-555-0132",
+    "city": "LOS ANGELES",
+    "home_state": "CA",
+    "state_code": "CA",
     "license_status": "Active"
   },
   {
@@ -130,6 +160,106 @@
     "license_status": "Active"
   },
   {
+    "agent_id": "000610011",
+    "full_name": "HIGGS, ARVETA J",
+    "email": "arveta.higgs@gmail.com",
+    "phone": "919-555-0108",
+    "city": "RALEIGH",
+    "home_state": "NC",
+    "state_code": "NC",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000613188",
+    "full_name": "HOLMES, JAMAL",
+    "email": "jamalholmes@gmail.com",
+    "phone": "201-555-0144",
+    "city": "EDGEWATER",
+    "home_state": "NJ",
+    "state_code": "NJ",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000612650",
+    "full_name": "HOPKINS JR, CHARLES",
+    "email": "charleshopkinsjr@gmail.com",
+    "phone": "704-555-0190",
+    "city": "CHARLOTTE",
+    "home_state": "NC",
+    "state_code": "NC",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000617650",
+    "full_name": "JEAN, (LAST NAME)",
+    "email": "jean@gmail.com",
+    "phone": "973-555-0120",
+    "city": "NEWARK",
+    "home_state": "NJ",
+    "state_code": "NJ",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000617044",
+    "full_name": "JEN, (LAST NAME)",
+    "email": "jen@gmail.com",
+    "phone": "469-555-0141",
+    "city": "DALLAS",
+    "home_state": "TX",
+    "state_code": "TX",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000618944",
+    "full_name": "KELIN, (LAST NAME)",
+    "email": "kelin@gmail.com",
+    "phone": "201-555-0187",
+    "city": "EDGEWATER",
+    "home_state": "NJ",
+    "state_code": "NJ",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000624310",
+    "full_name": "KELLEN, (LAST NAME)",
+    "email": "kellen@gmail.com",
+    "phone": "312-555-0129",
+    "city": "CHICAGO",
+    "home_state": "IL",
+    "state_code": "IL",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000625603",
+    "full_name": "KESHA, (LAST NAME)",
+    "email": "kesha@gmail.com",
+    "phone": "501-555-0131",
+    "city": "LITTLE ROCK",
+    "home_state": "AR",
+    "state_code": "AR",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000626988",
+    "full_name": "KRISTI, (LAST NAME)",
+    "email": "kristi@gmail.com",
+    "phone": "470-555-0128",
+    "city": "ATLANTA",
+    "home_state": "GA",
+    "state_code": "GA",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000619411",
+    "full_name": "KRYSTLE, (LAST NAME)",
+    "email": "krystle@gmail.com",
+    "phone": "312-555-0170",
+    "city": "CHICAGO",
+    "home_state": "IL",
+    "state_code": "IL",
+    "license_status": "Active"
+  },
+  {
     "agent_id": "000606247",
     "full_name": "LANSING, CHERYL",
     "email": "che16lan@gmail.com",
@@ -137,6 +267,36 @@
     "city": "SWEDESBORO",
     "home_state": "NJ",
     "state_code": "NJ",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000608403",
+    "full_name": "LASSITER, ANGELIC",
+    "email": "angelic.lassiter@gmail.com",
+    "phone": "404-555-0181",
+    "city": "ATLANTA",
+    "home_state": "GA",
+    "state_code": "GA",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000611611",
+    "full_name": "LEE, EMANI",
+    "email": "emani.lee@gmail.com",
+    "phone": "201-555-0194",
+    "city": "NEWARK",
+    "home_state": "NJ",
+    "state_code": "NJ",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000613744",
+    "full_name": "LEE, IMANI",
+    "email": "imani.lee@gmail.com",
+    "phone": "201-555-0150",
+    "city": "NEW YORK",
+    "home_state": "NY",
+    "state_code": "NY",
     "license_status": "Active"
   },
   {
@@ -160,13 +320,13 @@
     "license_status": "Active"
   },
   {
-    "agent_id": "000608403",
-    "full_name": "LASSITER, ANGELIC",
-    "email": "angelic.lassiter@gmail.com",
-    "phone": "404-555-0181",
-    "city": "ATLANTA",
-    "home_state": "GA",
-    "state_code": "GA",
+    "agent_id": "000620044",
+    "full_name": "MARLON, (LAST NAME)",
+    "email": "marlon@gmail.com",
+    "phone": "515-555-0191",
+    "city": "DES MOINES",
+    "home_state": "IA",
+    "state_code": "IA",
     "license_status": "Active"
   },
   {
@@ -180,6 +340,16 @@
     "license_status": "Active"
   },
   {
+    "agent_id": "000622903",
+    "full_name": "MIRACLE, WRIGHT",
+    "email": "miraclewright@gmail.com",
+    "phone": "214-555-0140",
+    "city": "DALLAS",
+    "home_state": "TX",
+    "state_code": "TX",
+    "license_status": "Active"
+  },
+  {
     "agent_id": "000609024",
     "full_name": "MUHAMMAD, KEITH D",
     "email": "keithdmuhammad@gmail.com",
@@ -187,6 +357,16 @@
     "city": "PHILADELPHIA",
     "home_state": "PA",
     "state_code": "PA",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000623744",
+    "full_name": "NONI, (LAST NAME)",
+    "email": "noni@gmail.com",
+    "phone": "214-555-0155",
+    "city": "DALLAS",
+    "home_state": "TX",
+    "state_code": "TX",
     "license_status": "Active"
   },
   {
@@ -200,93 +380,13 @@
     "license_status": "Active"
   },
   {
-    "agent_id": "000610011",
-    "full_name": "HIGGS, ARVETA J",
-    "email": "arveta.higgs@gmail.com",
-    "phone": "919-555-0108",
-    "city": "RALEIGH",
-    "home_state": "NC",
-    "state_code": "NC",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000610494",
-    "full_name": "CLARK, DAVION",
-    "email": "davionclark@gmail.com",
-    "phone": "214-555-0172",
-    "city": "DALLAS",
-    "home_state": "TX",
-    "state_code": "TX",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000611023",
-    "full_name": "DIOP, TRISTAN",
-    "email": "tristandiop@gmail.com",
-    "phone": "201-555-0103",
-    "city": "JERSEY CITY",
-    "home_state": "NJ",
-    "state_code": "NJ",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000611611",
-    "full_name": "LEE, EMANI",
-    "email": "emani.lee@gmail.com",
-    "phone": "201-555-0194",
-    "city": "NEWARK",
-    "home_state": "NJ",
-    "state_code": "NJ",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000612144",
-    "full_name": "SANCHEZ, ARI",
-    "email": "arisanchez@gmail.com",
-    "phone": "786-555-0101",
-    "city": "MIAMI",
-    "home_state": "FL",
-    "state_code": "FL",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000612650",
-    "full_name": "HOPKINS JR, CHARLES",
-    "email": "charleshopkinsjr@gmail.com",
-    "phone": "704-555-0190",
-    "city": "CHARLOTTE",
-    "home_state": "NC",
-    "state_code": "NC",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000613188",
-    "full_name": "HOLMES, JAMAL",
-    "email": "jamalholmes@gmail.com",
-    "phone": "201-555-0144",
-    "city": "EDGEWATER",
-    "home_state": "NJ",
-    "state_code": "NJ",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000613744",
-    "full_name": "LEE, IMANI",
-    "email": "imani.lee@gmail.com",
-    "phone": "201-555-0150",
-    "city": "NEW YORK",
-    "home_state": "NY",
-    "state_code": "NY",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000614201",
-    "full_name": "BREANNA, DR",
-    "email": "drbreanna@gmail.com",
-    "phone": "515-555-0137",
-    "city": "DES MOINES",
-    "home_state": "IA",
-    "state_code": "IA",
+    "agent_id": "000585853",
+    "full_name": "RAULSTON, KYESHA",
+    "email": "kysha.r@gmail.com",
+    "phone": "501-392-4427",
+    "city": "LITTLE ROCK",
+    "home_state": "AR",
+    "state_code": "AR",
     "license_status": "Active"
   },
   {
@@ -294,106 +394,6 @@
     "full_name": "REGINA, (LAST NAME)",
     "email": "regina@gmail.com",
     "phone": "678-555-0188",
-    "city": "ATLANTA",
-    "home_state": "GA",
-    "state_code": "GA",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000615230",
-    "full_name": "TANAISHA, (LAST NAME)",
-    "email": "tanaisha@gmail.com",
-    "phone": "816-555-0107",
-    "city": "KANSAS CITY",
-    "home_state": "MO",
-    "state_code": "MO",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000615922",
-    "full_name": "ANGELIC, (ALT)",
-    "email": "angelic.alt@gmail.com",
-    "phone": "312-555-0122",
-    "city": "CHICAGO",
-    "home_state": "IL",
-    "state_code": "IL",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000616501",
-    "full_name": "EZRIA, (LAST NAME)",
-    "email": "ezria@gmail.com",
-    "phone": "213-555-0132",
-    "city": "LOS ANGELES",
-    "home_state": "CA",
-    "state_code": "CA",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000617044",
-    "full_name": "JEN, (LAST NAME)",
-    "email": "jen@gmail.com",
-    "phone": "469-555-0141",
-    "city": "DALLAS",
-    "home_state": "TX",
-    "state_code": "TX",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000617650",
-    "full_name": "JEAN, (LAST NAME)",
-    "email": "jean@gmail.com",
-    "phone": "973-555-0120",
-    "city": "NEWARK",
-    "home_state": "NJ",
-    "state_code": "NJ",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000618210",
-    "full_name": "TAKARA, (LAST NAME)",
-    "email": "takara@gmail.com",
-    "phone": "201-555-0166",
-    "city": "JERSEY CITY",
-    "home_state": "NJ",
-    "state_code": "NJ",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000618944",
-    "full_name": "KELIN, (LAST NAME)",
-    "email": "kelin@gmail.com",
-    "phone": "201-555-0187",
-    "city": "EDGEWATER",
-    "home_state": "NJ",
-    "state_code": "NJ",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000619411",
-    "full_name": "KRYSTLE, (LAST NAME)",
-    "email": "krystle@gmail.com",
-    "phone": "312-555-0170",
-    "city": "CHICAGO",
-    "home_state": "IL",
-    "state_code": "IL",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000620044",
-    "full_name": "MARLON, (LAST NAME)",
-    "email": "marlon@gmail.com",
-    "phone": "515-555-0191",
-    "city": "DES MOINES",
-    "home_state": "IA",
-    "state_code": "IA",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000621003",
-    "full_name": "BIG MONEY MIKE, (LAST NAME)",
-    "email": "bigmoneymike@gmail.com",
-    "phone": "404-555-0111",
     "city": "ATLANTA",
     "home_state": "GA",
     "state_code": "GA",
@@ -410,83 +410,23 @@
     "license_status": "Active"
   },
   {
-    "agent_id": "000622118",
-    "full_name": "ANTHONY, FLACK",
-    "email": "anthonyflack@gmail.com",
-    "phone": "312-555-0190",
-    "city": "CHICAGO",
-    "home_state": "IL",
-    "state_code": "IL",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000622903",
-    "full_name": "MIRACLE, WRIGHT",
-    "email": "miraclewright@gmail.com",
-    "phone": "214-555-0140",
-    "city": "DALLAS",
+    "agent_id": "000225829",
+    "full_name": "ROPP, ROXANNE K",
+    "email": "roppbiz@yahoo.com",
+    "phone": "281-989-8787",
+    "city": "SPRING",
     "home_state": "TX",
     "state_code": "TX",
     "license_status": "Active"
   },
   {
-    "agent_id": "000623744",
-    "full_name": "NONI, (LAST NAME)",
-    "email": "noni@gmail.com",
-    "phone": "214-555-0155",
-    "city": "DALLAS",
-    "home_state": "TX",
-    "state_code": "TX",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000624310",
-    "full_name": "KELLEN, (LAST NAME)",
-    "email": "kellen@gmail.com",
-    "phone": "312-555-0129",
-    "city": "CHICAGO",
-    "home_state": "IL",
-    "state_code": "IL",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000624988",
-    "full_name": "DR. BRIANNA, (ALT)",
-    "email": "drbrianna@gmail.com",
-    "phone": "515-555-0121",
-    "city": "DES MOINES",
-    "home_state": "IA",
-    "state_code": "IA",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000625603",
-    "full_name": "KESHA, (LAST NAME)",
-    "email": "kesha@gmail.com",
-    "phone": "501-555-0131",
-    "city": "LITTLE ROCK",
-    "home_state": "AR",
-    "state_code": "AR",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000626210",
-    "full_name": "ANISH, (LAST NAME)",
-    "email": "anish@gmail.com",
-    "phone": "470-555-0167",
-    "city": "ATLANTA",
-    "home_state": "GA",
-    "state_code": "GA",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000626988",
-    "full_name": "KRISTI, (LAST NAME)",
-    "email": "kristi@gmail.com",
-    "phone": "470-555-0128",
-    "city": "ATLANTA",
-    "home_state": "GA",
-    "state_code": "GA",
+    "agent_id": "000612144",
+    "full_name": "SANCHEZ, ARI",
+    "email": "arisanchez@gmail.com",
+    "phone": "786-555-0101",
+    "city": "MIAMI",
+    "home_state": "FL",
+    "state_code": "FL",
     "license_status": "Active"
   },
   {
@@ -500,23 +440,13 @@
     "license_status": "Active"
   },
   {
-    "agent_id": "000628410",
-    "full_name": "DAVIS, SHANICE",
-    "email": "shanicedavis@gmail.com",
-    "phone": "303-555-0140",
-    "city": "DENVER",
-    "home_state": "CO",
-    "state_code": "CO",
-    "license_status": "Active"
-  },
-  {
-    "agent_id": "000629188",
-    "full_name": "THOMAS, STEPHANIE R",
-    "email": "stephaniet@gmail.com",
-    "phone": "973-555-0163",
-    "city": "NEWARK",
-    "home_state": "NJ",
-    "state_code": "NJ",
+    "agent_id": "000334698",
+    "full_name": "SMITH, CORTEZ DERRICO",
+    "email": "coachcortezttl@gmail.com",
+    "phone": "706-255-0337",
+    "city": "ATHENS",
+    "home_state": "GA",
+    "state_code": "GA",
     "license_status": "Active"
   },
   {
@@ -527,6 +457,56 @@
     "city": "ARVADA",
     "home_state": "CO",
     "state_code": "CO",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000582208",
+    "full_name": "SUBLETT, JUVINA",
+    "email": "jnjconsultingnservices@gmail.com",
+    "phone": "513-713-2672",
+    "city": "CINCINNATI",
+    "home_state": "OH",
+    "state_code": "OH",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000618210",
+    "full_name": "TAKARA, (LAST NAME)",
+    "email": "takara@gmail.com",
+    "phone": "201-555-0166",
+    "city": "JERSEY CITY",
+    "home_state": "NJ",
+    "state_code": "NJ",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000615230",
+    "full_name": "TANAISHA, (LAST NAME)",
+    "email": "tanaisha@gmail.com",
+    "phone": "816-555-0107",
+    "city": "KANSAS CITY",
+    "home_state": "MO",
+    "state_code": "MO",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000591422",
+    "full_name": "TAYLOR, TANEISHA",
+    "email": "taylorfinancialsolutionsllc@gmail.com",
+    "phone": "816-457-3535",
+    "city": "KANSAS CITY",
+    "home_state": "MO",
+    "state_code": "MO",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000629188",
+    "full_name": "THOMAS, STEPHANIE R",
+    "email": "stephaniet@gmail.com",
+    "phone": "973-555-0163",
+    "city": "NEWARK",
+    "home_state": "NJ",
+    "state_code": "NJ",
     "license_status": "Active"
   },
   {
@@ -587,6 +567,26 @@
     "city": "HARBOR CITY",
     "home_state": "CA",
     "state_code": "CA",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000526817",
+    "full_name": "WOODIE, REGINALD",
+    "email": "insureiqfinancial@gmail.com",
+    "phone": "929-909-5493",
+    "city": "GROVELAND",
+    "home_state": "FL",
+    "state_code": "FL",
+    "license_status": "Active"
+  },
+  {
+    "agent_id": "000591457",
+    "full_name": "WRIGHT, LETICIA",
+    "email": "leticiamwright@gmail.com",
+    "phone": "719-476-8150",
+    "city": "DENVER",
+    "home_state": "CO",
+    "state_code": "CO",
     "license_status": "Active"
   },
   {
