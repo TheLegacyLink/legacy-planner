@@ -71,6 +71,22 @@ const COMPLETED_NAME_SET = (() => {
   return set;
 })();
 
+const CONTRACTED_NAME_SET = (() => {
+  const set = new Set();
+  for (const row of licensedAgents) {
+    const n = normalizeName(row.full_name || '');
+    const carriers = row.carriers_all || [];
+    if (n && carriers.length) set.add(n);
+
+    if (n.includes(',')) {
+      const [last, first] = n.split(',').map((x) => x.trim());
+      const flipped = normalizeName(`${first} ${last}`);
+      if (flipped && carriers.length) set.add(flipped);
+    }
+  }
+  return set;
+})();
+
 function parseGvizDate(value) {
   if (!value || typeof value !== 'string') return null;
   const m = value.match(/Date\((\d+),(\d+),(\d+)/);
@@ -113,12 +129,32 @@ function isCompleted(row, wf) {
   return Boolean(row.autoCompleted) || wf?.stage === 'Completed' || manual.includes('complete') || manual.includes('issued');
 }
 
+function contractedStatus(row, wf) {
+  if (wf?.contractedOverride === 'Yes') return 'Yes';
+  if (wf?.contractedOverride === 'No') return 'No';
+  return row.autoContracted ? 'Yes' : 'No';
+}
+
+function processLabel(row, wf) {
+  if (isCompleted(row, wf)) return 'Policy Completed';
+
+  const licensing = wf?.licensingStatus || 'Unknown';
+  const contracted = contractedStatus(row, wf);
+
+  if (licensing === 'Unlicensed') return 'Needs Pre-licensing';
+  if (licensing === 'Pre-licensing') return 'In Pre-licensing';
+  if (licensing === 'Licensed' && contracted === 'No') return 'Awaiting Contracting';
+  if (licensing === 'Licensed' && contracted === 'Yes') return 'Ready to Write';
+  return 'In Progress';
+}
+
 export default function SponsorshipsPage() {
   const [standalone, setStandalone] = useState(false);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [viewTab, setViewTab] = useState('Active Pipeline');
   const [stageFilter, setStageFilter] = useState('All');
   const [sortMode, setSortMode] = useState('Newest In');
   const [workflow, setWorkflow] = useState({});
@@ -238,7 +274,8 @@ export default function SponsorshipsPage() {
             hoursLeft: hLeft,
             systemStatus: statusFromHours(hLeft),
             manualStatus: cells[cStatus]?.v ? String(cells[cStatus].v) : '',
-            autoCompleted: COMPLETED_NAME_SET.has(normalizeName(String(name)))
+            autoCompleted: COMPLETED_NAME_SET.has(normalizeName(String(name))),
+            autoContracted: CONTRACTED_NAME_SET.has(normalizeName(String(name)))
           });
         }
 
@@ -284,6 +321,11 @@ export default function SponsorshipsPage() {
     const q = search.trim().toLowerCase();
 
     const list = rows
+      .filter((r) => {
+        const wf = workflow[rowKey(r)] || {};
+        const done = isCompleted(r, wf);
+        return viewTab === 'Completed Policies' ? done : !done;
+      })
       .filter((r) => (statusFilter === 'All' ? true : r.systemStatus === statusFilter))
       .filter((r) => {
         const wf = workflow[rowKey(r)] || {};
@@ -301,6 +343,9 @@ export default function SponsorshipsPage() {
           r.systemStatus,
           wf.owner,
           wf.stage,
+          wf.licensingStatus,
+          wf.contractedOverride,
+          processLabel(r, wf),
           wf.notes,
           wf.updatedBy
         ]
@@ -327,7 +372,7 @@ export default function SponsorshipsPage() {
       // fallback
       return bApproved - aApproved;
     });
-  }, [rows, search, statusFilter, stageFilter, sortMode, workflow]);
+  }, [rows, search, statusFilter, viewTab, stageFilter, sortMode, workflow]);
 
   const stats = useMemo(() => {
     const out = { total: rows.length, overdueOpen: 0, urgentOpen: 0, dueSoonOpen: 0, completed: 0, called: 0 };
@@ -371,6 +416,23 @@ export default function SponsorshipsPage() {
 
   const core = (
     <div className="panel" style={{ background: '#0a0a0a', border: '1px solid #3a3a3a' }}>
+      <div className="panelRow" style={{ marginBottom: 12, gap: 10 }}>
+        <button
+          type="button"
+          onClick={() => setViewTab('Active Pipeline')}
+          style={viewTab === 'Active Pipeline' ? { background: '#fff', color: '#111' } : undefined}
+        >
+          Active Pipeline
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewTab('Completed Policies')}
+          style={viewTab === 'Completed Policies' ? { background: '#166534', color: '#fff' } : undefined}
+        >
+          Completed Policies
+        </button>
+      </div>
+
       <div className="panelRow" style={{ marginBottom: 12, gap: 10, flexWrap: 'wrap' }}>
         <span className="pill" style={{ background: '#1a1a1a', color: '#fff' }}>Total: {stats.total}</span>
         <span className="pill" style={{ background: '#7f1d1d', color: '#fff' }}>Overdue (Open): {stats.overdueOpen}</span>
@@ -444,6 +506,9 @@ export default function SponsorshipsPage() {
               <th>Called</th>
               <th>Owner</th>
               <th>Stage</th>
+              <th>Licensing</th>
+              <th>Contracted</th>
+              <th>Process</th>
               <th>Notes</th>
               <th>Last Update</th>
             </tr>
@@ -503,6 +568,31 @@ export default function SponsorshipsPage() {
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
+                  </td>
+                  <td>
+                    <select
+                      value={wf.licensingStatus || 'Unknown'}
+                      onChange={(e) => updateWorkflow(key, { licensingStatus: e.target.value })}
+                    >
+                      {['Unknown', 'Unlicensed', 'Pre-licensing', 'Licensed'].map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      value={wf.contractedOverride || 'Auto'}
+                      onChange={(e) => updateWorkflow(key, { contractedOverride: e.target.value })}
+                    >
+                      <option value="Auto">Auto ({r.autoContracted ? 'Yes' : 'No'})</option>
+                      <option value="Yes">Yes</option>
+                      <option value="No">No</option>
+                    </select>
+                  </td>
+                  <td>
+                    <span className="pill" style={{ background: '#1f2937', color: '#fff' }}>
+                      {processLabel(r, wf)}
+                    </span>
                   </td>
                   <td>
                     <input
