@@ -351,6 +351,21 @@ textarea {
 
 textarea { min-height: 180px; margin-top: 8px; }
 
+.panel table input,
+.panel table select,
+.panel table textarea {
+  width: 100%;
+  background: #0c100d;
+  color: #fff;
+  border: 1px solid #334038;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.authGate {
+  max-width: 540px;
+}
+
 @media (max-width: 1080px) {
   .execStrip { grid-template-columns: 1fr; }
 }
