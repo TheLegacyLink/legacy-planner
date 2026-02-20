@@ -120,6 +120,14 @@ function statusFromHours(hours) {
   return 'On Track';
 }
 
+function daysSince(isoLike) {
+  if (!isoLike) return 0;
+  const d = new Date(isoLike);
+  if (Number.isNaN(d.getTime())) return 0;
+  const diffMs = Date.now() - d.getTime();
+  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+}
+
 function rowKey(row) {
   return [row.name, row.phone, row.approvedDate ? row.approvedDate.toISOString().slice(0, 10) : ''].join('|').toUpperCase();
 }
@@ -157,6 +165,8 @@ export default function SponsorshipsPage() {
   const [viewTab, setViewTab] = useState('Active Pipeline');
   const [stageFilter, setStageFilter] = useState('All');
   const [sortMode, setSortMode] = useState('Newest In');
+  const [stuckDays, setStuckDays] = useState(3);
+  const [stuckOnly, setStuckOnly] = useState(false);
   const [workflow, setWorkflow] = useState({});
   const [operatorName, setOperatorName] = useState('');
   const [accessGranted, setAccessGranted] = useState(false);
@@ -333,6 +343,12 @@ export default function SponsorshipsPage() {
         return stageFilter === 'All' ? true : effectiveStage === stageFilter;
       })
       .filter((r) => {
+        if (!stuckOnly) return true;
+        const wf = workflow[rowKey(r)] || {};
+        const anchor = wf.updatedAt || (r.approvedDate ? r.approvedDate.toISOString() : '');
+        return daysSince(anchor) >= stuckDays;
+      })
+      .filter((r) => {
         if (!q) return true;
         const wf = workflow[rowKey(r)] || {};
         return [
@@ -372,10 +388,10 @@ export default function SponsorshipsPage() {
       // fallback
       return bApproved - aApproved;
     });
-  }, [rows, search, statusFilter, viewTab, stageFilter, sortMode, workflow]);
+  }, [rows, search, statusFilter, viewTab, stageFilter, sortMode, stuckOnly, stuckDays, workflow]);
 
   const stats = useMemo(() => {
-    const out = { total: rows.length, overdueOpen: 0, urgentOpen: 0, dueSoonOpen: 0, completed: 0, called: 0 };
+    const out = { total: rows.length, overdueOpen: 0, urgentOpen: 0, dueSoonOpen: 0, completed: 0, called: 0, stuck: 0 };
     for (const r of rows) {
       const wf = workflow[rowKey(r)] || {};
       const done = isCompleted(r, wf);
@@ -385,11 +401,35 @@ export default function SponsorshipsPage() {
         if (r.systemStatus === 'Overdue') out.overdueOpen += 1;
         if (r.systemStatus === 'Urgent') out.urgentOpen += 1;
         if (r.systemStatus === 'Due Soon') out.dueSoonOpen += 1;
+        const anchor = wf.updatedAt || (r.approvedDate ? r.approvedDate.toISOString() : '');
+        if (daysSince(anchor) >= stuckDays) out.stuck += 1;
       }
       if (wf.called) out.called += 1;
     }
     return out;
-  }, [rows, workflow]);
+  }, [rows, workflow, stuckDays]);
+
+  const stuckDigest = useMemo(() => {
+    const lines = [];
+    for (const r of rows) {
+      const wf = workflow[rowKey(r)] || {};
+      if (isCompleted(r, wf)) continue;
+      const anchor = wf.updatedAt || (r.approvedDate ? r.approvedDate.toISOString() : '');
+      const ageDays = daysSince(anchor);
+      if (ageDays < stuckDays) continue;
+
+      const stage = wf.stage || 'New';
+      const owner = wf.owner || 'Unassigned';
+      lines.push(`- ${r.name} | ${stage} | ${ageDays}d | Owner: ${owner}`);
+    }
+
+    if (!lines.length) return `No stuck records (>= ${stuckDays} days) right now.`;
+    return [`Stuck records (>= ${stuckDays} days):`, ...lines].join('\n');
+  }, [rows, workflow, stuckDays]);
+
+  function copyStuckDigest() {
+    navigator.clipboard.writeText(stuckDigest).catch(() => {});
+  }
 
   if (!accessGranted) {
     return (
@@ -439,6 +479,7 @@ export default function SponsorshipsPage() {
         <span className="pill" style={{ background: '#b45309', color: '#fff' }}>Urgent (Open): {stats.urgentOpen}</span>
         <span className="pill" style={{ background: '#a16207', color: '#fff' }}>Due Soon (Open): {stats.dueSoonOpen}</span>
         <span className="pill" style={{ background: '#1a1a1a', color: '#fff' }}>Called: {stats.called}</span>
+        <span className="pill" style={{ background: '#9a3412', color: '#fff' }}>Stuck: {stats.stuck}</span>
         <span className="pill" style={{ background: '#166534', color: '#fff' }}>Completed: {stats.completed}</span>
         <a href={SHEET_URL} target="_blank" rel="noreferrer" style={{ marginLeft: 'auto' }}>
           <button type="button">Open Google Sheet</button>
@@ -473,6 +514,22 @@ export default function SponsorshipsPage() {
           </select>
         </label>
 
+        <label style={{ display: 'grid', gap: 6 }}>
+          <span className="muted">Stuck threshold (days)</span>
+          <input
+            type="number"
+            min={1}
+            value={stuckDays}
+            onChange={(e) => setStuckDays(Math.max(1, Number(e.target.value || 1)))}
+            style={{ width: 90 }}
+          />
+        </label>
+
+        <label style={{ display: 'flex', alignItems: 'end', gap: 6 }}>
+          <input type="checkbox" checked={stuckOnly} onChange={(e) => setStuckOnly(e.target.checked)} />
+          <span className="muted">Stuck only</span>
+        </label>
+
         <label style={{ display: 'grid', gap: 6, minWidth: 220 }}>
           <span className="muted">Updated by (your name)</span>
           <input value={operatorName} onChange={(e) => updateOperatorName(e.target.value)} placeholder="Ex: Kimora" />
@@ -482,6 +539,8 @@ export default function SponsorshipsPage() {
           <span className="muted">Search</span>
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, owner, notes..." />
         </label>
+
+        <button type="button" onClick={copyStuckDigest}>Copy Stuck Digest</button>
 
         {!standalone && (
           <a href="/sponsorships?standalone=1" target="_blank" rel="noreferrer">
@@ -509,6 +568,7 @@ export default function SponsorshipsPage() {
               <th>Licensing</th>
               <th>Contracted</th>
               <th>Process</th>
+              <th>Stage Age</th>
               <th>Notes</th>
               <th>Last Update</th>
             </tr>
@@ -593,6 +653,12 @@ export default function SponsorshipsPage() {
                     <span className="pill" style={{ background: '#1f2937', color: '#fff' }}>
                       {processLabel(r, wf)}
                     </span>
+                  </td>
+                  <td>
+                    {(() => {
+                      const anchor = wf.updatedAt || (r.approvedDate ? r.approvedDate.toISOString() : '');
+                      return `${daysSince(anchor)}d`;
+                    })()}
                   </td>
                   <td>
                     <input
