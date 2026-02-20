@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import AppShell from '../../components/AppShell';
 
 const SHEET_ID = '123FyOP10FMJtYYy2HE9M9RrY7ariQ5ayMsfPvEcaPVY';
@@ -55,9 +54,7 @@ function isCompleted(row, wf) {
 }
 
 export default function SponsorshipsPage() {
-  const searchParams = useSearchParams();
-  const standalone = searchParams.get('standalone') === '1';
-
+  const [standalone, setStandalone] = useState(false);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -67,6 +64,9 @@ export default function SponsorshipsPage() {
 
   useEffect(() => {
     try {
+      const params = new URLSearchParams(window.location.search);
+      setStandalone(params.get('standalone') === '1');
+
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) setWorkflow(JSON.parse(raw));
       const op = localStorage.getItem(OPERATOR_KEY) || '';
