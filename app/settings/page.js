@@ -33,6 +33,9 @@ export default function SettingsPage() {
   const [onPaceThreshold, setOnPaceThreshold] = useState(String(DEFAULT_CONFIG.onPaceThreshold));
   const [leaderboardUrl, setLeaderboardUrl] = useState(DEFAULT_CONFIG.leaderboardUrl);
   const [revenueUrl, setRevenueUrl] = useState(DEFAULT_CONFIG.revenueUrl);
+  const [policyRescueReadUrl, setPolicyRescueReadUrl] = useState(DEFAULT_CONFIG.policyRescue.readUrl);
+  const [policyRescueWriteUrl, setPolicyRescueWriteUrl] = useState(DEFAULT_CONFIG.policyRescue.writeUrl);
+  const [policyRescuePasscode, setPolicyRescuePasscode] = useState(DEFAULT_CONFIG.policyRescue.passcode);
   const [agents, setAgents] = useState(DEFAULT_CONFIG.agents);
   const [newAgent, setNewAgent] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
@@ -58,6 +61,9 @@ export default function SettingsPage() {
     setOnPaceThreshold(String(cfg.onPaceThreshold));
     setLeaderboardUrl(cfg.leaderboardUrl);
     setRevenueUrl(cfg.revenueUrl);
+    setPolicyRescueReadUrl(cfg.policyRescue?.readUrl || '');
+    setPolicyRescueWriteUrl(cfg.policyRescue?.writeUrl || '');
+    setPolicyRescuePasscode(cfg.policyRescue?.passcode || 'legacylink');
     setAgents(cfg.agents);
     setFromAgent(cfg.agents[0] || '');
     setToAgent(cfg.agents[1] || cfg.agents[0] || '');
@@ -70,7 +76,12 @@ export default function SettingsPage() {
     onPaceThreshold: Number(onPaceThreshold || 1),
     leaderboardUrl,
     revenueUrl,
-    agents
+    agents,
+    policyRescue: {
+      readUrl: policyRescueReadUrl,
+      writeUrl: policyRescueWriteUrl,
+      passcode: policyRescuePasscode || 'legacylink'
+    }
   };
 
   const addAgent = (event) => {
@@ -232,6 +243,21 @@ export default function SettingsPage() {
             <label>
               Revenue Endpoint
               <input value={revenueUrl} onChange={(e) => setRevenueUrl(e.target.value)} />
+            </label>
+
+            <label>
+              Policy Rescue Read URL (Google Sheet/API)
+              <input value={policyRescueReadUrl} onChange={(e) => setPolicyRescueReadUrl(e.target.value)} />
+            </label>
+
+            <label>
+              Policy Rescue Write URL (Apps Script/API)
+              <input value={policyRescueWriteUrl} onChange={(e) => setPolicyRescueWriteUrl(e.target.value)} />
+            </label>
+
+            <label>
+              Policy Rescue Passcode
+              <input value={policyRescuePasscode} onChange={(e) => setPolicyRescuePasscode(e.target.value)} />
             </label>
           </div>
 
