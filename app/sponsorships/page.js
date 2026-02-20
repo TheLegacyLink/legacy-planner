@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import licensedAgents from '../../data/licensedAgents.json';
+import sponsorshipPhoneOverrides from '../../data/sponsorshipPhoneOverrides.json';
 import fngPolicies from '../../data/fngPolicies.json';
 
 const SHEET_ID = '123FyOP10FMJtYYy2HE9M9RrY7ariQ5ayMsfPvEcaPVY';
@@ -32,6 +33,15 @@ function formatPhone(value = '') {
 
 const PHONE_BY_NAME = (() => {
   const map = new Map();
+
+  // Highest priority: explicit sponsorship sheet export overrides
+  for (const [rawName, rawPhone] of Object.entries(sponsorshipPhoneOverrides || {})) {
+    const n = normalizeName(rawName);
+    const p = formatPhone(rawPhone);
+    if (n && p) map.set(n, p);
+  }
+
+  // Secondary: licensed-agents directory fallback
   for (const row of licensedAgents) {
     const n = normalizeName(row.full_name || '');
     const p = formatPhone(row.phone || '');
