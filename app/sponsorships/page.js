@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import AppShell from '../../components/AppShell';
 
 const SHEET_ID = '123FyOP10FMJtYYy2HE9M9RrY7ariQ5ayMsfPvEcaPVY';
 const GID = '839080285';
 const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit#gid=${GID}`;
 const STORAGE_KEY = 'sponsorship_workflow_v1';
+const OPERATOR_KEY = 'sponsorship_operator_name_v1';
 
 const STAGES = ['New', 'Assigned', 'Called', 'Appointment Set', 'Submitted', 'Completed'];
 
@@ -14,15 +16,19 @@ function parseGvizDate(value) {
   if (!value || typeof value !== 'string') return null;
   const m = value.match(/Date\((\d+),(\d+),(\d+)/);
   if (!m) return null;
-  const year = Number(m[1]);
-  const month = Number(m[2]);
-  const day = Number(m[3]);
-  return new Date(year, month, day);
+  return new Date(Number(m[1]), Number(m[2]), Number(m[3]));
 }
 
 function formatDate(date) {
   if (!date || Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString();
+}
+
+function formatDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString();
 }
 
 function hoursLeft(dueDate) {
@@ -49,31 +55,61 @@ function isCompleted(row, wf) {
 }
 
 export default function SponsorshipsPage() {
+  const searchParams = useSearchParams();
+  const standalone = searchParams.get('standalone') === '1';
+
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [workflow, setWorkflow] = useState({});
+  const [operatorName, setOperatorName] = useState('');
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) setWorkflow(JSON.parse(raw));
+      const op = localStorage.getItem(OPERATOR_KEY) || '';
+      setOperatorName(op);
     } catch {
       setWorkflow({});
     }
   }, []);
+
+  function persistWorkflow(next) {
+    setWorkflow(next);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  }
+
+  function updateOperatorName(name) {
+    setOperatorName(name);
+    localStorage.setItem(OPERATOR_KEY, name);
+  }
 
   function updateWorkflow(key, patch) {
     const next = {
       ...workflow,
       [key]: {
         ...(workflow[key] || {}),
-        ...patch
+        ...patch,
+        updatedAt: new Date().toISOString(),
+        updatedBy: operatorName || 'Team Member'
       }
     };
-    setWorkflow(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    persistWorkflow(next);
+  }
+
+  function toggleCalled(key, wf) {
+    const currentlyCalled = Boolean(wf?.called);
+    const patch = {
+      called: !currentlyCalled
+    };
+
+    if (!currentlyCalled && (!wf?.stage || wf?.stage === 'New' || wf?.stage === 'Assigned')) {
+      patch.stage = 'Called';
+    }
+
+    updateWorkflow(key, patch);
   }
 
   useEffect(() => {
@@ -144,7 +180,20 @@ export default function SponsorshipsPage() {
       .filter((r) => {
         if (!q) return true;
         const wf = workflow[rowKey(r)] || {};
-        return [r.name, r.phone, r.referredBy, r.manualStatus, r.systemStatus, wf.owner, wf.stage, wf.notes].join(' ').toLowerCase().includes(q);
+        return [
+          r.name,
+          r.phone,
+          r.referredBy,
+          r.manualStatus,
+          r.systemStatus,
+          wf.owner,
+          wf.stage,
+          wf.notes,
+          wf.updatedBy
+        ]
+          .join(' ')
+          .toLowerCase()
+          .includes(q);
       })
       .sort((a, b) => {
         const awf = workflow[rowKey(a)] || {};
@@ -160,113 +209,142 @@ export default function SponsorshipsPage() {
   }, [rows, search, statusFilter, workflow]);
 
   const stats = useMemo(() => {
-    const out = { total: rows.length, overdue: 0, urgent: 0, dueSoon: 0, completed: 0 };
+    const out = { total: rows.length, overdue: 0, urgent: 0, dueSoon: 0, completed: 0, called: 0 };
     for (const r of rows) {
+      const wf = workflow[rowKey(r)] || {};
       if (r.systemStatus === 'Overdue') out.overdue += 1;
       if (r.systemStatus === 'Urgent') out.urgent += 1;
       if (r.systemStatus === 'Due Soon') out.dueSoon += 1;
-      if (isCompleted(r, workflow[rowKey(r)] || {})) out.completed += 1;
+      if (isCompleted(r, wf)) out.completed += 1;
+      if (wf.called) out.called += 1;
     }
     return out;
   }, [rows, workflow]);
 
-  return (
-    <AppShell title="Sponsorship Tracker">
-      <div className="panel" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', border: '1px solid #334155' }}>
-        <div className="panelRow" style={{ marginBottom: 12, gap: 10, flexWrap: 'wrap' }}>
-          <span className="pill">Total: {stats.total}</span>
-          <span className="pill atrisk">Overdue: {stats.overdue}</span>
-          <span className="pill atrisk">Urgent: {stats.urgent}</span>
-          <span className="pill">Due Soon: {stats.dueSoon}</span>
-          <span className="pill onpace">Completed: {stats.completed}</span>
-          <a href={SHEET_URL} target="_blank" rel="noreferrer" style={{ marginLeft: 'auto' }}>
-            <button type="button">Open Google Sheet</button>
+  const core = (
+    <div className="panel" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', border: '1px solid #334155' }}>
+      <div className="panelRow" style={{ marginBottom: 12, gap: 10, flexWrap: 'wrap' }}>
+        <span className="pill">Total: {stats.total}</span>
+        <span className="pill atrisk">Overdue: {stats.overdue}</span>
+        <span className="pill atrisk">Urgent: {stats.urgent}</span>
+        <span className="pill">Due Soon: {stats.dueSoon}</span>
+        <span className="pill">Called: {stats.called}</span>
+        <span className="pill onpace">Completed: {stats.completed}</span>
+        <a href={SHEET_URL} target="_blank" rel="noreferrer" style={{ marginLeft: 'auto' }}>
+          <button type="button">Open Google Sheet</button>
+        </a>
+      </div>
+
+      <div className="panelRow" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+        <label style={{ display: 'grid', gap: 6 }}>
+          <span className="muted">Status</span>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            {['All', 'Overdue', 'Urgent', 'Due Soon', 'On Track', 'No due date'].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+
+        <label style={{ display: 'grid', gap: 6, minWidth: 220 }}>
+          <span className="muted">Updated by (your name)</span>
+          <input value={operatorName} onChange={(e) => updateOperatorName(e.target.value)} placeholder="Ex: Kimora" />
+        </label>
+
+        <label style={{ display: 'grid', gap: 6, minWidth: 280, flex: 1 }}>
+          <span className="muted">Search</span>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, owner, notes..." />
+        </label>
+
+        {!standalone && (
+          <a href="/sponsorships?standalone=1" target="_blank" rel="noreferrer">
+            <button type="button">Open Standalone View</button>
           </a>
-        </div>
-
-        <div className="panelRow" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span className="muted">Status</span>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              {['All', 'Overdue', 'Urgent', 'Due Soon', 'On Track', 'No due date'].map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </label>
-
-          <label style={{ display: 'grid', gap: 6, minWidth: 280, flex: 1 }}>
-            <span className="muted">Search</span>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, phone, referred by, owner, notes..." />
-          </label>
-        </div>
-
-        {loading ? (
-          <p className="muted">Loading sponsorship sheet...</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Phone</th>
-                <th>Referred By</th>
-                <th>Approved</th>
-                <th>Due (24h)</th>
-                <th>Time Left</th>
-                <th>System Status</th>
-                <th>Owner</th>
-                <th>Stage</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r) => {
-                const key = rowKey(r);
-                const wf = workflow[key] || {};
-                const done = isCompleted(r, wf);
-
-                return (
-                  <tr key={key} style={done ? { backgroundColor: 'rgba(34, 197, 94, 0.2)' } : undefined}>
-                    <td>{r.name}</td>
-                    <td>{r.phone || '—'}</td>
-                    <td>{r.referredBy || '—'}</td>
-                    <td>{formatDate(r.approvedDate)}</td>
-                    <td>{formatDate(r.dueDate)}</td>
-                    <td>{r.hoursLeft === null ? '—' : `${r.hoursLeft}h`}</td>
-                    <td>
-                      <span className={`pill ${r.systemStatus === 'Overdue' || r.systemStatus === 'Urgent' ? 'atrisk' : 'onpace'}`}>
-                        {r.systemStatus}
-                      </span>
-                    </td>
-                    <td>
-                      <input
-                        value={wf.owner || ''}
-                        onChange={(e) => updateWorkflow(key, { owner: e.target.value })}
-                        placeholder="Who is taking it?"
-                        style={{ minWidth: 140 }}
-                      />
-                    </td>
-                    <td>
-                      <select value={wf.stage || 'New'} onChange={(e) => updateWorkflow(key, { stage: e.target.value })}>
-                        {STAGES.map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <input
-                        value={wf.notes || ''}
-                        onChange={(e) => updateWorkflow(key, { notes: e.target.value })}
-                        placeholder="Called? appt set? context..."
-                        style={{ minWidth: 220 }}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
         )}
       </div>
-    </AppShell>
+
+      {loading ? (
+        <p className="muted">Loading sponsorship sheet...</p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Referred By</th>
+              <th>Approved</th>
+              <th>Due (24h)</th>
+              <th>Time Left</th>
+              <th>System Status</th>
+              <th>Called</th>
+              <th>Owner</th>
+              <th>Stage</th>
+              <th>Notes</th>
+              <th>Last Update</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((r) => {
+              const key = rowKey(r);
+              const wf = workflow[key] || {};
+              const done = isCompleted(r, wf);
+
+              return (
+                <tr key={key} style={done ? { backgroundColor: 'rgba(34, 197, 94, 0.2)' } : undefined}>
+                  <td>{r.name}</td>
+                  <td>{r.phone || '—'}</td>
+                  <td>{r.referredBy || '—'}</td>
+                  <td>{formatDate(r.approvedDate)}</td>
+                  <td>{formatDate(r.dueDate)}</td>
+                  <td>{r.hoursLeft === null ? '—' : `${r.hoursLeft}h`}</td>
+                  <td>
+                    <span className={`pill ${r.systemStatus === 'Overdue' || r.systemStatus === 'Urgent' ? 'atrisk' : 'onpace'}`}>
+                      {r.systemStatus}
+                    </span>
+                  </td>
+                  <td>
+                    <button type="button" onClick={() => toggleCalled(key, wf)}>
+                      {wf.called ? '✅ Called' : 'Mark Called'}
+                    </button>
+                  </td>
+                  <td>
+                    <input
+                      value={wf.owner || ''}
+                      onChange={(e) => updateWorkflow(key, { owner: e.target.value })}
+                      placeholder="Who is taking it?"
+                      style={{ minWidth: 140 }}
+                    />
+                  </td>
+                  <td>
+                    <select value={wf.stage || 'New'} onChange={(e) => updateWorkflow(key, { stage: e.target.value })}>
+                      {STAGES.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      value={wf.notes || ''}
+                      onChange={(e) => updateWorkflow(key, { notes: e.target.value })}
+                      placeholder="Called? appt set? context..."
+                      style={{ minWidth: 220 }}
+                    />
+                  </td>
+                  <td>
+                    <div>{formatDateTime(wf.updatedAt)}</div>
+                    <div className="muted">{wf.updatedBy || '—'}</div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
+
+  if (standalone) {
+    return <main style={{ padding: 16 }}>{core}</main>;
+  }
+
+  return <AppShell title="Sponsorship Tracker">{core}</AppShell>;
 }
