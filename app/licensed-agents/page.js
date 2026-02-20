@@ -12,25 +12,71 @@ export default function LicensedAgentsPage() {
   const [stateFilter, setStateFilter] = useState('ALL');
   const [search, setSearch] = useState('');
 
-  const states = useMemo(() => {
-    const set = new Set(licensedAgents.map((row) => normalize(row.state_code)).filter(Boolean));
-    return ['ALL', ...Array.from(set).sort()];
+  const groupedAgents = useMemo(() => {
+    const map = new Map();
+
+    for (const row of licensedAgents) {
+      const id = row.agent_id;
+      if (!id) continue;
+
+      if (!map.has(id)) {
+        map.set(id, {
+          agent_id: id,
+          full_name: row.full_name || '',
+          email: row.email || '',
+          phone: row.phone || '',
+          city: row.city || '',
+          home_state: row.home_state || '',
+          states: new Set(),
+          hasActive: false
+        });
+      }
+
+      const agent = map.get(id);
+      const st = normalize(row.state_code);
+      if (st) agent.states.add(st);
+      if (String(row.license_status).toLowerCase() === 'active') {
+        agent.hasActive = true;
+      }
+    }
+
+    return Array.from(map.values())
+      .map((agent) => ({
+        ...agent,
+        states: Array.from(agent.states).sort()
+      }))
+      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
   }, []);
+
+  const states = useMemo(() => {
+    const set = new Set();
+    for (const agent of groupedAgents) {
+      for (const st of agent.states) set.add(st);
+    }
+    return ['ALL', ...Array.from(set).sort()];
+  }, [groupedAgents]);
 
   const filteredRows = useMemo(() => {
     const term = search.trim().toLowerCase();
 
-    return licensedAgents
-      .filter((row) => (stateFilter === 'ALL' ? true : normalize(row.state_code) === stateFilter))
-      .filter((row) => {
+    return groupedAgents
+      .filter((agent) => (stateFilter === 'ALL' ? true : agent.states.includes(stateFilter)))
+      .filter((agent) => {
         if (!term) return true;
-        return [row.full_name, row.email, row.phone, row.city, row.state_code, row.agent_id]
+        return [
+          agent.full_name,
+          agent.email,
+          agent.phone,
+          agent.city,
+          agent.home_state,
+          agent.agent_id,
+          agent.states.join(', ')
+        ]
           .join(' ')
           .toLowerCase()
           .includes(term);
-      })
-      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
-  }, [stateFilter, search]);
+      });
+  }, [groupedAgents, stateFilter, search]);
 
   return (
     <AppShell title="Licensed Agents Directory">
@@ -39,10 +85,10 @@ export default function LicensedAgentsPage() {
           <div>
             <h3 style={{ margin: 0 }}>Legacy Link Licensing Directory</h3>
             <p className="muted" style={{ margin: '6px 0 0' }}>
-              Search by state to instantly see who is licensed and how to contact them.
+              One row per agent. Filter by state to instantly find who can write in that state.
             </p>
           </div>
-          <span className="pill onpace">{filteredRows.length} Matches</span>
+          <span className="pill onpace">{filteredRows.length} Agents</span>
         </div>
 
         <div className="panelRow" style={{ gap: '10px', flexWrap: 'wrap' }}>
@@ -58,11 +104,11 @@ export default function LicensedAgentsPage() {
           </label>
 
           <label style={{ display: 'grid', gap: '6px', minWidth: '300px', flex: 1 }}>
-            <span className="muted">Search (name, city, phone, email)</span>
+            <span className="muted">Search (name, city, phone, email, states)</span>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Type a name, city, phone, or email"
+              placeholder="Type a name, city, phone, email, or state"
             />
           </label>
         </div>
@@ -71,7 +117,7 @@ export default function LicensedAgentsPage() {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Licensed State</th>
+              <th>Licensed States</th>
               <th>Home State</th>
               <th>Phone</th>
               <th>Email</th>
@@ -81,17 +127,15 @@ export default function LicensedAgentsPage() {
           </thead>
           <tbody>
             {filteredRows.map((row) => (
-              <tr key={`${row.agent_id}-${row.state_code}`}>
+              <tr key={row.agent_id}>
                 <td>{row.full_name || '—'}</td>
-                <td>{row.state_code || '—'}</td>
+                <td>{row.states.length ? row.states.join(', ') : '—'}</td>
                 <td>{row.home_state || '—'}</td>
                 <td>{row.phone || '—'}</td>
                 <td>{row.email || '—'}</td>
                 <td>{row.city || '—'}</td>
                 <td>
-                  <span className={`pill ${String(row.license_status).toLowerCase() === 'active' ? 'onpace' : 'atrisk'}`}>
-                    {row.license_status || 'Unknown'}
-                  </span>
+                  <span className={`pill ${row.hasActive ? 'onpace' : 'atrisk'}`}>{row.hasActive ? 'Active' : 'Unknown'}</span>
                 </td>
               </tr>
             ))}
