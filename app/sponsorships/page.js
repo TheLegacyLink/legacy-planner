@@ -59,6 +59,8 @@ export default function SponsorshipsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [stageFilter, setStageFilter] = useState('All');
+  const [sortMode, setSortMode] = useState('Newest In');
   const [workflow, setWorkflow] = useState({});
   const [operatorName, setOperatorName] = useState('');
 
@@ -175,8 +177,13 @@ export default function SponsorshipsPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows
+
+    const list = rows
       .filter((r) => (statusFilter === 'All' ? true : r.systemStatus === statusFilter))
+      .filter((r) => {
+        const wf = workflow[rowKey(r)] || {};
+        return stageFilter === 'All' ? true : (wf.stage || 'New') === stageFilter;
+      })
       .filter((r) => {
         if (!q) return true;
         const wf = workflow[rowKey(r)] || {};
@@ -194,19 +201,27 @@ export default function SponsorshipsPage() {
           .join(' ')
           .toLowerCase()
           .includes(q);
-      })
-      .sort((a, b) => {
-        const awf = workflow[rowKey(a)] || {};
-        const bwf = workflow[rowKey(b)] || {};
-        const aDone = isCompleted(a, awf);
-        const bDone = isCompleted(b, bwf);
-        if (aDone !== bDone) return aDone ? 1 : -1;
-
-        const ah = a.hoursLeft ?? 10_000;
-        const bh = b.hoursLeft ?? 10_000;
-        return ah - bh;
       });
-  }, [rows, search, statusFilter, workflow]);
+
+    return list.sort((a, b) => {
+      const awf = workflow[rowKey(a)] || {};
+      const bwf = workflow[rowKey(b)] || {};
+
+      const aApproved = a.approvedDate ? a.approvedDate.getTime() : 0;
+      const bApproved = b.approvedDate ? b.approvedDate.getTime() : 0;
+      const aDue = a.dueDate ? a.dueDate.getTime() : Number.MAX_SAFE_INTEGER;
+      const bDue = b.dueDate ? b.dueDate.getTime() : Number.MAX_SAFE_INTEGER;
+
+      if (sortMode === 'Newest In') return bApproved - aApproved;
+      if (sortMode === 'Oldest In') return aApproved - bApproved;
+      if (sortMode === 'Due Soonest') return aDue - bDue;
+      if (sortMode === 'Most Overdue') return (a.hoursLeft ?? 99999) - (b.hoursLeft ?? 99999);
+      if (sortMode === 'A-Z') return (a.name || '').localeCompare(b.name || '');
+
+      // fallback
+      return bApproved - aApproved;
+    });
+  }, [rows, search, statusFilter, stageFilter, sortMode, workflow]);
 
   const stats = useMemo(() => {
     const out = { total: rows.length, overdue: 0, urgent: 0, dueSoon: 0, completed: 0, called: 0 };
@@ -240,6 +255,24 @@ export default function SponsorshipsPage() {
           <span className="muted">Status</span>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             {['All', 'Overdue', 'Urgent', 'Due Soon', 'On Track', 'No due date'].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+
+        <label style={{ display: 'grid', gap: 6 }}>
+          <span className="muted">Stage</span>
+          <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)}>
+            {['All', ...STAGES].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+
+        <label style={{ display: 'grid', gap: 6 }}>
+          <span className="muted">Order</span>
+          <select value={sortMode} onChange={(e) => setSortMode(e.target.value)}>
+            {['Newest In', 'Oldest In', 'Due Soonest', 'Most Overdue', 'A-Z'].map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
