@@ -165,7 +165,7 @@ export default function SponsorshipsPage() {
   const [viewTab, setViewTab] = useState('Active Pipeline');
   const [stageFilter, setStageFilter] = useState('All');
   const [sortMode, setSortMode] = useState('Newest In');
-  const [stuckDays, setStuckDays] = useState(3);
+  const [stuckDays, setStuckDays] = useState(5);
   const [stuckOnly, setStuckOnly] = useState(false);
   const [workflow, setWorkflow] = useState({});
   const [operatorName, setOperatorName] = useState('');
