@@ -13,7 +13,7 @@ const STORAGE_KEY = 'sponsorship_workflow_v1';
 const OPERATOR_KEY = 'sponsorship_operator_name_v1';
 
 const STAGES = ['New', 'Called', 'Appointment Set', 'Completed'];
-const STANDALONE_PASSCODE = 'LegacyLinkIC2026';
+const PAGE_PASSCODE = 'blackguard216';
 const ACCESS_KEY = 'sponsorship_standalone_access_v1';
 
 function normalizeName(value = '') {
@@ -133,7 +133,7 @@ export default function SponsorshipsPage() {
       const isStandalone = params.get('standalone') === '1';
       setStandalone(isStandalone);
 
-      if (!isStandalone || localStorage.getItem(ACCESS_KEY) === 'ok') {
+      if (localStorage.getItem(ACCESS_KEY) === 'ok') {
         setAccessGranted(true);
       }
 
@@ -156,8 +156,8 @@ export default function SponsorshipsPage() {
     localStorage.setItem(OPERATOR_KEY, name);
   }
 
-  function unlockStandalone() {
-    if (passcodeInput === STANDALONE_PASSCODE) {
+  function unlockPage() {
+    if (passcodeInput === PAGE_PASSCODE) {
       localStorage.setItem(ACCESS_KEY, 'ok');
       setAccessGranted(true);
       setPassError('');
@@ -346,7 +346,7 @@ export default function SponsorshipsPage() {
     return out;
   }, [rows, workflow]);
 
-  if (standalone && !accessGranted) {
+  if (!accessGranted) {
     return (
       <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#0a0a0a', color: '#fff', padding: 16 }}>
         <div style={{ width: '100%', maxWidth: 420, border: '1px solid #333', borderRadius: 12, padding: 20, background: '#111' }}>
@@ -359,10 +359,10 @@ export default function SponsorshipsPage() {
             placeholder="Passcode"
             style={{ width: '100%', marginBottom: 10 }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') unlockStandalone();
+              if (e.key === 'Enter') unlockPage();
             }}
           />
-          <button type="button" onClick={unlockStandalone}>Unlock</button>
+          <button type="button" onClick={unlockPage}>Unlock</button>
           {passError ? <p style={{ color: '#f87171' }}>{passError}</p> : null}
         </div>
       </main>
