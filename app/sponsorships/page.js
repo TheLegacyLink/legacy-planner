@@ -13,7 +13,7 @@ const STORAGE_KEY = 'sponsorship_workflow_v1';
 const OPERATOR_KEY = 'sponsorship_operator_name_v1';
 
 const STAGES = ['New', 'Called', 'Appointment Set', 'Completed'];
-const AGENCY_OWNERS = ['Jamal', 'Angelic'];
+const AGENCY_OWNERS = ['Kimora', 'Jamal', 'Angelique'];
 const PAGE_PASSCODE = 'blackguard216';
 const ACCESS_KEY = 'sponsorship_standalone_access_v1';
 
@@ -159,7 +159,8 @@ function isCompleted(row, wf) {
 
 function autoAgencyOwnerFromRow(row) {
   const ref = normalizeName(row.referredBy || '');
-  if (ref.includes('ANGEL')) return 'Angelic';
+  if (ref.includes('KIMORA') || ref.includes('LINK')) return 'Kimora';
+  if (ref.includes('ANGEL')) return 'Angelique';
   if (ref.includes('JAMAL')) return 'Jamal';
   return 'Jamal';
 }
