@@ -13,6 +13,7 @@ const STORAGE_KEY = 'sponsorship_workflow_v1';
 const OPERATOR_KEY = 'sponsorship_operator_name_v1';
 
 const STAGES = ['New', 'Called', 'Appointment Set', 'Completed'];
+const AGENCY_OWNERS = ['Jamal', 'Angelic'];
 const PAGE_PASSCODE = 'blackguard216';
 const ACCESS_KEY = 'sponsorship_standalone_access_v1';
 
@@ -71,6 +72,14 @@ const COMPLETED_NAME_SET = (() => {
   return set;
 })();
 
+function firstLastKey(name = '') {
+  const n = normalizeName(name);
+  if (!n) return '';
+  const parts = n.split(' ').filter(Boolean);
+  if (parts.length < 2) return n;
+  return `${parts[0]} ${parts[parts.length - 1]}`;
+}
+
 const CONTRACTED_NAME_SET = (() => {
   const set = new Set();
   for (const row of licensedAgents) {
@@ -83,6 +92,17 @@ const CONTRACTED_NAME_SET = (() => {
       const flipped = normalizeName(`${first} ${last}`);
       if (flipped && carriers.length) set.add(flipped);
     }
+  }
+  return set;
+})();
+
+const CONTRACTED_FIRST_LAST_SET = (() => {
+  const set = new Set();
+  for (const row of licensedAgents) {
+    const carriers = row.carriers_all || [];
+    if (!carriers.length) continue;
+    const key = firstLastKey(row.full_name || '');
+    if (key) set.add(key);
   }
   return set;
 })();
@@ -135,6 +155,13 @@ function rowKey(row) {
 function isCompleted(row, wf) {
   const manual = (row.manualStatus || '').toLowerCase();
   return Boolean(row.autoCompleted) || wf?.stage === 'Completed' || manual.includes('complete') || manual.includes('issued');
+}
+
+function autoAgencyOwnerFromRow(row) {
+  const ref = normalizeName(row.referredBy || '');
+  if (ref.includes('ANGEL')) return 'Angelic';
+  if (ref.includes('JAMAL')) return 'Jamal';
+  return 'Jamal';
 }
 
 function contractedStatus(row, wf) {
@@ -296,7 +323,9 @@ export default function SponsorshipsPage() {
             systemStatus: statusFromHours(hLeft),
             manualStatus: cells[cStatus]?.v ? String(cells[cStatus].v) : '',
             autoCompleted: COMPLETED_NAME_SET.has(normalizeName(String(name))),
-            autoContracted: CONTRACTED_NAME_SET.has(normalizeName(String(name)))
+            autoContracted:
+              CONTRACTED_NAME_SET.has(normalizeName(String(name))) ||
+              CONTRACTED_FIRST_LAST_SET.has(firstLastKey(String(name)))
           });
         }
 
@@ -367,7 +396,7 @@ export default function SponsorshipsPage() {
           r.referredBy,
           r.manualStatus,
           r.systemStatus,
-          wf.owner,
+          wf.agencyOwner || autoAgencyOwnerFromRow(r),
           wf.stage,
           wf.licensingStatus,
           wf.contractedOverride,
@@ -428,9 +457,9 @@ export default function SponsorshipsPage() {
       const ageDays = daysSince(anchor);
       if (ageDays < stuckDays) continue;
 
-      const stage = wf.stage || 'New';
-      const owner = wf.owner || 'Unassigned';
-      lines.push(`- ${r.name} | ${stage} | ${ageDays}d | Owner: ${owner}`);
+      const stage = effectiveStage(r, wf);
+      const agencyOwner = wf.agencyOwner || autoAgencyOwnerFromRow(r);
+      lines.push(`- ${r.name} | ${stage} | ${ageDays}d | Agency Owner: ${agencyOwner}`);
     }
 
     if (!lines.length) return `No stuck records (>= ${stuckDays} days) right now.`;
@@ -448,7 +477,7 @@ export default function SponsorshipsPage() {
       const ageDays = daysSince(anchor);
       if (ageDays < stuckDays) continue;
 
-      const upline = (r.referredBy || 'UNASSIGNED UPLINE').trim();
+      const upline = wf.agencyOwner || autoAgencyOwnerFromRow(r);
       const stage = effectiveStage(r, wf);
       if (!groups.has(upline)) groups.set(upline, []);
       groups.get(upline).push(`- ${r.name} | ${stage} | ${ageDays}d stuck`);
@@ -600,7 +629,7 @@ export default function SponsorshipsPage() {
 
         <label style={{ display: 'grid', gap: 6, minWidth: 280, flex: 1 }}>
           <span className="muted">Search</span>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, owner, notes..." />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, agency owner, notes..." />
         </label>
 
         <button type="button" onClick={copyStuckDigest}>Copy Stuck Digest</button>
@@ -628,7 +657,7 @@ export default function SponsorshipsPage() {
               <th>Time Left</th>
               <th>System Status</th>
               <th>Called</th>
-              <th>Owner</th>
+              <th>Agency Owner</th>
               <th>Stage</th>
               <th>Licensing</th>
               <th>Contracted</th>
@@ -680,12 +709,14 @@ export default function SponsorshipsPage() {
                     </button>
                   </td>
                   <td>
-                    <input
-                      value={wf.owner || ''}
-                      onChange={(e) => updateWorkflow(key, { owner: e.target.value })}
-                      placeholder="Who is taking it?"
-                      style={{ minWidth: 140 }}
-                    />
+                    <select
+                      value={wf.agencyOwner || autoAgencyOwnerFromRow(r)}
+                      onChange={(e) => updateWorkflow(key, { agencyOwner: e.target.value })}
+                    >
+                      {AGENCY_OWNERS.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
                   </td>
                   <td>
                     <select
