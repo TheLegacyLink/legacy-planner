@@ -106,13 +106,17 @@ export default function FngPoliciesPage() {
       active: 0,
       pendingLapse: 0,
       nonActive: 0,
-      payWindow: 0
+      payWindow: 0,
+      sponsorshipMonthly: 0
     };
     for (const p of filtered) {
       if (p.status_bucket === 'active') out.active += 1;
       else if (p.status_bucket === 'pending_lapse') out.pendingLapse += 1;
       else out.nonActive += 1;
       if (p.pay_window_relevant) out.payWindow += 1;
+      if (p.program_type === 'sponsorship' && typeof p.modal_premium === 'number') {
+        out.sponsorshipMonthly += p.modal_premium;
+      }
     }
     return out;
   }, [filtered]);
@@ -126,6 +130,7 @@ export default function FngPoliciesPage() {
           <span className="pill atrisk">Pending Lapse: {stats.pendingLapse}</span>
           <span className="pill">Non-Active: {stats.nonActive}</span>
           <span className="pill">10/11/12-Mo Pay Window: {stats.payWindow}</span>
+          <span className="pill onpace">Sponsorship Monthly: ${stats.sponsorshipMonthly.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </div>
 
         <div className="panelRow" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
