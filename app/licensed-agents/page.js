@@ -8,6 +8,72 @@ function normalize(value = '') {
   return String(value).trim().toUpperCase();
 }
 
+const STATE_NAME_TO_CODE = {
+  ALABAMA: 'AL',
+  ALASKA: 'AK',
+  ARIZONA: 'AZ',
+  ARKANSAS: 'AR',
+  CALIFORNIA: 'CA',
+  CALI: 'CA',
+  COLORADO: 'CO',
+  CONNECTICUT: 'CT',
+  DELAWARE: 'DE',
+  'DISTRICT OF COLUMBIA': 'DC',
+  DC: 'DC',
+  FLORIDA: 'FL',
+  GEORGIA: 'GA',
+  HAWAII: 'HI',
+  IDAHO: 'ID',
+  ILLINOIS: 'IL',
+  INDIANA: 'IN',
+  IOWA: 'IA',
+  KANSAS: 'KS',
+  KENTUCKY: 'KY',
+  LOUISIANA: 'LA',
+  MAINE: 'ME',
+  MARYLAND: 'MD',
+  MASSACHUSETTS: 'MA',
+  MICHIGAN: 'MI',
+  MINNESOTA: 'MN',
+  MISSISSIPPI: 'MS',
+  MISSOURI: 'MO',
+  MONTANA: 'MT',
+  NEBRASKA: 'NE',
+  NEVADA: 'NV',
+  'NEW HAMPSHIRE': 'NH',
+  'NEW JERSEY': 'NJ',
+  'NEW MEXICO': 'NM',
+  'NEW YORK': 'NY',
+  'NORTH CAROLINA': 'NC',
+  'NORTH DAKOTA': 'ND',
+  OHIO: 'OH',
+  OKLAHOMA: 'OK',
+  OREGON: 'OR',
+  PENNSYLVANIA: 'PA',
+  RHODEISLAND: 'RI',
+  'RHODE ISLAND': 'RI',
+  'SOUTH CAROLINA': 'SC',
+  'SOUTH DAKOTA': 'SD',
+  TENNESSEE: 'TN',
+  TEXAS: 'TX',
+  UTAH: 'UT',
+  VERMONT: 'VT',
+  VIRGINIA: 'VA',
+  WASHINGTON: 'WA',
+  'WEST VIRGINIA': 'WV',
+  WISCONSIN: 'WI',
+  WYOMING: 'WY'
+};
+
+function resolveStateInput(raw = '') {
+  const normalized = normalize(raw).replace(/\./g, '');
+  if (!normalized) return '';
+
+  if (normalized.length === 2) return normalized;
+
+  return STATE_NAME_TO_CODE[normalized] || '';
+}
+
 export default function LicensedAgentsPage() {
   const [stateFilter, setStateFilter] = useState('ALL');
   const [search, setSearch] = useState('');
@@ -57,24 +123,24 @@ export default function LicensedAgentsPage() {
   }, [groupedAgents]);
 
   const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = search.trim();
+    const normalizedTerm = term.toLowerCase();
+    const stateFromSearch = resolveStateInput(term);
 
     return groupedAgents
       .filter((agent) => (stateFilter === 'ALL' ? true : agent.states.includes(stateFilter)))
       .filter((agent) => {
-        if (!term) return true;
-        return [
-          agent.full_name,
-          agent.email,
-          agent.phone,
-          agent.city,
-          agent.home_state,
-          agent.agent_id,
-          agent.states.join(', ')
-        ]
+        // If search looks like a state code/name, enforce exact state match only.
+        if (stateFromSearch) {
+          return agent.states.includes(stateFromSearch);
+        }
+
+        if (!normalizedTerm) return true;
+
+        return [agent.full_name, agent.email, agent.phone, agent.city, agent.home_state, agent.agent_id]
           .join(' ')
           .toLowerCase()
-          .includes(term);
+          .includes(normalizedTerm);
       });
   }, [groupedAgents, stateFilter, search]);
 
@@ -104,11 +170,11 @@ export default function LicensedAgentsPage() {
           </label>
 
           <label style={{ display: 'grid', gap: '6px', minWidth: '300px', flex: 1 }}>
-            <span className="muted">Search (name, city, phone, email, states)</span>
+            <span className="muted">Search (name, city, phone, email, or state code/name)</span>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Type a name, city, phone, email, or state"
+              placeholder="Try: CA, California, Jamal Holmes, Atlanta"
             />
           </label>
         </div>
