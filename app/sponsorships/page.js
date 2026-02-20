@@ -479,8 +479,14 @@ export default function SponsorshipsPage() {
                     )}
                   </td>
                   <td>
-                    <button type="button" onClick={() => toggleCalled(key, wf)}>
-                      {wf.called ? '✅ Called' : 'Mark Called'}
+                    <button
+                      type="button"
+                      onClick={() => toggleCalled(key, wf)}
+                      disabled={done}
+                      style={done ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+                      title={done ? 'Policy completed — call step already done' : ''}
+                    >
+                      {done ? '✅ Called' : wf.called ? '✅ Called' : 'Mark Called'}
                     </button>
                   </td>
                   <td>
