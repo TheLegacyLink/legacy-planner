@@ -10,6 +10,7 @@ const tabs = [
   { href: '/pipeline', label: 'Pipeline' },
   { href: '/content-ops', label: 'Content Ops' },
   { href: '/scoreboard', label: 'Scoreboard' },
+  { href: '/licensed-agents', label: 'Licensed Agents' },
   { href: '/badges', label: 'Badges' },
   { href: '/settings', label: 'Settings' }
 ];
