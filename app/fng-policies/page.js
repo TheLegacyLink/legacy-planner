@@ -107,17 +107,24 @@ export default function FngPoliciesPage() {
       pendingLapse: 0,
       nonActive: 0,
       payWindow: 0,
-      sponsorshipMonthly: 0
+      sponsorshipMonthly: 0,
+      sponsorshipPeople: 0
     };
+    const sponsoredPeople = new Set();
+
     for (const p of filtered) {
       if (p.status_bucket === 'active') out.active += 1;
       else if (p.status_bucket === 'pending_lapse') out.pendingLapse += 1;
       else out.nonActive += 1;
       if (p.pay_window_relevant) out.payWindow += 1;
-      if (p.program_type === 'sponsorship' && typeof p.modal_premium === 'number') {
-        out.sponsorshipMonthly += p.modal_premium;
+      if (p.program_type === 'sponsorship') {
+        if (typeof p.modal_premium === 'number') out.sponsorshipMonthly += p.modal_premium;
+        const personKey = (p.owner_name || p.policy_number || '').trim().toUpperCase();
+        if (personKey) sponsoredPeople.add(personKey);
       }
     }
+
+    out.sponsorshipPeople = sponsoredPeople.size;
     return out;
   }, [filtered]);
 
@@ -131,6 +138,7 @@ export default function FngPoliciesPage() {
           <span className="pill">Non-Active: {stats.nonActive}</span>
           <span className="pill">10/11/12-Mo Pay Window: {stats.payWindow}</span>
           <span className="pill onpace">Sponsorship Monthly: ${stats.sponsorshipMonthly.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+          <span className="pill onpace">Sponsored People: {stats.sponsorshipPeople}</span>
         </div>
 
         <div className="panelRow" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
