@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "sync:licensed-agents": "python3 scripts/syncLicensedAgentsData.py"
+    "sync:licensed-agents": "python3 scripts/syncLicensedAgentsData.py",
+    "import:fng": "python3 scripts/importFngBook.py"
   },
   "dependencies": {
     "next": "14.2.5",
