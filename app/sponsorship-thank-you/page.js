@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import AppShell from '../../components/AppShell';
 
 const STORAGE_KEY = 'legacy-sponsorship-applications-v1';
 
@@ -25,7 +24,7 @@ export default function SponsorshipThankYouPage() {
   }, [id]);
 
   return (
-    <AppShell title="Application Submitted">
+    <main className="publicPage">
       <div className="panel" style={{ maxWidth: 700 }}>
         <h3 style={{ marginTop: 0 }}>Thank You — You’re In the System</h3>
         <p>Your application and agreement are complete.</p>
@@ -37,6 +36,6 @@ export default function SponsorshipThankYouPage() {
         </ul>
         <p className="muted">Your application will be reviewed. If qualified, your onboarding process will begin.</p>
       </div>
-    </AppShell>
+    </main>
   );
 }

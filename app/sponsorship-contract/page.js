@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AppShell from '../../components/AppShell';
 
 const STORAGE_KEY = 'legacy-sponsorship-applications-v1';
 const CONTRACT_VERSION = 'v2.1';
@@ -63,7 +62,7 @@ export default function SponsorshipContractPage() {
   };
 
   return (
-    <AppShell title="Sponsorship Agreement Terms">
+    <main className="publicPage">
       <div className="panel" style={{ maxWidth: 900 }}>
         <div className="panelRow">
           <h3 style={{ marginTop: 0 }}>Legacy Link Sponsorship Program Agreement</h3>
@@ -104,6 +103,6 @@ export default function SponsorshipContractPage() {
         </div>
         {error ? <p className="red">{error}</p> : null}
       </div>
-    </AppShell>
+    </main>
   );
 }

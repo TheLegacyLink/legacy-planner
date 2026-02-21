@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AppShell from '../../components/AppShell';
 
 function normalizeRef(ref = '') {
   return String(ref).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
@@ -48,7 +47,7 @@ export default function SponsorshipSignupPage() {
   };
 
   return (
-    <AppShell title="Sponsorship Program Signup">
+    <main className="publicPage">
       <div className="panel" style={{ maxWidth: 620 }}>
         <h3 style={{ marginTop: 0 }}>Profile Creation</h3>
         <p className="muted">Complete your profile to begin your sponsorship application.</p>
@@ -74,6 +73,6 @@ export default function SponsorshipSignupPage() {
           {error ? <p className="red" style={{ gridColumn: '1 / -1', marginTop: 0 }}>{error}</p> : null}
         </form>
       </div>
-    </AppShell>
+    </main>
   );
 }

@@ -391,3 +391,15 @@ textarea { min-height: 180px; margin-top: 8px; }
   .rowActions { flex-direction: column; }
   .kanbanGrid { grid-template-columns: 1fr; }
 }
+
+.publicPage {
+  min-height: 100vh;
+  padding: 24px 16px;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+}
+
+.publicPage .panel {
+  width: min(980px, 100%);
+}

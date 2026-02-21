@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AppShell from '../../components/AppShell';
 
 const STORAGE_KEY = 'legacy-sponsorship-applications-v1';
 
@@ -149,7 +148,7 @@ export default function SponsorshipApplicationPage() {
   };
 
   return (
-    <AppShell title="Legacy Link Sponsorship Application">
+    <main className="publicPage">
       <div className="panel" style={{ maxWidth: 920 }}>
         <h3 style={{ marginTop: 0 }}>Application</h3>
         {ref ? <p className="pill onpace">Referral locked to code: {ref}</p> : null}
@@ -252,6 +251,6 @@ export default function SponsorshipApplicationPage() {
           {error ? <p className="red" style={{ gridColumn: '1 / -1', marginTop: 0 }}>{error}</p> : null}
         </form>
       </div>
-    </AppShell>
+    </main>
   );
 }

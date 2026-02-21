@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import AppShell from '../../components/AppShell';
 
 const STORAGE_KEY = 'legacy-inner-circle-policy-apps-v1';
 
@@ -55,7 +54,7 @@ export default function InnerCircleAppSubmitPage() {
   };
 
   return (
-    <AppShell title="Inner Circle Application Submit">
+    <main className="publicPage">
       <div className="panel" style={{ maxWidth: 760 }}>
         <h3 style={{ marginTop: 0 }}>Standalone Application Submission</h3>
         {ref ? <p className="pill onpace">Referral code locked: {ref}</p> : <p className="muted">No referral code detected.</p>}
@@ -95,6 +94,6 @@ export default function InnerCircleAppSubmitPage() {
 
         {saved ? <p className="green">{saved}</p> : null}
       </div>
-    </AppShell>
+    </main>
   );
 }
