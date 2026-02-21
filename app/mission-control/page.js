@@ -77,23 +77,6 @@ function sameMonthYear(date) {
 function sameDay(date) {
   if (!date || Number.isNaN(date.getTime())) return false;
   const now = new Date();
-
-  const claimBooking = (bookingId, claimer) => {
-    if (!claimer) return;
-    const next = bookingQueue.map((item) =>
-      item.id === bookingId
-        ? {
-            ...item,
-            claim_status: 'Claimed',
-            claimed_by: claimer,
-            claimed_at: new Date().toISOString()
-          }
-        : item
-    );
-    setBookingQueue(next);
-    saveSponsorshipBookings(next);
-  };
-
   return (
     date.getFullYear() === now.getFullYear() &&
     date.getMonth() === now.getMonth() &&
@@ -330,15 +313,43 @@ export default function MissionControl() {
   }, [error, config.agents.length, rows.length, revenueRows.length, sponsorshipApprovalsByAgent, sponsorshipSyncIssue, team]);
 
 
+  const isWithinPriorityWindow = (booking) => {
+    if (!booking?.priority_agent || booking?.priority_released) return false;
+    if (!booking?.priority_expires_at) return false;
+    const exp = new Date(booking.priority_expires_at);
+    if (Number.isNaN(exp.getTime())) return false;
+    return exp.getTime() > Date.now();
+  };
+
   const claimBooking = (bookingId, claimer) => {
     if (!claimer) return;
+    const now = new Date().toISOString();
+    const next = bookingQueue.map((item) => {
+      if (item.id !== bookingId) return item;
+
+      const withinPriority = isWithinPriorityWindow(item);
+      if (withinPriority && item.priority_agent && cleanName(claimer) !== cleanName(item.priority_agent)) {
+        return item;
+      }
+
+      return {
+        ...item,
+        claim_status: 'Claimed',
+        claimed_by: claimer,
+        claimed_at: now
+      };
+    });
+    setBookingQueue(next);
+    saveSponsorshipBookings(next);
+  };
+
+  const openBookingToOthers = (bookingId) => {
     const next = bookingQueue.map((item) =>
       item.id === bookingId
         ? {
             ...item,
-            claim_status: 'Claimed',
-            claimed_by: claimer,
-            claimed_at: new Date().toISOString()
+            priority_released: true,
+            claim_status: item.claim_status === 'Claimed' ? item.claim_status : 'Open'
           }
         : item
     );
@@ -593,13 +604,31 @@ export default function MissionControl() {
                   <td>{b.requested_at_est || '—'}</td>
                   <td>{Array.isArray(b.eligible_closers) && b.eligible_closers.length ? b.eligible_closers.join(', ') : 'Not mapped'}</td>
                   <td>
-                    <span className={`pill ${b.claim_status === 'Claimed' ? 'onpace' : 'atrisk'}`}>
-                      {b.claim_status === 'Claimed' ? `Claimed by ${b.claimed_by}` : 'Open'}
-                    </span>
+                    {(() => {
+                      const withinPriority = isWithinPriorityWindow(b);
+                      if (b.claim_status === 'Claimed') {
+                        return <span className="pill onpace">{`Claimed by ${b.claimed_by}`}</span>;
+                      }
+                      if (withinPriority) {
+                        return <span className="pill atrisk">Reserved for {b.priority_agent} (24h)</span>;
+                      }
+                      return <span className="pill atrisk">Open</span>;
+                    })()}
                   </td>
                   <td>
                     {b.claim_status === 'Claimed' ? '—' : (
-                      <button type="button" onClick={() => claimBooking(b.id, claimBy)}>Claim</button>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => claimBooking(b.id, claimBy)}
+                          disabled={isWithinPriorityWindow(b) && cleanName(claimBy) !== cleanName(b.priority_agent || '')}
+                        >
+                          Claim
+                        </button>
+                        {isWithinPriorityWindow(b) && cleanName(claimBy) === cleanName(b.priority_agent || '') ? (
+                          <button type="button" className="ghost" onClick={() => openBookingToOthers(b.id)}>Open to Others</button>
+                        ) : null}
+                      </div>
                     )}
                   </td>
                 </tr>

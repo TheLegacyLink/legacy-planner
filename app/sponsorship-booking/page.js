@@ -2,9 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { loadRuntimeConfig } from '../../lib/runtimeConfig';
-import { loadSponsorshipBookings, upsertSponsorshipBooking } from '../../lib/sponsorshipBookings';
+import { upsertSponsorshipBooking } from '../../lib/sponsorshipBookings';
 
 const APPS_KEY = 'legacy-sponsorship-applications-v1';
+
+function cleanName(value = '') {
+  return String(value || '').toLowerCase().trim();
+}
 
 function toTitle(value = '') {
   return String(value)
@@ -27,7 +31,7 @@ function nextBookingDates(leadHours = 48, days = 21) {
     const d = new Date(start);
     d.setDate(start.getDate() + i);
     const day = d.getDay();
-    if (day === 0) continue; // Sunday off
+    if (day === 0) continue;
     out.push(d.toISOString().slice(0, 10));
   }
   return out;
@@ -49,12 +53,7 @@ export default function SponsorshipBookingPage() {
   const [saved, setSaved] = useState('');
   const [error, setError] = useState('');
 
-  const [form, setForm] = useState({
-    date: '',
-    time: '',
-    state: '',
-    notes: ''
-  });
+  const [form, setForm] = useState({ date: '', time: '', state: '', notes: '' });
 
   useEffect(() => {
     setConfig(loadRuntimeConfig());
@@ -73,14 +72,8 @@ export default function SponsorshipBookingPage() {
     }
   }, []);
 
-  const dates = useMemo(
-    () => nextBookingDates(config.booking?.leadTimeHours || 48, 21),
-    [config.booking?.leadTimeHours]
-  );
-  const slots = useMemo(
-    () => buildSlots(config.booking?.startHour || 9, config.booking?.endHour || 21),
-    [config.booking?.startHour, config.booking?.endHour]
-  );
+  const dates = useMemo(() => nextBookingDates(config.booking?.leadTimeHours || 48, 21), [config.booking?.leadTimeHours]);
+  const slots = useMemo(() => buildSlots(config.booking?.startHour || 9, config.booking?.endHour || 21), [config.booking?.startHour, config.booking?.endHour]);
 
   const referredBy = record?.refCode ? inferredRefName(record.refCode) : (record?.referralName || 'Unknown');
   const applicantState = (form.state || '').toUpperCase().trim();
@@ -88,30 +81,35 @@ export default function SponsorshipBookingPage() {
   const eligibleClosers = applicantState ? (licensingMap[applicantState] || []) : [];
   const fngEligibleClosers = eligibleClosers.filter((name) => !String(name).toLowerCase().includes('breanna'));
 
+  const sponsorMatch = fngEligibleClosers.find((name) => cleanName(name) === cleanName(referredBy));
+  const priorityHours = 24;
+
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const sendWebhook = async (payload) => {
-    const url = config.booking?.webhookUrl;
-    if (!url) return { ok: false, reason: 'No webhook configured' };
+  const sendInternalTelegram = async (payload) => {
     try {
-      const res = await fetch(url, {
+      const res = await fetch('/api/booking-telegram', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      return { ok: res.ok, status: res.status };
+      const data = await res.json().catch(() => ({}));
+      return { ok: res.ok, data };
     } catch {
-      return { ok: false, reason: 'Network error' };
+      return { ok: false, data: { error: 'network_error' } };
     }
   };
 
   const submitBooking = async (e) => {
     e.preventDefault();
     setError('');
+    setSaved('');
     if (!form.date || !form.time || !form.state) {
       setError('Please select date, time, and state.');
       return;
     }
+
+    const priority_expires_at = sponsorMatch ? new Date(Date.now() + priorityHours * 60 * 60 * 1000).toISOString() : null;
 
     const booking = {
       id: `book_${Date.now()}`,
@@ -126,15 +124,18 @@ export default function SponsorshipBookingPage() {
       score: record?.application_score || 0,
       decision_bucket: record?.decision_bucket || '',
       eligible_closers: fngEligibleClosers,
+      priority_agent: sponsorMatch || '',
+      priority_expires_at,
+      priority_released: false,
       claimed_by: '',
-      claim_status: 'Open',
+      claim_status: sponsorMatch ? 'Priority Hold' : 'Open',
       notes: form.notes || '',
       created_at: new Date().toISOString()
     };
 
     upsertSponsorshipBooking(booking);
 
-    const telegramText = [
+    const alertText = [
       'New Sponsorship Booking',
       `Referral: ${booking.referred_by}`,
       `Applicant: ${booking.applicant_name}`,
@@ -142,17 +143,18 @@ export default function SponsorshipBookingPage() {
       `Licensed: ${booking.licensed_status}`,
       `Requested Time (EST): ${booking.requested_at_est}`,
       `Score: ${booking.score}`,
+      sponsorMatch ? `Priority Holder (24h): ${sponsorMatch}` : 'Priority Holder (24h): none',
       `Eligible Closers: ${booking.eligible_closers.join(', ') || 'None mapped yet'}`,
       'Please claim in Mission Control.'
     ].join('\n');
 
-    const webhookPayload = { ...booking, telegram_text: telegramText };
-    const webhook = await sendWebhook(webhookPayload);
+    const notify = await sendInternalTelegram({ booking, alertText });
 
-    setSaved(webhook.ok ? 'Booked. Telegram notification sent.' : 'Booked. Add webhook in Settings to auto-send Telegram alerts.');
-
-    const tg = `https://t.me/share/url?url=&text=${encodeURIComponent(telegramText)}`;
-    window.open(tg, '_blank', 'noopener,noreferrer');
+    if (notify.ok) {
+      setSaved('Booked. Telegram alert sent internally.');
+    } else {
+      setSaved('Booked. Telegram bridge not configured yet (set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID).');
+    }
   };
 
   return (
@@ -206,6 +208,7 @@ export default function SponsorshipBookingPage() {
           <div style={{ gridColumn: '1 / -1', border: '1px dashed #94a3b8', borderRadius: 10, padding: 10 }}>
             <strong>Licensed closers for {applicantState || 'state'}:</strong>
             <div className="muted">{fngEligibleClosers.length ? fngEligibleClosers.join(', ') : 'No state mapping found yet. Add in Settings → Licensing By State JSON.'}</div>
+            {sponsorMatch ? <div className="pill atrisk" style={{ marginTop: 8 }}>24h priority claim: {sponsorMatch}</div> : null}
           </div>
 
           <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
