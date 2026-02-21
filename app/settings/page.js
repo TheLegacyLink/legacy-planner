@@ -27,12 +27,20 @@ function normalizeRows(payload) {
   return [];
 }
 
+function parseGvizRows(text) {
+  const match = String(text || '').match(/setResponse\((.*)\);/s);
+  if (!match) return [];
+  const payload = JSON.parse(match[1]);
+  return payload?.table?.rows || [];
+}
+
 export default function SettingsPage() {
   const [timezone, setTimezone] = useState(DEFAULT_CONFIG.timezone);
   const [refreshInterval, setRefreshInterval] = useState(String(DEFAULT_CONFIG.refreshIntervalSec));
   const [onPaceThreshold, setOnPaceThreshold] = useState(String(DEFAULT_CONFIG.onPaceThreshold));
   const [leaderboardUrl, setLeaderboardUrl] = useState(DEFAULT_CONFIG.leaderboardUrl);
   const [revenueUrl, setRevenueUrl] = useState(DEFAULT_CONFIG.revenueUrl);
+  const [sponsorshipTrackerUrl, setSponsorshipTrackerUrl] = useState(DEFAULT_CONFIG.sponsorshipTrackerUrl || '');
   const [policyRescueReadUrl, setPolicyRescueReadUrl] = useState(DEFAULT_CONFIG.policyRescue.readUrl);
   const [policyRescueWriteUrl, setPolicyRescueWriteUrl] = useState(DEFAULT_CONFIG.policyRescue.writeUrl);
   const [policyRescuePasscode, setPolicyRescuePasscode] = useState(DEFAULT_CONFIG.policyRescue.passcode);
@@ -45,6 +53,7 @@ export default function SettingsPage() {
   const [health, setHealth] = useState({
     leaderboard: { ok: false, status: 'Not checked', rows: 0 },
     revenue: { ok: false, status: 'Not checked', rows: 0 },
+    sponsorship: { ok: false, status: 'Not checked', rows: 0 },
     mismatches: []
   });
 
@@ -61,6 +70,7 @@ export default function SettingsPage() {
     setOnPaceThreshold(String(cfg.onPaceThreshold));
     setLeaderboardUrl(cfg.leaderboardUrl);
     setRevenueUrl(cfg.revenueUrl);
+    setSponsorshipTrackerUrl(cfg.sponsorshipTrackerUrl || DEFAULT_CONFIG.sponsorshipTrackerUrl || '');
     setPolicyRescueReadUrl(cfg.policyRescue?.readUrl || '');
     setPolicyRescueWriteUrl(cfg.policyRescue?.writeUrl || '');
     setPolicyRescuePasscode(cfg.policyRescue?.passcode || 'legacylink');
@@ -76,6 +86,7 @@ export default function SettingsPage() {
     onPaceThreshold: Number(onPaceThreshold || 1),
     leaderboardUrl,
     revenueUrl,
+    sponsorshipTrackerUrl,
     agents,
     policyRescue: {
       readUrl: policyRescueReadUrl,
@@ -133,16 +144,19 @@ export default function SettingsPage() {
     setHealthLoading(true);
 
     try {
-      const [leaderboardRes, revenueRes] = await Promise.all([
+      const [leaderboardRes, revenueRes, sponsorshipRes] = await Promise.all([
         fetch(leaderboardUrl, { cache: 'no-store' }),
-        fetch(revenueUrl, { cache: 'no-store' })
+        fetch(revenueUrl, { cache: 'no-store' }),
+        fetch(sponsorshipTrackerUrl, { cache: 'no-store' })
       ]);
 
       const leaderboardJson = leaderboardRes.ok ? await leaderboardRes.json() : null;
       const revenueJson = revenueRes.ok ? await revenueRes.json() : null;
+      const sponsorshipText = sponsorshipRes.ok ? await sponsorshipRes.text() : '';
 
       const leaderboardRows = normalizeRows(leaderboardJson);
       const revenueRows = normalizeRows(revenueJson);
+      const sponsorshipRows = sponsorshipRes.ok ? parseGvizRows(sponsorshipText) : [];
 
       const leaderboardNames = new Set(
         leaderboardRows.map((r) => cleanName(r.agent_name ?? r.agentName ?? r.name)).filter(Boolean)
@@ -167,6 +181,11 @@ export default function SettingsPage() {
           status: `HTTP ${revenueRes.status}`,
           rows: revenueRows.length
         },
+        sponsorship: {
+          ok: sponsorshipRes.ok,
+          status: `HTTP ${sponsorshipRes.status}`,
+          rows: sponsorshipRows.length
+        },
         mismatches
       });
 
@@ -177,12 +196,13 @@ export default function SettingsPage() {
       setHealth((prev) => ({
         ...prev,
         leaderboard: { ...prev.leaderboard, ok: false, status: 'Request failed' },
-        revenue: { ...prev.revenue, ok: false, status: 'Request failed' }
+        revenue: { ...prev.revenue, ok: false, status: 'Request failed' },
+        sponsorship: { ...prev.sponsorship, ok: false, status: 'Request failed' }
       }));
     } finally {
       setHealthLoading(false);
     }
-  }, [agents, leaderboardUrl, revenueUrl]);
+  }, [agents, leaderboardUrl, revenueUrl, sponsorshipTrackerUrl]);
 
   useEffect(() => {
     runHealthCheck();
@@ -193,7 +213,7 @@ export default function SettingsPage() {
     if (!agents.includes(toAgent)) setToAgent(agents[1] || agents[0] || '');
   }, [agents, fromAgent, toAgent]);
 
-  const healthy = useMemo(() => health.leaderboard.ok && health.revenue.ok, [health]);
+  const healthy = useMemo(() => health.leaderboard.ok && health.revenue.ok && health.sponsorship.ok, [health]);
 
   return (
     <AppShell title="Settings">
@@ -246,6 +266,11 @@ export default function SettingsPage() {
             </label>
 
             <label>
+              Sponsorship Tracker Endpoint (Google Sheet gviz)
+              <input value={sponsorshipTrackerUrl} onChange={(e) => setSponsorshipTrackerUrl(e.target.value)} />
+            </label>
+
+            <label>
               Policy Rescue Read URL (Google Sheet/API)
               <input value={policyRescueReadUrl} onChange={(e) => setPolicyRescueReadUrl(e.target.value)} />
             </label>
@@ -286,6 +311,11 @@ export default function SettingsPage() {
               <strong>Revenue</strong>
               <span className={`pill ${health.revenue.ok ? 'onpace' : 'offpace'}`}>{health.revenue.status}</span>
               <small>{health.revenue.rows} rows</small>
+            </div>
+            <div className="healthRow">
+              <strong>Sponsorship Tracker</strong>
+              <span className={`pill ${health.sponsorship.ok ? 'onpace' : 'offpace'}`}>{health.sponsorship.status}</span>
+              <small>{health.sponsorship.rows} rows</small>
             </div>
             <div className="healthRow">
               <strong>Roster Mismatches</strong>

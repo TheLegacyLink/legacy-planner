@@ -54,10 +54,58 @@ function getStatus(referrals, apps) {
   return referrals + apps >= 1 ? 'On Pace' : 'Off Pace';
 }
 
+function parseGvizPayload(text) {
+  const match = String(text || '').match(/setResponse\((.*)\);/s);
+  if (!match) return null;
+  return JSON.parse(match[1]);
+}
+
+function parseGvizDate(value) {
+  if (!value || typeof value !== 'string') return null;
+  const m = value.match(/Date\((\d+),(\d+),(\d+)/);
+  if (!m) return null;
+  return new Date(Number(m[1]), Number(m[2]), Number(m[3]));
+}
+
+function sameMonthYear(date) {
+  if (!date || Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
+
+function matchAgentFromReferrer(referrer, agents) {
+  const ref = cleanName(referrer || '');
+  if (!ref) return null;
+
+  let best = null;
+  let bestScore = 0;
+
+  for (const agent of agents || []) {
+    const agentClean = cleanName(agent);
+    if (!agentClean) continue;
+
+    if (ref.includes(agentClean)) {
+      return agent;
+    }
+
+    const parts = agentClean.split(' ').filter((p) => p.length >= 3);
+    const score = parts.reduce((acc, part) => (ref.includes(part) ? acc + 1 : acc), 0);
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = agent;
+    }
+  }
+
+  return bestScore > 0 ? best : null;
+}
+
 export default function MissionControl() {
   const [config, setConfig] = useState(DEFAULTS);
   const [rows, setRows] = useState([]);
   const [revenueRows, setRevenueRows] = useState([]);
+  const [sponsorshipApprovalsByAgent, setSponsorshipApprovalsByAgent] = useState({});
+  const [sponsorshipSyncIssue, setSponsorshipSyncIssue] = useState('');
   const [corrections, setCorrections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -76,9 +124,10 @@ export default function MissionControl() {
       setLoading(true);
       setError('');
       try {
-        const [leaderboardRes, revenueRes] = await Promise.all([
+        const [leaderboardRes, revenueRes, sponsorshipRes] = await Promise.all([
           fetch(config.leaderboardUrl, { cache: 'no-store' }),
-          fetch(config.revenueUrl, { cache: 'no-store' })
+          fetch(config.revenueUrl, { cache: 'no-store' }),
+          fetch(config.sponsorshipTrackerUrl, { cache: 'no-store' })
         ]);
 
         if (!leaderboardRes.ok) throw new Error(`Leaderboard HTTP ${leaderboardRes.status}`);
@@ -86,9 +135,35 @@ export default function MissionControl() {
         const leaderboardJson = await leaderboardRes.json();
         const revenueJson = revenueRes.ok ? await revenueRes.json() : null;
 
+        const monthlyApprovals = {};
+        let sponsorshipIssue = '';
+
+        if (sponsorshipRes.ok) {
+          const sponsorshipText = await sponsorshipRes.text();
+          const payload = parseGvizPayload(sponsorshipText);
+          const cols = (payload?.table?.cols || []).map((c) => (c?.label || '').trim());
+          const cRef = cols.indexOf('Referred By');
+          const cApproved = cols.indexOf('Approved Date');
+
+          for (const row of payload?.table?.rows || []) {
+            const cells = row.c || [];
+            const approved = parseGvizDate(cells[cApproved]?.v || '');
+            if (!sameMonthYear(approved)) continue;
+
+            const ref = cells[cRef]?.v ? String(cells[cRef].v) : '';
+            const mapped = matchAgentFromReferrer(ref, config.agents);
+            if (!mapped) continue;
+            monthlyApprovals[mapped] = Number(monthlyApprovals[mapped] || 0) + 1;
+          }
+        } else {
+          sponsorshipIssue = `Sponsorship tracker HTTP ${sponsorshipRes.status}`;
+        }
+
         if (!mounted) return;
         setRows(normalizeRows(leaderboardJson));
         setRevenueRows(normalizeRows(revenueJson));
+        setSponsorshipApprovalsByAgent(monthlyApprovals);
+        setSponsorshipSyncIssue(sponsorshipIssue);
         setLastSyncAt(new Date().toISOString());
       } catch (err) {
         if (!mounted) return;
@@ -105,7 +180,7 @@ export default function MissionControl() {
       mounted = false;
       clearInterval(interval);
     };
-  }, [config.leaderboardUrl, config.revenueUrl, config.refreshIntervalSec]);
+  }, [config.leaderboardUrl, config.revenueUrl, config.sponsorshipTrackerUrl, config.refreshIntervalSec, config.agents]);
 
   const team = useMemo(() => {
     const baseReferralsByAgent = {};
@@ -138,19 +213,23 @@ export default function MissionControl() {
       const todayReferrals = Number(match?.referrals_count_today ?? match?.referral_count_today ?? match?.referrals_today ?? 0) || 0;
       const todayApps = Number(match?.apps_submitted_count_today ?? match?.app_submitted_count_today ?? match?.apps_today ?? 0) || 0;
 
+      const sheetApprovals = Number(sponsorshipApprovalsByAgent[agent] || 0);
+      const pendingRevenueSync = Math.max(sheetApprovals - monthReferrals, 0);
       const roi = monthReferrals ? monthApps / monthReferrals : monthApps > 0 ? monthApps : 0;
 
       return {
         name: agent,
         monthReferrals,
         monthApps,
+        sheetApprovals,
+        pendingRevenueSync,
         todayReferrals,
         todayApps,
         roi,
         status: getStatus(monthReferrals, monthApps)
       };
     });
-  }, [rows, revenueRows, config.agents, corrections]);
+  }, [rows, revenueRows, sponsorshipApprovalsByAgent, config.agents, corrections]);
 
   const totals = useMemo(
     () =>
@@ -158,12 +237,14 @@ export default function MissionControl() {
         (acc, row) => {
           acc.month.referrals += row.monthReferrals;
           acc.month.apps += row.monthApps;
+          acc.month.sheetApprovals += row.sheetApprovals;
+          acc.month.pendingSync += row.pendingRevenueSync;
           acc.month.active += row.monthReferrals + row.monthApps >= 1 ? 1 : 0;
           acc.today.referrals += row.todayReferrals;
           acc.today.apps += row.todayApps;
           return acc;
         },
-        { month: { referrals: 0, apps: 0, active: 0 }, today: { referrals: 0, apps: 0 } }
+        { month: { referrals: 0, apps: 0, sheetApprovals: 0, pendingSync: 0, active: 0 }, today: { referrals: 0, apps: 0 } }
       ),
     [team]
   );
@@ -171,13 +252,15 @@ export default function MissionControl() {
   const dataConfidence = useMemo(() => {
     if (error) return { label: 'Low', tone: 'offpace', score: 35 };
     const roster = Math.max(1, config.agents.length);
-    const rowCoverage = Math.min(1, (rows.length + revenueRows.length) / roster);
+    const sponsorshipRows = Object.keys(sponsorshipApprovalsByAgent || {}).length;
+    const rowCoverage = Math.min(1, (rows.length + revenueRows.length + sponsorshipRows) / roster);
     const activityCoverage = team.filter((t) => t.monthReferrals + t.monthApps > 0).length / roster;
-    const score = Math.round((rowCoverage * 0.6 + activityCoverage * 0.4) * 100);
+    let score = Math.round((rowCoverage * 0.6 + activityCoverage * 0.4) * 100);
+    if (sponsorshipSyncIssue) score = Math.max(30, score - 20);
     if (score >= 75) return { label: 'High', tone: 'onpace', score };
     if (score >= 45) return { label: 'Medium', tone: 'atrisk', score };
     return { label: 'Low', tone: 'offpace', score };
-  }, [error, config.agents.length, rows.length, revenueRows.length, team]);
+  }, [error, config.agents.length, rows.length, revenueRows.length, sponsorshipApprovalsByAgent, sponsorshipSyncIssue, team]);
 
   return (
     <AppShell title="Mission Control">
@@ -206,6 +289,13 @@ export default function MissionControl() {
           <h2>{totals.month.active}/{config.agents.length}</h2>
           <span className={`pill ${totals.month.active >= 1 ? 'onpace' : 'offpace'}`}>{totals.month.active >= 1 ? 'On Pace' : 'Off Pace'}</span>
         </div>
+        <div className="card">
+          <p>Approved Pending Revenue Sync</p>
+          <h2>{totals.month.pendingSync}</h2>
+          <span className={`pill ${totals.month.pendingSync > 0 ? 'atrisk' : 'onpace'}`}>
+            {totals.month.pendingSync > 0 ? 'Needs Sync Follow-up' : 'Fully Synced'}
+          </span>
+        </div>
       </div>
 
       <div className="grid4">
@@ -224,10 +314,13 @@ export default function MissionControl() {
       <div className="panel">
         <div className="panelRow">
           <h3>Sync Health</h3>
-          <span className={`pill ${error ? 'offpace' : 'onpace'}`}>{error ? 'Issue Detected' : 'Connected'}</span>
+          <span className={`pill ${error || sponsorshipSyncIssue ? 'offpace' : 'onpace'}`}>
+            {error || sponsorshipSyncIssue ? 'Issue Detected' : 'Connected'}
+          </span>
         </div>
         <p className="muted">Last Successful Sync: {lastSyncAt ? toLocalTime(lastSyncAt, config.timezone) : 'No successful sync yet'}</p>
-        <p className="muted">Sources: Leaderboard endpoint + Revenue endpoint + Correction ledger.</p>
+        <p className="muted">Sources: Leaderboard endpoint + Revenue endpoint + Sponsorship tracker endpoint + Correction ledger.</p>
+        {sponsorshipSyncIssue ? <p className="red">Sponsorship Sync: {sponsorshipSyncIssue}</p> : null}
         <p className={`pill ${dataConfidence.tone}`} style={{ display: 'inline-block' }}>
           Data Confidence: {dataConfidence.score}% ({dataConfidence.label})
         </p>
@@ -250,6 +343,8 @@ export default function MissionControl() {
             <tr>
               <th>Agent</th>
               <th>Referrals</th>
+              <th>Approved (Sheet)</th>
+              <th>Pending Sync</th>
               <th>Apps Submitted</th>
               <th>ROI</th>
               <th>Status</th>
@@ -260,6 +355,12 @@ export default function MissionControl() {
               <tr key={row.name}>
                 <td>{row.name}</td>
                 <td>{row.monthReferrals}</td>
+                <td>{row.sheetApprovals}</td>
+                <td>
+                  <span className={`pill ${row.pendingRevenueSync > 0 ? 'atrisk' : 'onpace'}`}>
+                    {row.pendingRevenueSync}
+                  </span>
+                </td>
                 <td>{row.monthApps}</td>
                 <td>
                   <span className={`pill ${row.roi >= 1 ? 'onpace' : row.roi >= 0.5 ? 'atrisk' : 'offpace'}`}>
