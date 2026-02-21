@@ -13,6 +13,19 @@ const STORAGE_KEY = 'sponsorship_workflow_v1';
 const OPERATOR_KEY = 'sponsorship_operator_name_v1';
 
 const STAGES = ['New', 'Called', 'Appointment Set', 'Completed'];
+const ACTIVATION_STAGES = [
+  'Pending Review',
+  'Approved – Onboarding Pending',
+  'Approved – Pre-Licensing Required',
+  'Pre-Licensing In Progress',
+  'Licensed',
+  'Onboarding In Progress',
+  'Contracting Pending',
+  'Contracted',
+  'Compliance Complete',
+  'Fully Activated',
+  'Lead Distribution Enabled'
+];
 const AGENCY_OWNERS = ['Kimora', 'Jamal', 'Angelique'];
 const PAGE_PASSCODE = 'blackguard216';
 const ACCESS_KEY = 'sponsorship_standalone_access_v1';
@@ -195,6 +208,21 @@ function processLabel(row, wf) {
   return 'In Progress';
 }
 
+function effectiveActivationStage(row, wf) {
+  if (wf?.activationStageOverride && wf.activationStageOverride !== 'Auto') return wf.activationStageOverride;
+
+  const licensing = effectiveLicensingStatus(row, wf);
+  const contracted = contractedStatus(row, wf);
+
+  if (licensing === 'Unlicensed') return 'Approved – Pre-Licensing Required';
+  if (licensing === 'Pre-licensing') return 'Pre-Licensing In Progress';
+  if (licensing === 'Licensed' && contracted === 'No') return 'Contracting Pending';
+  if (licensing === 'Licensed' && contracted === 'Yes' && isCompleted(row, wf)) return 'Fully Activated';
+  if (licensing === 'Licensed' && contracted === 'Yes') return 'Contracted';
+
+  return 'Pending Review';
+}
+
 export default function SponsorshipsPage() {
   const [standalone, setStandalone] = useState(false);
   const [rows, setRows] = useState([]);
@@ -203,6 +231,7 @@ export default function SponsorshipsPage() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [viewTab, setViewTab] = useState('Active Pipeline');
   const [stageFilter, setStageFilter] = useState('All');
+  const [activationStageFilter, setActivationStageFilter] = useState('All');
   const [sortMode, setSortMode] = useState('Newest In');
   const [stuckDays, setStuckDays] = useState(5);
   const [stuckOnly, setStuckOnly] = useState(false);
@@ -375,12 +404,18 @@ export default function SponsorshipsPage() {
       .filter((r) => {
         const wf = workflow[rowKey(r)] || {};
         const done = isCompleted(r, wf);
-        return viewTab === 'Completed Policies' ? done : !done;
+        if (viewTab === 'Completed Policies') return done;
+        if (viewTab === 'Decision Tree SOP') return false;
+        return !done;
       })
       .filter((r) => (statusFilter === 'All' ? true : r.systemStatus === statusFilter))
       .filter((r) => {
         const wf = workflow[rowKey(r)] || {};
         return stageFilter === 'All' ? true : effectiveStage(r, wf) === stageFilter;
+      })
+      .filter((r) => {
+        const wf = workflow[rowKey(r)] || {};
+        return activationStageFilter === 'All' ? true : effectiveActivationStage(r, wf) === activationStageFilter;
       })
       .filter((r) => {
         if (!stuckOnly) return true;
@@ -402,6 +437,7 @@ export default function SponsorshipsPage() {
           wf.licensingStatus,
           wf.contractedOverride,
           processLabel(r, wf),
+          effectiveActivationStage(r, wf),
           wf.notes,
           wf.updatedBy
         ]
@@ -428,7 +464,7 @@ export default function SponsorshipsPage() {
       // fallback
       return bApproved - aApproved;
     });
-  }, [rows, search, statusFilter, viewTab, stageFilter, sortMode, stuckOnly, stuckDays, workflow]);
+  }, [rows, search, statusFilter, viewTab, stageFilter, activationStageFilter, sortMode, stuckOnly, stuckDays, workflow]);
 
   const stats = useMemo(() => {
     const out = { total: rows.length, overdueOpen: 0, urgentOpen: 0, dueSoonOpen: 0, completed: 0, called: 0, stuck: 0 };
@@ -564,6 +600,13 @@ export default function SponsorshipsPage() {
         >
           Completed Policies
         </button>
+        <button
+          type="button"
+          onClick={() => setViewTab('Decision Tree SOP')}
+          style={viewTab === 'Decision Tree SOP' ? { background: '#1d4ed8', color: '#fff' } : undefined}
+        >
+          Decision Tree SOP
+        </button>
       </div>
 
       <div className="panelRow" style={{ marginBottom: 12, gap: 10, flexWrap: 'wrap' }}>
@@ -593,6 +636,15 @@ export default function SponsorshipsPage() {
           <span className="muted">Stage</span>
           <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)}>
             {['All', ...STAGES].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+
+        <label style={{ display: 'grid', gap: 6 }}>
+          <span className="muted">Activation Stage</span>
+          <select value={activationStageFilter} onChange={(e) => setActivationStageFilter(e.target.value)}>
+            {['All', ...ACTIVATION_STAGES].map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
@@ -644,7 +696,45 @@ export default function SponsorshipsPage() {
         )}
       </div>
 
-      {loading ? (
+      {viewTab === 'Decision Tree SOP' ? (
+        <div className="panel" style={{ background: '#111', border: '1px solid #2a2a2a', marginTop: 8 }}>
+          <h3 style={{ marginTop: 0 }}>Licensed vs Unlicensed Decision Tree</h3>
+          <p className="muted" style={{ marginTop: 0 }}>Use this tab to classify each person into one activation stage. The Activation Stage column in the pipeline is built from this same logic.</p>
+
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div style={{ border: '1px solid #2a2a2a', borderRadius: 10, padding: 12 }}>
+              <strong>1) Is the person licensed?</strong>
+              <ul style={{ marginTop: 8 }}>
+                <li><strong>No</strong> → Approved – Pre-Licensing Required</li>
+                <li><strong>Started class/studying</strong> → Pre-Licensing In Progress</li>
+                <li><strong>Passed state exam + license submitted</strong> → Licensed (then move to Licensed Flow)</li>
+              </ul>
+            </div>
+
+            <div style={{ border: '1px solid #2a2a2a', borderRadius: 10, padding: 12 }}>
+              <strong>2) Licensed Flow Stages</strong>
+              <ul style={{ marginTop: 8 }}>
+                <li>Pending Review</li>
+                <li>Approved – Onboarding Pending</li>
+                <li>Onboarding In Progress (Skool, links, CRM walkthrough, docs)</li>
+                <li>Contracting Pending</li>
+                <li>Contracted</li>
+                <li>Compliance Complete (community service + culture requirements)</li>
+                <li>Fully Activated (all agreements and checklist done)</li>
+                <li>Lead Distribution Enabled (only after full activation)</li>
+              </ul>
+            </div>
+
+            <div style={{ border: '1px solid #2a2a2a', borderRadius: 10, padding: 12 }}>
+              <strong>3) Non-Negotiable Gate</strong>
+              <p style={{ margin: '8px 0 0 0' }}>
+                Approval does not equal lead distribution. Leads are released only when licensing, contracting,
+                onboarding, community service, and internal agreements are complete.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : loading ? (
         <p className="muted">Loading sponsorship sheet...</p>
       ) : (
         <table style={{ background: '#0f0f0f', color: '#f5f5f5' }}>
@@ -660,6 +750,7 @@ export default function SponsorshipsPage() {
               <th>Called</th>
               <th>Agency Owner</th>
               <th>Stage</th>
+              <th>Activation Stage</th>
               <th>Licensing</th>
               <th>Contracted</th>
               <th>Process</th>
@@ -727,6 +818,17 @@ export default function SponsorshipsPage() {
                       style={done ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
                     >
                       {STAGES.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      value={wf.activationStageOverride || 'Auto'}
+                      onChange={(e) => updateWorkflow(key, { activationStageOverride: e.target.value })}
+                    >
+                      <option value="Auto">Auto ({effectiveActivationStage(r, wf)})</option>
+                      {ACTIVATION_STAGES.map((s) => (
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
