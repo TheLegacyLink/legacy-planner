@@ -82,7 +82,7 @@ export default function SponsorshipSignupPage() {
             <span className="pill" style={{ background: '#f0fdf4', color: '#166534', borderColor: '#bbf7d0' }}>CRM + Lead Access</span>
           </div>
 
-          <div style={{ border: '1px solid #bfdbfe', borderRadius: 12, background: '#eff6ff', padding: 14 }}>
+          <div className="luxCard luxBlue">
             <h3 style={{ marginTop: 0, marginBottom: 10, color: '#1e3a8a' }}>What You Get</h3>
             <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 6 }}>
               <li>Licensing and onboarding support</li>
@@ -92,7 +92,7 @@ export default function SponsorshipSignupPage() {
             </ul>
           </div>
 
-          <div style={{ border: '1px solid #dbe5f5', borderRadius: 12, background: '#fff', padding: 14 }}>
+          <div className="luxCard">
             <h3 style={{ marginTop: 0, marginBottom: 10 }}>Roadmap</h3>
             <p className="muted" style={{ margin: 0 }}>
               $0 → $2,500 → $5,000 → $10,000/month → Leadership
@@ -105,7 +105,7 @@ export default function SponsorshipSignupPage() {
             <div className="miniStat"><strong>1 hr/mo</strong><span>Community service</span></div>
           </div>
 
-          <div style={{ border: '1px solid #dbe5f5', borderRadius: 12, background: '#fff', padding: 14 }}>
+          <div className="luxCard">
             <h3 style={{ marginTop: 0 }}>Watch: How to Apply</h3>
             <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 10, overflow: 'hidden', background: '#0f172a' }}>
               <iframe
@@ -118,7 +118,7 @@ export default function SponsorshipSignupPage() {
             </div>
           </div>
 
-          <div style={{ border: '1px solid #dbe5f5', borderRadius: 12, background: '#fff', padding: 14 }}>
+          <div className="luxCard">
             <h3 style={{ marginTop: 0 }}>Frequently Asked Questions</h3>
             <details>
               <summary>Do I need to be licensed to apply?</summary>
@@ -136,7 +136,9 @@ export default function SponsorshipSignupPage() {
         </div>
       </div>
 
-      <div className="panel" id="apply" style={{ maxWidth: 720, marginTop: 14 }}>
+      <div className="sectionDivider" />
+
+      <div className="panel" id="apply" style={{ maxWidth: 820, marginTop: 16, padding: 18 }}>
         <h3 style={{ marginTop: 0 }}>Start Your Sponsored Application</h3>
         <p className="muted">Complete this quick profile to continue.</p>
         {ref ? <p className="pill onpace">Referral locked: {ref}</p> : null}
