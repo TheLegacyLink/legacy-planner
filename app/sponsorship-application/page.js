@@ -9,6 +9,33 @@ function normalizeRef(ref = '') {
   return String(ref).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
 }
 
+function getFieldErrors(form, termsViewed) {
+  const phone = String(form.phone || '').replace(/\D/g, '');
+  const age = Number(form.age || 0);
+  const fieldErrors = {};
+
+  if (!form.firstName.trim()) fieldErrors.firstName = true;
+  if (!form.lastName.trim()) fieldErrors.lastName = true;
+  if (!form.state.trim()) fieldErrors.state = true;
+  if (!form.email.trim()) fieldErrors.email = true;
+  if (!phone || phone.length < 10) fieldErrors.phone = true;
+  if (!form.age || age < 18 || age > 100) fieldErrors.age = true;
+
+  if (form.hasIncome === 'yes' && !form.incomeSource.trim()) fieldErrors.incomeSource = true;
+  if (form.isLicensed === 'yes' && !form.licenseDetails.trim()) fieldErrors.licenseDetails = true;
+
+  if (String(form.whyJoin || '').trim().length < 50) fieldErrors.whyJoin = true;
+  if (String(form.goal12Month || '').trim().length < 20) fieldErrors.goal12Month = true;
+
+  if (!termsViewed) fieldErrors.termsViewed = true;
+  if (!form.agreeTraining) fieldErrors.agreeTraining = true;
+  if (!form.agreeWeekly) fieldErrors.agreeWeekly = true;
+  if (!form.agreeService) fieldErrors.agreeService = true;
+  if (!form.agreeTerms) fieldErrors.agreeTerms = true;
+
+  return fieldErrors;
+}
+
 function scoreApplication(form) {
   let score = 0;
   const breakdown = {};
@@ -110,30 +137,7 @@ export default function SponsorshipApplicationPage() {
     e.preventDefault();
     const phone = String(form.phone || '').replace(/\D/g, '');
     const age = Number(form.age || 0);
-    const fieldErrors = {};
-
-    if (!form.firstName.trim()) fieldErrors.firstName = true;
-    if (!form.lastName.trim()) fieldErrors.lastName = true;
-    if (!form.state.trim()) fieldErrors.state = true;
-    if (!form.email.trim()) fieldErrors.email = true;
-    if (!phone || phone.length < 10) fieldErrors.phone = true;
-    if (!form.age || age < 18 || age > 100) fieldErrors.age = true;
-
-    if (form.hasIncome === 'yes' && !form.incomeSource.trim()) {
-      fieldErrors.incomeSource = true;
-    }
-    if (form.isLicensed === 'yes' && !form.licenseDetails.trim()) {
-      fieldErrors.licenseDetails = true;
-    }
-
-    if (String(form.whyJoin || '').trim().length < 50) fieldErrors.whyJoin = true;
-    if (String(form.goal12Month || '').trim().length < 20) fieldErrors.goal12Month = true;
-
-    if (!termsViewed) fieldErrors.termsViewed = true;
-    if (!form.agreeTraining) fieldErrors.agreeTraining = true;
-    if (!form.agreeWeekly) fieldErrors.agreeWeekly = true;
-    if (!form.agreeService) fieldErrors.agreeService = true;
-    if (!form.agreeTerms) fieldErrors.agreeTerms = true;
+    const fieldErrors = getFieldErrors(form, termsViewed);
 
     if (Object.keys(fieldErrors).length > 0) {
       setValidationErrors(fieldErrors);
@@ -178,6 +182,26 @@ export default function SponsorshipApplicationPage() {
     router.push(`/sponsorship-contract?id=${encodeURIComponent(id)}`);
   };
 
+  const liveScore = scoreApplication(form);
+  const pendingErrors = getFieldErrors(form, termsViewed);
+  const missingCount = Object.keys(pendingErrors).length;
+
+  const phoneDigits = String(form.phone || '').replace(/\D/g, '');
+  const ageNum = Number(form.age || 0);
+  const personalReady = Boolean(
+    form.firstName.trim() && form.lastName.trim() && form.state.trim() && form.email.trim() &&
+    phoneDigits.length >= 10 && form.age && ageNum >= 18 && ageNum <= 100
+  );
+  const fitReady = Boolean(
+    (form.hasIncome !== 'yes' || form.incomeSource.trim()) &&
+    (form.isLicensed !== 'yes' || form.licenseDetails.trim()) &&
+    String(form.whyJoin || '').trim().length >= 50 &&
+    String(form.goal12Month || '').trim().length >= 20
+  );
+  const agreementsReady = Boolean(form.agreeTraining && form.agreeWeekly && form.agreeService && form.agreeTerms);
+  const stepsCompleted = [personalReady, fitReady, termsViewed, agreementsReady].filter(Boolean).length;
+  const progressPct = Math.round((stepsCompleted / 4) * 100);
+
   return (
     <main className="publicPage">
       <div className="panel" style={{ maxWidth: 920 }}>
@@ -196,9 +220,29 @@ export default function SponsorshipApplicationPage() {
             </div>
           </div>
 
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <div className="panelRow">
+                <strong>Application Progress</strong>
+                <small className="muted">Step {stepsCompleted}/4 • {progressPct}%</small>
+              </div>
+              <div style={{ height: 9, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden' }}>
+                <div style={{ width: `${progressPct}%`, height: '100%', background: 'linear-gradient(90deg,#2563eb,#22c55e)', transition: 'width .25s ease' }} />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <span className={`pill ${personalReady ? 'onpace' : 'atrisk'}`}>{personalReady ? '✅ Personal Info Complete' : '• Personal Info Pending'}</span>
+              <span className={`pill ${fitReady ? 'onpace' : 'atrisk'}`}>{fitReady ? '✅ Qualification Inputs Complete' : '• Qualification Inputs Pending'}</span>
+              <span className={`pill ${agreementsReady ? 'onpace' : 'atrisk'}`}>{agreementsReady ? '✅ Agreements Complete' : '• Agreements Pending'}</span>
+            </div>
+          </div>
+
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <span className="pill" style={{ background: '#eef3ff', color: '#1e3a8a', borderColor: '#c7d2fe' }}>👥 Join 200+ successful agents</span>
             <span className="pill" style={{ background: '#fff1f2', color: '#9f1239', borderColor: '#fecdd3' }}>🚀 Spots are limited</span>
+            <span className="pill" style={{ background: '#ecfeff', color: '#0f766e', borderColor: '#99f6e4' }}>🔒 Private + secure submission</span>
+            <span className="pill" style={{ background: '#f0fdf4', color: '#166534', borderColor: '#bbf7d0' }}>⏱ 24-hour review target</span>
           </div>
 
           <div style={{ border: '1px solid #bfdbfe', borderRadius: 12, background: '#eff6ff', padding: 14 }}>
@@ -213,7 +257,15 @@ export default function SponsorshipApplicationPage() {
 
         {ref ? <p className="pill onpace">Referral locked to code: {ref}</p> : null}
 
-        <form className="logForm" onSubmit={onSubmit}>
+        <div style={{ marginBottom: 12, border: '1px solid #c7d2fe', borderRadius: 12, background: '#eef2ff', padding: 12 }}>
+          <div className="panelRow">
+            <strong>Live Qualification Score</strong>
+            <span className={`pill ${liveScore.score >= 75 ? 'onpace' : 'atrisk'}`}>{liveScore.score}/100 • {liveScore.status}</span>
+          </div>
+          <small className="muted">This updates as fields are completed.</small>
+        </div>
+
+        <form id="sponsor-app-form" className="logForm" onSubmit={onSubmit}>
           <label>First Name<input className={validationErrors.firstName ? 'errorInput' : ''} value={form.firstName} onChange={(e) => update('firstName', e.target.value)} /></label>
           <label>Last Name<input className={validationErrors.lastName ? 'errorInput' : ''} value={form.lastName} onChange={(e) => update('lastName', e.target.value)} /></label>
           <label>Age<input className={validationErrors.age ? 'errorInput' : ''} type="number" value={form.age} onChange={(e) => update('age', e.target.value)} /></label>
@@ -326,6 +378,11 @@ export default function SponsorshipApplicationPage() {
           </div>
           {error ? <p className="red" style={{ gridColumn: '1 / -1', marginTop: 0 }}>{error}</p> : null}
         </form>
+      </div>
+
+      <div className="publicStickyBar">
+        <div><strong>{missingCount === 0 ? 'Ready to submit' : `${missingCount} items left`}</strong><div className="muted">Fix highlighted fields then submit</div></div>
+        <button type="submit" form="sponsor-app-form">Submit Application</button>
       </div>
 
       {showTerms ? (

@@ -463,3 +463,43 @@ textarea { min-height: 180px; margin-top: 8px; }
   color: #b91c1c !important;
   font-weight: 600;
 }
+
+.publicStickyBar {
+  position: sticky;
+  bottom: 10px;
+  margin-top: 14px;
+  width: min(980px, 100%);
+  border: 1px solid #bfdbfe;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(8px);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 20px rgba(15,23,42,0.12);
+}
+
+.publicStickyBar button {
+  background: linear-gradient(180deg, #2563eb, #1d4ed8);
+  color: #fff;
+  border: 1px solid #1e40af;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 600;
+}
+
+.publicStickyBar button:hover { cursor: pointer; }
+
+@media (max-width: 700px) {
+  .publicStickyBar {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+    z-index: 40;
+  }
+  .publicPage { padding-bottom: 92px; }
+}
