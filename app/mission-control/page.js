@@ -83,6 +83,11 @@ function sameDay(date) {
   );
 }
 
+function shortDate(date) {
+  if (!date || Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 function matchAgentFromReferrer(referrer, agents) {
   const ref = cleanName(referrer || '');
   if (!ref) return null;
@@ -116,7 +121,9 @@ export default function MissionControl() {
   const [revenueRows, setRevenueRows] = useState([]);
   const [sponsorshipApprovalsByAgent, setSponsorshipApprovalsByAgent] = useState({});
   const [sponsorshipTodayApprovalsByAgent, setSponsorshipTodayApprovalsByAgent] = useState({});
+  const [todaySponsorshipDetails, setTodaySponsorshipDetails] = useState([]);
   const [sponsorshipSyncIssue, setSponsorshipSyncIssue] = useState('');
+  const [detailsModal, setDetailsModal] = useState({ open: false, type: '' });
   const [corrections, setCorrections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -148,12 +155,14 @@ export default function MissionControl() {
 
         const monthlyApprovals = {};
         const todayApprovals = {};
+        const todayDetails = [];
         let sponsorshipIssue = '';
 
         if (sponsorshipRes.ok) {
           const sponsorshipText = await sponsorshipRes.text();
           const payload = parseGvizPayload(sponsorshipText);
           const cols = (payload?.table?.cols || []).map((c) => (c?.label || '').trim());
+          const cName = cols.indexOf('Name');
           const cRef = cols.indexOf('Referred By');
           const cApproved = cols.indexOf('Approved Date');
 
@@ -163,11 +172,18 @@ export default function MissionControl() {
             if (!sameMonthYear(approved)) continue;
 
             const ref = cells[cRef]?.v ? String(cells[cRef].v) : '';
+            const name = cells[cName]?.v ? String(cells[cName].v) : 'Unknown';
             const mapped = matchAgentFromReferrer(ref, config.agents);
             if (!mapped) continue;
             monthlyApprovals[mapped] = Number(monthlyApprovals[mapped] || 0) + 1;
             if (sameDay(approved)) {
               todayApprovals[mapped] = Number(todayApprovals[mapped] || 0) + 1;
+              todayDetails.push({
+                name,
+                referredBy: ref || '—',
+                mappedAgent: mapped,
+                approvedDate: approved
+              });
             }
           }
         } else {
@@ -179,6 +195,7 @@ export default function MissionControl() {
         setRevenueRows(normalizeRows(revenueJson));
         setSponsorshipApprovalsByAgent(monthlyApprovals);
         setSponsorshipTodayApprovalsByAgent(todayApprovals);
+        setTodaySponsorshipDetails(todayDetails);
         setSponsorshipSyncIssue(sponsorshipIssue);
         setLastSyncAt(new Date().toISOString());
       } catch (err) {
@@ -271,6 +288,11 @@ export default function MissionControl() {
     [team]
   );
 
+  const todayAppDetails = useMemo(
+    () => team.filter((t) => t.todayApps > 0).map((t) => ({ agent: t.name, count: t.todayApps })),
+    [team]
+  );
+
   const dataConfidence = useMemo(() => {
     if (error) return { label: 'Low', tone: 'offpace', score: 35 };
     const roster = Math.max(1, config.agents.length);
@@ -321,18 +343,30 @@ export default function MissionControl() {
       </div>
 
       <div className="grid4">
-        <div className="card">
+        <button
+          type="button"
+          className="card"
+          onClick={() => setDetailsModal({ open: true, type: 'referrals' })}
+          style={{ textAlign: 'left' }}
+        >
           <p>Sponsorship Referrals (Today)</p>
           <h2>{totals.today.referrals}</h2>
           <span className={`pill ${totals.today.pendingSync > 0 ? 'atrisk' : 'onpace'}`}>
             {totals.today.pendingSync > 0 ? `${totals.today.pendingSync} pending Base44 sync` : 'Daily production'}
           </span>
-        </div>
-        <div className="card">
+          <div className="muted" style={{ marginTop: 8 }}>Click to view names</div>
+        </button>
+        <button
+          type="button"
+          className="card"
+          onClick={() => setDetailsModal({ open: true, type: 'apps' })}
+          style={{ textAlign: 'left' }}
+        >
           <p>Apps Submitted (Today)</p>
           <h2>{totals.today.apps}</h2>
           <span className="pill onpace">Daily production</span>
-        </div>
+          <div className="muted" style={{ marginTop: 8 }}>Click to view details</div>
+        </button>
       </div>
 
       <div className="panel">
@@ -399,6 +433,87 @@ export default function MissionControl() {
           </tbody>
         </table>
       </div>
+
+      {detailsModal.open ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.65)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 50,
+            padding: 16
+          }}
+          onClick={() => setDetailsModal({ open: false, type: '' })}
+        >
+          <div
+            className="panel"
+            style={{ width: 'min(860px, 96vw)', maxHeight: '80vh', overflow: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="panelRow">
+              <h3 style={{ margin: 0 }}>
+                {detailsModal.type === 'referrals' ? 'Today Sponsorship Referrals' : 'Today Applications Submitted'}
+              </h3>
+              <button type="button" onClick={() => setDetailsModal({ open: false, type: '' })}>Close</button>
+            </div>
+
+            {detailsModal.type === 'referrals' ? (
+              todaySponsorshipDetails.length ? (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Sponsor Name</th>
+                      <th>Referred By</th>
+                      <th>Credited To</th>
+                      <th>Approved</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {todaySponsorshipDetails.map((item, idx) => (
+                      <tr key={`${item.name}-${idx}`}>
+                        <td>{item.name}</td>
+                        <td>{item.referredBy}</td>
+                        <td>{item.mappedAgent}</td>
+                        <td>{shortDate(item.approvedDate)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="muted">No sponsorship referrals logged today yet.</p>
+              )
+            ) : todayAppDetails.length ? (
+              <>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Agent</th>
+                      <th>Apps Today</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {todayAppDetails.map((item) => (
+                      <tr key={item.agent}>
+                        <td>{item.agent}</td>
+                        <td>{item.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="muted" style={{ marginTop: 10 }}>
+                  Note: Base44 leaderboard currently returns app counts by agent, not individual applicant names.
+                </p>
+              </>
+            ) : (
+              <p className="muted">No applications submitted today yet.</p>
+            )}
+          </div>
+        </div>
+      ) : null}
     </AppShell>
   );
 }
