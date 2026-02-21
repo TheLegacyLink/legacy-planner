@@ -38,6 +38,8 @@ function scoreApplication(form) {
 export default function SponsorshipApplicationPage() {
   const router = useRouter();
   const [ref, setRef] = useState('');
+  const [showTerms, setShowTerms] = useState(false);
+  const [termsViewed, setTermsViewed] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -110,6 +112,10 @@ export default function SponsorshipApplicationPage() {
     }
     if (String(form.whyJoin || '').trim().length < 50 || String(form.goal12Month || '').trim().length < 20) {
       setError('Please complete the Why Join and 12-month goal responses.');
+      return;
+    }
+    if (!termsViewed) {
+      setError('Please open and review Terms & Conditions before accepting.');
       return;
     }
     if (!form.agreeTraining || !form.agreeWeekly || !form.agreeService || !form.agreeTerms) {
@@ -243,7 +249,21 @@ export default function SponsorshipApplicationPage() {
           <label style={{ gridColumn: '1 / -1' }}><input type="checkbox" checked={form.agreeTraining} onChange={(e) => update('agreeTraining', e.target.checked)} /> I commit to following training and systems.</label>
           <label style={{ gridColumn: '1 / -1' }}><input type="checkbox" checked={form.agreeWeekly} onChange={(e) => update('agreeWeekly', e.target.checked)} /> I agree to attend at least ONE weekly training.</label>
           <label style={{ gridColumn: '1 / -1' }}><input type="checkbox" checked={form.agreeService} onChange={(e) => update('agreeService', e.target.checked)} /> I agree to one hour community service monthly.</label>
-          <label style={{ gridColumn: '1 / -1' }}><input type="checkbox" checked={form.agreeTerms} onChange={(e) => update('agreeTerms', e.target.checked)} /> I have read and agree to Terms & Conditions.</label>
+
+          <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button type="button" className="ghost" onClick={() => setShowTerms(true)}>View Terms & Conditions</button>
+            {termsViewed ? <span className="pill onpace">Terms viewed</span> : <span className="pill atrisk">Terms not viewed</span>}
+          </div>
+
+          <label style={{ gridColumn: '1 / -1' }}>
+            <input
+              type="checkbox"
+              checked={form.agreeTerms}
+              onChange={(e) => update('agreeTerms', e.target.checked)}
+              disabled={!termsViewed}
+            />{' '}
+            I have read and agree to Terms & Conditions.
+          </label>
 
           <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
             <button type="submit">Submit Application</button>
@@ -251,6 +271,50 @@ export default function SponsorshipApplicationPage() {
           {error ? <p className="red" style={{ gridColumn: '1 / -1', marginTop: 0 }}>{error}</p> : null}
         </form>
       </div>
+
+      {showTerms ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.65)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 50,
+            padding: 16
+          }}
+          onClick={() => setShowTerms(false)}
+        >
+          <div className="panel" style={{ width: 'min(900px, 96vw)', maxHeight: '82vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <div className="panelRow">
+              <h3 style={{ margin: 0 }}>Sponsorship Agreement Terms</h3>
+              <button type="button" className="ghost" onClick={() => setShowTerms(false)}>Close</button>
+            </div>
+            <ol>
+              <li><strong>Referral Bonus:</strong> $400 per qualified referral with validated attribution.</li>
+              <li><strong>Payout Trigger:</strong> Approval alone does not trigger payout. Payout requires onboarding initiation and required onboarding documents complete.</li>
+              <li><strong>Licensed and Unlicensed Paths:</strong> Both accepted. Licensed applicants must provide licensing details. Unlicensed applicants must begin pre-licensing for full activation.</li>
+              <li><strong>No Income Guarantee:</strong> No guarantee of commissions, bonuses, or production results.</li>
+              <li><strong>Compliance:</strong> Company may hold, suspend, or deny payouts for non-compliance, inactivity, fraudulent attribution, or incomplete onboarding.</li>
+              <li><strong>Tax Responsibility:</strong> Agent is responsible for all tax reporting and obligations. Company may issue 1099 where required.</li>
+              <li><strong>Policy Updates:</strong> Company may update program terms and compensation structures with notice.</li>
+            </ol>
+            <div className="rowActions">
+              <button
+                type="button"
+                onClick={() => {
+                  setTermsViewed(true);
+                  setShowTerms(false);
+                }}
+              >
+                I Have Read Terms & Conditions
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
