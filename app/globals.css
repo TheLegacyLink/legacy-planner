@@ -548,3 +548,22 @@ textarea { min-height: 180px; margin-top: 8px; }
   margin: 8px 0 2px;
   background: linear-gradient(90deg, rgba(30,64,175,0), rgba(30,64,175,.35), rgba(30,64,175,0));
 }
+
+.publicPrimaryBtnXL {
+  padding: 15px 22px;
+  font-size: 17px;
+  letter-spacing: 0.2px;
+}
+
+.publicBtnBlock {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  text-transform: uppercase;
+  animation: ctaPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes ctaPulse {
+  0%, 100% { box-shadow: 0 8px 22px rgba(37, 99, 235, 0.32); transform: translateY(0); }
+  50% { box-shadow: 0 12px 30px rgba(37, 99, 235, 0.48); transform: translateY(-1px); }
+}

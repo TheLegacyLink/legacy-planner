@@ -69,7 +69,7 @@ export default function SponsorshipSignupPage() {
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <a href="#apply" style={{ textDecoration: 'none' }}>
-              <button type="button" className="publicPrimaryBtn">Start My Sponsored Application</button>
+              <button type="button" className="publicPrimaryBtn publicPrimaryBtnXL">Start My Sponsored Application</button>
             </a>
             <a href="https://www.loom.com/share/71356efcc71c4959a71106a1147d0b7d" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
               <button type="button" className="ghost">Watch 2-Minute Overview</button>
@@ -157,8 +157,9 @@ export default function SponsorshipSignupPage() {
             <input value={form.phone} onChange={(e) => update('phone', e.target.value)} />
           </label>
 
-          <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
-            <button type="submit" className="publicPrimaryBtn">Continue to Application</button>
+          <div className="rowActions" style={{ gridColumn: '1 / -1', display: 'grid', gap: 8 }}>
+            <button type="submit" className="publicPrimaryBtn publicPrimaryBtnXL publicBtnBlock">🚀 START YOUR APPLICATION NOW</button>
+            <small className="muted" style={{ textAlign: 'center' }}>Takes less than 2 minutes • Limited sponsorship spots each month</small>
           </div>
           {error ? <p className="red" style={{ gridColumn: '1 / -1', marginTop: 0 }}>{error}</p> : null}
         </form>
