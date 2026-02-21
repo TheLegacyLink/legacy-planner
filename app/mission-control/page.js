@@ -123,6 +123,7 @@ export default function MissionControl() {
   const [sponsorshipTodayApprovalsByAgent, setSponsorshipTodayApprovalsByAgent] = useState({});
   const [todaySponsorshipDetails, setTodaySponsorshipDetails] = useState([]);
   const [sponsorshipSyncIssue, setSponsorshipSyncIssue] = useState('');
+  const [detailsModal, setDetailsModal] = useState({ open: false, type: '' });
   const [corrections, setCorrections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -348,13 +349,21 @@ export default function MissionControl() {
           <span className={`pill ${totals.today.pendingSync > 0 ? 'atrisk' : 'onpace'}`}>
             {totals.today.pendingSync > 0 ? `${totals.today.pendingSync} pending Base44 sync` : 'Daily production'}
           </span>
-          <div className="muted" style={{ marginTop: 8 }}>View names below</div>
+          <div style={{ marginTop: 8 }}>
+            <button type="button" className="ghost" onClick={() => setDetailsModal({ open: true, type: 'referrals' })}>
+              View names below
+            </button>
+          </div>
         </div>
         <div className="card">
           <p>Apps Submitted (Today)</p>
           <h2>{totals.today.apps}</h2>
           <span className="pill onpace">Daily production</span>
-          <div className="muted" style={{ marginTop: 8 }}>View details below</div>
+          <div style={{ marginTop: 8 }}>
+            <button type="button" className="ghost" onClick={() => setDetailsModal({ open: true, type: 'apps' })}>
+              View details below
+            </button>
+          </div>
         </div>
       </div>
 
@@ -423,70 +432,86 @@ export default function MissionControl() {
         </table>
       </div>
 
-      <div className="split">
-        <div className="panel">
-          <div className="panelRow">
-            <h3>Today Sponsorship Referrals</h3>
-            <span className="muted">Names + referral ownership</span>
-          </div>
-          {todaySponsorshipDetails.length ? (
-            <table>
-              <thead>
-                <tr>
-                  <th>Sponsor Name</th>
-                  <th>Referred By</th>
-                  <th>Credited To</th>
-                  <th>Approved</th>
-                </tr>
-              </thead>
-              <tbody>
-                {todaySponsorshipDetails.map((item, idx) => (
-                  <tr key={`${item.name}-${idx}`}>
-                    <td>{item.name}</td>
-                    <td>{item.referredBy}</td>
-                    <td>{item.mappedAgent}</td>
-                    <td>{shortDate(item.approvedDate)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="muted">No sponsorship referrals logged today yet.</p>
-          )}
-        </div>
+      {detailsModal.open ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.65)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 50,
+            padding: 16
+          }}
+          onClick={() => setDetailsModal({ open: false, type: '' })}
+        >
+          <div
+            className="panel"
+            style={{ width: 'min(860px, 96vw)', maxHeight: '80vh', overflow: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="panelRow">
+              <h3 style={{ margin: 0 }}>
+                {detailsModal.type === 'referrals' ? 'Today Sponsorship Referrals' : 'Today Applications Submitted'}
+              </h3>
+              <button type="button" onClick={() => setDetailsModal({ open: false, type: '' })}>Close</button>
+            </div>
 
-        <div className="panel">
-          <div className="panelRow">
-            <h3>Today Applications Submitted</h3>
-            <span className="muted">By agent (live feed)</span>
-          </div>
-          {todayAppDetails.length ? (
-            <>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Agent</th>
-                    <th>Apps Today</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {todayAppDetails.map((item) => (
-                    <tr key={item.agent}>
-                      <td>{item.agent}</td>
-                      <td>{item.count}</td>
+            {detailsModal.type === 'referrals' ? (
+              todaySponsorshipDetails.length ? (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Sponsor Name</th>
+                      <th>Referred By</th>
+                      <th>Credited To</th>
+                      <th>Approved</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="muted" style={{ marginTop: 10 }}>
-                Note: Base44 leaderboard currently returns app counts by agent, not individual applicant names.
-              </p>
-            </>
-          ) : (
-            <p className="muted">No applications submitted today yet.</p>
-          )}
+                  </thead>
+                  <tbody>
+                    {todaySponsorshipDetails.map((item, idx) => (
+                      <tr key={`${item.name}-${idx}`}>
+                        <td>{item.name}</td>
+                        <td>{item.referredBy}</td>
+                        <td>{item.mappedAgent}</td>
+                        <td>{shortDate(item.approvedDate)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="muted">No sponsorship referrals logged today yet.</p>
+              )
+            ) : todayAppDetails.length ? (
+              <>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Agent</th>
+                      <th>Apps Today</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {todayAppDetails.map((item) => (
+                      <tr key={item.agent}>
+                        <td>{item.agent}</td>
+                        <td>{item.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="muted" style={{ marginTop: 10 }}>
+                  Note: Base44 leaderboard currently returns app counts by agent, not individual applicant names.
+                </p>
+              </>
+            ) : (
+              <p className="muted">No applications submitted today yet.</p>
+            )}
+          </div>
         </div>
-      </div>
+      ) : null}
     </AppShell>
   );
 }
