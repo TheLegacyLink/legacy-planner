@@ -24,6 +24,22 @@ function statusBucket(status = '') {
   return 'non_active';
 }
 
+function addMonths(dateStr, monthsToAdd) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return null;
+  const out = new Date(d);
+  out.setMonth(out.getMonth() + monthsToAdd);
+  return out;
+}
+
+function formatDate(dateLike) {
+  if (!dateLike) return '—';
+  const d = typeof dateLike === 'string' ? new Date(dateLike + 'T00:00:00') : dateLike;
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toISOString().slice(0, 10);
+}
+
 export default function FngPoliciesPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -95,6 +111,28 @@ export default function FngPoliciesPage() {
 
     return fngPolicies.map((p) => {
       const months = monthsSince(p.policy_effective_date);
+      const monthsSinceIssue = monthsSince(p.policy_issued_date);
+      const monthsToAnnual = monthsSinceIssue === null ? null : Math.max(12 - monthsSinceIssue, 0);
+      const annualDate = addMonths(p.policy_issued_date, 12);
+
+      let annualReminder = 'No issue date';
+      let annualReminderLevel = 'muted';
+      if (monthsSinceIssue !== null) {
+        if (monthsSinceIssue < 11) {
+          annualReminder = `${12 - monthsSinceIssue} mo to annual`;
+          annualReminderLevel = 'onpace';
+        } else if (monthsSinceIssue === 11) {
+          annualReminder = '1 mo to annual';
+          annualReminderLevel = 'atrisk';
+        } else if (monthsSinceIssue === 12) {
+          annualReminder = 'Annual month now';
+          annualReminderLevel = 'atrisk';
+        } else {
+          annualReminder = `${monthsSinceIssue - 12} mo past annual`;
+          annualReminderLevel = 'atrisk';
+        }
+      }
+
       const modal = typeof p.modal_premium === 'number' ? p.modal_premium : 0;
       const issued = p.policy_issued_date ? new Date(p.policy_issued_date + 'T00:00:00') : null;
       const autoProgram = cutoff && issued && issued >= cutoff && modal > Number(threshold) ? 'sponsorship' : 'regular';
@@ -108,6 +146,14 @@ export default function FngPoliciesPage() {
         ...p,
         status_bucket: statusBucket(p.policy_status),
         months_since_effective: months,
+        months_since_issue: monthsSinceIssue,
+        months_to_annual: monthsToAnnual,
+        annual_date: annualDate,
+        annual_reminder: annualReminder,
+        annual_reminder_level: annualReminderLevel,
+        annual_due_in_one_month: monthsSinceIssue === 11,
+        annual_month_now: monthsSinceIssue === 12,
+        annual_past_due: monthsSinceIssue !== null && monthsSinceIssue > 12,
         window_month: windowMonth,
         program_type: programType,
         auto_program_type: autoProgram,
@@ -145,6 +191,9 @@ export default function FngPoliciesPage() {
       pendingLapse: 0,
       nonActive: 0,
       payWindow: 0,
+      annualDueInOneMonth: 0,
+      annualMonthNow: 0,
+      annualPastDue: 0,
       sponsorshipMonthly: 0,
       sponsorshipPeople: 0
     };
@@ -155,6 +204,9 @@ export default function FngPoliciesPage() {
       else if (p.status_bucket === 'pending_lapse') out.pendingLapse += 1;
       else out.nonActive += 1;
       if (p.pay_window_relevant) out.payWindow += 1;
+      if (p.annual_due_in_one_month) out.annualDueInOneMonth += 1;
+      if (p.annual_month_now) out.annualMonthNow += 1;
+      if (p.annual_past_due) out.annualPastDue += 1;
       if (p.program_type === 'sponsorship') {
         if (typeof p.modal_premium === 'number') out.sponsorshipMonthly += p.modal_premium;
         const personKey = (p.owner_name || p.policy_number || '').trim().toUpperCase();
@@ -175,6 +227,9 @@ export default function FngPoliciesPage() {
           <span className="pill atrisk">Pending Lapse: {stats.pendingLapse}</span>
           <span className="pill">Non-Active: {stats.nonActive}</span>
           <span className="pill">10/11/12-Mo Pay Window: {stats.payWindow}</span>
+          <span className="pill atrisk">Annual in 1 Month: {stats.annualDueInOneMonth}</span>
+          <span className="pill atrisk">Annual This Month: {stats.annualMonthNow}</span>
+          <span className="pill atrisk">Past Annual: {stats.annualPastDue}</span>
           <span className="pill onpace">Sponsorship Monthly: ${stats.sponsorshipMonthly.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
           <span className="pill onpace">Sponsored People: {stats.sponsorshipPeople}</span>
         </div>
@@ -244,7 +299,7 @@ export default function FngPoliciesPage() {
               <th>Agent</th>
               <th>Policy #</th>
               <th>Status</th>
-              <th>Issued/Eff Date</th>
+              <th>Issued/Eff Date + 12-Mo Annual</th>
               <th>Modal Premium</th>
               <th>Program</th>
               <th>10/11/12</th>
@@ -266,6 +321,14 @@ export default function FngPoliciesPage() {
                 <td>
                   <div>{p.policy_issued_date || '—'}</div>
                   <div className="muted">Eff: {p.policy_effective_date || '—'}</div>
+                  <div className="muted">12-Mo: {formatDate(p.annual_date)}</div>
+                  {p.months_to_annual !== null ? (
+                    <span className={`pill ${p.annual_reminder_level === 'atrisk' ? 'atrisk' : 'onpace'}`}>
+                      {p.annual_reminder}
+                    </span>
+                  ) : (
+                    <span className="muted">No reminder</span>
+                  )}
                 </td>
                 <td>{p.modal_premium != null ? `$${p.modal_premium.toLocaleString()}` : '—'}</td>
                 <td>
