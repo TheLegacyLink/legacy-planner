@@ -4,8 +4,8 @@ export async function POST(req) {
     const booking = body?.booking || {};
     const alertText = body?.alertText || '';
 
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
+    const chatId = String(process.env.TELEGRAM_CHAT_ID || '').trim();
 
     if (!token || !chatId) {
       return Response.json({ ok: false, error: 'missing_telegram_env' }, { status: 400 });
