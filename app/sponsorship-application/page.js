@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 const STORAGE_KEY = 'legacy-sponsorship-applications-v1';
@@ -40,12 +40,24 @@ export default function SponsorshipApplicationPage() {
   const [ref, setRef] = useState('');
   const [showTerms, setShowTerms] = useState(false);
   const [termsViewed, setTermsViewed] = useState(false);
+  const [termsScrollReady, setTermsScrollReady] = useState(false);
+  const termsBodyRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const sp = new URLSearchParams(window.location.search);
     setRef(normalizeRef(sp.get('ref') || ''));
   }, []);
+
+
+
+  useEffect(() => {
+    if (!showTerms) return;
+    const el = termsBodyRef.current;
+    if (el && el.scrollHeight <= el.clientHeight + 2) {
+      setTermsScrollReady(true);
+    }
+  }, [showTerms]);
 
   const signupSeed = useMemo(() => {
     if (typeof window === 'undefined') return null;
@@ -295,7 +307,7 @@ export default function SponsorshipApplicationPage() {
           <label className={validationErrors.agreeService ? 'errorCheck' : ''} style={{ gridColumn: '1 / -1' }}><input type="checkbox" checked={form.agreeService} onChange={(e) => update('agreeService', e.target.checked)} /> I agree to one hour community service monthly.</label>
 
           <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <button type="button" className="ghost" onClick={() => setShowTerms(true)}>View Terms & Conditions</button>
+            <button type="button" className="ghost" onClick={() => { setTermsScrollReady(false); setShowTerms(true); }}>View Terms & Conditions</button>
             {termsViewed ? <span className="pill onpace">Terms viewed</span> : <span className={`pill ${validationErrors.termsViewed ? 'offpace' : 'atrisk'}`}>Terms not viewed</span>}
           </div>
 
@@ -331,23 +343,39 @@ export default function SponsorshipApplicationPage() {
           }}
           onClick={() => setShowTerms(false)}
         >
-          <div className="panel" style={{ width: 'min(900px, 96vw)', maxHeight: '82vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
+          <div className="panel" style={{ width: 'min(900px, 96vw)', maxHeight: '82vh' }} onClick={(e) => e.stopPropagation()}>
             <div className="panelRow">
               <h3 style={{ margin: 0 }}>Sponsorship Agreement Terms</h3>
               <button type="button" className="ghost" onClick={() => setShowTerms(false)}>Close</button>
             </div>
-            <ol>
-              <li><strong>Referral Bonus:</strong> $400 per qualified referral with validated attribution.</li>
-              <li><strong>Payout Trigger:</strong> Approval alone does not trigger payout. Payout requires onboarding initiation and required onboarding documents complete.</li>
-              <li><strong>Licensed and Unlicensed Paths:</strong> Both accepted. Licensed applicants must provide licensing details. Unlicensed applicants must begin pre-licensing for full activation.</li>
-              <li><strong>No Income Guarantee:</strong> No guarantee of commissions, bonuses, or production results.</li>
-              <li><strong>Compliance:</strong> Company may hold, suspend, or deny payouts for non-compliance, inactivity, fraudulent attribution, or incomplete onboarding.</li>
-              <li><strong>Tax Responsibility:</strong> Agent is responsible for all tax reporting and obligations. Company may issue 1099 where required.</li>
-              <li><strong>Policy Updates:</strong> Company may update program terms and compensation structures with notice.</li>
-            </ol>
-            <div className="rowActions">
+
+            <div
+              ref={termsBodyRef}
+              style={{ maxHeight: '56vh', overflowY: 'auto', paddingRight: 6 }}
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
+                if (nearBottom) setTermsScrollReady(true);
+              }}
+            >
+              <ol>
+                <li><strong>Referral Bonus:</strong> $400 per qualified referral with validated attribution.</li>
+                <li><strong>Payout Trigger:</strong> Approval alone does not trigger payout. Payout requires onboarding initiation and required onboarding documents complete.</li>
+                <li><strong>Licensed and Unlicensed Paths:</strong> Both accepted. Licensed applicants must provide licensing details. Unlicensed applicants must begin pre-licensing for full activation.</li>
+                <li><strong>Training Commitment:</strong> Agent agrees to follow Legacy Link systems and attend at least one weekly training session.</li>
+                <li><strong>Community Service Requirement:</strong> Agent agrees to complete at least one hour of community service each month as a core part of Legacy Link culture and leadership standards.</li>
+                <li><strong>Compliance & Accountability:</strong> Company may hold, suspend, or deny payouts for non-compliance, inactivity, fraudulent attribution, or incomplete onboarding requirements.</li>
+                <li><strong>No Income Guarantee:</strong> No guarantee of commissions, bonuses, promotions, or production results.</li>
+                <li><strong>Tax Responsibility:</strong> Agent is responsible for all tax reporting and obligations. Company may issue 1099 where required.</li>
+                <li><strong>Policy Updates:</strong> Company may update program terms and compensation structures with notice.</li>
+              </ol>
+            </div>
+
+            <div className="rowActions" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
+              <small className="muted">{termsScrollReady ? '✅ You reached the end.' : 'Scroll to the bottom to enable acceptance.'}</small>
               <button
                 type="button"
+                disabled={!termsScrollReady}
                 onClick={() => {
                   setTermsViewed(true);
                   setValidationErrors((prev) => {
