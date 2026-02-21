@@ -73,6 +73,16 @@ function sameMonthYear(date) {
   return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
 }
 
+function sameDay(date) {
+  if (!date || Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
+}
+
 function matchAgentFromReferrer(referrer, agents) {
   const ref = cleanName(referrer || '');
   if (!ref) return null;
@@ -105,6 +115,7 @@ export default function MissionControl() {
   const [rows, setRows] = useState([]);
   const [revenueRows, setRevenueRows] = useState([]);
   const [sponsorshipApprovalsByAgent, setSponsorshipApprovalsByAgent] = useState({});
+  const [sponsorshipTodayApprovalsByAgent, setSponsorshipTodayApprovalsByAgent] = useState({});
   const [sponsorshipSyncIssue, setSponsorshipSyncIssue] = useState('');
   const [corrections, setCorrections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -136,6 +147,7 @@ export default function MissionControl() {
         const revenueJson = revenueRes.ok ? await revenueRes.json() : null;
 
         const monthlyApprovals = {};
+        const todayApprovals = {};
         let sponsorshipIssue = '';
 
         if (sponsorshipRes.ok) {
@@ -154,6 +166,9 @@ export default function MissionControl() {
             const mapped = matchAgentFromReferrer(ref, config.agents);
             if (!mapped) continue;
             monthlyApprovals[mapped] = Number(monthlyApprovals[mapped] || 0) + 1;
+            if (sameDay(approved)) {
+              todayApprovals[mapped] = Number(todayApprovals[mapped] || 0) + 1;
+            }
           }
         } else {
           sponsorshipIssue = `Sponsorship tracker HTTP ${sponsorshipRes.status}`;
@@ -163,6 +178,7 @@ export default function MissionControl() {
         setRows(normalizeRows(leaderboardJson));
         setRevenueRows(normalizeRows(revenueJson));
         setSponsorshipApprovalsByAgent(monthlyApprovals);
+        setSponsorshipTodayApprovalsByAgent(todayApprovals);
         setSponsorshipSyncIssue(sponsorshipIssue);
         setLastSyncAt(new Date().toISOString());
       } catch (err) {
@@ -214,7 +230,10 @@ export default function MissionControl() {
       const todayApps = Number(match?.apps_submitted_count_today ?? match?.app_submitted_count_today ?? match?.apps_today ?? 0) || 0;
 
       const sheetApprovals = Number(sponsorshipApprovalsByAgent[agent] || 0);
+      const sheetTodayApprovals = Number(sponsorshipTodayApprovalsByAgent[agent] || 0);
       const pendingRevenueSync = Math.max(sheetApprovals - monthReferrals, 0);
+      const todayPendingSync = Math.max(sheetTodayApprovals - todayReferrals, 0);
+      const effectiveTodayReferrals = Math.max(todayReferrals, sheetTodayApprovals);
       const roi = monthReferrals ? monthApps / monthReferrals : monthApps > 0 ? monthApps : 0;
 
       return {
@@ -222,14 +241,16 @@ export default function MissionControl() {
         monthReferrals,
         monthApps,
         sheetApprovals,
+        sheetTodayApprovals,
         pendingRevenueSync,
-        todayReferrals,
+        todayPendingSync,
+        todayReferrals: effectiveTodayReferrals,
         todayApps,
         roi,
         status: getStatus(monthReferrals, monthApps)
       };
     });
-  }, [rows, revenueRows, sponsorshipApprovalsByAgent, config.agents, corrections]);
+  }, [rows, revenueRows, sponsorshipApprovalsByAgent, sponsorshipTodayApprovalsByAgent, config.agents, corrections]);
 
   const totals = useMemo(
     () =>
@@ -241,10 +262,11 @@ export default function MissionControl() {
           acc.month.pendingSync += row.pendingRevenueSync;
           acc.month.active += row.monthReferrals + row.monthApps >= 1 ? 1 : 0;
           acc.today.referrals += row.todayReferrals;
+          acc.today.pendingSync += row.todayPendingSync;
           acc.today.apps += row.todayApps;
           return acc;
         },
-        { month: { referrals: 0, apps: 0, sheetApprovals: 0, pendingSync: 0, active: 0 }, today: { referrals: 0, apps: 0 } }
+        { month: { referrals: 0, apps: 0, sheetApprovals: 0, pendingSync: 0, active: 0 }, today: { referrals: 0, pendingSync: 0, apps: 0 } }
       ),
     [team]
   );
@@ -302,7 +324,9 @@ export default function MissionControl() {
         <div className="card">
           <p>Sponsorship Referrals (Today)</p>
           <h2>{totals.today.referrals}</h2>
-          <span className="pill onpace">Daily production</span>
+          <span className={`pill ${totals.today.pendingSync > 0 ? 'atrisk' : 'onpace'}`}>
+            {totals.today.pendingSync > 0 ? `${totals.today.pendingSync} pending Base44 sync` : 'Daily production'}
+          </span>
         </div>
         <div className="card">
           <p>Apps Submitted (Today)</p>
