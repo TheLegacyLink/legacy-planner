@@ -68,6 +68,15 @@ export default function SponsorshipSignupPage() {
           </p>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <a href="#apply" style={{ textDecoration: 'none' }}>
+              <button type="button" className="publicPrimaryBtn">Start My Sponsored Application</button>
+            </a>
+            <a href="https://www.loom.com/share/71356efcc71c4959a71106a1147d0b7d" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+              <button type="button" className="ghost">Watch 2-Minute Overview</button>
+            </a>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <span className="pill" style={{ background: '#eef3ff', color: '#1e3a8a', borderColor: '#c7d2fe' }}>No Upfront Cost</span>
             <span className="pill" style={{ background: '#ecfeff', color: '#0f766e', borderColor: '#99f6e4' }}>Live + On-Demand Training</span>
             <span className="pill" style={{ background: '#f0fdf4', color: '#166534', borderColor: '#bbf7d0' }}>CRM + Lead Access</span>
@@ -88,6 +97,12 @@ export default function SponsorshipSignupPage() {
             <p className="muted" style={{ margin: 0 }}>
               $0 → $2,500 → $5,000 → $10,000/month → Leadership
             </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 10 }}>
+            <div className="miniStat"><strong>24h</strong><span>Review target</span></div>
+            <div className="miniStat"><strong>Mon–Sat</strong><span>Support cadence</span></div>
+            <div className="miniStat"><strong>1 hr/mo</strong><span>Community service</span></div>
           </div>
 
           <div style={{ border: '1px solid #dbe5f5', borderRadius: 12, background: '#fff', padding: 14 }}>
@@ -141,7 +156,7 @@ export default function SponsorshipSignupPage() {
           </label>
 
           <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
-            <button type="submit">Continue to Application</button>
+            <button type="submit" className="publicPrimaryBtn">Continue to Application</button>
           </div>
           {error ? <p className="red" style={{ gridColumn: '1 / -1', marginTop: 0 }}>{error}</p> : null}
         </form>

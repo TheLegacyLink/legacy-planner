@@ -503,3 +503,27 @@ textarea { min-height: 180px; margin-top: 8px; }
   }
   .publicPage { padding-bottom: 92px; }
 }
+
+.publicPrimaryBtn {
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  border: 1px solid #1e40af;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 700;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
+}
+
+.publicPrimaryBtn:hover { cursor: pointer; transform: translateY(-1px); }
+
+.miniStat {
+  border: 1px solid #dbe5f5;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px 12px;
+  display: grid;
+  gap: 2px;
+}
+
+.miniStat strong { font-size: 18px; color: #1d4ed8; }
+.miniStat span { color: #475569; font-size: 13px; }
