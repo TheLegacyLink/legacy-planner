@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 function normalizeRef(ref = '') {
-  return String(ref).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  const cleaned = String(ref).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  if (cleaned === 'latricia_wright') return 'leticia_wright';
+  return cleaned;
 }
 
 export default function SponsorshipSignupPage() {

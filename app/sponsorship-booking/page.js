@@ -19,6 +19,8 @@ function toTitle(value = '') {
 
 function inferredRefName(refCode = '') {
   if (!refCode) return 'Unknown';
+  const normalizedCode = String(refCode).trim().toLowerCase();
+  if (normalizedCode === 'latricia_wright') return 'Leticia Wright';
   const core = String(refCode).split('_').slice(0, -1).join('_') || String(refCode);
   return toTitle(core);
 }

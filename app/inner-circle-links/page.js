@@ -11,7 +11,6 @@ const FIXED_REF_CODES = {
   'Madalyn Adams': 'madalyn_adams',
   'Kelin Brown': 'kelin_brown',
   'Leticia Wright': 'leticia_wright',
-  'Latricia Wright': 'latricia_wright',
   'Breanna James': 'breanna_james',
   'Dr. Brianna': 'dr_brianna'
 };
