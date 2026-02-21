@@ -403,3 +403,63 @@ textarea { min-height: 180px; margin-top: 8px; }
 .publicPage .panel {
   width: min(980px, 100%);
 }
+
+/* Brighter standalone funnel pages */
+.publicPage {
+  min-height: 100vh;
+  padding: 24px 16px;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  background: linear-gradient(180deg, #f5f8ff 0%, #edf3ff 100%);
+  color: #0f172a;
+}
+
+.publicPage .panel {
+  width: min(980px, 100%);
+  background: #ffffff;
+  border: 1px solid #dbe5f5;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.publicPage h1,
+.publicPage h2,
+.publicPage h3,
+.publicPage h4,
+.publicPage label,
+.publicPage p,
+.publicPage li,
+.publicPage strong {
+  color: #0f172a;
+}
+
+.publicPage .muted,
+.publicPage small {
+  color: #475569;
+}
+
+.publicPage input,
+.publicPage select,
+.publicPage textarea {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #c7d2e5;
+}
+
+.publicPage input:focus,
+.publicPage select:focus,
+.publicPage textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.publicPage .errorInput {
+  border-color: #dc2626 !important;
+  background: #fff7f7 !important;
+}
+
+.publicPage .errorCheck {
+  color: #b91c1c !important;
+  font-weight: 600;
+}

@@ -82,46 +82,59 @@ export default function SponsorshipApplicationPage() {
     agreeTerms: false
   });
   const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState({});
 
-  const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const update = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    setValidationErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
   const onSubmit = (e) => {
     e.preventDefault();
     const phone = String(form.phone || '').replace(/\D/g, '');
     const age = Number(form.age || 0);
+    const fieldErrors = {};
 
-    if (!form.firstName.trim() || !form.lastName.trim() || !form.state.trim() || !form.email.trim()) {
-      setError('Please complete all required personal information fields.');
-      return;
-    }
-    if (age < 18 || age > 100) {
-      setError('Age must be between 18 and 100.');
-      return;
-    }
-    if (phone.length < 10) {
-      setError('Phone number must be at least 10 digits.');
-      return;
-    }
+    if (!form.firstName.trim()) fieldErrors.firstName = true;
+    if (!form.lastName.trim()) fieldErrors.lastName = true;
+    if (!form.state.trim()) fieldErrors.state = true;
+    if (!form.email.trim()) fieldErrors.email = true;
+    if (!phone || phone.length < 10) fieldErrors.phone = true;
+    if (!form.age || age < 18 || age > 100) fieldErrors.age = true;
+
     if (form.hasIncome === 'yes' && !form.incomeSource.trim()) {
-      setError('Please provide your income source.');
-      return;
+      fieldErrors.incomeSource = true;
     }
     if (form.isLicensed === 'yes' && !form.licenseDetails.trim()) {
-      setError('Please provide licensing details (states, years, company).');
+      fieldErrors.licenseDetails = true;
+    }
+
+    if (String(form.whyJoin || '').trim().length < 50) fieldErrors.whyJoin = true;
+    if (String(form.goal12Month || '').trim().length < 20) fieldErrors.goal12Month = true;
+
+    if (!termsViewed) fieldErrors.termsViewed = true;
+    if (!form.agreeTraining) fieldErrors.agreeTraining = true;
+    if (!form.agreeWeekly) fieldErrors.agreeWeekly = true;
+    if (!form.agreeService) fieldErrors.agreeService = true;
+    if (!form.agreeTerms) fieldErrors.agreeTerms = true;
+
+    if (Object.keys(fieldErrors).length > 0) {
+      setValidationErrors(fieldErrors);
+      setError('Please complete highlighted fields before submitting.');
+      setTimeout(() => {
+        const first = document.querySelector('.errorInput, .errorCheck');
+        if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 10);
       return;
     }
-    if (String(form.whyJoin || '').trim().length < 50 || String(form.goal12Month || '').trim().length < 20) {
-      setError('Please complete the Why Join and 12-month goal responses.');
-      return;
-    }
-    if (!termsViewed) {
-      setError('Please open and review Terms & Conditions before accepting.');
-      return;
-    }
-    if (!form.agreeTraining || !form.agreeWeekly || !form.agreeService || !form.agreeTerms) {
-      setError('All agreement checkboxes are required.');
-      return;
-    }
+
+    setValidationErrors({});
+    setError('');
 
     const scoring = scoreApplication(form);
     const id = `sapp_${Date.now()}`;
@@ -160,12 +173,12 @@ export default function SponsorshipApplicationPage() {
         {ref ? <p className="pill onpace">Referral locked to code: {ref}</p> : null}
 
         <form className="logForm" onSubmit={onSubmit}>
-          <label>First Name<input value={form.firstName} onChange={(e) => update('firstName', e.target.value)} /></label>
-          <label>Last Name<input value={form.lastName} onChange={(e) => update('lastName', e.target.value)} /></label>
-          <label>Age<input type="number" value={form.age} onChange={(e) => update('age', e.target.value)} /></label>
-          <label>State<input value={form.state} onChange={(e) => update('state', e.target.value)} /></label>
-          <label>Email<input type="email" value={form.email} onChange={(e) => update('email', e.target.value)} /></label>
-          <label>Phone<input value={form.phone} onChange={(e) => update('phone', e.target.value)} /></label>
+          <label>First Name<input className={validationErrors.firstName ? 'errorInput' : ''} value={form.firstName} onChange={(e) => update('firstName', e.target.value)} /></label>
+          <label>Last Name<input className={validationErrors.lastName ? 'errorInput' : ''} value={form.lastName} onChange={(e) => update('lastName', e.target.value)} /></label>
+          <label>Age<input className={validationErrors.age ? 'errorInput' : ''} type="number" value={form.age} onChange={(e) => update('age', e.target.value)} /></label>
+          <label>State<input className={validationErrors.state ? 'errorInput' : ''} value={form.state} onChange={(e) => update('state', e.target.value)} /></label>
+          <label>Email<input className={validationErrors.email ? 'errorInput' : ''} type="email" value={form.email} onChange={(e) => update('email', e.target.value)} /></label>
+          <label>Phone<input className={validationErrors.phone ? 'errorInput' : ''} value={form.phone} onChange={(e) => update('phone', e.target.value)} /></label>
 
           <label>
             Reliable Source of Income?
@@ -176,7 +189,7 @@ export default function SponsorshipApplicationPage() {
           </label>
           <label>
             Income Source
-            <input value={form.incomeSource} onChange={(e) => update('incomeSource', e.target.value)} placeholder="Job, spouse, savings..." />
+            <input className={validationErrors.incomeSource ? 'errorInput' : ''} value={form.incomeSource} onChange={(e) => update('incomeSource', e.target.value)} placeholder="Job, spouse, savings..." />
           </label>
 
           <label>
@@ -188,7 +201,7 @@ export default function SponsorshipApplicationPage() {
           </label>
           <label>
             Licensing details
-            <input value={form.licenseDetails} onChange={(e) => update('licenseDetails', e.target.value)} placeholder="States, years, company" />
+            <input className={validationErrors.licenseDetails ? 'errorInput' : ''} value={form.licenseDetails} onChange={(e) => update('licenseDetails', e.target.value)} placeholder="States, years, company" />
           </label>
 
           <label>
@@ -238,24 +251,26 @@ export default function SponsorshipApplicationPage() {
 
           <label style={{ gridColumn: '1 / -1' }}>
             Why do you want to join Legacy Link?
-            <textarea value={form.whyJoin} onChange={(e) => update('whyJoin', e.target.value)} />
+            <textarea className={validationErrors.whyJoin ? 'errorInput' : ''} value={form.whyJoin} onChange={(e) => update('whyJoin', e.target.value)} />
+            <small className={validationErrors.whyJoin ? 'red' : 'muted'}>{String(form.whyJoin || '').trim().length}/50 minimum</small>
           </label>
 
           <label style={{ gridColumn: '1 / -1' }}>
             What is your #1 goal in the next 12 months?
-            <textarea value={form.goal12Month} onChange={(e) => update('goal12Month', e.target.value)} />
+            <textarea className={validationErrors.goal12Month ? 'errorInput' : ''} value={form.goal12Month} onChange={(e) => update('goal12Month', e.target.value)} />
+            <small className={validationErrors.goal12Month ? 'red' : 'muted'}>{String(form.goal12Month || '').trim().length}/20 minimum</small>
           </label>
 
-          <label style={{ gridColumn: '1 / -1' }}><input type="checkbox" checked={form.agreeTraining} onChange={(e) => update('agreeTraining', e.target.checked)} /> I commit to following training and systems.</label>
-          <label style={{ gridColumn: '1 / -1' }}><input type="checkbox" checked={form.agreeWeekly} onChange={(e) => update('agreeWeekly', e.target.checked)} /> I agree to attend at least ONE weekly training.</label>
-          <label style={{ gridColumn: '1 / -1' }}><input type="checkbox" checked={form.agreeService} onChange={(e) => update('agreeService', e.target.checked)} /> I agree to one hour community service monthly.</label>
+          <label className={validationErrors.agreeTraining ? 'errorCheck' : ''} style={{ gridColumn: '1 / -1' }}><input type="checkbox" checked={form.agreeTraining} onChange={(e) => update('agreeTraining', e.target.checked)} /> I commit to following training and systems.</label>
+          <label className={validationErrors.agreeWeekly ? 'errorCheck' : ''} style={{ gridColumn: '1 / -1' }}><input type="checkbox" checked={form.agreeWeekly} onChange={(e) => update('agreeWeekly', e.target.checked)} /> I agree to attend at least ONE weekly training.</label>
+          <label className={validationErrors.agreeService ? 'errorCheck' : ''} style={{ gridColumn: '1 / -1' }}><input type="checkbox" checked={form.agreeService} onChange={(e) => update('agreeService', e.target.checked)} /> I agree to one hour community service monthly.</label>
 
           <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <button type="button" className="ghost" onClick={() => setShowTerms(true)}>View Terms & Conditions</button>
-            {termsViewed ? <span className="pill onpace">Terms viewed</span> : <span className="pill atrisk">Terms not viewed</span>}
+            {termsViewed ? <span className="pill onpace">Terms viewed</span> : <span className={`pill ${validationErrors.termsViewed ? 'offpace' : 'atrisk'}`}>Terms not viewed</span>}
           </div>
 
-          <label style={{ gridColumn: '1 / -1' }}>
+          <label className={validationErrors.agreeTerms ? 'errorCheck' : ''} style={{ gridColumn: '1 / -1' }}>
             <input
               type="checkbox"
               checked={form.agreeTerms}
@@ -306,6 +321,13 @@ export default function SponsorshipApplicationPage() {
                 type="button"
                 onClick={() => {
                   setTermsViewed(true);
+                  setValidationErrors((prev) => {
+                    if (!prev.termsViewed && !prev.agreeTerms) return prev;
+                    const next = { ...prev };
+                    delete next.termsViewed;
+                    delete next.agreeTerms;
+                    return next;
+                  });
                   setShowTerms(false);
                 }}
               >
