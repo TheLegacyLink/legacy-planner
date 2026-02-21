@@ -70,7 +70,7 @@ export default function SponsorshipContractPage() {
         </div>
 
         <ol>
-          <li><strong>Referral Bonus:</strong> $400 per qualified referral with validated attribution.</li>
+          <li><strong>Referral Bonus:</strong> up to $400 per qualified referral with validated attribution.</li>
           <li><strong>Payout Trigger:</strong> Approval alone does not trigger payout. Payout requires onboarding initiation and required onboarding documents complete.</li>
           <li><strong>Licensed and Unlicensed Paths:</strong> Both accepted. Licensed applicants must provide licensing details. Unlicensed applicants must begin pre-licensing for full activation.</li>
           <li><strong>No Income Guarantee:</strong> No guarantee of commissions, bonuses, or production results.</li>
