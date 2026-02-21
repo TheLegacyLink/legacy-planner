@@ -36,6 +36,29 @@ function getFieldErrors(form, termsViewed) {
   return fieldErrors;
 }
 
+
+function determineDecision(score) {
+  if (score >= 70) {
+    return {
+      decision_bucket: 'auto_approved',
+      status: 'Approved – Onboarding Pending',
+      onboarding_status: 'Call Booking Pending'
+    };
+  }
+  if (score >= 40) {
+    return {
+      decision_bucket: 'manual_review',
+      status: 'Pending Review',
+      onboarding_status: 'Needs Review'
+    };
+  }
+  return {
+    decision_bucket: 'not_qualified',
+    status: 'Not Qualified At This Time',
+    onboarding_status: 'Nurture / Reapply Later'
+  };
+}
+
 function scoreApplication(form) {
   let score = 0;
   const breakdown = {};
@@ -153,6 +176,7 @@ export default function SponsorshipApplicationPage() {
     setError('');
 
     const scoring = scoreApplication(form);
+    const decision = determineDecision(scoring.score);
     const id = `sapp_${Date.now()}`;
     const record = {
       id,
@@ -161,11 +185,13 @@ export default function SponsorshipApplicationPage() {
       age,
       refCode: ref || signupSeed?.refCode || '',
       referralLocked: Boolean(ref || signupSeed?.refCode),
-      status: scoring.status,
+      status: decision.status,
+      decision_bucket: decision.decision_bucket,
       application_score: scoring.score,
       score_breakdown: scoring.breakdown,
       submitted_at: new Date().toISOString(),
-      onboarding_status: 'Needs Contact'
+      approved_at: decision.decision_bucket === 'auto_approved' ? new Date().toISOString() : null,
+      onboarding_status: decision.onboarding_status
     };
 
     if (typeof window !== 'undefined') {
@@ -183,6 +209,7 @@ export default function SponsorshipApplicationPage() {
   };
 
   const liveScore = scoreApplication(form);
+  const liveDecision = determineDecision(liveScore.score);
   const pendingErrors = getFieldErrors(form, termsViewed);
   const missingCount = Object.keys(pendingErrors).length;
 
@@ -260,7 +287,7 @@ export default function SponsorshipApplicationPage() {
         <div style={{ marginBottom: 12, border: '1px solid #c7d2fe', borderRadius: 12, background: '#eef2ff', padding: 12 }}>
           <div className="panelRow">
             <strong>Live Qualification Score</strong>
-            <span className={`pill ${liveScore.score >= 75 ? 'onpace' : 'atrisk'}`}>{liveScore.score}/100 • {liveScore.status}</span>
+            <span className={`pill ${liveDecision.decision_bucket === 'auto_approved' ? 'onpace' : liveDecision.decision_bucket === 'manual_review' ? 'atrisk' : 'offpace'}`}>{liveScore.score}/100 • {liveDecision.status}</span>
           </div>
           <small className="muted">This updates as fields are completed.</small>
         </div>
