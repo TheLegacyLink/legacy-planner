@@ -4,19 +4,33 @@ import { useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { loadRuntimeConfig } from '../../lib/runtimeConfig';
 
-function toRefCode(name = '') {
-  const clean = String(name).toLowerCase().replace(/[^a-z0-9 ]/g, '').trim().replace(/\s+/g, '_');
-  const suffix = Math.random().toString(36).slice(2, 6);
-  return `${clean}_${suffix}`;
+const FIXED_REF_CODES = {
+  'Kimora Link': 'kimora_link',
+  'Jamal Holmes': 'jamal_holmes',
+  'Mahogany Burns': 'mahogany_burns',
+  'Madalyn Adams': 'madalyn_adams',
+  'Kelin Brown': 'kelin_brown',
+  'Leticia Wright': 'leticia_wright',
+  'Latricia Wright': 'latricia_wright',
+  'Breanna James': 'breanna_james',
+  'Dr. Brianna': 'dr_brianna'
+};
+
+function fallbackRefCode(name = '') {
+  return String(name).toLowerCase().replace(/[^a-z0-9 ]/g, '').trim().replace(/\s+/g, '_');
+}
+
+function defaultRefCode(agent) {
+  return FIXED_REF_CODES[agent] || fallbackRefCode(agent);
 }
 
 export default function InnerCircleLinksPage() {
   const cfg = useMemo(() => loadRuntimeConfig(), []);
-  const [origin, setOrigin] = useState('https://legacy-planner-live.vercel.app');
+  const [origin, setOrigin] = useState('https://innercirclelink.com');
   const [codesByAgent, setCodesByAgent] = useState(() => {
     const map = {};
     (cfg.agents || []).forEach((agent) => {
-      map[agent] = toRefCode(agent);
+      map[agent] = defaultRefCode(agent);
     });
     return map;
   });
