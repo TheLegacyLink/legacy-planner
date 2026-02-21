@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { loadRuntimeConfig } from '../../lib/runtimeConfig';
 import { applyReferralCorrections, loadReferralCorrections } from '../../lib/referralCorrections';
+import { loadSponsorshipBookings, saveSponsorshipBookings } from '../../lib/sponsorshipBookings';
 
 const DEFAULTS = loadRuntimeConfig();
 
@@ -76,6 +77,23 @@ function sameMonthYear(date) {
 function sameDay(date) {
   if (!date || Number.isNaN(date.getTime())) return false;
   const now = new Date();
+
+  const claimBooking = (bookingId, claimer) => {
+    if (!claimer) return;
+    const next = bookingQueue.map((item) =>
+      item.id === bookingId
+        ? {
+            ...item,
+            claim_status: 'Claimed',
+            claimed_by: claimer,
+            claimed_at: new Date().toISOString()
+          }
+        : item
+    );
+    setBookingQueue(next);
+    saveSponsorshipBookings(next);
+  };
+
   return (
     date.getFullYear() === now.getFullYear() &&
     date.getMonth() === now.getMonth() &&
@@ -123,6 +141,8 @@ export default function MissionControl() {
   const [sponsorshipTodayApprovalsByAgent, setSponsorshipTodayApprovalsByAgent] = useState({});
   const [todaySponsorshipDetails, setTodaySponsorshipDetails] = useState([]);
   const [sponsorshipSyncIssue, setSponsorshipSyncIssue] = useState('');
+  const [bookingQueue, setBookingQueue] = useState([]);
+  const [claimBy, setClaimBy] = useState('');
   const [detailsModal, setDetailsModal] = useState({ open: false, type: '' });
   const [corrections, setCorrections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -131,8 +151,11 @@ export default function MissionControl() {
   const scopeLabel = 'This Month';
 
   useEffect(() => {
-    setConfig(loadRuntimeConfig());
+    const cfg = loadRuntimeConfig();
+    setConfig(cfg);
     setCorrections(loadReferralCorrections());
+    setBookingQueue(loadSponsorshipBookings());
+    setClaimBy(cfg.agents?.[0] || '');
   }, []);
 
   useEffect(() => {
@@ -305,6 +328,23 @@ export default function MissionControl() {
     if (score >= 45) return { label: 'Medium', tone: 'atrisk', score };
     return { label: 'Low', tone: 'offpace', score };
   }, [error, config.agents.length, rows.length, revenueRows.length, sponsorshipApprovalsByAgent, sponsorshipSyncIssue, team]);
+
+
+  const claimBooking = (bookingId, claimer) => {
+    if (!claimer) return;
+    const next = bookingQueue.map((item) =>
+      item.id === bookingId
+        ? {
+            ...item,
+            claim_status: 'Claimed',
+            claimed_by: claimer,
+            claimed_at: new Date().toISOString()
+          }
+        : item
+    );
+    setBookingQueue(next);
+    saveSponsorshipBookings(next);
+  };
 
   return (
     <AppShell title="Mission Control">
@@ -512,6 +552,63 @@ export default function MissionControl() {
           </div>
         </div>
       ) : null}
+
+      <div className="panel">
+        <div className="panelRow" style={{ gap: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <h3>Sponsorship Booking Queue</h3>
+            <span className="muted">Claim this appointment workflow</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span className="muted">Claim as</span>
+            <select value={claimBy} onChange={(e) => setClaimBy(e.target.value)}>
+              {config.agents.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {!bookingQueue.length ? (
+          <p className="muted">No bookings yet.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Referral</th>
+                <th>Applicant</th>
+                <th>State</th>
+                <th>Licensed</th>
+                <th>Requested (EST)</th>
+                <th>Eligible Closers</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bookingQueue.map((b) => (
+                <tr key={b.id}>
+                  <td>{b.referred_by || '—'}</td>
+                  <td>{b.applicant_name || '—'}</td>
+                  <td>{b.applicant_state || '—'}</td>
+                  <td>{b.licensed_status || '—'}</td>
+                  <td>{b.requested_at_est || '—'}</td>
+                  <td>{Array.isArray(b.eligible_closers) && b.eligible_closers.length ? b.eligible_closers.join(', ') : 'Not mapped'}</td>
+                  <td>
+                    <span className={`pill ${b.claim_status === 'Claimed' ? 'onpace' : 'atrisk'}`}>
+                      {b.claim_status === 'Claimed' ? `Claimed by ${b.claimed_by}` : 'Open'}
+                    </span>
+                  </td>
+                  <td>
+                    {b.claim_status === 'Claimed' ? '—' : (
+                      <button type="button" onClick={() => claimBooking(b.id, claimBy)}>Claim</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
     </AppShell>
   );
 }

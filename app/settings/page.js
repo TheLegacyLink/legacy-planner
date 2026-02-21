@@ -44,6 +44,12 @@ export default function SettingsPage() {
   const [policyRescueReadUrl, setPolicyRescueReadUrl] = useState(DEFAULT_CONFIG.policyRescue.readUrl);
   const [policyRescueWriteUrl, setPolicyRescueWriteUrl] = useState(DEFAULT_CONFIG.policyRescue.writeUrl);
   const [policyRescuePasscode, setPolicyRescuePasscode] = useState(DEFAULT_CONFIG.policyRescue.passcode);
+  const [bookingTimezone, setBookingTimezone] = useState(DEFAULT_CONFIG.booking?.timezone || 'America/New_York');
+  const [bookingLeadTimeHours, setBookingLeadTimeHours] = useState(String(DEFAULT_CONFIG.booking?.leadTimeHours || 48));
+  const [bookingStartHour, setBookingStartHour] = useState(String(DEFAULT_CONFIG.booking?.startHour || 9));
+  const [bookingEndHour, setBookingEndHour] = useState(String(DEFAULT_CONFIG.booking?.endHour || 21));
+  const [bookingWebhookUrl, setBookingWebhookUrl] = useState(DEFAULT_CONFIG.booking?.webhookUrl || '');
+  const [licensingByStateJson, setLicensingByStateJson] = useState('{}');
   const [agents, setAgents] = useState(DEFAULT_CONFIG.agents);
   const [newAgent, setNewAgent] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
@@ -74,11 +80,26 @@ export default function SettingsPage() {
     setPolicyRescueReadUrl(cfg.policyRescue?.readUrl || '');
     setPolicyRescueWriteUrl(cfg.policyRescue?.writeUrl || '');
     setPolicyRescuePasscode(cfg.policyRescue?.passcode || 'legacylink');
+    setBookingTimezone(cfg.booking?.timezone || 'America/New_York');
+    setBookingLeadTimeHours(String(cfg.booking?.leadTimeHours || 48));
+    setBookingStartHour(String(cfg.booking?.startHour || 9));
+    setBookingEndHour(String(cfg.booking?.endHour || 21));
+    setBookingWebhookUrl(cfg.booking?.webhookUrl || '');
+    setLicensingByStateJson(JSON.stringify(cfg.booking?.licensingByState || {}, null, 2));
     setAgents(cfg.agents);
     setFromAgent(cfg.agents[0] || '');
     setToAgent(cfg.agents[1] || cfg.agents[0] || '');
     setCorrections(loadReferralCorrections());
   }, []);
+
+  const parsedLicensingByState = useMemo(() => {
+    try {
+      const parsed = JSON.parse(licensingByStateJson || '{}');
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }, [licensingByStateJson]);
 
   const currentConfig = {
     timezone,
@@ -92,6 +113,14 @@ export default function SettingsPage() {
       readUrl: policyRescueReadUrl,
       writeUrl: policyRescueWriteUrl,
       passcode: policyRescuePasscode || 'legacylink'
+    },
+    booking: {
+      timezone: bookingTimezone || 'America/New_York',
+      leadTimeHours: Number(bookingLeadTimeHours || 48),
+      startHour: Number(bookingStartHour || 9),
+      endHour: Number(bookingEndHour || 21),
+      webhookUrl: bookingWebhookUrl,
+      licensingByState: parsedLicensingByState
     }
   };
 
@@ -283,6 +312,39 @@ export default function SettingsPage() {
             <label>
               Policy Rescue Passcode
               <input value={policyRescuePasscode} onChange={(e) => setPolicyRescuePasscode(e.target.value)} />
+            </label>
+
+            <label>
+              Booking Timezone
+              <select value={bookingTimezone} onChange={(e) => setBookingTimezone(e.target.value)}>
+                <option value="America/New_York">America/New_York (EST/EDT)</option>
+                <option value="America/Chicago">America/Chicago</option>
+              </select>
+            </label>
+
+            <label>
+              Booking Lead Time (hours)
+              <input type="number" min="0" value={bookingLeadTimeHours} onChange={(e) => setBookingLeadTimeHours(e.target.value)} />
+            </label>
+
+            <label>
+              Booking Start Hour (24h)
+              <input type="number" min="0" max="23" value={bookingStartHour} onChange={(e) => setBookingStartHour(e.target.value)} />
+            </label>
+
+            <label>
+              Booking End Hour (24h)
+              <input type="number" min="1" max="24" value={bookingEndHour} onChange={(e) => setBookingEndHour(e.target.value)} />
+            </label>
+
+            <label>
+              Booking Telegram/Webhook URL
+              <input value={bookingWebhookUrl} onChange={(e) => setBookingWebhookUrl(e.target.value)} placeholder="https://..." />
+            </label>
+
+            <label style={{ gridColumn: '1 / -1' }}>
+              Licensing By State JSON (e.g. {'{"VA": ["Jamal Holmes", "Kimora Link"]}'})
+              <textarea rows={8} value={licensingByStateJson} onChange={(e) => setLicensingByStateJson(e.target.value)} />
             </label>
           </div>
 

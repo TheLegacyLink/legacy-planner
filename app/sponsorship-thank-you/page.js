@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEY = 'legacy-sponsorship-applications-v1';
-const DEFAULT_BOOKING_URL = 'https://calendly.com/';
 
 export default function SponsorshipThankYouPage() {
   const [id, setId] = useState('');
@@ -24,7 +23,7 @@ export default function SponsorshipThankYouPage() {
     }
   }, [id]);
 
-  const bookingUrl = record?.booking_link || DEFAULT_BOOKING_URL;
+  const bookingUrl = record?.id ? `/sponsorship-booking?id=${encodeURIComponent(record.id)}` : '/sponsorship-booking';
 
   const shareTelegram = async () => {
     if (!record) return;
@@ -62,7 +61,7 @@ export default function SponsorshipThankYouPage() {
             </p>
 
             <div className="rowActions" style={{ flexWrap: 'wrap' }}>
-              <a href={bookingUrl} target="_blank" rel="noreferrer">
+              <a href={bookingUrl}>
                 <button type="button">Book Onboarding Call</button>
               </a>
               <button type="button" className="ghost" onClick={shareTelegram}>Need Licensed Closer (Telegram)</button>

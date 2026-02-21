@@ -15,6 +15,7 @@ const tabs = [
   { href: '/sponsorship-signup', label: 'Sponsor Signup' },
   { href: '/inner-circle-app-submit', label: 'App Submit' },
   { href: '/inner-circle-links', label: 'Inner Circle Links' },
+  { href: '/sponsorship-booking', label: 'Booking Hub' },
   { href: '/fng-policies', label: 'F&G Policies' },
   { href: '/badges', label: 'Badges' },
   { href: '/settings', label: 'Settings' }
