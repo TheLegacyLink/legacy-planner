@@ -169,7 +169,36 @@ export default function SponsorshipApplicationPage() {
   return (
     <main className="publicPage">
       <div className="panel" style={{ maxWidth: 920 }}>
-        <h3 style={{ marginTop: 0 }}>Application</h3>
+        <div style={{ display: 'grid', gap: 14, marginBottom: 14 }}>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+            <img
+              src="/legacy-link-sponsorship-badge.jpg"
+              alt="Legacy Link"
+              style={{ width: 76, height: 76, borderRadius: 999, objectFit: 'cover', border: '2px solid #dbe5f5' }}
+            />
+            <div>
+              <h2 style={{ margin: 0 }}>Legacy Link Sponsorship Application</h2>
+              <p className="muted" style={{ margin: '4px 0 0 0' }}>
+                Complete this form to see if you qualify for our sponsorship program.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <span className="pill" style={{ background: '#eef3ff', color: '#1e3a8a', borderColor: '#c7d2fe' }}>👥 Join 200+ successful agents</span>
+            <span className="pill" style={{ background: '#fff1f2', color: '#9f1239', borderColor: '#fecdd3' }}>🚀 Spots are limited</span>
+          </div>
+
+          <div style={{ border: '1px solid #bfdbfe', borderRadius: 12, background: '#eff6ff', padding: 14 }}>
+            <h3 style={{ marginTop: 0, marginBottom: 10, color: '#1e3a8a' }}>Program Benefits</h3>
+            <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 6 }}>
+              <li>Remove the cost barrier for licensing, CRM, leads, and training</li>
+              <li>Earn bonuses while you learn with our JumpStart program</li>
+              <li>Full training, mentorship, and support system included</li>
+            </ul>
+          </div>
+        </div>
+
         {ref ? <p className="pill onpace">Referral locked to code: {ref}</p> : null}
 
         <form className="logForm" onSubmit={onSubmit}>
