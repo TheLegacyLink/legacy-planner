@@ -235,13 +235,16 @@ export default function LicensedAgentsPage() {
   const groupedAgents = useMemo(() => {
     const map = new Map();
 
-    for (const row of licensedAgents) {
-      const id = row.agent_id;
-      if (!id) continue;
+    for (const [index, row] of licensedAgents.entries()) {
+      const rawAgentId = String(row.agent_id || '').trim();
+      const fallbackKey = String(row.email || row.full_name || index).trim().toUpperCase();
+      const mapKey = rawAgentId || `MISSING-${fallbackKey}`;
 
-      if (!map.has(id)) {
-        map.set(id, {
-          agent_id: id,
+      if (!map.has(mapKey)) {
+        map.set(mapKey, {
+          row_key: mapKey,
+          agent_id: rawAgentId,
+          missingAgentId: !rawAgentId,
           full_name: row.full_name || '',
           email: row.email || '',
           phone: row.phone || '',
@@ -254,7 +257,7 @@ export default function LicensedAgentsPage() {
         });
       }
 
-      const agent = map.get(id);
+      const agent = map.get(mapKey);
       const st = normalize(row.state_code);
       if (st) agent.states.add(st);
       const carrierList = Array.isArray(row.carriers_all) ? row.carriers_all : [];
@@ -344,7 +347,12 @@ export default function LicensedAgentsPage() {
       return;
     }
 
-    setSendingEmailFor(agent.agent_id);
+    if (!String(agent?.agent_id || '').trim()) {
+      window.alert('Missing Agent ID. Add Agent ID in the sheet before sending welcome email.');
+      return;
+    }
+
+    setSendingEmailFor(agent.row_key || agent.agent_id);
     try {
       const first = firstNameFromDisplay(toDisplayName(agent.full_name));
       const subject = `Welcome to The Legacy Link, ${first}`;
@@ -378,8 +386,8 @@ export default function LicensedAgentsPage() {
           <div>
             <h3 style={{ margin: 0 }}>Legacy Link Licensing Directory</h3>
             <p className="muted" style={{ margin: '6px 0 0' }}>
-              One row per agent. Filter by state to instantly find who can write in that state and see carrier contracts. Agents in their first 14 days from effective date are flagged as NEW.
-              Use “Send via Gmail” after setting Gmail env vars in Vercel.
+              One row per agent. Agent ID is used as the production number. Filter by state to instantly find who can write in that state and see carrier contracts. Agents in their first 14 days from effective date are flagged as NEW.
+              Add missing Agent IDs in the source sheet before sending welcome emails. Use “Send via Gmail” after setting Gmail env vars in Vercel.
             </p>
           </div>
           <span className="pill onpace">{filteredRows.length} Agents</span>
@@ -422,6 +430,7 @@ export default function LicensedAgentsPage() {
           <thead>
             <tr>
               <th>Name</th>
+              <th>Agent ID</th>
               <th>Licensed States</th>
               <th>Home State</th>
               <th>Carriers</th>
@@ -439,10 +448,17 @@ export default function LicensedAgentsPage() {
               const isNew = ageDays !== null && ageDays >= 0 && ageDays <= 14;
 
               return (
-                <tr key={row.agent_id} style={isNew ? { background: 'rgba(34, 197, 94, 0.10)' } : undefined}>
+                <tr key={row.row_key || row.agent_id} style={isNew ? { background: 'rgba(34, 197, 94, 0.10)' } : undefined}>
                   <td>
                     <div>{toDisplayName(row.full_name)}</div>
                     {isNew ? <span className="pill onpace">NEW</span> : null}
+                  </td>
+                  <td>
+                    {row.agent_id ? (
+                      <code>{row.agent_id}</code>
+                    ) : (
+                      <span className="pill atrisk">Missing Agent ID</span>
+                    )}
                   </td>
                   <td>{row.states.length ? row.states.join(', ') : '—'}</td>
                   <td>{row.home_state || '—'}</td>
@@ -466,9 +482,9 @@ export default function LicensedAgentsPage() {
                       <button
                         type="button"
                         onClick={() => sendWelcomeEmail(row)}
-                        disabled={!row.email || sendingEmailFor === row.agent_id}
+                        disabled={!row.email || !row.agent_id || sendingEmailFor === (row.row_key || row.agent_id)}
                       >
-                        {sendingEmailFor === row.agent_id ? 'Sending...' : 'Send via Gmail'}
+                        {sendingEmailFor === (row.row_key || row.agent_id) ? 'Sending...' : 'Send via Gmail'}
                       </button>
                     </div>
                   </td>
