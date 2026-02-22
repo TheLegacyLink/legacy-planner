@@ -378,7 +378,7 @@ export default function MissionControl() {
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
           <a href="/sponsorship-review">
-            <button type="button">
+            <button type="button" style={manualReviewCount > 0 ? { background: '#b91c1c', color: '#fff' } : undefined}>
               Sponsorship Review {manualReviewCount > 0 ? `(${manualReviewCount})` : ''}
             </button>
           </a>
