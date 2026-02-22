@@ -1,8 +1,13 @@
-const STORE_KEY = '__legacySponsorshipApplicationsStoreV1';
+import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 
-function getStore() {
-  if (!globalThis[STORE_KEY]) globalThis[STORE_KEY] = [];
-  return globalThis[STORE_KEY];
+const STORE_PATH = 'stores/sponsorship-applications.json';
+
+async function getStore() {
+  return await loadJsonStore(STORE_PATH, []);
+}
+
+async function writeStore(rows) {
+  return await saveJsonStore(STORE_PATH, rows);
 }
 
 function clean(v = '') {
@@ -20,7 +25,7 @@ function normalizeName(v = '') {
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const status = clean(searchParams.get('status')).toLowerCase();
-  const store = getStore();
+  const store = await getStore();
   const rows = status ? store.filter((r) => String(r.status || '').toLowerCase() === status) : store;
   rows.sort((a, b) => new Date(b.submitted_at || b.createdAt || 0).getTime() - new Date(a.submitted_at || a.createdAt || 0).getTime());
   return Response.json({ ok: true, rows });
@@ -29,7 +34,7 @@ export async function GET(req) {
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
   const mode = clean(body?.mode || 'submit').toLowerCase();
-  const store = getStore();
+  const store = await getStore();
 
   if (mode === 'submit') {
     const record = {
@@ -54,6 +59,7 @@ export async function POST(req) {
     if (idx >= 0) store[idx] = { ...store[idx], ...record, updatedAt: nowIso() };
     else store.push(record);
 
+    await writeStore(store);
     return Response.json({ ok: true, row: record });
   }
 
@@ -74,22 +80,23 @@ export async function POST(req) {
       updatedAt: nowIso()
     };
 
+    await writeStore(store);
     return Response.json({ ok: true, row: store[idx] });
   }
 
   return Response.json({ ok: false, error: 'unsupported_mode' }, { status: 400 });
 }
 
-
 export async function DELETE(req) {
   const { searchParams } = new URL(req.url);
   const id = clean(searchParams.get('id'));
   if (!id) return Response.json({ ok: false, error: 'missing_id' }, { status: 400 });
 
-  const store = getStore();
+  const store = await getStore();
   const idx = store.findIndex((r) => r.id === id);
   if (idx < 0) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
 
   const [removed] = store.splice(idx, 1);
+  await writeStore(store);
   return Response.json({ ok: true, removed });
 }

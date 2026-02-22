@@ -1,10 +1,13 @@
-const STORE_KEY = '__legacyCallerLeadsStoreV1';
+import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 
-function getStore() {
-  if (!globalThis[STORE_KEY]) {
-    globalThis[STORE_KEY] = [];
-  }
-  return globalThis[STORE_KEY];
+const STORE_PATH = 'stores/caller-leads.json';
+
+async function getStore() {
+  return await loadJsonStore(STORE_PATH, []);
+}
+
+async function writeStore(rows) {
+  return await saveJsonStore(STORE_PATH, rows);
 }
 
 function nowIso() {
@@ -84,7 +87,7 @@ function validateToken(req, body = {}) {
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const owner = clean(searchParams.get('owner'));
-  const store = getStore();
+  const store = await getStore();
 
   const out = owner
     ? store.filter((r) => normalizeOwner(r.owner) === normalizeOwner(owner))
@@ -97,7 +100,7 @@ export async function GET(req) {
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
 
-  const store = getStore();
+  const store = await getStore();
   const mode = clean(body?.mode || 'upsert').toLowerCase();
 
   if (mode === 'create-manual') {
@@ -131,6 +134,7 @@ export async function POST(req) {
     }
 
     store.push(row);
+    await writeStore(store);
     return Response.json({ ok: true, row });
   }
 
@@ -148,10 +152,12 @@ export async function POST(req) {
       createdAt: store[idx].createdAt,
       updatedAt: nowIso()
     };
+    await writeStore(store);
     return Response.json({ ok: true, row: store[idx], upsert: 'updated' });
   }
 
   store.push(incoming);
+  await writeStore(store);
   return Response.json({ ok: true, row: incoming, upsert: 'inserted' });
 }
 
@@ -160,11 +166,12 @@ export async function PATCH(req) {
   const id = clean(body?.id);
   if (!id) return Response.json({ ok: false, error: 'missing_id' }, { status: 400 });
 
-  const store = getStore();
+  const store = await getStore();
   const idx = store.findIndex((r) => r.id === id);
   if (idx < 0) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
 
   store[idx] = { ...store[idx], ...(body?.patch || {}), updatedAt: nowIso() };
+  await writeStore(store);
   return Response.json({ ok: true, row: store[idx] });
 }
 
@@ -173,10 +180,11 @@ export async function DELETE(req) {
   const id = clean(searchParams.get('id'));
   if (!id) return Response.json({ ok: false, error: 'missing_id' }, { status: 400 });
 
-  const store = getStore();
+  const store = await getStore();
   const idx = store.findIndex((r) => r.id === id);
   if (idx < 0) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
 
   const [removed] = store.splice(idx, 1);
+  await writeStore(store);
   return Response.json({ ok: true, removed });
 }
