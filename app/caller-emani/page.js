@@ -29,6 +29,13 @@ function normalizePhone(v = '') {
   return String(v || '').replace(/\D/g, '');
 }
 
+function normalizeLicensedValue(v = '') {
+  const s = String(v || '').trim().toLowerCase();
+  if (['yes', 'licensed', 'true'].includes(s)) return 'Licensed';
+  if (['no', 'unlicensed', 'false'].includes(s)) return 'Unlicensed';
+  return 'Unknown';
+}
+
 function todayKey() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -53,6 +60,7 @@ export default function CallerEmaniPage() {
   const [error, setError] = useState('');
   const [rows, setRows] = useState([]);
   const [sponsorshipRows, setSponsorshipRows] = useState([]);
+  const [policyApprovedNames, setPolicyApprovedNames] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [hoursToday, setHoursToday] = useState('');
   const [form, setForm] = useState({
@@ -108,8 +116,20 @@ export default function CallerEmaniPage() {
     }
   }
 
+  async function fetchPolicyApprovedNames() {
+    try {
+      const res = await fetch('/api/policy-approved-names', { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok && Array.isArray(data.names)) {
+        setPolicyApprovedNames(data.names);
+      }
+    } catch {
+      // ignore transient fetch errors
+    }
+  }
+
   async function syncAll() {
-    await Promise.all([fetchRows(), fetchSponsorshipRows()]);
+    await Promise.all([fetchRows(), fetchSponsorshipRows(), fetchPolicyApprovedNames()]);
   }
 
   useEffect(() => {
@@ -318,12 +338,78 @@ export default function CallerEmaniPage() {
     return set;
   }, [sponsorshipRows]);
 
+  const sponsorshipLicenseLookup = useMemo(() => {
+    const map = new Map();
+    for (const s of sponsorshipRows) {
+      const licensed = normalizeLicensedValue(s.isLicensed);
+      if (licensed === 'Unknown') continue;
+      const n = normalizeName(`${s.firstName || ''} ${s.lastName || ''}`);
+      const e = String(s.email || '').trim().toLowerCase();
+      const p = normalizePhone(s.phone || '');
+      if (n) map.set(`n:${n}`, licensed);
+      if (e) map.set(`e:${e}`, licensed);
+      if (p) map.set(`p:${p}`, licensed);
+    }
+    return map;
+  }, [sponsorshipRows]);
+
+  const policyApprovedSet = useMemo(() => new Set((policyApprovedNames || []).map((n) => normalizeName(n))), [policyApprovedNames]);
+
+  const payoutTotal = useMemo(() => {
+    return rows.reduce((sum, row) => {
+      const nameMatch = policyApprovedSet.has(normalizeName(row.name || ''));
+      const payout = nameMatch && row.stage === 'Onboarding Started' ? 300 : 0;
+      return sum + payout;
+    }, 0);
+  }, [rows, policyApprovedSet]);
+
+  useEffect(() => {
+    if (!unlocked || !rows.length || !sponsorshipRows.length) return;
+
+    const needed = rows
+      .filter((row) => !row.licensedStatus || row.licensedStatus === 'Unknown')
+      .map((row) => {
+        const keys = [
+          `e:${String(row.email || '').trim().toLowerCase()}`,
+          `p:${normalizePhone(row.phone || '')}`,
+          `n:${normalizeName(row.name || '')}`
+        ];
+        const next = keys.map((k) => sponsorshipLicenseLookup.get(k)).find((v) => v && v !== 'Unknown');
+        return next ? { id: row.id, licensedStatus: next } : null;
+      })
+      .filter(Boolean);
+
+    if (!needed.length) return;
+
+    let cancelled = false;
+    async function run() {
+      try {
+        for (const patch of needed) {
+          if (cancelled) return;
+          await fetch('/api/caller-leads', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: patch.id, patch: { licensedStatus: patch.licensedStatus } })
+          });
+        }
+        if (!cancelled) await syncAll();
+      } catch {
+        // ignore best-effort autofill failures
+      }
+    }
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [unlocked, rows, sponsorshipRows, sponsorshipLicenseLookup]);
+
   if (!unlocked) {
     return (
-      <main style={{ minHeight: '100vh', background: 'radial-gradient(circle at top, #172554 0%, #0b1220 60%)', display: 'grid', placeItems: 'center', padding: 16, color: '#fff' }}>
-        <div style={{ width: '100%', maxWidth: 440, background: '#0f172a', border: '1px solid #334155', borderRadius: 14, padding: 22 }}>
-          <h2 style={{ marginTop: 0 }}>Emani Calling Portal</h2>
-          <p style={{ color: '#cbd5e1' }}>Enter your password to access your calling dashboard.</p>
+      <main style={{ minHeight: '100vh', background: 'radial-gradient(circle at top, #fde7cf 0%, #f7e2cf 55%, #f6ede4 100%)', display: 'grid', placeItems: 'center', padding: 16, color: '#3f2a1d' }}>
+        <div style={{ width: '100%', maxWidth: 440, background: '#fffaf5', border: '1px solid #e7c9ad', borderRadius: 14, padding: 22, boxShadow: '0 12px 28px rgba(139,69,19,0.12)' }}>
+          <h2 style={{ marginTop: 0, color: '#7c3f1d' }}>Emani Calling Portal</h2>
+          <p style={{ color: '#7a5a45' }}>Enter your password to access your calling dashboard.</p>
           <input
             type="password"
             value={passcode}
@@ -342,12 +428,12 @@ export default function CallerEmaniPage() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#f8fafc', padding: 16, color: '#0f172a' }}>
+    <main style={{ minHeight: '100vh', background: '#fff7ef', padding: 16, color: '#3f2a1d' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gap: 14 }}>
-        <div style={{ background: '#0f172a', color: '#fff', borderRadius: 14, padding: 18, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+        <div style={{ background: 'linear-gradient(120deg, #8b4513 0%, #b35c23 100%)', color: '#fffaf0', borderRadius: 14, padding: 18, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', boxShadow: '0 10px 24px rgba(139,69,19,0.24)' }}>
           <div>
             <h2 style={{ margin: 0 }}>Emani Calling Portal</h2>
-            <p style={{ margin: '6px 0 0', color: '#cbd5e1' }}>Lead-to-Onboarding tracking for The Legacy Link</p>
+            <p style={{ margin: '6px 0 0', color: '#ffe7cf' }}>Lead-to-Onboarding tracking for The Legacy Link</p>
           </div>
           <button type="button" onClick={exportCsv} style={{ marginLeft: 'auto' }}>Export CSV</button>
           <button type="button" className="ghost" onClick={lock}>Lock</button>
@@ -360,7 +446,8 @@ export default function CallerEmaniPage() {
             ['Called', stats.called],
             ['Connected', stats.connected],
             ['Qualified', stats.qualified],
-            ['Moved Forward', stats.movedForward]
+            ['Moved Forward', stats.movedForward],
+            ['Payout Earned', `$${payoutTotal}`]
           ].map(([label, value]) => (
             <div key={label} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 12 }}>
               <div style={{ color: '#64748b', fontSize: 12 }}>{label}</div>
@@ -404,7 +491,7 @@ export default function CallerEmaniPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  {['Name', 'Email', 'Phone', 'Licensed', 'Stage', 'Quick Update', 'Notes', 'Updated', 'Actions'].map((h) => (
+                  {['Name', 'Email', 'Phone', 'Licensed', 'Stage', 'Quick Update', 'Notes', 'Updated', 'Payout', 'Actions'].map((h) => (
                     <th key={h} style={{ textAlign: 'left', borderBottom: '1px solid #e2e8f0', padding: 8 }}>{h}</th>
                   ))}
                 </tr>
@@ -444,6 +531,13 @@ export default function CallerEmaniPage() {
                     </td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>{fmtDateTime(row.updatedAt)}</td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>
+                      {policyApprovedSet.has(normalizeName(row.name || '')) && row.stage === 'Onboarding Started' ? (
+                        <span className="pill onpace" style={{ fontWeight: 700 }}>+$300</span>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                    <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>
                       <div style={{ display: 'grid', gap: 6 }}>
                         <button type="button" onClick={() => sendSponsorshipInvite(row)} disabled={isApproved}>Send Sponsor Email</button>
                         <button type="button" className="ghost" onClick={() => removeLead(row.id)}>Delete</button>
@@ -455,7 +549,7 @@ export default function CallerEmaniPage() {
                 })}
                 {!rows.length ? (
                   <tr>
-                    <td colSpan={9} style={{ padding: 14, color: '#64748b' }}>No leads yet. Add first lead above.</td>
+                    <td colSpan={10} style={{ padding: 14, color: '#64748b' }}>No leads yet. Add first lead above.</td>
                   </tr>
                 ) : null}
               </tbody>
