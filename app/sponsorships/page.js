@@ -88,7 +88,7 @@ const EMAIL_BY_NAME = (() => {
   return map;
 })();
 
-const JAMAL_EMAIL = 'jamalholmes195@yahoo.com';
+const JAMAL_EMAIL = 'support@jdholmesagencyllc.com';
 
 const COMPLETED_NAME_SET = (() => {
   const set = new Set();
@@ -255,22 +255,25 @@ function defaultAgencyOwnerEmail(row, wf) {
 function onboardingTemplate(licensing = 'Unknown') {
   const common = [
     { id: 'join-skool', label: 'Join Skool', url: 'https://www.skool.com/legacylink/about?ref=660035f641d94e3a919e081e220ed6fe' },
-    { id: 'watch-welcome', label: 'Watch Welcome Video', url: 'https://www.youtube.com/watch?v=SVvU9SvCH9o' }
+    { id: 'watch-whatever-it-takes', label: 'Watch Whatever It Takes + Leave a Comment', url: 'https://www.youtube.com/watch?v=SVvU9SvCH9o' }
   ];
 
   if (licensing === 'Unlicensed' || licensing === 'Pre-licensing') {
     return [
       ...common,
-      { id: 'contact-jamal', label: 'Jamal Reachout', url: '' },
-      { id: 'start-prelicensing', label: 'Start Pre-Licensing', url: '' }
+      { id: 'contact-jamal', label: 'Operations Outreach (Jamal contacts you)', url: '' },
+      { id: 'start-prelicensing', label: 'Start Pre-Licensing', url: '' },
+      { id: 'attend-weekly-meeting', label: 'Attend Weekly Meeting', url: '' },
+      { id: 'community-service', label: 'Complete 1 Hour Community Service + Upload Proof in App', url: '' }
     ];
   }
 
   return [
     ...common,
-    { id: 'start-contracting', label: 'Start Contracting', url: 'https://accounts.surancebay.com/oauth/authorize?redirect_uri=https:%2F%2Fsurelc.surancebay.com%2Fproducer%2Foauth%3FreturnUrl%3D%252Fprofile%252Fcontact-info%253FgaId%253D168%2526gaId%253D168%2526branch%253DInvestaLink%2526branchVisible%253Dtrue%2526branchEditable%253Dfalse%2526branchRequired%253Dtrue%2526autoAdd%253Dfalse%2526requestMethod%253DGET&gaId=168&client_id=surecrmweb&response_type=code' },
-    { id: 'watch-contracting-video', label: 'Watch Get Contracted Video', url: 'https://youtu.be/d2saZzYzzkA?si=z63iJxMZD0b78guj' },
-    { id: 'watch-backoffice-video', label: 'Watch Back Office Setup', url: 'https://youtu.be/QVg0rUti1hM' }
+    { id: 'watch-contracting-video', label: 'Watch Get Contracted', url: 'https://youtu.be/d2saZzYzzkA?si=z63iJxMZD0b78guj' },
+    { id: 'complete-contracting-profile', label: 'Complete Contracting Profile (SuranceBay)', url: 'https://accounts.surancebay.com/oauth/authorize?redirect_uri=https:%2F%2Fsurelc.surancebay.com%2Fproducer%2Foauth%3FreturnUrl%3D%252Fprofile%252Fcontact-info%253FgaId%253D168%2526gaId%253D168%2526branch%253DInvestaLink%2526branchVisible%253Dtrue%2526branchEditable%253Dfalse%2526branchRequired%253Dtrue%2526autoAdd%253Dfalse%2526requestMethod%253DGET&gaId=168&client_id=surecrmweb&response_type=code' },
+    { id: 'attend-weekly-meeting', label: 'Attend Weekly Meeting', url: '' },
+    { id: 'community-service', label: 'Complete 1 Hour Community Service + Upload Proof in App', url: '' }
   ];
 }
 
@@ -446,6 +449,8 @@ export default function SponsorshipsPage() {
       `Access Code: ${onboardingCode}`,
       '',
       bullets,
+      '',
+      'Once you are contracted and all checklist items are complete, you will begin receiving leads.',
       jamalLine,
       '',
       '— The Legacy Link Team'
@@ -454,7 +459,7 @@ export default function SponsorshipsPage() {
     const htmlItems = items
       .map((item) => `<li>${item.url ? `<a href="${item.url}" target="_blank" rel="noreferrer">${item.label}</a>` : item.label}</li>`)
       .join('');
-    const html = `<div style="font-family:Arial,Helvetica,sans-serif;line-height:1.6;color:#0f172a;"><p>Hi ${first},</p><p>Your onboarding application has been approved.</p><p>${isUnlicensed ? 'Your next step is pre-licensing.' : 'You are cleared to begin onboarding and contracting.'} Complete each checklist item below:</p><p><strong>Your private onboarding portal:</strong><br/><a href="${onboardingLink}" target="_blank" rel="noreferrer">Open Onboarding Portal</a><br/><strong>Access Code:</strong> ${onboardingCode}</p><ol>${htmlItems}</ol>${isUnlicensed ? `<p><strong>Jamal will contact you directly</strong> to begin pre-licensing. For urgent questions: <a href="mailto:${JAMAL_EMAIL}">${JAMAL_EMAIL}</a></p>` : ''}<p>— The Legacy Link Team</p></div>`;
+    const html = `<div style="font-family:Arial,Helvetica,sans-serif;line-height:1.6;color:#0f172a;"><p>Hi ${first},</p><p>Your onboarding application has been approved.</p><p>${isUnlicensed ? 'Your next step is pre-licensing.' : 'You are cleared to begin onboarding and contracting.'} Complete each checklist item below:</p><p><strong>Your private onboarding portal:</strong><br/><a href="${onboardingLink}" target="_blank" rel="noreferrer">Open Onboarding Portal</a><br/><strong>Access Code:</strong> ${onboardingCode}</p><ol>${htmlItems}</ol><p><strong>Once you are contracted and all checklist items are complete, you will begin receiving leads.</strong></p>${isUnlicensed ? `<p><strong>Jamal will contact you directly</strong> to begin pre-licensing. For urgent questions: <a href="mailto:${JAMAL_EMAIL}">${JAMAL_EMAIL}</a></p>` : ''}<p>— The Legacy Link Team</p></div>`;
 
     setSendingActionFor(key);
     try {
@@ -494,6 +499,54 @@ export default function SponsorshipsPage() {
       window.alert(`Onboarding email sent to ${applicantEmail}`);
     } catch (error) {
       window.alert(`Onboarding email failed: ${error?.message || 'send_failed'}`);
+    } finally {
+      setSendingActionFor('');
+    }
+  }
+
+  async function sendContractedEmail(row, wf, key) {
+    const applicantEmail = String(wf?.applicantEmail || '').trim().toLowerCase();
+    if (!applicantEmail) {
+      window.alert('Missing applicant email. Add Applicant Email first.');
+      return;
+    }
+
+    if (contractedStatus(row, wf) !== 'Yes') {
+      window.alert('This is for contracted agents only. Mark contracted first.');
+      return;
+    }
+
+    const first = String(row.name || '').trim().split(' ')[0] || 'Agent';
+    const subject = `You’re Contracted — Back Office Access & Setup (${first})`;
+    const text = [
+      `Hi ${first},`,
+      '',
+      'Congratulations — you are now contracted.',
+      'Next step: Watch Back Office Access & Setup:',
+      'https://youtu.be/QVg0rUti1hM',
+      '',
+      'Complete all remaining onboarding checklist items to begin receiving leads.',
+      '',
+      '— The Legacy Link Team'
+    ].join('\n');
+
+    setSendingActionFor(key);
+    try {
+      const res = await fetch('/api/send-welcome-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: applicantEmail, subject, text })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        window.alert(`Contracted email failed: ${data?.error || 'unknown_error'}`);
+        return;
+      }
+
+      updateWorkflow(key, { contractedEmailSentAt: new Date().toISOString() });
+      window.alert(`Contracted email sent to ${applicantEmail}`);
+    } catch (error) {
+      window.alert(`Contracted email failed: ${error?.message || 'send_failed'}`);
     } finally {
       setSendingActionFor('');
     }
@@ -658,6 +711,104 @@ export default function SponsorshipsPage() {
       clearInterval(id);
     };
   }, []);
+
+  useEffect(() => {
+    if (loading || !rows.length) return;
+
+    let cancelled = false;
+
+    async function runAutoOnApprovalNotifications() {
+      for (const r of rows) {
+        if (cancelled) return;
+        const key = rowKey(r);
+        const wf = workflow[key] || {};
+
+        if (wf.onboardingSentAt) continue;
+        if (!r.approvedDate) continue;
+
+        const applicantEmail = String(wf?.applicantEmail || '').trim().toLowerCase();
+        const licensing = effectiveLicensingStatus(r, wf);
+        if (!applicantEmail || licensing === 'Unknown') continue;
+
+        const ownerEmail = String(defaultAgencyOwnerEmail(r, wf) || '').trim().toLowerCase();
+        const onboardingCode = String(wf?.onboardingCode || `${Math.floor(100000 + Math.random() * 900000)}`);
+        const nextWf = { ...wf, onboardingCode };
+        const onboardingLink = buildOnboardingLink(r, nextWf);
+        const first = String(r.name || '').trim().split(' ')[0] || 'Agent';
+        const items = onboardingTemplate(licensing);
+        const bullets = items.map((item, idx) => `${idx + 1}) ${item.label}${item.url ? `: ${item.url}` : ''}`).join('\n');
+        const isUnlicensed = licensing === 'Unlicensed' || licensing === 'Pre-licensing';
+
+        const subject = isUnlicensed ? `Legacy Link Onboarding (Unlicensed) — ${first}` : `Legacy Link Onboarding — ${first}`;
+        const text = [
+          `Hi ${first},`,
+          '',
+          'Your onboarding application has been approved.',
+          'Your private onboarding portal:',
+          onboardingLink,
+          `Access Code: ${onboardingCode}`,
+          '',
+          bullets,
+          '',
+          'Once you are contracted and all checklist items are complete, you will begin receiving leads.',
+          isUnlicensed ? `Jamal will contact you directly. Operations email: ${JAMAL_EMAIL}` : '',
+          '',
+          '— The Legacy Link Team'
+        ].join('\n');
+
+        try {
+          const sendApplicant = fetch('/api/send-welcome-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: applicantEmail, subject, text })
+          });
+
+          const notifyOwner = ownerEmail
+            ? fetch('/api/send-welcome-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  to: ownerEmail,
+                  subject: `Approved + Onboarding Sent: ${r.name}`,
+                  text: `Applicant approved and onboarding sent.\nName: ${r.name}\nApplicant Email: ${applicantEmail}\nLicensing: ${licensing}`
+                })
+              })
+            : Promise.resolve();
+
+          const notifyJamal = isUnlicensed
+            ? fetch('/api/send-welcome-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  to: JAMAL_EMAIL,
+                  subject: `Unlicensed Approval: ${r.name}`,
+                  text: `Unlicensed applicant approved and needs outreach.\nName: ${r.name}\nEmail: ${applicantEmail}\nPhone: ${r.phone || 'N/A'}\nReferred By: ${r.referredBy || 'N/A'}`
+                })
+              })
+            : Promise.resolve();
+
+          await Promise.all([sendApplicant, notifyOwner, notifyJamal]);
+
+          updateWorkflow(key, {
+            onboardingCode,
+            onboardingSentAt: new Date().toISOString(),
+            approvedNotificationAt: new Date().toISOString(),
+            autoOnApprovalSentAt: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error('Auto onboarding send failed', error);
+        }
+      }
+    }
+
+    runAutoOnApprovalNotifications();
+    const autoId = setInterval(runAutoOnApprovalNotifications, 120000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(autoId);
+    };
+  }, [loading, rows, workflow]);
 
   useEffect(() => {
     if (loading || !rows.length) return;
@@ -1348,6 +1499,9 @@ export default function SponsorshipsPage() {
                       <button type="button" className="ghost" onClick={() => copyOnboardingAccess(r, wf, key)}>
                         Copy Onboarding Link
                       </button>
+                      <button type="button" className="ghost" onClick={() => sendContractedEmail(r, wf, key)} disabled={sendingActionFor === key || contractedStatus(r, wf) !== 'Yes'}>
+                        Send Contracted Email
+                      </button>
                       <button type="button" className="ghost" onClick={() => sendNoMovementAlert(r, wf, key)} disabled={sendingActionFor === key}>
                         72h No-Movement Alert
                       </button>
@@ -1358,6 +1512,7 @@ export default function SponsorshipsPage() {
                     <div className="muted">{wf.updatedBy || '—'}</div>
                     {wf.onboardingSentAt ? <div className="muted">Onboarding sent: {formatDateTime(wf.onboardingSentAt)}</div> : null}
                     {wf.onboardingCode ? <div className="muted">Portal code: {wf.onboardingCode}</div> : null}
+                    {wf.contractedEmailSentAt ? <div className="muted">Contracted email sent: {formatDateTime(wf.contractedEmailSentAt)}</div> : null}
                     {wf.lastEscalatedAt ? <div className="muted">Last 72h alert: {formatDateTime(wf.lastEscalatedAt)}</div> : null}
                   </td>
                 </tr>

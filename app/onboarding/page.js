@@ -17,25 +17,29 @@ function decodeHash(value = '') {
 function checklistByLicensing(licensing = 'Unknown') {
   const common = [
     { label: 'Join Skool', url: 'https://www.skool.com/legacylink/about?ref=660035f641d94e3a919e081e220ed6fe' },
-    { label: 'Watch Welcome Video', url: 'https://www.youtube.com/watch?v=SVvU9SvCH9o' }
+    { label: 'Watch Whatever It Takes + Leave a Comment', url: 'https://www.youtube.com/watch?v=SVvU9SvCH9o' }
   ];
 
   if (licensing === 'Unlicensed' || licensing === 'Pre-licensing') {
     return [
       ...common,
-      { label: 'Watch How to Get Contracted', url: 'https://youtu.be/d2saZzYzzkA?si=z63iJxMZD0b78guj' },
-      { label: 'Wait for Jamal outreach to start pre-licensing', url: '' }
+      { label: 'Watch Get Contracted', url: 'https://youtu.be/d2saZzYzzkA?si=z63iJxMZD0b78guj' },
+      { label: 'Operations Outreach (Jamal contacts you)', url: '' },
+      { label: 'Start Pre-Licensing', url: '' },
+      { label: 'Attend Weekly Meeting', url: '' },
+      { label: 'Complete 1 Hour Community Service + Upload Proof in App', url: '' }
     ];
   }
 
   return [
     ...common,
+    { label: 'Watch Get Contracted', url: 'https://youtu.be/d2saZzYzzkA?si=z63iJxMZD0b78guj' },
     {
-      label: 'Complete Contracting Profile',
+      label: 'Complete Contracting Profile (SuranceBay)',
       url: 'https://accounts.surancebay.com/oauth/authorize?redirect_uri=https:%2F%2Fsurelc.surancebay.com%2Fproducer%2Foauth%3FreturnUrl%3D%252Fprofile%252Fcontact-info%253FgaId%253D168%2526gaId%253D168%2526branch%253DInvestaLink%2526branchVisible%253Dtrue%2526branchEditable%253Dfalse%2526branchRequired%253Dtrue%2526autoAdd%253Dfalse%2526requestMethod%253DGET&gaId=168&client_id=surecrmweb&response_type=code'
     },
-    { label: 'Watch How to Get Contracted', url: 'https://youtu.be/d2saZzYzzkA?si=z63iJxMZD0b78guj' },
-    { label: 'Watch Back Office Access & Setup', url: 'https://youtu.be/QVg0rUti1hM' }
+    { label: 'Attend Weekly Meeting', url: '' },
+    { label: 'Complete 1 Hour Community Service + Upload Proof in App', url: '' }
   ];
 }
 
@@ -160,8 +164,12 @@ export default function OnboardingPortalPage() {
             ))}
           </div>
 
-          <div style={{ marginTop: 18, padding: 12, border: '1px solid #dbeafe', borderRadius: 10, background: '#eff6ff' }}>
-            <strong>Need help?</strong> Contact Operations at <a href="mailto:jamalholmes195@yahoo.com">jamalholmes195@yahoo.com</a>
+          <div style={{ marginTop: 18, padding: 12, border: '1px solid #dcfce7', borderRadius: 10, background: '#f0fdf4' }}>
+            <strong>Lead Release:</strong> Once you are contracted and all checklist items are complete, you will begin receiving leads.
+          </div>
+
+          <div style={{ marginTop: 12, padding: 12, border: '1px solid #dbeafe', borderRadius: 10, background: '#eff6ff' }}>
+            <strong>Need help?</strong> Contact Operations at <a href="mailto:support@jdholmesagencyllc.com">SUPPORT@jdholmesagencyllc.com</a>
           </div>
         </div>
       </div>

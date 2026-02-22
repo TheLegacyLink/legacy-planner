@@ -366,6 +366,9 @@ export default function MissionControl() {
             Metrics below reflect current month-to-date execution.
           </p>
         </div>
+        <a href="/sponsorships" style={{ marginLeft: 'auto' }}>
+          <button type="button">Open Agency Owner Dashboard</button>
+        </a>
       </div>
 
       <div className="grid4">
