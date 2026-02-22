@@ -39,6 +39,12 @@ function checklistByLicensing(licensing = 'Unknown') {
   ];
 }
 
+function trackLabel(licensing) {
+  if (licensing === 'Unlicensed' || licensing === 'Pre-licensing') return 'Unlicensed Track';
+  if (licensing === 'Licensed') return 'Licensed Track';
+  return 'Onboarding Track';
+}
+
 export default function OnboardingPortalPage() {
   const [accessCode, setAccessCode] = useState('');
   const [unlocked, setUnlocked] = useState(false);
@@ -61,6 +67,7 @@ export default function OnboardingPortalPage() {
 
   const items = checklistByLicensing(data.licensing);
   const done = items.filter((_, idx) => checks[idx]).length;
+  const pct = items.length ? Math.round((done / items.length) * 100) : 0;
 
   function unlock() {
     const expected = `legacy-link|${accessCode.trim()}`;
@@ -74,20 +81,20 @@ export default function OnboardingPortalPage() {
   if (!unlocked) {
     return (
       <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#0b1220', color: '#fff', padding: 16 }}>
-        <div style={{ width: '100%', maxWidth: 420, background: '#111827', border: '1px solid #334155', borderRadius: 12, padding: 20 }}>
-          <h2 style={{ marginTop: 0 }}>Legacy Link Onboarding Portal</h2>
-          <p style={{ color: '#cbd5e1' }}>Enter your access code to continue.</p>
+        <div style={{ width: '100%', maxWidth: 460, background: '#0f172a', border: '1px solid #334155', borderRadius: 14, padding: 24 }}>
+          <h2 style={{ margin: '0 0 8px', fontSize: 28 }}>Legacy Link Onboarding</h2>
+          <p style={{ color: '#cbd5e1', marginTop: 0 }}>Secure portal access</p>
           <input
             type="password"
             value={accessCode}
             onChange={(e) => setAccessCode(e.target.value)}
-            placeholder="Access Code"
-            style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #475569', background: '#0f172a', color: '#fff', marginBottom: 10 }}
+            placeholder="Enter Access Code"
+            style={{ width: '100%', padding: 12, borderRadius: 10, border: '1px solid #475569', background: '#020617', color: '#fff', marginBottom: 12, fontSize: 16 }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') unlock();
             }}
           />
-          <button type="button" onClick={unlock} style={{ width: '100%', padding: 10, borderRadius: 8, border: 0, background: '#2563eb', color: '#fff' }}>
+          <button type="button" onClick={unlock} style={{ width: '100%', padding: 12, borderRadius: 10, border: 0, background: '#2563eb', color: '#fff', fontSize: 16, fontWeight: 600 }}>
             Open Portal
           </button>
         </div>
@@ -96,35 +103,55 @@ export default function OnboardingPortalPage() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#f8fafc', padding: 20 }}>
-      <div style={{ maxWidth: 760, margin: '0 auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
-        <div style={{ background: '#0f172a', color: '#fff', padding: '20px 24px' }}>
-          <h2 style={{ margin: 0 }}>Welcome to The Legacy Link</h2>
-          <p style={{ margin: '8px 0 0', opacity: 0.9 }}>Onboarding SOP Portal</p>
+    <main style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #0b1220 0%, #111827 35%, #f8fafc 35%, #f8fafc 100%)', padding: 20 }}>
+      <div style={{ maxWidth: 900, margin: '0 auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden', boxShadow: '0 10px 30px rgba(2,6,23,0.12)' }}>
+        <div style={{ background: '#0f172a', color: '#fff', padding: '24px 28px' }}>
+          <h2 style={{ margin: 0, fontSize: 34, lineHeight: 1.1 }}>Welcome to The Legacy Link</h2>
+          <p style={{ margin: '8px 0 0', opacity: 0.95, fontSize: 18 }}>Onboarding SOP Portal</p>
         </div>
 
-        <div style={{ padding: 24 }}>
-          <p><strong>Name:</strong> {data.name}</p>
-          <p><strong>Email:</strong> {data.email || '—'}</p>
-          <p><strong>Path:</strong> {data.licensing}</p>
-          <p><strong>Referred By:</strong> {data.referredBy || '—'}</p>
-
-          <div style={{ marginTop: 16, padding: 12, border: '1px solid #e2e8f0', borderRadius: 8, background: '#f8fafc' }}>
-            <strong>Progress:</strong> {done}/{items.length} complete
+        <div style={{ padding: 28, color: '#0f172a' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+            <span style={{ background: data.licensing === 'Licensed' ? '#dcfce7' : '#ffedd5', color: '#14532d', border: '1px solid #86efac', borderRadius: 999, padding: '6px 12px', fontWeight: 700 }}>
+              {trackLabel(data.licensing)}
+            </span>
+            <span style={{ background: '#eef2ff', color: '#1e3a8a', border: '1px solid #c7d2fe', borderRadius: 999, padding: '6px 12px', fontWeight: 700 }}>
+              Progress: {done}/{items.length} ({pct}%)
+            </span>
           </div>
 
-          <h3 style={{ marginTop: 20 }}>Checklist</h3>
+          <div style={{ height: 10, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden', marginBottom: 20 }}>
+            <div style={{ width: `${pct}%`, height: '100%', background: '#2563eb', transition: 'width 180ms ease' }} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 22 }}>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 12 }}>
+              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Name</div>
+              <div style={{ fontWeight: 700, fontSize: 17 }}>{data.name}</div>
+            </div>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 12 }}>
+              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Email</div>
+              <div style={{ fontWeight: 600, fontSize: 16 }}>{data.email || '—'}</div>
+            </div>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 12 }}>
+              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Referred By</div>
+              <div style={{ fontWeight: 600, fontSize: 16 }}>{data.referredBy || '—'}</div>
+            </div>
+          </div>
+
+          <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 24 }}>Your Checklist</h3>
           <div style={{ display: 'grid', gap: 10 }}>
             {items.map((item, idx) => (
-              <label key={`${item.label}-${idx}`} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <label key={`${item.label}-${idx}`} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: 12, border: '1px solid #e2e8f0', borderRadius: 10, background: checks[idx] ? '#f0fdf4' : '#fff' }}>
                 <input
                   type="checkbox"
                   checked={Boolean(checks[idx])}
                   onChange={(e) => setChecks((prev) => ({ ...prev, [idx]: e.target.checked }))}
+                  style={{ marginTop: 4 }}
                 />
-                <span>
+                <span style={{ fontSize: 17 }}>
                   {item.url ? (
-                    <a href={item.url} target="_blank" rel="noreferrer">{item.label}</a>
+                    <a href={item.url} target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', fontWeight: 600 }}>{item.label}</a>
                   ) : (
                     item.label
                   )}
@@ -133,9 +160,9 @@ export default function OnboardingPortalPage() {
             ))}
           </div>
 
-          <p style={{ marginTop: 20, color: '#334155' }}>
-            Need help? Contact Operations at <a href="mailto:jamalholmes195@yahoo.com">jamalholmes195@yahoo.com</a>.
-          </p>
+          <div style={{ marginTop: 18, padding: 12, border: '1px solid #dbeafe', borderRadius: 10, background: '#eff6ff' }}>
+            <strong>Need help?</strong> Contact Operations at <a href="mailto:jamalholmes195@yahoo.com">jamalholmes195@yahoo.com</a>
+          </div>
         </div>
       </div>
     </main>
