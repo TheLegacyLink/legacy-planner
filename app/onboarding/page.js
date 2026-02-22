@@ -86,8 +86,11 @@ export default function OnboardingPortalPage() {
     return (
       <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#0b1220', color: '#fff', padding: 16 }}>
         <div style={{ width: '100%', maxWidth: 460, background: '#0f172a', border: '1px solid #334155', borderRadius: 14, padding: 24 }}>
-          <h2 style={{ margin: '0 0 8px', fontSize: 28 }}>Legacy Link Onboarding</h2>
-          <p style={{ color: '#cbd5e1', marginTop: 0 }}>Secure portal access</p>
+          <div style={{ display: 'grid', justifyItems: 'center', marginBottom: 10 }}>
+            <img src="/legacy-link-logo-white.png" alt="Legacy Link" style={{ width: 180, height: 'auto' }} />
+          </div>
+          <h2 style={{ margin: '0 0 8px', fontSize: 28, textAlign: 'center' }}>Agent Onboarding Portal</h2>
+          <p style={{ color: '#cbd5e1', marginTop: 0, textAlign: 'center' }}>Secure portal access</p>
           <input
             type="password"
             value={accessCode}
@@ -109,9 +112,11 @@ export default function OnboardingPortalPage() {
   return (
     <main style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #0b1220 0%, #111827 35%, #f8fafc 35%, #f8fafc 100%)', padding: 20 }}>
       <div style={{ maxWidth: 900, margin: '0 auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden', boxShadow: '0 10px 30px rgba(2,6,23,0.12)' }}>
-        <div style={{ background: '#0f172a', color: '#fff', padding: '24px 28px' }}>
-          <h2 style={{ margin: 0, fontSize: 34, lineHeight: 1.1 }}>Welcome to The Legacy Link</h2>
-          <p style={{ margin: '8px 0 0', opacity: 0.95, fontSize: 18 }}>Onboarding SOP Portal</p>
+        <div style={{ background: '#0f172a', color: '#fff', padding: '20px 28px' }}>
+          <div style={{ display: 'grid', justifyItems: 'center', gap: 8 }}>
+            <img src="/legacy-link-logo-white.png" alt="Legacy Link" style={{ width: 220, height: 'auto' }} />
+            <p style={{ margin: 0, opacity: 0.95, fontSize: 18, fontWeight: 600 }}>Agent Onboarding SOP Portal</p>
+          </div>
         </div>
 
         <div style={{ padding: 28, color: '#0f172a' }}>
