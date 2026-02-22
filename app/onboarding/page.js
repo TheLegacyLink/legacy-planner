@@ -1,6 +1,20 @@
 'use client';
 
+import Image from 'next/image';
 import { useMemo, useState } from 'react';
+
+const BRAND = {
+  bgDeep: '#060b16',
+  bgPanel: '#0d162a',
+  text: '#f8fafc',
+  textMuted: '#cbd5e1',
+  ink: '#0f172a',
+  line: '#e2e8f0',
+  accent: '#d4af37',
+  accentDark: '#8b6b10',
+  link: '#1d4ed8',
+  success: '#166534'
+};
 
 function readParam(params, key, fallback = '') {
   return String(params.get(key) || fallback).trim();
@@ -84,24 +98,29 @@ export default function OnboardingPortalPage() {
 
   if (!unlocked) {
     return (
-      <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#0b1220', color: '#fff', padding: 16 }}>
-        <div style={{ width: '100%', maxWidth: 460, background: '#0f172a', border: '1px solid #334155', borderRadius: 14, padding: 24 }}>
-          <div style={{ display: 'grid', justifyItems: 'center', marginBottom: 10 }}>
-            <img src="/legacy-link-logo-white.png" alt="Legacy Link" style={{ width: 180, height: 'auto' }} />
+      <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: `radial-gradient(circle at top, #182847 0%, ${BRAND.bgDeep} 55%)`, color: BRAND.text, padding: 20 }}>
+        <div style={{ width: '100%', maxWidth: 500, background: BRAND.bgPanel, border: '1px solid #24334f', borderRadius: 18, padding: 28, boxShadow: '0 24px 60px rgba(0,0,0,0.45)' }}>
+          <div style={{ display: 'grid', justifyItems: 'center', gap: 12, marginBottom: 8 }}>
+            <Image src="/legacy-link-logo-white.png" alt="Legacy Link" width={220} height={120} style={{ width: 220, height: 'auto' }} priority />
+            <div style={{ width: 80, height: 2, background: BRAND.accent }} />
           </div>
-          <h2 style={{ margin: '0 0 8px', fontSize: 28, textAlign: 'center' }}>Agent Onboarding Portal</h2>
-          <p style={{ color: '#cbd5e1', marginTop: 0, textAlign: 'center' }}>Secure portal access</p>
+          <h2 style={{ margin: '0 0 8px', fontSize: 32, letterSpacing: 0.2, textAlign: 'center' }}>Agent Onboarding Portal</h2>
+          <p style={{ color: BRAND.textMuted, marginTop: 0, textAlign: 'center', fontSize: 16 }}>Secure access to your Legacy Link SOP checklist</p>
           <input
             type="password"
             value={accessCode}
             onChange={(e) => setAccessCode(e.target.value)}
             placeholder="Enter Access Code"
-            style={{ width: '100%', padding: 12, borderRadius: 10, border: '1px solid #475569', background: '#020617', color: '#fff', marginBottom: 12, fontSize: 16 }}
+            style={{ width: '100%', padding: 14, borderRadius: 12, border: '1px solid #31476f', background: '#020617', color: '#fff', marginBottom: 14, fontSize: 16 }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') unlock();
             }}
           />
-          <button type="button" onClick={unlock} style={{ width: '100%', padding: 12, borderRadius: 10, border: 0, background: '#2563eb', color: '#fff', fontSize: 16, fontWeight: 600 }}>
+          <button
+            type="button"
+            onClick={unlock}
+            style={{ width: '100%', padding: 14, borderRadius: 12, border: 0, background: `linear-gradient(90deg, ${BRAND.accent} 0%, #f2d369 100%)`, color: '#1f2937', fontSize: 16, fontWeight: 800, cursor: 'pointer', boxShadow: '0 8px 20px rgba(212,175,55,0.35)' }}
+          >
             Open Portal
           </button>
         </div>
@@ -110,57 +129,68 @@ export default function OnboardingPortalPage() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #0b1220 0%, #111827 35%, #f8fafc 35%, #f8fafc 100%)', padding: 20 }}>
-      <div style={{ maxWidth: 900, margin: '0 auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden', boxShadow: '0 10px 30px rgba(2,6,23,0.12)' }}>
-        <div style={{ background: '#0f172a', color: '#fff', padding: '20px 28px' }}>
-          <div style={{ display: 'grid', justifyItems: 'center', gap: 8 }}>
-            <img src="/legacy-link-logo-white.png" alt="Legacy Link" style={{ width: 220, height: 'auto' }} />
-            <p style={{ margin: 0, opacity: 0.95, fontSize: 18, fontWeight: 600 }}>Agent Onboarding SOP Portal</p>
+    <main style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #0a1120 0%, #13213e 28%, #f8fafc 28%, #f8fafc 100%)', padding: 20 }}>
+      <div style={{ maxWidth: 980, margin: '0 auto', background: '#fff', border: `1px solid ${BRAND.line}`, borderRadius: 18, overflow: 'hidden', boxShadow: '0 14px 40px rgba(2,6,23,0.18)' }}>
+        <div style={{ background: `linear-gradient(120deg, #0d162a 0%, #132543 100%)`, color: '#fff', padding: '22px 30px' }}>
+          <div style={{ display: 'grid', justifyItems: 'center', gap: 10 }}>
+            <Image src="/legacy-link-logo-white.png" alt="Legacy Link" width={250} height={120} style={{ width: 250, height: 'auto' }} priority />
+            <p style={{ margin: 0, opacity: 0.95, fontSize: 18, fontWeight: 700, letterSpacing: 0.2 }}>Agent Onboarding SOP Portal</p>
           </div>
         </div>
 
-        <div style={{ padding: 28, color: '#0f172a' }}>
+        <div style={{ padding: 30, color: BRAND.ink }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
-            <span style={{ background: data.licensing === 'Licensed' ? '#dcfce7' : '#ffedd5', color: '#14532d', border: '1px solid #86efac', borderRadius: 999, padding: '6px 12px', fontWeight: 700 }}>
+            <span style={{ background: data.licensing === 'Licensed' ? '#dcfce7' : '#ffedd5', color: data.licensing === 'Licensed' ? '#14532d' : '#9a3412', border: `1px solid ${data.licensing === 'Licensed' ? '#86efac' : '#fdba74'}`, borderRadius: 999, padding: '7px 14px', fontWeight: 800, fontSize: 13 }}>
               {trackLabel(data.licensing)}
             </span>
-            <span style={{ background: '#eef2ff', color: '#1e3a8a', border: '1px solid #c7d2fe', borderRadius: 999, padding: '6px 12px', fontWeight: 700 }}>
+            <span style={{ background: '#eff6ff', color: '#1e3a8a', border: '1px solid #bfdbfe', borderRadius: 999, padding: '7px 14px', fontWeight: 800, fontSize: 13 }}>
               Progress: {done}/{items.length} ({pct}%)
             </span>
           </div>
 
-          <div style={{ height: 10, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden', marginBottom: 20 }}>
-            <div style={{ width: `${pct}%`, height: '100%', background: '#2563eb', transition: 'width 180ms ease' }} />
+          <div style={{ height: 12, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden', marginBottom: 22 }}>
+            <div style={{ width: `${pct}%`, height: '100%', background: `linear-gradient(90deg, ${BRAND.accentDark} 0%, ${BRAND.accent} 100%)`, transition: 'width 180ms ease' }} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 22 }}>
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 12 }}>
-              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Name</div>
-              <div style={{ fontWeight: 700, fontSize: 17 }}>{data.name}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 24 }}>
+            <div style={{ border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 14, background: '#fcfdff' }}>
+              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Name</div>
+              <div style={{ fontWeight: 800, fontSize: 18 }}>{data.name}</div>
             </div>
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 12 }}>
-              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Email</div>
-              <div style={{ fontWeight: 600, fontSize: 16 }}>{data.email || '—'}</div>
+            <div style={{ border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 14, background: '#fcfdff' }}>
+              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Email</div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>{data.email || '—'}</div>
             </div>
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 12 }}>
-              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Referred By</div>
-              <div style={{ fontWeight: 600, fontSize: 16 }}>{data.referredBy || '—'}</div>
+            <div style={{ border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 14, background: '#fcfdff' }}>
+              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Referred By</div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>{data.referredBy || '—'}</div>
             </div>
           </div>
 
-          <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 24 }}>Your Checklist</h3>
+          <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 26, letterSpacing: 0.2 }}>Your Checklist</h3>
           <div style={{ display: 'grid', gap: 10 }}>
             {items.map((item, idx) => (
-              <label key={`${item.label}-${idx}`} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: 12, border: '1px solid #e2e8f0', borderRadius: 10, background: checks[idx] ? '#f0fdf4' : '#fff' }}>
+              <label
+                key={`${item.label}-${idx}`}
+                style={{
+                  display: 'flex',
+                  gap: 12,
+                  alignItems: 'flex-start',
+                  padding: 14,
+                  border: checks[idx] ? '1px solid #86efac' : `1px solid ${BRAND.line}`,
+                  borderRadius: 12,
+                  background: checks[idx] ? '#f0fdf4' : '#fff'
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={Boolean(checks[idx])}
                   onChange={(e) => setChecks((prev) => ({ ...prev, [idx]: e.target.checked }))}
-                  style={{ marginTop: 4 }}
+                  style={{ marginTop: 3, width: 18, height: 18 }}
                 />
-                <span style={{ fontSize: 17 }}>
+                <span style={{ fontSize: 17, lineHeight: 1.45, fontWeight: 600 }}>
                   {item.url ? (
-                    <a href={item.url} target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', fontWeight: 600 }}>{item.label}</a>
+                    <a href={item.url} target="_blank" rel="noreferrer" style={{ color: BRAND.link, fontWeight: 700, textDecoration: 'none' }}>{item.label}</a>
                   ) : (
                     item.label
                   )}
@@ -169,11 +199,11 @@ export default function OnboardingPortalPage() {
             ))}
           </div>
 
-          <div style={{ marginTop: 18, padding: 12, border: '1px solid #dcfce7', borderRadius: 10, background: '#f0fdf4' }}>
-            <strong>Lead Release:</strong> Once you are contracted and all checklist items are complete, you will begin receiving leads.
+          <div style={{ marginTop: 20, padding: 14, border: '1px solid #bbf7d0', borderRadius: 12, background: '#f0fdf4' }}>
+            <strong style={{ color: BRAND.success }}>Lead Release:</strong> Once you are contracted and all checklist items are complete, you will begin receiving leads.
           </div>
 
-          <div style={{ marginTop: 12, padding: 12, border: '1px solid #dbeafe', borderRadius: 10, background: '#eff6ff' }}>
+          <div style={{ marginTop: 12, padding: 14, border: '1px solid #dbeafe', borderRadius: 12, background: '#eff6ff' }}>
             <strong>Need help?</strong> Contact Operations at <a href="mailto:support@jdholmesagencyllc.com">SUPPORT@jdholmesagencyllc.com</a>
           </div>
         </div>
