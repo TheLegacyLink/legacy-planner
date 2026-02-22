@@ -167,14 +167,22 @@ function firstNameFromDisplay(name = '') {
   return String(name || '').trim().split(' ')[0] || 'Agent';
 }
 
+function productionNumberFromAgent(agent) {
+  return String(agent?.agent_id || '').trim() || 'Pending Assignment';
+}
+
 function buildWelcomeMessage(agent) {
   const display = toDisplayName(agent.full_name);
   const first = firstNameFromDisplay(display);
+  const productionNumber = productionNumberFromAgent(agent);
+
   return [
     `Hi ${first},`,
     '',
     'Congratulations and welcome to The Legacy Link.',
     'Your contracting is complete, and we are excited to support your growth.',
+    '',
+    `Production Number: ${productionNumber}`,
     '',
     'To build momentum immediately, please complete the following this week:',
     '1) Attend all required onboarding and team meetings',
@@ -192,6 +200,7 @@ function buildWelcomeMessage(agent) {
 function buildWelcomeHtml(agent) {
   const display = toDisplayName(agent.full_name);
   const first = firstNameFromDisplay(display);
+  const productionNumber = productionNumberFromAgent(agent);
 
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;">
@@ -202,6 +211,7 @@ function buildWelcomeHtml(agent) {
       <div style="padding:24px;">
         <p style="margin:0 0 12px;">Hi ${first},</p>
         <p style="margin:0 0 12px;">Congratulations and welcome to <strong>The Legacy Link</strong>. Your contracting is complete, and we are excited to support your growth.</p>
+        <p style="margin:0 0 16px;"><strong>Production Number:</strong> ${productionNumber}</p>
         <p style="margin:0 0 12px;">To build momentum immediately, please complete the following this week:</p>
         <ol style="margin:0 0 16px 20px;padding:0;">
           <li>Attend all required onboarding and team meetings</li>
