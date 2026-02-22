@@ -311,7 +311,11 @@ export default function CallerEmaniPage() {
         return;
       }
 
-      await updateRow(row.id, { inviteSentAt: new Date().toISOString(), stage: row.stage === 'Qualified' ? 'Form Sent' : row.stage });
+      try {
+        await updateRow(row.id, { inviteSentAt: new Date().toISOString(), stage: row.stage === 'Qualified' ? 'Form Sent' : row.stage });
+      } catch {
+        // Non-blocking: email already sent successfully.
+      }
       window.alert(`Sponsorship invite sent to ${to}`);
     } catch (error) {
       window.alert(`Invite failed: ${error?.message || 'send_failed'}`);
