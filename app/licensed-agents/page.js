@@ -171,24 +171,49 @@ function buildWelcomeMessage(agent) {
   const display = toDisplayName(agent.full_name);
   const first = firstNameFromDisplay(display);
   return [
-    `Subject: Welcome to Legacy Link — You’re Contracted, ${first}!`,
+    `Hi ${first},`,
     '',
-    `Hey ${first},`,
+    'Congratulations and welcome to The Legacy Link.',
+    'Your contracting is complete, and we are excited to support your growth.',
     '',
-    "Congratulations — you’re now officially contracted with The Legacy Link.",
-    "We’re excited to have you and we’re expecting big execution from you.",
-    '',
-    'Next steps to build immediate momentum:',
-    '1) Tap into all required meetings this week',
-    '2) Stay active in communication and accountability',
+    'To build momentum immediately, please complete the following this week:',
+    '1) Attend all required onboarding and team meetings',
+    '2) Stay active in team communication and accountability channels',
     '3) Use scripts, training, and systems daily',
-    '4) Be consistent with follow-up and speed-to-lead',
+    '4) Maintain fast follow-up and consistent activity',
     '',
-    'You now have access to structure, support, and opportunity — now execute.',
+    'You now have access to the full Legacy Link support system. We are here to help you execute at a high level.',
     '',
-    'Let’s win big.',
-    '— The Legacy Link'
+    'Welcome aboard,',
+    'The Legacy Link Team'
   ].join('\n');
+}
+
+function buildWelcomeHtml(agent) {
+  const display = toDisplayName(agent.full_name);
+  const first = firstNameFromDisplay(display);
+
+  return `
+  <div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;">
+    <div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+      <div style="padding:20px 24px;border-bottom:1px solid #e2e8f0;background:#0f172a;color:#ffffff;">
+        <h2 style="margin:0;font-size:20px;">Welcome to The Legacy Link</h2>
+      </div>
+      <div style="padding:24px;">
+        <p style="margin:0 0 12px;">Hi ${first},</p>
+        <p style="margin:0 0 12px;">Congratulations and welcome to <strong>The Legacy Link</strong>. Your contracting is complete, and we are excited to support your growth.</p>
+        <p style="margin:0 0 12px;">To build momentum immediately, please complete the following this week:</p>
+        <ol style="margin:0 0 16px 20px;padding:0;">
+          <li>Attend all required onboarding and team meetings</li>
+          <li>Stay active in team communication and accountability channels</li>
+          <li>Use scripts, training, and systems daily</li>
+          <li>Maintain fast follow-up and consistent activity</li>
+        </ol>
+        <p style="margin:0 0 12px;">You now have access to the full Legacy Link support system. We are here to help you execute at a high level.</p>
+        <p style="margin:20px 0 0;">Welcome aboard,<br/><strong>The Legacy Link Team</strong></p>
+      </div>
+    </div>
+  </div>`;
 }
 
 export default function LicensedAgentsPage() {
@@ -311,13 +336,15 @@ export default function LicensedAgentsPage() {
 
     setSendingEmailFor(agent.agent_id);
     try {
-      const subject = `Welcome to Legacy Link — You’re Contracted, ${firstNameFromDisplay(toDisplayName(agent.full_name))}!`;
+      const first = firstNameFromDisplay(toDisplayName(agent.full_name));
+      const subject = `Welcome to The Legacy Link, ${first}`;
       const text = buildWelcomeMessage(agent);
+      const html = buildWelcomeHtml(agent);
 
       const res = await fetch('/api/send-welcome-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, subject, text })
+        body: JSON.stringify({ to, subject, text, html })
       });
       const data = await res.json().catch(() => ({}));
 
@@ -401,41 +428,7 @@ export default function LicensedAgentsPage() {
               const ageDays = daysSince(row.effective_date);
               const isNew = ageDays !== null && ageDays >= 0 && ageDays <= 14;
 
-            
-
-  const sendWelcomeEmail = async (agent) => {
-    const to = String(agent?.email || '').trim();
-    if (!to) {
-      window.alert('No email found for this agent.');
-      return;
-    }
-
-    setSendingEmailFor(agent.agent_id);
-    try {
-      const subject = `Welcome to Legacy Link — You’re Contracted, ${firstNameFromDisplay(toDisplayName(agent.full_name))}!`;
-      const text = buildWelcomeMessage(agent);
-
-      const res = await fetch('/api/send-welcome-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, subject, text })
-      });
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok || !data?.ok) {
-        window.alert(`Email failed: ${data?.error || 'unknown_error'}`);
-        return;
-      }
-
-      window.alert(`Welcome email sent to ${to}`);
-    } catch (error) {
-      window.alert(`Email failed: ${error?.message || 'send_failed'}`);
-    } finally {
-      setSendingEmailFor('');
-    }
-  };
-
-  return (
+              return (
                 <tr key={row.agent_id} style={isNew ? { background: 'rgba(34, 197, 94, 0.10)' } : undefined}>
                   <td>
                     <div>{toDisplayName(row.full_name)}</div>

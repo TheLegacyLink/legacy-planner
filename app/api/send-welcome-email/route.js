@@ -10,8 +10,9 @@ export async function POST(req) {
     const to = String(body?.to || '').trim();
     const subject = String(body?.subject || '').trim();
     const text = String(body?.text || '').trim();
+    const html = String(body?.html || '').trim();
 
-    if (!to || !subject || !text) {
+    if (!to || !subject || (!text && !html)) {
       return Response.json({ ok: false, error: 'missing_fields' }, { status: 400 });
     }
 
@@ -32,7 +33,8 @@ export async function POST(req) {
       from,
       to,
       subject,
-      text
+      text: text || undefined,
+      html: html || undefined
     });
 
     return Response.json({ ok: true, messageId: info.messageId });
