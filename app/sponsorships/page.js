@@ -242,8 +242,14 @@ function effectiveActivationStage(row, wf) {
   return 'Pending Review';
 }
 
-function defaultUplineEmail(row) {
-  return EMAIL_BY_NAME.get(normalizeName(row.referredBy || '')) || '';
+function defaultAgencyOwnerEmail(row, wf) {
+  const owner = wf?.agencyOwner || autoAgencyOwnerFromRow(row);
+  return (
+    String(wf?.agencyOwnerEmail || '').trim().toLowerCase() ||
+    EMAIL_BY_NAME.get(normalizeName(owner || '')) ||
+    EMAIL_BY_NAME.get(normalizeName(row.referredBy || '')) ||
+    ''
+  );
 }
 
 function onboardingTemplate(licensing = 'Unknown') {
@@ -494,10 +500,10 @@ export default function SponsorshipsPage() {
   }
 
   async function sendNoMovementAlert(row, wf, key) {
-    const uplineEmail = String(wf?.uplineEmail || defaultUplineEmail(row) || '').trim().toLowerCase();
+    const ownerEmail = String(defaultAgencyOwnerEmail(row, wf) || '').trim().toLowerCase();
     const applicantEmail = String(wf?.applicantEmail || '').trim().toLowerCase();
-    if (!uplineEmail) {
-      window.alert('Missing upline email. Add Upline Email first.');
+    if (!ownerEmail) {
+      window.alert('Missing agency owner email. Add Agency Owner Email first.');
       return;
     }
 
@@ -529,7 +535,7 @@ export default function SponsorshipsPage() {
         fetch('/api/send-welcome-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: uplineEmail, subject, text })
+          body: JSON.stringify({ to: ownerEmail, subject, text })
         }),
         fetch('/api/send-welcome-email', {
           method: 'POST',
@@ -539,7 +545,7 @@ export default function SponsorshipsPage() {
       ]);
 
       updateWorkflow(key, { lastEscalatedAt: new Date().toISOString() });
-      window.alert('72-hour alert sent to upline + Jamal');
+      window.alert('72-hour alert sent to agency owner + Jamal');
     } catch (error) {
       window.alert(`72-hour alert failed: ${error?.message || 'send_failed'}`);
     } finally {
@@ -653,6 +659,113 @@ export default function SponsorshipsPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (loading || !rows.length) return;
+
+    let cancelled = false;
+
+    async function runAuto72hEscalations() {
+      for (const r of rows) {
+        if (cancelled) return;
+
+        const key = rowKey(r);
+        const wf = workflow[key] || {};
+        if (isCompleted(r, wf)) continue;
+        if (!wf.onboardingSentAt) continue;
+
+        const ownerEmail = String(defaultAgencyOwnerEmail(r, wf) || '').trim().toLowerCase();
+        if (!ownerEmail) continue;
+
+        const licensing = effectiveLicensingStatus(r, wf);
+        const progress = checklistProgress(wf, licensing);
+        if (progress.total > 0 && progress.done >= progress.total) continue;
+
+        const anchor = wf.lastChecklistMovementAt || wf.onboardingSentAt || (r.approvedDate ? r.approvedDate.toISOString() : '');
+        const ageDays = daysSince(anchor);
+        if (ageDays < 3) continue;
+
+        if (wf.lastEscalatedAt && daysSince(wf.lastEscalatedAt) < 1) continue;
+
+        const applicantEmail = String(wf?.applicantEmail || '').trim().toLowerCase();
+        const subject = `72-Hour No Movement Alert: ${r.name}`;
+        const text = [
+          '72-hour no-movement alert.',
+          `Applicant: ${r.name}`,
+          `Applicant Email: ${applicantEmail || 'N/A'}`,
+          `Phone: ${r.phone || 'N/A'}`,
+          `Referred By: ${r.referredBy || 'N/A'}`,
+          `Agency Owner: ${wf.agencyOwner || autoAgencyOwnerFromRow(r)}`,
+          `Licensing: ${licensing}`,
+          `Checklist Progress: ${progress.done}/${progress.total}`,
+          `No movement age: ${ageDays} days`
+        ].join('\n');
+
+        try {
+          await Promise.all([
+            fetch('/api/send-welcome-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ to: ownerEmail, subject, text })
+            }),
+            fetch('/api/send-welcome-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ to: JAMAL_EMAIL, subject, text })
+            })
+          ]);
+
+          updateWorkflow(key, { lastEscalatedAt: new Date().toISOString(), autoEscalatedAt: new Date().toISOString() });
+        } catch (error) {
+          console.error('Auto 72h escalation failed', error);
+        }
+      }
+    }
+
+    runAuto72hEscalations();
+    const id = setInterval(runAuto72hEscalations, 120000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [loading, rows, workflow]);
+
+  const agencyOwnerDashboard = useMemo(() => {
+    const groups = new Map();
+
+    for (const r of rows) {
+      const key = rowKey(r);
+      const wf = workflow[key] || {};
+      const owner = wf.agencyOwner || autoAgencyOwnerFromRow(r);
+      const licensing = effectiveLicensingStatus(r, wf);
+      const progress = checklistProgress(wf, licensing);
+      const anchor = wf.lastChecklistMovementAt || wf.onboardingSentAt || (r.approvedDate ? r.approvedDate.toISOString() : '');
+      const noMovementDays = daysSince(anchor);
+
+      if (!groups.has(owner)) {
+        groups.set(owner, { owner, active: 0, completed: 0, stalled: 0, members: [] });
+      }
+
+      const bucket = groups.get(owner);
+      const done = isCompleted(r, wf);
+      if (done) bucket.completed += 1;
+      else bucket.active += 1;
+      if (!done && noMovementDays >= 3) bucket.stalled += 1;
+
+      bucket.members.push({
+        name: r.name,
+        referredBy: r.referredBy,
+        stage: effectiveActivationStage(r, wf),
+        licensing,
+        progress: `${progress.done}/${progress.total}`,
+        noMovementDays,
+        done
+      });
+    }
+
+    return Array.from(groups.values()).sort((a, b) => a.owner.localeCompare(b.owner));
+  }, [rows, workflow]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
 
@@ -662,6 +775,7 @@ export default function SponsorshipsPage() {
         const done = isCompleted(r, wf);
         if (viewTab === 'Completed Policies') return done;
         if (viewTab === 'Decision Tree SOP') return false;
+        if (viewTab === 'Agency Owner Dashboard') return false;
         return !done;
       })
       .filter((r) => (statusFilter === 'All' ? true : r.systemStatus === statusFilter))
@@ -692,7 +806,7 @@ export default function SponsorshipsPage() {
           wf.stage,
           wf.licensingStatus,
           wf.applicantEmail,
-          wf.uplineEmail,
+          wf.agencyOwnerEmail,
           wf.contractedOverride,
           processLabel(r, wf),
           effectiveActivationStage(r, wf),
@@ -761,7 +875,7 @@ export default function SponsorshipsPage() {
     return [`Stuck records (>= ${stuckDays} days):`, ...lines].join('\n');
   }, [rows, workflow, stuckDays]);
 
-  const uplineAlertsDigest = useMemo(() => {
+  const agencyOwnerAlertsDigest = useMemo(() => {
     const groups = new Map();
 
     for (const r of rows) {
@@ -772,17 +886,17 @@ export default function SponsorshipsPage() {
       const ageDays = daysSince(anchor);
       if (ageDays < stuckDays) continue;
 
-      const upline = wf.agencyOwner || autoAgencyOwnerFromRow(r);
+      const owner = wf.agencyOwner || autoAgencyOwnerFromRow(r);
       const stage = effectiveStage(r, wf);
-      if (!groups.has(upline)) groups.set(upline, []);
-      groups.get(upline).push(`- ${r.name} | ${stage} | ${ageDays}d stuck`);
+      if (!groups.has(owner)) groups.set(owner, []);
+      groups.get(owner).push(`- ${r.name} | ${stage} | ${ageDays}d stuck`);
     }
 
-    if (!groups.size) return `No upline alerts (>= ${stuckDays} days stuck) right now.`;
+    if (!groups.size) return `No agency owner alerts (>= ${stuckDays} days stuck) right now.`;
 
-    const parts = [`Upline Alerts (>= ${stuckDays} days stuck):`];
-    for (const [upline, items] of groups.entries()) {
-      parts.push(`\n${upline}`);
+    const parts = [`Agency Owner Alerts (>= ${stuckDays} days stuck):`];
+    for (const [owner, items] of groups.entries()) {
+      parts.push(`\n${owner}`);
       parts.push(...items);
     }
     return parts.join('\n');
@@ -810,8 +924,8 @@ export default function SponsorshipsPage() {
     navigator.clipboard.writeText(stuckDigest).catch(() => {});
   }
 
-  function copyUplineAlertsDigest() {
-    navigator.clipboard.writeText(uplineAlertsDigest).catch(() => {});
+  function copyAgencyOwnerAlertsDigest() {
+    navigator.clipboard.writeText(agencyOwnerAlertsDigest).catch(() => {});
   }
 
   function copyDailySummaryDigest() {
@@ -864,6 +978,13 @@ export default function SponsorshipsPage() {
           style={viewTab === 'Decision Tree SOP' ? { background: '#1d4ed8', color: '#fff' } : undefined}
         >
           Decision Tree SOP
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewTab('Agency Owner Dashboard')}
+          style={viewTab === 'Agency Owner Dashboard' ? { background: '#7c3aed', color: '#fff' } : undefined}
+        >
+          Agency Owner Dashboard
         </button>
       </div>
 
@@ -944,7 +1065,7 @@ export default function SponsorshipsPage() {
         </label>
 
         <button type="button" onClick={copyStuckDigest}>Copy Stuck Digest</button>
-        <button type="button" onClick={copyUplineAlertsDigest}>Copy Upline Alerts</button>
+        <button type="button" onClick={copyAgencyOwnerAlertsDigest}>Copy Agency Owner Alerts</button>
         <button type="button" onClick={copyDailySummaryDigest}>Copy Daily Summary</button>
 
         {!standalone && (
@@ -992,6 +1113,43 @@ export default function SponsorshipsPage() {
             </div>
           </div>
         </div>
+      ) : viewTab === 'Agency Owner Dashboard' ? (
+        <div style={{ display: 'grid', gap: 12, marginTop: 8 }}>
+          {agencyOwnerDashboard.map((group) => (
+            <div key={group.owner} className="panel" style={{ background: '#111', border: '1px solid #2a2a2a' }}>
+              <div className="panelRow" style={{ marginBottom: 8 }}>
+                <h3 style={{ margin: 0 }}>{group.owner}</h3>
+                <span className="pill" style={{ background: '#1f2937', color: '#fff' }}>Active: {group.active}</span>
+                <span className="pill" style={{ background: '#166534', color: '#fff' }}>Completed: {group.completed}</span>
+                <span className="pill" style={{ background: '#7f1d1d', color: '#fff' }}>72h+ stalled: {group.stalled}</span>
+              </div>
+              <table style={{ background: '#0f0f0f', color: '#f5f5f5' }}>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Referred By</th>
+                    <th>Stage</th>
+                    <th>Licensing</th>
+                    <th>Progress</th>
+                    <th>No Movement</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.members.map((m) => (
+                    <tr key={`${group.owner}-${m.name}-${m.stage}`} style={m.done ? { backgroundColor: 'rgba(34, 197, 94, 0.20)' } : undefined}>
+                      <td>{m.name}</td>
+                      <td>{m.referredBy || '—'}</td>
+                      <td>{m.stage}</td>
+                      <td>{m.licensing}</td>
+                      <td>{m.progress}</td>
+                      <td>{m.noMovementDays}d</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
       ) : loading ? (
         <p className="muted">Loading sponsorship sheet...</p>
       ) : (
@@ -1011,7 +1169,7 @@ export default function SponsorshipsPage() {
               <th>Activation Stage</th>
               <th>Licensing</th>
               <th>Applicant Email</th>
-              <th>Upline Email</th>
+              <th>Agency Owner Email</th>
               <th>SOP Progress</th>
               <th>Contracted</th>
               <th>Process</th>
@@ -1117,9 +1275,9 @@ export default function SponsorshipsPage() {
                   </td>
                   <td>
                     <input
-                      value={wf.uplineEmail || defaultUplineEmail(r)}
-                      onChange={(e) => updateWorkflow(key, { uplineEmail: e.target.value.trim() })}
-                      placeholder="upline@email.com"
+                      value={wf.agencyOwnerEmail || defaultAgencyOwnerEmail(r, wf)}
+                      onChange={(e) => updateWorkflow(key, { agencyOwnerEmail: e.target.value.trim() })}
+                      placeholder="owner@email.com"
                       style={{ minWidth: 180 }}
                     />
                   </td>
