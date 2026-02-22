@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
 const ACCESS_KEY = 'caller_emani_access_v1';
-const DATA_KEY = 'caller_emani_pipeline_v1';
 const PASSCODE = 'EmaniCalls!2026';
 
 const STAGES = [
@@ -44,6 +43,7 @@ export default function CallerEmaniPage() {
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState('');
   const [rows, setRows] = useState([]);
+  const [syncing, setSyncing] = useState(false);
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -56,17 +56,29 @@ export default function CallerEmaniPage() {
   useEffect(() => {
     try {
       if (localStorage.getItem(ACCESS_KEY) === 'ok') setUnlocked(true);
-      const raw = localStorage.getItem(DATA_KEY);
-      if (raw) setRows(JSON.parse(raw));
     } catch {
       // ignore
     }
   }, []);
 
-  function persist(next) {
-    setRows(next);
-    localStorage.setItem(DATA_KEY, JSON.stringify(next));
+  async function fetchRows() {
+    try {
+      const res = await fetch('/api/caller-leads?owner=Kimora%20Link', { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok && Array.isArray(data.rows)) {
+        setRows(data.rows);
+      }
+    } catch {
+      // ignore transient fetch errors
+    }
   }
+
+  useEffect(() => {
+    if (!unlocked) return;
+    fetchRows();
+    const id = setInterval(fetchRows, 15000);
+    return () => clearInterval(id);
+  }, [unlocked]);
 
   function unlock() {
     if (passcode.trim() !== PASSCODE) {
@@ -83,41 +95,50 @@ export default function CallerEmaniPage() {
     setUnlocked(false);
   }
 
-  function addLead(e) {
+  async function addLead(e) {
     e.preventDefault();
     if (!form.name.trim()) return;
-    const now = new Date().toISOString();
-    const next = [
-      {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        createdAt: now,
-        updatedAt: now,
-        dayKey: todayKey(),
-        stage: 'New',
-        calledAt: '',
-        connectedAt: '',
-        qualifiedAt: '',
-        formSentAt: '',
-        formCompletedAt: '',
-        policyStartedAt: '',
-        approvedAt: '',
-        onboardingStartedAt: '',
-        movedForwardAt: '',
-        ...form
-      },
-      ...rows
-    ];
-    persist(next);
-    setForm({ name: '', email: '', phone: '', licensedStatus: 'Unknown', source: 'Kimora Day-in-the-Life Lead', notes: '' });
+
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/caller-leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'create-manual',
+          owner: 'Kimora Link',
+          ...form
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        window.alert(`Add lead failed: ${data?.error || 'unknown_error'}`);
+        return;
+      }
+
+      setForm({ name: '', email: '', phone: '', licensedStatus: 'Unknown', source: 'Kimora Day-in-the-Life Lead', notes: '' });
+      await fetchRows();
+    } catch (error) {
+      window.alert(`Add lead failed: ${error?.message || 'request_failed'}`);
+    } finally {
+      setSyncing(false);
+    }
   }
 
-  function updateRow(id, patch) {
-    const now = new Date().toISOString();
-    const next = rows.map((r) => (r.id === id ? { ...r, ...patch, updatedAt: now } : r));
-    persist(next);
+  async function updateRow(id, patch) {
+    const res = await fetch('/api/caller-leads', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, patch })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) {
+      throw new Error(data?.error || 'update_failed');
+    }
+    await fetchRows();
   }
 
-  function setStage(row, stage) {
+  async function setStage(row, stage) {
     const stampPatch = {};
     const now = new Date().toISOString();
     if (stage === 'Called') stampPatch.calledAt = now;
@@ -131,12 +152,31 @@ export default function CallerEmaniPage() {
       stampPatch.onboardingStartedAt = now;
       stampPatch.movedForwardAt = now;
     }
-    updateRow(row.id, { stage, ...stampPatch });
+
+    setSyncing(true);
+    try {
+      await updateRow(row.id, { stage, ...stampPatch });
+    } catch (error) {
+      window.alert(`Stage update failed: ${error?.message || 'unknown_error'}`);
+    } finally {
+      setSyncing(false);
+    }
   }
 
-  function removeLead(id) {
-    const next = rows.filter((r) => r.id !== id);
-    persist(next);
+  async function removeLead(id) {
+    if (!confirm('Delete this lead?')) return;
+    setSyncing(true);
+    try {
+      const res = await fetch(`/api/caller-leads?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        window.alert(`Delete failed: ${data?.error || 'unknown_error'}`);
+        return;
+      }
+      await fetchRows();
+    } finally {
+      setSyncing(false);
+    }
   }
 
   async function sendSponsorshipInvite(row) {
@@ -159,6 +199,7 @@ export default function CallerEmaniPage() {
       '— The Legacy Link Team'
     ].join('\n');
 
+    setSyncing(true);
     try {
       const res = await fetch('/api/send-welcome-email', {
         method: 'POST',
@@ -171,10 +212,12 @@ export default function CallerEmaniPage() {
         return;
       }
 
-      updateRow(row.id, { inviteSentAt: new Date().toISOString(), stage: row.stage === 'Qualified' ? 'Form Sent' : row.stage });
+      await updateRow(row.id, { inviteSentAt: new Date().toISOString(), stage: row.stage === 'Qualified' ? 'Form Sent' : row.stage });
       window.alert(`Sponsorship invite sent to ${to}`);
     } catch (error) {
       window.alert(`Invite failed: ${error?.message || 'send_failed'}`);
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -201,8 +244,12 @@ export default function CallerEmaniPage() {
   }
 
   const stats = useMemo(() => {
-    const today = todayKey();
-    const todayRows = rows.filter((r) => r.dayKey === today);
+    const now = new Date();
+    const todayRows = rows.filter((r) => {
+      const d = new Date(r.createdAt || r.updatedAt || Date.now());
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    });
+
     const called = todayRows.filter((r) => r.calledAt).length;
     const connected = todayRows.filter((r) => r.connectedAt).length;
     const qualified = todayRows.filter((r) => r.qualifiedAt).length;
@@ -247,6 +294,7 @@ export default function CallerEmaniPage() {
           <div>
             <h2 style={{ margin: 0 }}>Emani Calling Portal</h2>
             <p style={{ margin: '6px 0 0', color: '#cbd5e1' }}>Lead-to-Onboarding tracking for The Legacy Link</p>
+            <small style={{ color: '#93c5fd' }}>{syncing ? 'Syncing…' : 'Live sync active (15s)'}</small>
           </div>
           <button type="button" onClick={exportCsv} style={{ marginLeft: 'auto' }}>Export CSV</button>
           <button type="button" className="ghost" onClick={lock}>Lock</button>
@@ -311,7 +359,11 @@ export default function CallerEmaniPage() {
                       </select>
                     </td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>
-                      <input value={row.notes || ''} onChange={(e) => updateRow(row.id, { notes: e.target.value })} placeholder="Context" />
+                      <input
+                        defaultValue={row.notes || ''}
+                        onBlur={(e) => updateRow(row.id, { notes: e.target.value }).catch(() => {})}
+                        placeholder="Context"
+                      />
                     </td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>{fmtDateTime(row.updatedAt)}</td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>
@@ -358,10 +410,12 @@ export default function CallerEmaniPage() {
 
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 14 }}>
           <h3 style={{ marginTop: 0 }}>Automation Plan (GHL → Emani Portal)</h3>
+          <p style={{ marginTop: 0 }}><strong>Webhook URL:</strong> <code>https://innercirclelink.com/api/ghl-lead-intake</code></p>
+          <p><strong>Security:</strong> set env var <code>GHL_INTAKE_TOKEN</code> in Vercel, then pass that value in header <code>x-intake-token</code> from GHL webhook action.</p>
           <ol style={{ margin: 0, paddingLeft: 18 }}>
             <li>Create a GoHighLevel workflow trigger: <strong>New lead assigned to Kimora</strong>.</li>
-            <li>Add webhook action to send lead payload into this portal intake endpoint (next step).</li>
-            <li>Lead appears instantly in this board for Emani to call.</li>
+            <li>Add webhook action to POST lead payload into the intake endpoint above.</li>
+            <li>Lead appears in this board (15-second sync) for Emani to call.</li>
             <li>If qualified, Emani clicks <strong>Send Sponsor Email</strong> to send Kimora’s personal sponsorship link.</li>
             <li>Track moved-forward only when stage hits <strong>Onboarding Started</strong>.</li>
           </ol>
