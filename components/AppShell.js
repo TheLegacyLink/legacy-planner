@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 const tabs = [
   { href: '/mission-control', label: 'Mission Control' },
@@ -21,8 +22,62 @@ const tabs = [
   { href: '/settings', label: 'Settings' }
 ];
 
+const OWNER_ACCESS_KEY = 'legacy_planner_owner_access_v1';
+const OWNER_PASSCODE = 'KimoraOnly!2026';
+
 export default function AppShell({ title, children }) {
   const pathname = usePathname();
+  const [accessGranted, setAccessGranted] = useState(false);
+  const [passcodeInput, setPasscodeInput] = useState('');
+  const [passError, setPassError] = useState('');
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(OWNER_ACCESS_KEY) === 'ok') {
+        setAccessGranted(true);
+      }
+    } catch {
+      // ignore storage access issues
+    }
+  }, []);
+
+  function unlockOwnerAccess() {
+    if (passcodeInput.trim() === OWNER_PASSCODE) {
+      localStorage.setItem(OWNER_ACCESS_KEY, 'ok');
+      setAccessGranted(true);
+      setPassError('');
+      return;
+    }
+    setPassError('Incorrect owner passcode.');
+  }
+
+  function lockOwnerAccess() {
+    localStorage.removeItem(OWNER_ACCESS_KEY);
+    setAccessGranted(false);
+  }
+
+  if (!accessGranted) {
+    return (
+      <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#080f1f', color: '#fff', padding: 16 }}>
+        <div style={{ width: '100%', maxWidth: 440, border: '1px solid #334155', borderRadius: 14, padding: 22, background: '#0f172a' }}>
+          <h2 style={{ marginTop: 0 }}>Owner Access Required</h2>
+          <p style={{ color: '#cbd5e1' }}>This dashboard is restricted to Kimora only.</p>
+          <input
+            type="password"
+            value={passcodeInput}
+            onChange={(e) => setPasscodeInput(e.target.value)}
+            placeholder="Owner passcode"
+            style={{ width: '100%', marginBottom: 10 }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') unlockOwnerAccess();
+            }}
+          />
+          <button type="button" onClick={unlockOwnerAccess}>Unlock Dashboard</button>
+          {passError ? <p style={{ color: '#fca5a5' }}>{passError}</p> : null}
+        </div>
+      </main>
+    );
+  }
 
   return (
     <div className="app">
@@ -51,6 +106,7 @@ export default function AppShell({ title, children }) {
           <button>+ New Task</button>
           <button>Log KPI</button>
           <button>Approve Post</button>
+          <button type="button" className="ghost" onClick={lockOwnerAccess}>Lock</button>
         </div>
       </header>
 
