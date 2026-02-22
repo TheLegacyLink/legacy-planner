@@ -128,6 +128,69 @@ function resolveStateInput(raw = '') {
   return STATE_NAME_TO_CODE[normalized] || '';
 }
 
+function parseEffectiveDate(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const parts = raw.split('-');
+  if (parts.length !== 3) return null;
+  const [mm, dd, yyyy] = parts.map((x) => Number(x));
+  const dt = new Date(yyyy, (mm || 1) - 1, dd || 1);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function formatEffectiveDate(value = '') {
+  const dt = parseEffectiveDate(value);
+  if (!dt) return '—';
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function daysSince(value = '') {
+  const dt = parseEffectiveDate(value);
+  if (!dt) return null;
+  const now = new Date();
+  const diff = now.getTime() - dt.getTime();
+  return Math.floor(diff / (1000 * 60 * 60 * 24));
+}
+
+function toDisplayName(raw = '') {
+  const value = String(raw || '').trim();
+  if (!value) return '—';
+  if (value.includes(',')) {
+    const [last, first] = value.split(',').map((x) => x.trim());
+    const full = `${first} ${last}`.trim();
+    return full.toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase());
+  }
+  return value.toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function firstNameFromDisplay(name = '') {
+  return String(name || '').trim().split(' ')[0] || 'Agent';
+}
+
+function buildWelcomeMessage(agent) {
+  const display = toDisplayName(agent.full_name);
+  const first = firstNameFromDisplay(display);
+  return [
+    `Subject: Welcome to Legacy Link — You’re Contracted, ${first}!`,
+    '',
+    `Hey ${first},`,
+    '',
+    "Congratulations — you’re now officially contracted with The Legacy Link.",
+    "We’re excited to have you and we’re expecting big execution from you.",
+    '',
+    'Next steps to build immediate momentum:',
+    '1) Tap into all required meetings this week',
+    '2) Stay active in communication and accountability',
+    '3) Use scripts, training, and systems daily',
+    '4) Be consistent with follow-up and speed-to-lead',
+    '',
+    'You now have access to structure, support, and opportunity — now execute.',
+    '',
+    'Let’s win big.',
+    '— The Legacy Link'
+  ].join('\n');
+}
+
 export default function LicensedAgentsPage() {
   const [stateFilter, setStateFilter] = useState('ALL');
   const [carrierFilter, setCarrierFilter] = useState('ALL');
@@ -150,7 +213,8 @@ export default function LicensedAgentsPage() {
           home_state: row.home_state || '',
           states: new Set(),
           carriers: new Set(),
-          hasActive: false
+          hasActive: false,
+          effective_date: ''
         });
       }
 
@@ -164,6 +228,18 @@ export default function LicensedAgentsPage() {
 
       if (String(row.license_status).toLowerCase() === 'active') {
         agent.hasActive = true;
+      }
+
+      if (row.effective_date) {
+        if (!agent.effective_date) {
+          agent.effective_date = row.effective_date;
+        } else {
+          const current = parseEffectiveDate(agent.effective_date);
+          const incoming = parseEffectiveDate(row.effective_date);
+          if (current && incoming && incoming < current) {
+            agent.effective_date = row.effective_date;
+          }
+        }
       }
     }
 
@@ -230,7 +306,7 @@ export default function LicensedAgentsPage() {
           <div>
             <h3 style={{ margin: 0 }}>Legacy Link Licensing Directory</h3>
             <p className="muted" style={{ margin: '6px 0 0' }}>
-              One row per agent. Filter by state to instantly find who can write in that state and see carrier contracts.
+              One row per agent. Filter by state to instantly find who can write in that state and see carrier contracts. Agents in their first 14 days from effective date are flagged as NEW.
             </p>
           </div>
           <span className="pill onpace">{filteredRows.length} Agents</span>
@@ -276,27 +352,47 @@ export default function LicensedAgentsPage() {
               <th>Licensed States</th>
               <th>Home State</th>
               <th>Carriers</th>
+              <th>Effective Date</th>
               <th>Phone</th>
               <th>Email</th>
               <th>City</th>
               <th>Status</th>
+              <th>Welcome</th>
             </tr>
           </thead>
           <tbody>
-            {filteredRows.map((row) => (
-              <tr key={row.agent_id}>
-                <td>{row.full_name || '—'}</td>
-                <td>{row.states.length ? row.states.join(', ') : '—'}</td>
-                <td>{row.home_state || '—'}</td>
-                <td>{row.carriers?.length ? row.carriers.join(', ') : '—'}</td>
-                <td>{row.phone || '—'}</td>
-                <td>{row.email || '—'}</td>
-                <td>{row.city || '—'}</td>
-                <td>
-                  <span className={`pill ${row.hasActive ? 'onpace' : 'atrisk'}`}>{row.hasActive ? 'Active' : 'Unknown'}</span>
-                </td>
-              </tr>
-            ))}
+            {filteredRows.map((row) => {
+              const ageDays = daysSince(row.effective_date);
+              const isNew = ageDays !== null && ageDays >= 0 && ageDays <= 14;
+
+              return (
+                <tr key={row.agent_id} style={isNew ? { background: 'rgba(34, 197, 94, 0.10)' } : undefined}>
+                  <td>
+                    <div>{toDisplayName(row.full_name)}</div>
+                    {isNew ? <span className="pill onpace">NEW</span> : null}
+                  </td>
+                  <td>{row.states.length ? row.states.join(', ') : '—'}</td>
+                  <td>{row.home_state || '—'}</td>
+                  <td>{row.carriers?.length ? row.carriers.join(', ') : '—'}</td>
+                  <td>{formatEffectiveDate(row.effective_date)}</td>
+                  <td>{row.phone || '—'}</td>
+                  <td>{row.email || '—'}</td>
+                  <td>{row.city || '—'}</td>
+                  <td>
+                    <span className={`pill ${row.hasActive ? 'onpace' : 'atrisk'}`}>{row.hasActive ? 'Active' : 'Unknown'}</span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => navigator.clipboard.writeText(buildWelcomeMessage(row))}
+                    >
+                      Copy Welcome
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
