@@ -34,6 +34,21 @@ function normalizeRows(payload) {
   return [];
 }
 
+function byScope(obj, scope, aliases = []) {
+  const prefix = scope === 'monthly' ? 'month' : scope === 'ytd' ? 'ytd' : 'all_time';
+  for (const name of aliases) {
+    const candidates = [
+      `${name}_${prefix}`,
+      `${name}${prefix === 'all_time' ? 'AllTime' : prefix === 'ytd' ? 'Ytd' : 'Month'}`,
+      `${scope}_${name}`
+    ];
+    for (const key of candidates) {
+      if (obj?.[key] != null) return Number(obj[key]) || 0;
+    }
+  }
+  return null;
+}
+
 function cleanName(value = '') {
   return String(value).toLowerCase().replace('dr. ', '').trim();
 }
@@ -117,7 +132,24 @@ export default function BadgesPage() {
       const revenueMatch = revenueRows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
 
       const referrals = Number(adjustedReferralsByAgent[name] || 0);
-      const apps = Number(activityMatch?.app_submitted_count ?? activityMatch?.apps_submitted ?? activityMatch?.apps ?? 0) || 0;
+
+      const monthlyApps = byScope(activityMatch, 'monthly', ['app_submitted_count', 'apps_submitted', 'apps']);
+      const appsFromActivity =
+        monthlyApps !== null
+          ? monthlyApps
+          : Number(
+              activityMatch?.app_submitted_count ??
+                activityMatch?.apps_submitted ??
+                activityMatch?.apps ??
+                (activityMatch?.event_type === 'app_submitted' ? 1 : 0) ??
+                0
+            ) || 0;
+
+      const appsFromRevenue = Number(
+        revenueMatch?.app_submitted_count ?? revenueMatch?.apps_submitted ?? revenueMatch?.apps ?? 0
+      ) || 0;
+
+      const apps = Math.max(appsFromActivity, appsFromRevenue);
       const score = referrals + apps;
 
       const revenue =
