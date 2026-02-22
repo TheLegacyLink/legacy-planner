@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 const ACCESS_KEY = 'caller_emani_access_v1';
+const DATA_KEY = 'caller_emani_pipeline_v2';
 const HOURS_KEY = 'caller_emani_hours_v1';
 const PASSCODE = 'EmaniCalls!2026';
 
@@ -54,6 +55,24 @@ function csvEscape(v = '') {
   return s;
 }
 
+function rowKey(row = {}) {
+  return String(row.id || row.externalId || '').trim();
+}
+
+function mergeRows(primary = [], secondary = []) {
+  const map = new Map();
+  for (const r of secondary || []) {
+    const k = rowKey(r);
+    if (k) map.set(k, r);
+  }
+  for (const r of primary || []) {
+    const k = rowKey(r);
+    if (!k) continue;
+    map.set(k, { ...(map.get(k) || {}), ...r });
+  }
+  return Array.from(map.values()).sort((a, b) => new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime());
+}
+
 export default function CallerEmaniPage() {
   const [unlocked, setUnlocked] = useState(false);
   const [passcode, setPasscode] = useState('');
@@ -77,6 +96,11 @@ export default function CallerEmaniPage() {
       if (localStorage.getItem(ACCESS_KEY) === 'ok') setUnlocked(true);
       const hoursMap = JSON.parse(localStorage.getItem(HOURS_KEY) || '{}');
       setHoursToday(String(hoursMap[todayKey()] || ''));
+
+      const cachedRows = JSON.parse(localStorage.getItem(DATA_KEY) || '[]');
+      if (Array.isArray(cachedRows) && cachedRows.length) {
+        setRows(cachedRows);
+      }
     } catch {
       // ignore
     }
@@ -92,12 +116,21 @@ export default function CallerEmaniPage() {
     }
   }, [hoursToday]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(DATA_KEY, JSON.stringify(rows || []));
+    } catch {
+      // ignore
+    }
+  }, [rows]);
+
   async function fetchRows() {
     try {
       const res = await fetch('/api/caller-leads?owner=Kimora%20Link', { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.ok && Array.isArray(data.rows)) {
-        setRows(data.rows);
+        const merged = mergeRows(data.rows, rows);
+        setRows(merged);
       }
     } catch {
       // ignore transient fetch errors
@@ -175,6 +208,10 @@ export default function CallerEmaniPage() {
         return;
       }
 
+      if (data?.row) {
+        setRows((prev) => mergeRows([data.row], prev));
+      }
+
       setForm({ name: '', email: '', phone: '', licensedStatus: 'Unknown', source: 'Kimora Day-in-the-Life Lead', notes: '' });
       await syncAll();
     } catch (error) {
@@ -193,6 +230,9 @@ export default function CallerEmaniPage() {
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data?.ok) {
       throw new Error(data?.error || 'update_failed');
+    }
+    if (data?.row) {
+      setRows((prev) => mergeRows([data.row], prev));
     }
     await syncAll();
   }
@@ -232,6 +272,7 @@ export default function CallerEmaniPage() {
         window.alert(`Delete failed: ${data?.error || 'unknown_error'}`);
         return;
       }
+      setRows((prev) => prev.filter((r) => r.id !== id));
       await syncAll();
     } finally {
       setSyncing(false);
