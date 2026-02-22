@@ -275,6 +275,38 @@ function checklistProgress(wf, licensing) {
   return { done, total: items.length, pct: items.length ? Math.round((done / items.length) * 100) : 0 };
 }
 
+function makeCodeHash(code = '') {
+  try {
+    return btoa(`legacy-link|${String(code).trim()}`);
+  } catch {
+    return '';
+  }
+}
+
+function splitNameParts(fullName = '') {
+  const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return { firstName: 'Agent', lastName: 'Agent' };
+  if (parts.length === 1) return { firstName: parts[0], lastName: parts[0] };
+  return { firstName: parts[0], lastName: parts[parts.length - 1] };
+}
+
+function buildOnboardingLink(row, wf) {
+  if (typeof window === 'undefined') return '';
+  const licensing = effectiveLicensingStatus(row, wf);
+  const { firstName, lastName } = splitNameParts(row.name || '');
+  const codeHash = makeCodeHash(wf?.onboardingCode || '');
+  const params = new URLSearchParams({
+    first: firstName,
+    last: lastName,
+    name: row.name || '',
+    email: String(wf?.applicantEmail || ''),
+    licensing,
+    referredBy: row.referredBy || '',
+    codeHash
+  });
+  return `${window.location.origin}/onboarding?${params.toString()}`;
+}
+
 export default function SponsorshipsPage() {
   const [standalone, setStandalone] = useState(false);
   const [rows, setRows] = useState([]);
@@ -390,6 +422,10 @@ export default function SponsorshipsPage() {
     const isUnlicensed = licensing === 'Unlicensed' || licensing === 'Pre-licensing';
     const jamalLine = isUnlicensed ? `\nJamal will contact you directly to begin pre-licensing. For urgent questions: ${JAMAL_EMAIL}` : '';
 
+    const onboardingCode = String(wf?.onboardingCode || `${Math.floor(100000 + Math.random() * 900000)}`);
+    const nextWf = { ...wf, onboardingCode };
+    const onboardingLink = buildOnboardingLink(row, nextWf);
+
     const subject = isUnlicensed ? `Legacy Link Onboarding (Unlicensed) — ${first}` : `Legacy Link Onboarding — ${first}`;
     const text = [
       `Hi ${first},`,
@@ -398,6 +434,10 @@ export default function SponsorshipsPage() {
       isUnlicensed
         ? 'Your next step is pre-licensing. Follow the checklist below and complete each item.'
         : 'You are cleared to begin onboarding and contracting. Complete each checklist item below.',
+      '',
+      'Your private onboarding portal:',
+      onboardingLink,
+      `Access Code: ${onboardingCode}`,
       '',
       bullets,
       jamalLine,
@@ -408,7 +448,7 @@ export default function SponsorshipsPage() {
     const htmlItems = items
       .map((item) => `<li>${item.url ? `<a href="${item.url}" target="_blank" rel="noreferrer">${item.label}</a>` : item.label}</li>`)
       .join('');
-    const html = `<div style="font-family:Arial,Helvetica,sans-serif;line-height:1.6;color:#0f172a;"><p>Hi ${first},</p><p>Your onboarding application has been approved.</p><p>${isUnlicensed ? 'Your next step is pre-licensing.' : 'You are cleared to begin onboarding and contracting.'} Complete each checklist item below:</p><ol>${htmlItems}</ol>${isUnlicensed ? `<p><strong>Jamal will contact you directly</strong> to begin pre-licensing. For urgent questions: <a href="mailto:${JAMAL_EMAIL}">${JAMAL_EMAIL}</a></p>` : ''}<p>— The Legacy Link Team</p></div>`;
+    const html = `<div style="font-family:Arial,Helvetica,sans-serif;line-height:1.6;color:#0f172a;"><p>Hi ${first},</p><p>Your onboarding application has been approved.</p><p>${isUnlicensed ? 'Your next step is pre-licensing.' : 'You are cleared to begin onboarding and contracting.'} Complete each checklist item below:</p><p><strong>Your private onboarding portal:</strong><br/><a href="${onboardingLink}" target="_blank" rel="noreferrer">Open Onboarding Portal</a><br/><strong>Access Code:</strong> ${onboardingCode}</p><ol>${htmlItems}</ol>${isUnlicensed ? `<p><strong>Jamal will contact you directly</strong> to begin pre-licensing. For urgent questions: <a href="mailto:${JAMAL_EMAIL}">${JAMAL_EMAIL}</a></p>` : ''}<p>— The Legacy Link Team</p></div>`;
 
     setSendingActionFor(key);
     try {
@@ -444,7 +484,7 @@ export default function SponsorshipsPage() {
         });
       }
 
-      updateWorkflow(key, { onboardingSentAt: new Date().toISOString() });
+      updateWorkflow(key, { onboardingSentAt: new Date().toISOString(), onboardingCode });
       window.alert(`Onboarding email sent to ${applicantEmail}`);
     } catch (error) {
       window.alert(`Onboarding email failed: ${error?.message || 'send_failed'}`);
@@ -505,6 +545,21 @@ export default function SponsorshipsPage() {
     } finally {
       setSendingActionFor('');
     }
+  }
+
+  function copyOnboardingAccess(row, wf, key) {
+    const onboardingCode = String(wf?.onboardingCode || `${Math.floor(100000 + Math.random() * 900000)}`);
+    const nextWf = { ...wf, onboardingCode };
+    const link = buildOnboardingLink(row, nextWf);
+    if (!link) {
+      window.alert('Could not build onboarding link.');
+      return;
+    }
+    navigator.clipboard.writeText(`${link}\nAccess Code: ${onboardingCode}`).catch(() => {});
+    if (!wf?.onboardingCode) {
+      updateWorkflow(key, { onboardingCode });
+    }
+    window.alert('Onboarding link + access code copied.');
   }
 
   useEffect(() => {
@@ -1132,6 +1187,9 @@ export default function SponsorshipsPage() {
                       <button type="button" onClick={() => sendOnboardingEmail(r, wf, key)} disabled={sendingActionFor === key}>
                         {sendingActionFor === key ? 'Sending...' : 'Send Onboarding'}
                       </button>
+                      <button type="button" className="ghost" onClick={() => copyOnboardingAccess(r, wf, key)}>
+                        Copy Onboarding Link
+                      </button>
                       <button type="button" className="ghost" onClick={() => sendNoMovementAlert(r, wf, key)} disabled={sendingActionFor === key}>
                         72h No-Movement Alert
                       </button>
@@ -1141,6 +1199,7 @@ export default function SponsorshipsPage() {
                     <div>{formatDateTime(wf.updatedAt)}</div>
                     <div className="muted">{wf.updatedBy || '—'}</div>
                     {wf.onboardingSentAt ? <div className="muted">Onboarding sent: {formatDateTime(wf.onboardingSentAt)}</div> : null}
+                    {wf.onboardingCode ? <div className="muted">Portal code: {wf.onboardingCode}</div> : null}
                     {wf.lastEscalatedAt ? <div className="muted">Last 72h alert: {formatDateTime(wf.lastEscalatedAt)}</div> : null}
                   </td>
                 </tr>
