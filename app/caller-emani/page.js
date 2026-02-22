@@ -19,6 +19,7 @@ const STAGES = [
 ];
 
 const MOVE_FORWARD_STAGE = 'Onboarding Started';
+const KIMORA_SPONSORSHIP_LINK = 'https://innercirclelink.com/sponsorship-signup?ref=kimora_link';
 
 function todayKey() {
   const d = new Date();
@@ -45,6 +46,7 @@ export default function CallerEmaniPage() {
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState({
     name: '',
+    email: '',
     phone: '',
     licensedStatus: 'Unknown',
     source: 'Kimora Day-in-the-Life Lead',
@@ -106,7 +108,7 @@ export default function CallerEmaniPage() {
       ...rows
     ];
     persist(next);
-    setForm({ name: '', phone: '', licensedStatus: 'Unknown', source: 'Kimora Day-in-the-Life Lead', notes: '' });
+    setForm({ name: '', email: '', phone: '', licensedStatus: 'Unknown', source: 'Kimora Day-in-the-Life Lead', notes: '' });
   }
 
   function updateRow(id, patch) {
@@ -137,10 +139,49 @@ export default function CallerEmaniPage() {
     persist(next);
   }
 
+  async function sendSponsorshipInvite(row) {
+    const to = String(row.email || '').trim().toLowerCase();
+    if (!to) {
+      window.alert('No email on file for this lead.');
+      return;
+    }
+
+    const first = String(row.name || '').trim().split(' ')[0] || 'there';
+    const subject = `Your Sponsorship Next Step — The Legacy Link`;
+    const text = [
+      `Hey ${first},`,
+      '',
+      'Great speaking with you today. Here is your next step link:',
+      KIMORA_SPONSORSHIP_LINK,
+      '',
+      'Please complete it as soon as possible so we can review quickly.',
+      '',
+      '— The Legacy Link Team'
+    ].join('\n');
+
+    try {
+      const res = await fetch('/api/send-welcome-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, subject, text })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        window.alert(`Invite failed: ${data?.error || 'unknown_error'}`);
+        return;
+      }
+
+      updateRow(row.id, { inviteSentAt: new Date().toISOString(), stage: row.stage === 'Qualified' ? 'Form Sent' : row.stage });
+      window.alert(`Sponsorship invite sent to ${to}`);
+    } catch (error) {
+      window.alert(`Invite failed: ${error?.message || 'send_failed'}`);
+    }
+  }
+
   function exportCsv() {
     const headers = [
-      'name', 'phone', 'licensedStatus', 'stage', 'source', 'notes',
-      'calledAt', 'connectedAt', 'qualifiedAt', 'formSentAt', 'formCompletedAt',
+      'name', 'email', 'phone', 'licensedStatus', 'stage', 'source', 'notes',
+      'calledAt', 'connectedAt', 'qualifiedAt', 'formSentAt', 'inviteSentAt', 'formCompletedAt',
       'policyStartedAt', 'approvedAt', 'onboardingStartedAt', 'movedForwardAt',
       'createdAt', 'updatedAt'
     ];
@@ -231,6 +272,7 @@ export default function CallerEmaniPage() {
           <h3 style={{ marginTop: 0 }}>Add New Lead</h3>
           <form onSubmit={addLead} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 }}>
             <input placeholder="Full Name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+            <input placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
             <input placeholder="Phone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
             <select value={form.licensedStatus} onChange={(e) => setForm((f) => ({ ...f, licensedStatus: e.target.value }))}>
               {['Unknown', 'Licensed', 'Unlicensed'].map((x) => <option key={x} value={x}>{x}</option>)}
@@ -250,7 +292,7 @@ export default function CallerEmaniPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  {['Name', 'Phone', 'Licensed', 'Stage', 'Quick Update', 'Notes', 'Updated', 'Actions'].map((h) => (
+                  {['Name', 'Email', 'Phone', 'Licensed', 'Stage', 'Quick Update', 'Notes', 'Updated', 'Actions'].map((h) => (
                     <th key={h} style={{ textAlign: 'left', borderBottom: '1px solid #e2e8f0', padding: 8 }}>{h}</th>
                   ))}
                 </tr>
@@ -259,6 +301,7 @@ export default function CallerEmaniPage() {
                 {rows.map((row) => (
                   <tr key={row.id}>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>{row.name}</td>
+                    <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>{row.email || '—'}</td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>{row.phone || '—'}</td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>{row.licensedStatus}</td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}><strong>{row.stage}</strong></td>
@@ -272,13 +315,17 @@ export default function CallerEmaniPage() {
                     </td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>{fmtDateTime(row.updatedAt)}</td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>
-                      <button type="button" className="ghost" onClick={() => removeLead(row.id)}>Delete</button>
+                      <div style={{ display: 'grid', gap: 6 }}>
+                        <button type="button" onClick={() => sendSponsorshipInvite(row)}>Send Sponsor Email</button>
+                        <button type="button" className="ghost" onClick={() => removeLead(row.id)}>Delete</button>
+                        {row.inviteSentAt ? <small style={{ color: '#64748b' }}>Invite sent: {fmtDateTime(row.inviteSentAt)}</small> : null}
+                      </div>
                     </td>
                   </tr>
                 ))}
                 {!rows.length ? (
                   <tr>
-                    <td colSpan={8} style={{ padding: 14, color: '#64748b' }}>No leads yet. Add first lead above.</td>
+                    <td colSpan={9} style={{ padding: 14, color: '#64748b' }}>No leads yet. Add first lead above.</td>
                   </tr>
                 ) : null}
               </tbody>
@@ -289,11 +336,12 @@ export default function CallerEmaniPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 10 }}>
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 14 }}>
             <h3 style={{ marginTop: 0 }}>Live Call Script (Use Exactly)</h3>
-            <p><strong>STEP 1 — Opener:</strong> “Hey ___, this is ___ from The Legacy Link. You watched Kimora’s video about the day in the life of an insurance agent and requested more information — did I catch you at a quick minute?”</p>
-            <p><strong>STEP 2 — Frame:</strong> “This isn’t just an insurance agency. We’re building leaders, serving the community, and helping people build something real. I just need two quick questions to see if it makes sense to move you forward.”</p>
-            <p><strong>Q1:</strong> Licensed or unlicensed?</p>
-            <p><strong>Licensed close:</strong> Send next step in 5 minutes.</p>
-            <p><strong>Unlicensed close:</strong> Sponsorship form + 1 hour community service requirement.</p>
+            <p><strong>Opener:</strong> “Hey [Name], thank you for your interest in joining our insurance agency. This will take less than 3 minutes. I have two quick questions to see if you qualify, and if you do, we’ll move to next steps.”</p>
+            <p><strong>Question 1:</strong> “How much time can you devote to the insurance business each week?”</p>
+            <p><strong>Question 2:</strong> “Are you willing to do one hour of community service each month?”</p>
+            <p><strong>Service examples:</strong> soup kitchen, church/mosque volunteering, or donating clothes to Salvation Army.</p>
+            <p><strong>Qualification gate:</strong> at least 10 hours/week, willing to serve, and not located in New York.</p>
+            <p><strong>Close:</strong> “Perfect — I’m sending your next-step email now. Please complete it right away so we can move quickly.”</p>
           </div>
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 14 }}>
             <h3 style={{ marginTop: 0 }}>Caller SOP & Pay Model</h3>
@@ -303,8 +351,20 @@ export default function CallerEmaniPage() {
               <li>Speed-to-call target: first attempt within 5 minutes</li>
               <li>Flat pay option: approx $50/day (hour/shift based)</li>
               <li>Referral-based option: $300 per lead that <strong>moves forward</strong> (approved + onboarding started)</li>
+              <li>Use <strong>Send Sponsor Email</strong> button once lead is qualified</li>
             </ul>
           </div>
+        </div>
+
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 14 }}>
+          <h3 style={{ marginTop: 0 }}>Automation Plan (GHL → Emani Portal)</h3>
+          <ol style={{ margin: 0, paddingLeft: 18 }}>
+            <li>Create a GoHighLevel workflow trigger: <strong>New lead assigned to Kimora</strong>.</li>
+            <li>Add webhook action to send lead payload into this portal intake endpoint (next step).</li>
+            <li>Lead appears instantly in this board for Emani to call.</li>
+            <li>If qualified, Emani clicks <strong>Send Sponsor Email</strong> to send Kimora’s personal sponsorship link.</li>
+            <li>Track moved-forward only when stage hits <strong>Onboarding Started</strong>.</li>
+          </ol>
         </div>
       </div>
     </main>
