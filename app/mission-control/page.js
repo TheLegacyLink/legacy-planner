@@ -124,6 +124,7 @@ export default function MissionControl() {
   const [sponsorshipTodayApprovalsByAgent, setSponsorshipTodayApprovalsByAgent] = useState({});
   const [todaySponsorshipDetails, setTodaySponsorshipDetails] = useState([]);
   const [sponsorshipSyncIssue, setSponsorshipSyncIssue] = useState('');
+  const [manualReviewCount, setManualReviewCount] = useState(0);
   const [bookingQueue, setBookingQueue] = useState([]);
   const [claimBy, setClaimBy] = useState('');
   const [detailsModal, setDetailsModal] = useState({ open: false, type: '' });
@@ -148,10 +149,11 @@ export default function MissionControl() {
       setLoading(true);
       setError('');
       try {
-        const [leaderboardRes, revenueRes, sponsorshipRes] = await Promise.all([
+        const [leaderboardRes, revenueRes, sponsorshipRes, manualReviewRes] = await Promise.all([
           fetch(config.leaderboardUrl, { cache: 'no-store' }),
           fetch(config.revenueUrl, { cache: 'no-store' }),
-          fetch(config.sponsorshipTrackerUrl, { cache: 'no-store' })
+          fetch(config.sponsorshipTrackerUrl, { cache: 'no-store' }),
+          fetch('/api/sponsorship-applications', { cache: 'no-store' })
         ]);
 
         if (!leaderboardRes.ok) throw new Error(`Leaderboard HTTP ${leaderboardRes.status}`);
@@ -163,6 +165,13 @@ export default function MissionControl() {
         const todayApprovals = {};
         const todayDetails = [];
         let sponsorshipIssue = '';
+        let reviewCount = 0;
+
+        if (manualReviewRes.ok) {
+          const reviewJson = await manualReviewRes.json().catch(() => ({}));
+          const reviewRows = Array.isArray(reviewJson?.rows) ? reviewJson.rows : [];
+          reviewCount = reviewRows.filter((r) => String(r?.decision_bucket || '').toLowerCase() === 'manual_review').length;
+        }
 
         if (sponsorshipRes.ok) {
           const sponsorshipText = await sponsorshipRes.text();
@@ -203,6 +212,7 @@ export default function MissionControl() {
         setSponsorshipTodayApprovalsByAgent(todayApprovals);
         setTodaySponsorshipDetails(todayDetails);
         setSponsorshipSyncIssue(sponsorshipIssue);
+        setManualReviewCount(reviewCount);
         setLastSyncAt(new Date().toISOString());
       } catch (err) {
         if (!mounted) return;
@@ -366,9 +376,16 @@ export default function MissionControl() {
             Metrics below reflect current month-to-date execution.
           </p>
         </div>
-        <a href="/sponsorships" style={{ marginLeft: 'auto' }}>
-          <button type="button">Open Agency Owner Dashboard</button>
-        </a>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+          <a href="/sponsorship-review">
+            <button type="button">
+              Sponsorship Review {manualReviewCount > 0 ? `(${manualReviewCount})` : ''}
+            </button>
+          </a>
+          <a href="/sponsorships">
+            <button type="button">Open Agency Owner Dashboard</button>
+          </a>
+        </div>
       </div>
 
       <div className="grid4">
