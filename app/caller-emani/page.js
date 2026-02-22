@@ -129,8 +129,7 @@ export default function CallerEmaniPage() {
       const res = await fetch('/api/caller-leads?owner=Kimora%20Link', { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.ok && Array.isArray(data.rows)) {
-        const merged = mergeRows(data.rows, rows);
-        setRows(merged);
+        setRows((prev) => mergeRows(data.rows, prev));
       }
     } catch {
       // ignore transient fetch errors
