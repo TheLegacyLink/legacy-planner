@@ -142,8 +142,8 @@ export default function SponsorshipSignupPage() {
 
       <div className="panel" id="apply" style={{ maxWidth: 820, marginTop: 16, padding: 18 }}>
         <h3 style={{ marginTop: 0 }}>Start Your Sponsored Application</h3>
-        <p className="muted">Complete this quick profile to continue.</p>
-        {ref ? <p className="pill onpace">Referral locked: {ref}</p> : null}
+        <p className="muted">Complete this quick profile to continue. Your point of contact will be assigned after submission.</p>
+        {ref ? <p className="pill onpace">✅ Your referral attribution is secured.</p> : null}
 
         <form className="settingsGrid" onSubmit={onSubmit}>
           <label>

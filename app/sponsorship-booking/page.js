@@ -180,8 +180,8 @@ export default function SponsorshipBookingPage() {
             <input value={`${record?.firstName || ''} ${record?.lastName || ''}`.trim()} disabled />
           </label>
           <label>
-            Referral Credit
-            <input value={referredBy} disabled />
+            Point of Contact
+            <input value={applicantState && fngEligibleClosers.length ? `Assigned from licensed ${applicantState} team after booking` : 'Assigned after booking'} disabled />
           </label>
           <label>
             State

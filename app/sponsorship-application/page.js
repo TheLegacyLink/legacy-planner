@@ -284,7 +284,7 @@ export default function SponsorshipApplicationPage() {
           </div>
         </div>
 
-        {ref ? <p className="pill onpace">Referral locked to code: {ref}</p> : null}
+        {ref ? <p className="pill onpace">✅ Referral attribution secured.</p> : null}
 
         <div style={{ marginBottom: 12, border: '1px solid #c7d2fe', borderRadius: 12, background: '#eef2ff', padding: 12 }}>
           <div className="panelRow">
@@ -366,7 +366,7 @@ export default function SponsorshipApplicationPage() {
             <input
               value={form.referralName}
               onChange={(e) => update('referralName', e.target.value)}
-              placeholder={ref ? 'Referral locked via personal link' : 'Agent name or source detail'}
+              placeholder={ref ? 'Attribution secured via personal link' : 'Agent name or source detail'}
               disabled={Boolean(ref)}
             />
           </label>
