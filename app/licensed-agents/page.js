@@ -195,6 +195,7 @@ export default function LicensedAgentsPage() {
   const [stateFilter, setStateFilter] = useState('ALL');
   const [carrierFilter, setCarrierFilter] = useState('ALL');
   const [search, setSearch] = useState('');
+  const [sendingEmailFor, setSendingEmailFor] = useState('');
 
   const groupedAgents = useMemo(() => {
     const map = new Map();
@@ -299,6 +300,40 @@ export default function LicensedAgentsPage() {
       });
   }, [groupedAgents, stateFilter, carrierFilter, search]);
 
+
+
+  const sendWelcomeEmail = async (agent) => {
+    const to = String(agent?.email || '').trim();
+    if (!to) {
+      window.alert('No email found for this agent.');
+      return;
+    }
+
+    setSendingEmailFor(agent.agent_id);
+    try {
+      const subject = `Welcome to Legacy Link — You’re Contracted, ${firstNameFromDisplay(toDisplayName(agent.full_name))}!`;
+      const text = buildWelcomeMessage(agent);
+
+      const res = await fetch('/api/send-welcome-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, subject, text })
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data?.ok) {
+        window.alert(`Email failed: ${data?.error || 'unknown_error'}`);
+        return;
+      }
+
+      window.alert(`Welcome email sent to ${to}`);
+    } catch (error) {
+      window.alert(`Email failed: ${error?.message || 'send_failed'}`);
+    } finally {
+      setSendingEmailFor('');
+    }
+  };
+
   return (
     <AppShell title="Licensed Agents Directory">
       <div className="panel">
@@ -307,6 +342,7 @@ export default function LicensedAgentsPage() {
             <h3 style={{ margin: 0 }}>Legacy Link Licensing Directory</h3>
             <p className="muted" style={{ margin: '6px 0 0' }}>
               One row per agent. Filter by state to instantly find who can write in that state and see carrier contracts. Agents in their first 14 days from effective date are flagged as NEW.
+              Use “Send via Gmail” after setting Gmail env vars in Vercel.
             </p>
           </div>
           <span className="pill onpace">{filteredRows.length} Agents</span>
@@ -365,7 +401,41 @@ export default function LicensedAgentsPage() {
               const ageDays = daysSince(row.effective_date);
               const isNew = ageDays !== null && ageDays >= 0 && ageDays <= 14;
 
-              return (
+            
+
+  const sendWelcomeEmail = async (agent) => {
+    const to = String(agent?.email || '').trim();
+    if (!to) {
+      window.alert('No email found for this agent.');
+      return;
+    }
+
+    setSendingEmailFor(agent.agent_id);
+    try {
+      const subject = `Welcome to Legacy Link — You’re Contracted, ${firstNameFromDisplay(toDisplayName(agent.full_name))}!`;
+      const text = buildWelcomeMessage(agent);
+
+      const res = await fetch('/api/send-welcome-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, subject, text })
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data?.ok) {
+        window.alert(`Email failed: ${data?.error || 'unknown_error'}`);
+        return;
+      }
+
+      window.alert(`Welcome email sent to ${to}`);
+    } catch (error) {
+      window.alert(`Email failed: ${error?.message || 'send_failed'}`);
+    } finally {
+      setSendingEmailFor('');
+    }
+  };
+
+  return (
                 <tr key={row.agent_id} style={isNew ? { background: 'rgba(34, 197, 94, 0.10)' } : undefined}>
                   <td>
                     <div>{toDisplayName(row.full_name)}</div>
@@ -382,13 +452,22 @@ export default function LicensedAgentsPage() {
                     <span className={`pill ${row.hasActive ? 'onpace' : 'atrisk'}`}>{row.hasActive ? 'Active' : 'Unknown'}</span>
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      className="ghost"
-                      onClick={() => navigator.clipboard.writeText(buildWelcomeMessage(row))}
-                    >
-                      Copy Welcome
-                    </button>
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => navigator.clipboard.writeText(buildWelcomeMessage(row))}
+                      >
+                        Copy Welcome
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => sendWelcomeEmail(row)}
+                        disabled={!row.email || sendingEmailFor === row.agent_id}
+                      >
+                        {sendingEmailFor === row.agent_id ? 'Sending...' : 'Send via Gmail'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
