@@ -199,6 +199,40 @@ export default function OnboardingPortalPage() {
             ))}
           </div>
 
+          <div style={{ marginTop: 20, padding: 16, border: '1px solid #e2e8f0', borderRadius: 12, background: '#ffffff' }}>
+            <h3 style={{ margin: '0 0 10px', fontSize: 24 }}>Start Here: Legacy Link Playbook</h3>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {[
+                'Module 1: What Legacy Link is and what to expect in your first 30 days',
+                'Module 2: Daily production rhythm (activity targets, follow-up windows, accountability)',
+                'Module 3: Lead handling + scripts + objection flow',
+                'Module 4: Contracting, compliance, and activation milestones',
+                'Module 5: How to earn your first wins and scale consistently'
+              ].map((module) => (
+                <div key={module} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc', fontWeight: 600 }}>
+                  {module}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginTop: 14, padding: 16, border: '1px solid #bfdbfe', borderRadius: 12, background: '#eff6ff' }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 22 }}>Your Upline + Support</h3>
+            <p style={{ margin: '0 0 6px' }}><strong>Upline:</strong> {data.referredBy || 'Assigned by operations'}</p>
+            <p style={{ margin: 0 }}><strong>Operations:</strong> <a href="mailto:support@jdholmesagencyllc.com">SUPPORT@jdholmesagencyllc.com</a></p>
+          </div>
+
+          <div style={{ marginTop: 14, padding: 16, border: '1px solid #fde68a', borderRadius: 12, background: '#fffbeb' }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 22 }}>Optional Upgrade: Inner Circle</h3>
+            <p style={{ margin: '0 0 10px' }}>You are not obligated to upgrade. You can stay on the free plan. If you want faster growth, Inner Circle gives you leverage.</p>
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              <li>CRM + dialer + automations to improve follow-up consistency</li>
+              <li>AI-powered follow-up support and conversion workflows</li>
+              <li>Execution playbooks, accountability, and production coaching</li>
+            </ul>
+            <p style={{ margin: '10px 0 0' }}><strong>Limited spots.</strong> Reinvesting in your system can materially increase output when you execute consistently.</p>
+          </div>
+
           <div style={{ marginTop: 20, padding: 14, border: '1px solid #bbf7d0', borderRadius: 12, background: '#f0fdf4' }}>
             <strong style={{ color: BRAND.success }}>Lead Release:</strong> Once you are contracted and all checklist items are complete, you will begin receiving leads.
           </div>
