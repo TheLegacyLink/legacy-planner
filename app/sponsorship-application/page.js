@@ -158,7 +158,7 @@ export default function SponsorshipApplicationPage() {
     });
   };
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
     const phone = String(form.phone || '').replace(/\D/g, '');
     const age = Number(form.age || 0);
@@ -205,6 +205,16 @@ export default function SponsorshipApplicationPage() {
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify([record, ...list]));
       sessionStorage.setItem('legacy-active-sponsorship-id', id);
+    }
+
+    try {
+      await fetch('/api/sponsorship-applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'submit', ...record })
+      });
+    } catch {
+      // non-blocking backup is localStorage
     }
 
     router.push(`/sponsorship-contract?id=${encodeURIComponent(id)}`);

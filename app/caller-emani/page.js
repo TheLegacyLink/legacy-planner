@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 const ACCESS_KEY = 'caller_emani_access_v1';
+const HOURS_KEY = 'caller_emani_hours_v1';
 const PASSCODE = 'EmaniCalls!2026';
 
 const STAGES = [
@@ -19,6 +20,14 @@ const STAGES = [
 
 const MOVE_FORWARD_STAGE = 'Onboarding Started';
 const KIMORA_SPONSORSHIP_LINK = 'https://innercirclelink.com/sponsorship-signup?ref=kimora_link';
+
+function normalizeName(v = '') {
+  return String(v || '').toUpperCase().replace(/[^A-Z ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function normalizePhone(v = '') {
+  return String(v || '').replace(/\D/g, '');
+}
 
 function todayKey() {
   const d = new Date();
@@ -43,7 +52,9 @@ export default function CallerEmaniPage() {
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState('');
   const [rows, setRows] = useState([]);
+  const [sponsorshipRows, setSponsorshipRows] = useState([]);
   const [syncing, setSyncing] = useState(false);
+  const [hoursToday, setHoursToday] = useState('');
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -56,10 +67,22 @@ export default function CallerEmaniPage() {
   useEffect(() => {
     try {
       if (localStorage.getItem(ACCESS_KEY) === 'ok') setUnlocked(true);
+      const hoursMap = JSON.parse(localStorage.getItem(HOURS_KEY) || '{}');
+      setHoursToday(String(hoursMap[todayKey()] || ''));
     } catch {
       // ignore
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      const hoursMap = JSON.parse(localStorage.getItem(HOURS_KEY) || '{}');
+      hoursMap[todayKey()] = hoursToday;
+      localStorage.setItem(HOURS_KEY, JSON.stringify(hoursMap));
+    } catch {
+      // ignore
+    }
+  }, [hoursToday]);
 
   async function fetchRows() {
     try {
@@ -73,10 +96,26 @@ export default function CallerEmaniPage() {
     }
   }
 
+  async function fetchSponsorshipRows() {
+    try {
+      const res = await fetch('/api/sponsorship-applications', { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok && Array.isArray(data.rows)) {
+        setSponsorshipRows(data.rows);
+      }
+    } catch {
+      // ignore transient fetch errors
+    }
+  }
+
+  async function syncAll() {
+    await Promise.all([fetchRows(), fetchSponsorshipRows()]);
+  }
+
   useEffect(() => {
     if (!unlocked) return;
-    fetchRows();
-    const id = setInterval(fetchRows, 15000);
+    syncAll();
+    const id = setInterval(syncAll, 60000);
     return () => clearInterval(id);
   }, [unlocked]);
 
@@ -117,7 +156,7 @@ export default function CallerEmaniPage() {
       }
 
       setForm({ name: '', email: '', phone: '', licensedStatus: 'Unknown', source: 'Kimora Day-in-the-Life Lead', notes: '' });
-      await fetchRows();
+      await syncAll();
     } catch (error) {
       window.alert(`Add lead failed: ${error?.message || 'request_failed'}`);
     } finally {
@@ -135,7 +174,7 @@ export default function CallerEmaniPage() {
     if (!res.ok || !data?.ok) {
       throw new Error(data?.error || 'update_failed');
     }
-    await fetchRows();
+    await syncAll();
   }
 
   async function setStage(row, stage) {
@@ -173,7 +212,7 @@ export default function CallerEmaniPage() {
         window.alert(`Delete failed: ${data?.error || 'unknown_error'}`);
         return;
       }
-      await fetchRows();
+      await syncAll();
     } finally {
       setSyncing(false);
     }
@@ -264,6 +303,21 @@ export default function CallerEmaniPage() {
     };
   }, [rows]);
 
+  const approvedSet = useMemo(() => {
+    const set = new Set();
+    for (const s of sponsorshipRows) {
+      const status = String(s.status || '').toLowerCase();
+      if (!status.includes('approved')) continue;
+      const n = normalizeName(`${s.firstName || ''} ${s.lastName || ''}`);
+      const e = String(s.email || '').trim().toLowerCase();
+      const p = normalizePhone(s.phone || '');
+      if (n) set.add(`n:${n}`);
+      if (e) set.add(`e:${e}`);
+      if (p) set.add(`p:${p}`);
+    }
+    return set;
+  }, [sponsorshipRows]);
+
   if (!unlocked) {
     return (
       <main style={{ minHeight: '100vh', background: 'radial-gradient(circle at top, #172554 0%, #0b1220 60%)', display: 'grid', placeItems: 'center', padding: 16, color: '#fff' }}>
@@ -294,7 +348,6 @@ export default function CallerEmaniPage() {
           <div>
             <h2 style={{ margin: 0 }}>Emani Calling Portal</h2>
             <p style={{ margin: '6px 0 0', color: '#cbd5e1' }}>Lead-to-Onboarding tracking for The Legacy Link</p>
-            <small style={{ color: '#93c5fd' }}>{syncing ? 'Syncing…' : 'Live sync active (15s)'}</small>
           </div>
           <button type="button" onClick={exportCsv} style={{ marginLeft: 'auto' }}>Export CSV</button>
           <button type="button" className="ghost" onClick={lock}>Lock</button>
@@ -314,6 +367,17 @@ export default function CallerEmaniPage() {
               <div style={{ fontSize: 26, fontWeight: 800 }}>{value}</div>
             </div>
           ))}
+        </div>
+
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 14, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <strong>Hours Available Today</strong>
+          <input
+            value={hoursToday}
+            onChange={(e) => setHoursToday(e.target.value)}
+            placeholder="e.g., 6"
+            style={{ maxWidth: 140 }}
+          />
+          <small className="muted">Used for daily accountability + pay tracking.</small>
         </div>
 
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 14 }}>
@@ -346,12 +410,25 @@ export default function CallerEmaniPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id}>
-                    <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>{row.name}</td>
+                {rows.map((row) => {
+                  const isApproved = approvedSet.has(`n:${normalizeName(row.name || '')}`) || approvedSet.has(`e:${String(row.email || '').toLowerCase()}`) || approvedSet.has(`p:${normalizePhone(row.phone || '')}`);
+
+                  return (
+                  <tr key={row.id} style={isApproved ? { background: 'rgba(34, 197, 94, 0.14)' } : undefined}>
+                    <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>
+                      <div>{row.name}</div>
+                      {isApproved ? <small style={{ color: '#166534', fontWeight: 700 }}>Approved • Stop Calling</small> : null}
+                    </td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>{row.email || '—'}</td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>{row.phone || '—'}</td>
-                    <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>{row.licensedStatus}</td>
+                    <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>
+                      <select
+                        value={row.licensedStatus || 'Unknown'}
+                        onChange={(e) => updateRow(row.id, { licensedStatus: e.target.value }).catch(() => {})}
+                      >
+                        {['Unknown', 'Licensed', 'Unlicensed'].map((x) => <option key={x} value={x}>{x}</option>)}
+                      </select>
+                    </td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}><strong>{row.stage}</strong></td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>
                       <select value={row.stage} onChange={(e) => setStage(row, e.target.value)}>
@@ -368,13 +445,14 @@ export default function CallerEmaniPage() {
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>{fmtDateTime(row.updatedAt)}</td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>
                       <div style={{ display: 'grid', gap: 6 }}>
-                        <button type="button" onClick={() => sendSponsorshipInvite(row)}>Send Sponsor Email</button>
+                        <button type="button" onClick={() => sendSponsorshipInvite(row)} disabled={isApproved}>Send Sponsor Email</button>
                         <button type="button" className="ghost" onClick={() => removeLead(row.id)}>Delete</button>
                         {row.inviteSentAt ? <small style={{ color: '#64748b' }}>Invite sent: {fmtDateTime(row.inviteSentAt)}</small> : null}
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {!rows.length ? (
                   <tr>
                     <td colSpan={9} style={{ padding: 14, color: '#64748b' }}>No leads yet. Add first lead above.</td>
@@ -385,7 +463,7 @@ export default function CallerEmaniPage() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 14 }}>
             <h3 style={{ marginTop: 0 }}>Live Call Script (Use Exactly)</h3>
             <p><strong>Opener:</strong> “Hey [Name], thank you for your interest in joining our insurance agency. This will take less than 3 minutes. I have two quick questions to see if you qualify, and if you do, we’ll move to next steps.”</p>
@@ -406,19 +484,6 @@ export default function CallerEmaniPage() {
               <li>Use <strong>Send Sponsor Email</strong> button once lead is qualified</li>
             </ul>
           </div>
-        </div>
-
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 14 }}>
-          <h3 style={{ marginTop: 0 }}>Automation Plan (GHL → Emani Portal)</h3>
-          <p style={{ marginTop: 0 }}><strong>Webhook URL:</strong> <code>https://innercirclelink.com/api/ghl-lead-intake</code></p>
-          <p><strong>Security:</strong> set env var <code>GHL_INTAKE_TOKEN</code> in Vercel, then pass that value in header <code>x-intake-token</code> from GHL webhook action.</p>
-          <ol style={{ margin: 0, paddingLeft: 18 }}>
-            <li>Create a GoHighLevel workflow trigger: <strong>New lead assigned to Kimora</strong>.</li>
-            <li>Add webhook action to POST lead payload into the intake endpoint above.</li>
-            <li>Lead appears in this board (15-second sync) for Emani to call.</li>
-            <li>If qualified, Emani clicks <strong>Send Sponsor Email</strong> to send Kimora’s personal sponsorship link.</li>
-            <li>Track moved-forward only when stage hits <strong>Onboarding Started</strong>.</li>
-          </ol>
         </div>
       </div>
     </main>

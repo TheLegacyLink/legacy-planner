@@ -13,6 +13,7 @@ const tabs = [
   { href: '/scoreboard', label: 'Scoreboard' },
   { href: '/licensed-agents', label: 'Licensed Agents' },
   { href: '/sponsorships', label: 'Sponsorships' },
+  { href: '/sponsorship-review', label: 'Sponsorship Review' },
   { href: '/sponsorship-signup', label: 'Sponsor Signup' },
   { href: '/inner-circle-app-submit', label: 'App Submit' },
   { href: '/inner-circle-links', label: 'Inner Circle Links' },
