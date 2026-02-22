@@ -583,7 +583,14 @@ export default function CallerEmaniPage() {
                     </td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>
                       <div style={{ display: 'grid', gap: 6 }}>
-                        <button type="button" onClick={() => sendSponsorshipInvite(row)} disabled={isApproved}>Send Sponsor Email</button>
+                        <button
+                          type="button"
+                          onClick={() => sendSponsorshipInvite(row)}
+                          disabled={isApproved || Boolean(row.inviteSentAt)}
+                          style={row.inviteSentAt ? { background: '#94a3b8', cursor: 'not-allowed' } : undefined}
+                        >
+                          {row.inviteSentAt ? 'Email Sent' : 'Send Sponsor Email'}
+                        </button>
                         <button type="button" className="ghost" onClick={() => removeLead(row.id)}>Delete</button>
                         {row.inviteSentAt ? <small style={{ color: '#64748b' }}>Invite sent: {fmtDateTime(row.inviteSentAt)}</small> : null}
                       </div>
@@ -601,27 +608,14 @@ export default function CallerEmaniPage() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 14 }}>
-            <h3 style={{ marginTop: 0 }}>Live Call Script (Use Exactly)</h3>
-            <p><strong>Opener:</strong> “Hey [Name], thank you for your interest in joining our insurance agency. This will take less than 3 minutes. I have two quick questions to see if you qualify, and if you do, we’ll move to next steps.”</p>
-            <p><strong>Question 1:</strong> “How much time can you devote to the insurance business each week?”</p>
-            <p><strong>Question 2:</strong> “Are you willing to do one hour of community service each month?”</p>
-            <p><strong>Service examples:</strong> soup kitchen, church/mosque volunteering, or donating clothes to Salvation Army.</p>
-            <p><strong>Qualification gate:</strong> at least 10 hours/week, willing to serve, and not located in New York.</p>
-            <p><strong>Close:</strong> “Perfect — I’m sending your next-step email now. Please complete it right away so we can move quickly.”</p>
-          </div>
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 14 }}>
-            <h3 style={{ marginTop: 0 }}>Caller SOP & Pay Model</h3>
-            <ul>
-              <li>5 days/week, calling window 9AM–9PM CST</li>
-              <li>Goal: 5–15 calls/day</li>
-              <li>Speed-to-call target: first attempt within 5 minutes</li>
-              <li>Flat pay option: approx $50/day (hour/shift based)</li>
-              <li>Referral-based option: $300 per lead that <strong>moves forward</strong> (approved + onboarding started)</li>
-              <li>Use <strong>Send Sponsor Email</strong> button once lead is qualified</li>
-            </ul>
-          </div>
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16 }}>
+          <h3 style={{ marginTop: 0 }}>Live Call Script (Use Exactly)</h3>
+          <p><strong>Opener:</strong> “Hey [Name], thank you for your interest in joining our insurance agency. This will take less than 3 minutes. I have two quick questions to see if you qualify, and if you do, we’ll move to next steps.”</p>
+          <p><strong>Question 1:</strong> “How much time can you devote to the insurance business each week?”</p>
+          <p><strong>Question 2:</strong> “Are you willing to do one hour of community service each month?”</p>
+          <p><strong>Service examples:</strong> soup kitchen, church/mosque volunteering, or donating clothes to Salvation Army.</p>
+          <p><strong>Qualification gate:</strong> at least 10 hours/week, willing to serve, and not located in New York.</p>
+          <p><strong>Close:</strong> “Perfect — I’m sending your next-step email now. Please complete it right away so we can move quickly.”</p>
         </div>
       </div>
     </main>
