@@ -71,6 +71,25 @@ const PHONE_BY_NAME = (() => {
   return map;
 })();
 
+const EMAIL_BY_NAME = (() => {
+  const map = new Map();
+  for (const row of licensedAgents) {
+    const n = normalizeName(row.full_name || '');
+    const e = String(row.email || '').trim().toLowerCase();
+    if (!n || !e) continue;
+    if (!map.has(n)) map.set(n, e);
+
+    if (n.includes(',')) {
+      const [last, first] = n.split(',').map((x) => x.trim());
+      const flipped = normalizeName(`${first} ${last}`);
+      if (flipped && !map.has(flipped)) map.set(flipped, e);
+    }
+  }
+  return map;
+})();
+
+const JAMAL_EMAIL = 'jamalholmes195@yahoo.com';
+
 const COMPLETED_NAME_SET = (() => {
   const set = new Set();
   for (const policy of fngPolicies) {
@@ -223,6 +242,39 @@ function effectiveActivationStage(row, wf) {
   return 'Pending Review';
 }
 
+function defaultUplineEmail(row) {
+  return EMAIL_BY_NAME.get(normalizeName(row.referredBy || '')) || '';
+}
+
+function onboardingTemplate(licensing = 'Unknown') {
+  const common = [
+    { id: 'join-skool', label: 'Join Skool', url: 'https://www.skool.com/legacylink/about?ref=660035f641d94e3a919e081e220ed6fe' },
+    { id: 'watch-welcome', label: 'Watch Welcome Video', url: 'https://www.youtube.com/watch?v=SVvU9SvCH9o' }
+  ];
+
+  if (licensing === 'Unlicensed' || licensing === 'Pre-licensing') {
+    return [
+      ...common,
+      { id: 'contact-jamal', label: 'Jamal Reachout', url: '' },
+      { id: 'start-prelicensing', label: 'Start Pre-Licensing', url: '' }
+    ];
+  }
+
+  return [
+    ...common,
+    { id: 'start-contracting', label: 'Start Contracting', url: 'https://accounts.surancebay.com/oauth/authorize?redirect_uri=https:%2F%2Fsurelc.surancebay.com%2Fproducer%2Foauth%3FreturnUrl%3D%252Fprofile%252Fcontact-info%253FgaId%253D168%2526gaId%253D168%2526branch%253DInvestaLink%2526branchVisible%253Dtrue%2526branchEditable%253Dfalse%2526branchRequired%253Dtrue%2526autoAdd%253Dfalse%2526requestMethod%253DGET&gaId=168&client_id=surecrmweb&response_type=code' },
+    { id: 'watch-contracting-video', label: 'Watch Get Contracted Video', url: 'https://youtu.be/d2saZzYzzkA?si=z63iJxMZD0b78guj' },
+    { id: 'watch-backoffice-video', label: 'Watch Back Office Setup', url: 'https://youtu.be/QVg0rUti1hM' }
+  ];
+}
+
+function checklistProgress(wf, licensing) {
+  const items = onboardingTemplate(licensing);
+  const checklist = wf?.checklist || {};
+  const done = items.filter((i) => checklist[i.id]).length;
+  return { done, total: items.length, pct: items.length ? Math.round((done / items.length) * 100) : 0 };
+}
+
 export default function SponsorshipsPage() {
   const [standalone, setStandalone] = useState(false);
   const [rows, setRows] = useState([]);
@@ -237,6 +289,7 @@ export default function SponsorshipsPage() {
   const [stuckOnly, setStuckOnly] = useState(false);
   const [workflow, setWorkflow] = useState({});
   const [operatorName, setOperatorName] = useState('');
+  const [sendingActionFor, setSendingActionFor] = useState('');
   const [accessGranted, setAccessGranted] = useState(false);
   const [passcodeInput, setPasscodeInput] = useState('');
   const [passError, setPassError] = useState('');
@@ -304,6 +357,154 @@ export default function SponsorshipsPage() {
     }
 
     updateWorkflow(key, patch);
+  }
+
+  function toggleChecklistItem(key, wf, itemId, checked) {
+    const nextChecklist = {
+      ...(wf?.checklist || {}),
+      [itemId]: checked
+    };
+    updateWorkflow(key, {
+      checklist: nextChecklist,
+      ...(checked ? { lastChecklistMovementAt: new Date().toISOString() } : {})
+    });
+  }
+
+  async function sendOnboardingEmail(row, wf, key) {
+    const applicantEmail = String(wf?.applicantEmail || '').trim().toLowerCase();
+    const licensing = effectiveLicensingStatus(row, wf);
+
+    if (!applicantEmail) {
+      window.alert('Missing applicant email. Add Applicant Email first.');
+      return;
+    }
+
+    if (licensing === 'Unknown') {
+      window.alert('Missing status. Set Licensing before sending onboarding email.');
+      return;
+    }
+
+    const first = String(row.name || '').trim().split(' ')[0] || 'Agent';
+    const items = onboardingTemplate(licensing);
+    const bullets = items.map((item, idx) => `${idx + 1}) ${item.label}${item.url ? `: ${item.url}` : ''}`).join('\n');
+    const isUnlicensed = licensing === 'Unlicensed' || licensing === 'Pre-licensing';
+    const jamalLine = isUnlicensed ? `\nJamal will contact you directly to begin pre-licensing. For urgent questions: ${JAMAL_EMAIL}` : '';
+
+    const subject = isUnlicensed ? `Legacy Link Onboarding (Unlicensed) — ${first}` : `Legacy Link Onboarding — ${first}`;
+    const text = [
+      `Hi ${first},`,
+      '',
+      'Your onboarding application has been approved.',
+      isUnlicensed
+        ? 'Your next step is pre-licensing. Follow the checklist below and complete each item.'
+        : 'You are cleared to begin onboarding and contracting. Complete each checklist item below.',
+      '',
+      bullets,
+      jamalLine,
+      '',
+      '— The Legacy Link Team'
+    ].join('\n');
+
+    const htmlItems = items
+      .map((item) => `<li>${item.url ? `<a href="${item.url}" target="_blank" rel="noreferrer">${item.label}</a>` : item.label}</li>`)
+      .join('');
+    const html = `<div style="font-family:Arial,Helvetica,sans-serif;line-height:1.6;color:#0f172a;"><p>Hi ${first},</p><p>Your onboarding application has been approved.</p><p>${isUnlicensed ? 'Your next step is pre-licensing.' : 'You are cleared to begin onboarding and contracting.'} Complete each checklist item below:</p><ol>${htmlItems}</ol>${isUnlicensed ? `<p><strong>Jamal will contact you directly</strong> to begin pre-licensing. For urgent questions: <a href="mailto:${JAMAL_EMAIL}">${JAMAL_EMAIL}</a></p>` : ''}<p>— The Legacy Link Team</p></div>`;
+
+    setSendingActionFor(key);
+    try {
+      const res = await fetch('/api/send-welcome-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: applicantEmail, subject, text, html })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        window.alert(`Onboarding email failed: ${data?.error || 'unknown_error'}`);
+        return;
+      }
+
+      if (isUnlicensed) {
+        const jamalSubject = `Unlicensed Approval: ${row.name}`;
+        const jamalText = [
+          'Jamal,',
+          '',
+          'An unlicensed applicant was approved and needs onboarding outreach.',
+          `Name: ${row.name}`,
+          `Email: ${applicantEmail}`,
+          `Phone: ${row.phone || 'N/A'}`,
+          `Referred By: ${row.referredBy || 'N/A'}`,
+          '',
+          'Please reach out at your earliest convenience.'
+        ].join('\n');
+
+        await fetch('/api/send-welcome-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: JAMAL_EMAIL, subject: jamalSubject, text: jamalText })
+        });
+      }
+
+      updateWorkflow(key, { onboardingSentAt: new Date().toISOString() });
+      window.alert(`Onboarding email sent to ${applicantEmail}`);
+    } catch (error) {
+      window.alert(`Onboarding email failed: ${error?.message || 'send_failed'}`);
+    } finally {
+      setSendingActionFor('');
+    }
+  }
+
+  async function sendNoMovementAlert(row, wf, key) {
+    const uplineEmail = String(wf?.uplineEmail || defaultUplineEmail(row) || '').trim().toLowerCase();
+    const applicantEmail = String(wf?.applicantEmail || '').trim().toLowerCase();
+    if (!uplineEmail) {
+      window.alert('Missing upline email. Add Upline Email first.');
+      return;
+    }
+
+    const licensing = effectiveLicensingStatus(row, wf);
+    const progress = checklistProgress(wf, licensing);
+    const anchor = wf?.onboardingSentAt || (row.approvedDate ? row.approvedDate.toISOString() : '');
+    const ageDays = daysSince(wf?.lastChecklistMovementAt || anchor);
+
+    if (ageDays < 3) {
+      window.alert(`No 72-hour alert yet. Current no-movement age: ${ageDays}d`);
+      return;
+    }
+
+    setSendingActionFor(key);
+    try {
+      const subject = `72-Hour No Movement Alert: ${row.name}`;
+      const text = [
+        '72-hour no-movement alert.',
+        `Applicant: ${row.name}`,
+        `Applicant Email: ${applicantEmail || 'N/A'}`,
+        `Phone: ${row.phone || 'N/A'}`,
+        `Referred By: ${row.referredBy || 'N/A'}`,
+        `Licensing: ${licensing}`,
+        `Checklist Progress: ${progress.done}/${progress.total}`,
+        `No movement age: ${ageDays} days`
+      ].join('\n');
+
+      await Promise.all([
+        fetch('/api/send-welcome-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: uplineEmail, subject, text })
+        }),
+        fetch('/api/send-welcome-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: JAMAL_EMAIL, subject, text })
+        })
+      ]);
+
+      updateWorkflow(key, { lastEscalatedAt: new Date().toISOString() });
+      window.alert('72-hour alert sent to upline + Jamal');
+    } catch (error) {
+      window.alert(`72-hour alert failed: ${error?.message || 'send_failed'}`);
+    } finally {
+      setSendingActionFor('');
+    }
   }
 
   useEffect(() => {
@@ -435,6 +636,8 @@ export default function SponsorshipsPage() {
           wf.agencyOwner || autoAgencyOwnerFromRow(r),
           wf.stage,
           wf.licensingStatus,
+          wf.applicantEmail,
+          wf.uplineEmail,
           wf.contractedOverride,
           processLabel(r, wf),
           effectiveActivationStage(r, wf),
@@ -752,10 +955,14 @@ export default function SponsorshipsPage() {
               <th>Stage</th>
               <th>Activation Stage</th>
               <th>Licensing</th>
+              <th>Applicant Email</th>
+              <th>Upline Email</th>
+              <th>SOP Progress</th>
               <th>Contracted</th>
               <th>Process</th>
               <th>Stage Age</th>
               <th>Notes</th>
+              <th>Actions</th>
               <th>Last Update</th>
             </tr>
           </thead>
@@ -846,6 +1053,52 @@ export default function SponsorshipsPage() {
                     </select>
                   </td>
                   <td>
+                    <input
+                      value={wf.applicantEmail || ''}
+                      onChange={(e) => updateWorkflow(key, { applicantEmail: e.target.value.trim() })}
+                      placeholder="applicant@email.com"
+                      style={{ minWidth: 180 }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      value={wf.uplineEmail || defaultUplineEmail(r)}
+                      onChange={(e) => updateWorkflow(key, { uplineEmail: e.target.value.trim() })}
+                      placeholder="upline@email.com"
+                      style={{ minWidth: 180 }}
+                    />
+                  </td>
+                  <td>
+                    <div style={{ display: 'grid', gap: 4, minWidth: 220 }}>
+                      {(() => {
+                        const licensing = effectiveLicensingStatus(r, wf);
+                        const items = onboardingTemplate(licensing);
+                        const progress = checklistProgress(wf, licensing);
+                        return (
+                          <>
+                            <span className="pill" style={{ background: '#1f2937', color: '#fff', width: 'fit-content' }}>
+                              {progress.done}/{progress.total} ({progress.pct}%)
+                            </span>
+                            {items.map((item) => (
+                              <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(wf?.checklist?.[item.id])}
+                                  onChange={(e) => toggleChecklistItem(key, wf, item.id, e.target.checked)}
+                                />
+                                {item.url ? (
+                                  <a href={item.url} target="_blank" rel="noreferrer">{item.label}</a>
+                                ) : (
+                                  <span>{item.label}</span>
+                                )}
+                              </label>
+                            ))}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </td>
+                  <td>
                     <select
                       value={wf.contractedOverride || 'Auto'}
                       onChange={(e) => updateWorkflow(key, { contractedOverride: e.target.value })}
@@ -875,8 +1128,20 @@ export default function SponsorshipsPage() {
                     />
                   </td>
                   <td>
+                    <div style={{ display: 'grid', gap: 6, minWidth: 180 }}>
+                      <button type="button" onClick={() => sendOnboardingEmail(r, wf, key)} disabled={sendingActionFor === key}>
+                        {sendingActionFor === key ? 'Sending...' : 'Send Onboarding'}
+                      </button>
+                      <button type="button" className="ghost" onClick={() => sendNoMovementAlert(r, wf, key)} disabled={sendingActionFor === key}>
+                        72h No-Movement Alert
+                      </button>
+                    </div>
+                  </td>
+                  <td>
                     <div>{formatDateTime(wf.updatedAt)}</div>
                     <div className="muted">{wf.updatedBy || '—'}</div>
+                    {wf.onboardingSentAt ? <div className="muted">Onboarding sent: {formatDateTime(wf.onboardingSentAt)}</div> : null}
+                    {wf.lastEscalatedAt ? <div className="muted">Last 72h alert: {formatDateTime(wf.lastEscalatedAt)}</div> : null}
                   </td>
                 </tr>
               );
