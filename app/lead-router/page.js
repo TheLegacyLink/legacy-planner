@@ -55,6 +55,14 @@ export default function LeadRouterPage() {
 
   const agentRows = useMemo(() => settings?.agents || [], [settings]);
 
+  async function saveOutboundSettings() {
+    await savePatch({
+      outboundWebhookUrl: settings?.outboundWebhookUrl || '',
+      outboundToken: settings?.outboundToken || '',
+      outboundEnabled: Boolean(settings?.outboundEnabled)
+    });
+  }
+
   if (loading || !settings) {
     return <AppShell title="Lead Router Control"><p className="muted">Loading router control…</p></AppShell>;
   }
@@ -121,22 +129,24 @@ export default function LeadRouterPage() {
             {agentRows.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
           </select>
         </label>
+
+        <button type="button" className="ghost" onClick={() => savePatch(settings)} disabled={saving}>
+          Save All
+        </button>
       </div>
 
       <div className="panel" style={{ marginBottom: 10 }}>
         <h3 style={{ marginTop: 0 }}>GHL Alert Webhook (Option A)</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px 120px', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px 120px auto', gap: 8, alignItems: 'center' }}>
           <input
             placeholder="Outbound webhook URL (to GHL workflow trigger)"
             value={settings.outboundWebhookUrl || ''}
             onChange={(e) => setSettings((s) => ({ ...s, outboundWebhookUrl: e.target.value }))}
-            onBlur={() => savePatch({ outboundWebhookUrl: settings.outboundWebhookUrl || '' })}
           />
           <input
             placeholder="x-router-token (optional)"
             value={settings.outboundToken || ''}
             onChange={(e) => setSettings((s) => ({ ...s, outboundToken: e.target.value }))}
-            onBlur={() => savePatch({ outboundToken: settings.outboundToken || '' })}
           />
           <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <input
@@ -145,13 +155,13 @@ export default function LeadRouterPage() {
               onChange={(e) => {
                 const value = e.target.checked;
                 setSettings((s) => ({ ...s, outboundEnabled: value }));
-                savePatch({ outboundEnabled: value });
               }}
             />
             Alerts On
           </label>
+          <button type="button" onClick={saveOutboundSettings} disabled={saving}>Save URL</button>
         </div>
-        <small className="muted">When enabled, each assigned lead posts to this webhook so GHL can text/email only the assigned agent.</small>
+        <small className="muted">After editing URL/token/toggle, click <strong>Save URL</strong>.</small>
       </div>
 
       <div className="panel">
