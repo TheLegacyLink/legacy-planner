@@ -203,6 +203,41 @@ export default function FngPoliciesPage() {
     saveRequirementsPatch(policy, { followupSentAt: sentAt ? '' : new Date().toISOString() });
   }
 
+  async function copyText(text, label = 'Value') {
+    const value = String(text || '');
+    if (!value) {
+      alert(`${label} is empty.`);
+      return;
+    }
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        alert(`${label} copied.`);
+        return;
+      }
+    } catch {
+      // fall through to legacy copy
+    }
+
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = value;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) alert(`${label} copied.`);
+      else alert('Copy failed.');
+    } catch {
+      alert('Copy failed.');
+    }
+  }
+
   async function copyFollowupEmail(row) {
     const txt = [
       `Subject: Quick signature needed to continue your policy`,
@@ -520,6 +555,9 @@ export default function FngPoliciesPage() {
                         {p.owner_first_name || '—'} {p.owner_last_name || ''} • {p.owner_email_clean || 'No email'}
                       </div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button type="button" className="ghost" onClick={() => copyText(`${p.owner_first_name || ''} ${p.owner_last_name || ''}`.trim(), 'Full name')}>
+                          Copy Full Name
+                        </button>
                         <button type="button" className="ghost" onClick={() => copyText(p.owner_first_name || '', 'First name')}>
                           Copy First
                         </button>
