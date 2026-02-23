@@ -60,18 +60,42 @@ export default function SponsorshipBookingPage() {
   useEffect(() => {
     setConfig(loadRuntimeConfig());
     if (typeof window === 'undefined') return;
+
     const sp = new URLSearchParams(window.location.search);
     const bookingId = sp.get('id') || '';
     setId(bookingId);
 
+    let localFound = null;
     try {
       const list = JSON.parse(localStorage.getItem(APPS_KEY) || '[]');
-      const found = list.find((r) => r.id === bookingId) || null;
-      setRecord(found);
-      if (found?.state) setForm((prev) => ({ ...prev, state: found.state }));
+      localFound = list.find((r) => r.id === bookingId) || null;
     } catch {
-      setRecord(null);
+      localFound = null;
     }
+
+    if (localFound) {
+      setRecord(localFound);
+      if (localFound?.state) setForm((prev) => ({ ...prev, state: localFound.state }));
+      return;
+    }
+
+    async function loadFromServer() {
+      try {
+        const res = await fetch('/api/sponsorship-applications', { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.ok) return;
+
+        const serverFound = (data.rows || []).find((r) => r.id === bookingId) || null;
+        if (!serverFound) return;
+
+        setRecord(serverFound);
+        if (serverFound?.state) setForm((prev) => ({ ...prev, state: serverFound.state }));
+      } catch {
+        // ignore
+      }
+    }
+
+    if (bookingId) loadFromServer();
   }, []);
 
   const dates = useMemo(() => nextBookingDates(config.booking?.leadTimeHours || 48, 21), [config.booking?.leadTimeHours]);
