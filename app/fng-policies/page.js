@@ -4,8 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import fngPolicies from '../../data/fngPolicies.json';
 
-const CUTOFF_DEFAULT = '2025-11-01';
-const THRESHOLD_DEFAULT = 300;
+const THRESHOLD_DEFAULT = 500;
 
 function monthsSince(dateStr) {
   if (!dateStr) return null;
@@ -44,23 +43,70 @@ export default function FngPoliciesPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [programFilter, setProgramFilter] = useState('all');
-  const [cutoffDate, setCutoffDate] = useState(CUTOFF_DEFAULT);
   const [threshold, setThreshold] = useState(THRESHOLD_DEFAULT);
   const [programOverrides, setProgramOverrides] = useState({});
+  const [syncStatus, setSyncStatus] = useState('');
   const importRef = useRef(null);
 
-  useEffect(() => {
+  async function persistRemote(nextThreshold, nextOverrides) {
     try {
-      const raw = localStorage.getItem('fng_program_overrides_v1');
-      if (raw) setProgramOverrides(JSON.parse(raw));
+      await fetch('/api/fng-program-overrides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threshold: nextThreshold, overrides: nextOverrides })
+      });
+      setSyncStatus('Saved across devices');
     } catch {
-      setProgramOverrides({});
+      setSyncStatus('Saved locally (sync issue)');
     }
+  }
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function load() {
+      let localOverrides = {};
+      try {
+        const raw = localStorage.getItem('fng_program_overrides_v1');
+        if (raw) localOverrides = JSON.parse(raw);
+      } catch {
+        localOverrides = {};
+      }
+
+      try {
+        const res = await fetch('/api/fng-program-overrides', { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!mounted || !res.ok || !data?.ok) throw new Error('remote_load_failed');
+
+        const remoteOverrides = data.overrides || {};
+        const mergedOverrides = Object.keys(remoteOverrides).length ? remoteOverrides : localOverrides;
+
+        setThreshold(Number(data.threshold || THRESHOLD_DEFAULT));
+        setProgramOverrides(mergedOverrides);
+        localStorage.setItem('fng_program_overrides_v1', JSON.stringify(mergedOverrides));
+
+        // One-time seed if remote empty but local had data
+        if (!Object.keys(remoteOverrides).length && Object.keys(localOverrides).length) {
+          persistRemote(Number(data.threshold || THRESHOLD_DEFAULT), mergedOverrides);
+        }
+
+        setSyncStatus('Saved across devices');
+      } catch {
+        setProgramOverrides(localOverrides);
+        setSyncStatus('Saved locally (sync issue)');
+      }
+    }
+
+    load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   function persistOverrides(next) {
     setProgramOverrides(next);
     localStorage.setItem('fng_program_overrides_v1', JSON.stringify(next));
+    persistRemote(threshold, next);
   }
 
   function setOverride(policyNumber, value) {
@@ -71,6 +117,12 @@ export default function FngPoliciesPage() {
       next[policyNumber] = value;
     }
     persistOverrides(next);
+  }
+
+  function setThresholdAndPersist(nextThreshold) {
+    const normalized = Number(nextThreshold || 0);
+    setThreshold(normalized);
+    persistRemote(normalized, programOverrides);
   }
 
   function exportOverrides() {
@@ -107,8 +159,6 @@ export default function FngPoliciesPage() {
   }
 
   const enriched = useMemo(() => {
-    const cutoff = cutoffDate ? new Date(cutoffDate + 'T00:00:00') : null;
-
     return fngPolicies.map((p) => {
       const months = monthsSince(p.policy_effective_date);
       const monthsSinceIssue = monthsSince(p.policy_issued_date);
@@ -134,8 +184,7 @@ export default function FngPoliciesPage() {
       }
 
       const modal = typeof p.modal_premium === 'number' ? p.modal_premium : 0;
-      const issued = p.policy_issued_date ? new Date(p.policy_issued_date + 'T00:00:00') : null;
-      const autoProgram = cutoff && issued && issued >= cutoff && modal > Number(threshold) ? 'sponsorship' : 'regular';
+      const autoProgram = modal >= Number(threshold) ? 'sponsorship' : 'regular';
       const manual = programOverrides[p.policy_number];
       const programType = manual || autoProgram;
 
@@ -160,7 +209,7 @@ export default function FngPoliciesPage() {
         pay_window_relevant: payWindowRelevant
       };
     });
-  }, [cutoffDate, threshold, programOverrides]);
+  }, [threshold, programOverrides]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -244,7 +293,7 @@ export default function FngPoliciesPage() {
             style={{ display: 'none' }}
             onChange={(e) => importOverrides(e.target.files?.[0])}
           />
-          <span className="muted">Tag edits auto-save on this browser. Export/import to carry to another device.</span>
+          <span className="muted">{syncStatus || 'Saving changes…'}</span>
         </div>
 
         <div className="panelRow" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -269,16 +318,11 @@ export default function FngPoliciesPage() {
           </label>
 
           <label style={{ display: 'grid', gap: 6 }}>
-            <span className="muted">Sponsorship cutoff</span>
-            <input type="date" value={cutoffDate} onChange={(e) => setCutoffDate(e.target.value)} />
-          </label>
-
-          <label style={{ display: 'grid', gap: 6 }}>
             <span className="muted">Sponsorship premium &gt;</span>
             <input
               type="number"
               value={threshold}
-              onChange={(e) => setThreshold(Number(e.target.value || 0))}
+              onChange={(e) => setThresholdAndPersist(Number(e.target.value || 0))}
               style={{ maxWidth: 120 }}
             />
           </label>
