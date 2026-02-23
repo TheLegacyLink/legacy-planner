@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import fngPolicies from '../../data/fngPolicies.json';
+import requirementsFollowup from '../../data/sponsorshipRequirementsFollowup.json';
 
 const THRESHOLD_DEFAULT = 500;
 
@@ -43,10 +44,20 @@ export default function FngPoliciesPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [programFilter, setProgramFilter] = useState('all');
+  const [queueFilter, setQueueFilter] = useState('all');
   const [threshold, setThreshold] = useState(THRESHOLD_DEFAULT);
   const [programOverrides, setProgramOverrides] = useState({});
   const [syncStatus, setSyncStatus] = useState('');
   const importRef = useRef(null);
+
+  const requirementsMap = useMemo(() => {
+    const map = new Map();
+    (requirementsFollowup || []).forEach((row) => {
+      const policy = String(row.policy_number || '').toUpperCase().trim();
+      if (policy) map.set(policy, row);
+    });
+    return map;
+  }, []);
 
   async function persistRemote(nextThreshold, nextOverrides) {
     try {
@@ -191,6 +202,8 @@ export default function FngPoliciesPage() {
       const windowMonth = months !== null && months >= 10 && months <= 12 ? months : null;
       const payWindowRelevant = windowMonth !== null && programType === 'regular';
 
+      const req = requirementsMap.get(String(p.policy_number || '').toUpperCase().trim()) || null;
+
       return {
         ...p,
         status_bucket: statusBucket(p.policy_status),
@@ -206,16 +219,20 @@ export default function FngPoliciesPage() {
         window_month: windowMonth,
         program_type: programType,
         auto_program_type: autoProgram,
-        pay_window_relevant: payWindowRelevant
+        pay_window_relevant: payWindowRelevant,
+        requirements_pending: !!req,
+        requirements_count: Number(req?.pending || 0),
+        requirements_name: req?.name || ''
       };
     });
-  }, [threshold, programOverrides]);
+  }, [threshold, programOverrides, requirementsMap]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return enriched
       .filter((p) => (statusFilter === 'all' ? true : p.status_bucket === statusFilter))
       .filter((p) => (programFilter === 'all' ? true : p.program_type === programFilter))
+      .filter((p) => (queueFilter === 'all' ? true : p.requirements_pending))
       .filter((p) => {
         if (!q) return true;
         return [
@@ -231,7 +248,7 @@ export default function FngPoliciesPage() {
           .toLowerCase()
           .includes(q);
       });
-  }, [enriched, statusFilter, programFilter, search]);
+  }, [enriched, statusFilter, programFilter, queueFilter, search]);
 
   const stats = useMemo(() => {
     const out = {
@@ -244,7 +261,8 @@ export default function FngPoliciesPage() {
       annualMonthNow: 0,
       annualPastDue: 0,
       sponsorshipMonthly: 0,
-      sponsorshipPeople: 0
+      sponsorshipPeople: 0,
+      requirementsQueue: 0
     };
     const sponsoredPeople = new Set();
 
@@ -256,6 +274,7 @@ export default function FngPoliciesPage() {
       if (p.annual_due_in_one_month) out.annualDueInOneMonth += 1;
       if (p.annual_month_now) out.annualMonthNow += 1;
       if (p.annual_past_due) out.annualPastDue += 1;
+      if (p.requirements_pending) out.requirementsQueue += 1;
       if (p.program_type === 'sponsorship') {
         if (typeof p.modal_premium === 'number') out.sponsorshipMonthly += p.modal_premium;
         const personKey = (p.owner_name || p.policy_number || '').trim().toUpperCase();
@@ -281,6 +300,7 @@ export default function FngPoliciesPage() {
           <span className="pill atrisk">Past Annual: {stats.annualPastDue}</span>
           <span className="pill onpace">Sponsorship Monthly: ${stats.sponsorshipMonthly.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
           <span className="pill onpace">Sponsored People: {stats.sponsorshipPeople}</span>
+          <span className="pill atrisk">Requirements Queue: {stats.requirementsQueue}</span>
         </div>
 
         <div className="panelRow" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -318,6 +338,14 @@ export default function FngPoliciesPage() {
           </label>
 
           <label style={{ display: 'grid', gap: 6 }}>
+            <span className="muted">Requirements Tab</span>
+            <select value={queueFilter} onChange={(e) => setQueueFilter(e.target.value)}>
+              <option value="all">All Policies</option>
+              <option value="requirements">Needs Requirements</option>
+            </select>
+          </label>
+
+          <label style={{ display: 'grid', gap: 6 }}>
             <span className="muted">Sponsorship premium &gt;</span>
             <input
               type="number"
@@ -346,6 +374,7 @@ export default function FngPoliciesPage() {
               <th>Issued/Eff Date + 12-Mo Annual</th>
               <th>Modal Premium</th>
               <th>Program</th>
+              <th>Requirements</th>
               <th>10/11/12</th>
               <th>Owner</th>
               <th>State</th>
@@ -353,7 +382,7 @@ export default function FngPoliciesPage() {
           </thead>
           <tbody>
             {filtered.map((p) => (
-              <tr key={p.policy_number}>
+              <tr key={p.policy_number} style={p.requirements_pending ? { background: 'rgba(239,68,68,0.10)' } : undefined}>
                 <td>
                   <strong>{p.writing_agent_name || '—'}</strong>
                   <div className="muted">{p.writing_agent_number || ''}</div>
@@ -386,6 +415,13 @@ export default function FngPoliciesPage() {
                     <option value="jumpstart">JumpStart</option>
                   </select>
                   <div className="muted">Using: {p.program_type}</div>
+                </td>
+                <td>
+                  {p.requirements_pending ? (
+                    <span className="pill atrisk">Needs docs ({p.requirements_count})</span>
+                  ) : (
+                    '—'
+                  )}
                 </td>
                 <td>
                   {p.window_month ? (
