@@ -220,7 +220,7 @@ export default function FngPoliciesPage() {
         program_type: programType,
         auto_program_type: autoProgram,
         pay_window_relevant: payWindowRelevant,
-        requirements_pending: !!req,
+        requirements_pending: Number(req?.pending || 0) > 0,
         requirements_count: Number(req?.pending || 0),
         requirements_name: req?.name || ''
       };
