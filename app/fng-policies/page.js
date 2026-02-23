@@ -351,9 +351,9 @@ export default function FngPoliciesPage() {
         req_prepared_count: Number(reqProgress?.preparedCount || 0),
         req_docs_sent: !!reqProgress?.docsSentAt,
         req_followup_sent: !!reqProgress?.followupSentAt,
-        owner_first_name: parseOwnerName(p.owner_name).first,
-        owner_last_name: parseOwnerName(p.owner_name).last,
-        owner_email_clean: String(p.owner_email || '').trim()
+        owner_first_name: parseOwnerName(p.owner_name || req?.name || '').first,
+        owner_last_name: parseOwnerName(p.owner_name || req?.name || '').last,
+        owner_email_clean: String(p.owner_email || req?.email || '').trim()
       };
     });
   }, [threshold, programOverrides, requirementsMap, requirementsProgress]);
