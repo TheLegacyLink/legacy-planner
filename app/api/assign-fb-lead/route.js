@@ -104,11 +104,18 @@ export async function POST(req) {
   }
 
   const contactId = clean(body?.contactId || body?.contact?.id || body?.id || '');
-  if (!contactId) {
-    return Response.json({ ok: false, error: 'missing_contact_id' }, { status: 400 });
-  }
 
-  const router = await callLeadRouter(req, body);
+  const normalizedBody = {
+    ...body,
+    // Ensure we still get a unique event in lead-router even if contactId is missing
+    ...(contactId
+      ? { contactId }
+      : {
+          id: clean(body?.id) || `missing-contact-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        })
+  };
+
+  const router = await callLeadRouter(req, normalizedBody);
   if (!router.ok) {
     return Response.json(
       {
@@ -128,10 +135,11 @@ export async function POST(req) {
 
   return Response.json({
     ok: true,
-    contactId,
+    contactId: contactId || null,
     assignedTo: assignedToName,
     assignedUserId: assignedUserId || null,
     ghlOwnerUpdated: !!ghlUpdate.ok,
+    warning: contactId ? null : 'missing_contact_id_payload',
     ghlUpdate
   });
 }
