@@ -10,6 +10,8 @@ const DEFAULT_SETTINGS = {
   enabled: true,
   mode: 'random',
   maxPerDay: 2,
+  maxPerWeek: 14,
+  maxPerMonth: 60,
   timezone: 'America/Chicago',
   overflowAgent: 'Kimora Link',
   agents: (DEFAULT_CONFIG?.agents || []).map((name) => ({
@@ -18,10 +20,13 @@ const DEFAULT_SETTINGS = {
     paused: false,
     windowStart: '09:00',
     windowEnd: '21:00',
-    capPerDay: null
+    capPerDay: null,
+    capPerWeek: null,
+    capPerMonth: null
   })),
   outboundWebhookUrl: '',
-  outboundToken: ''
+  outboundToken: '',
+  outboundEnabled: false
 };
 
 function clean(v = '') {
@@ -40,16 +45,43 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function cstDateKey(date = new Date()) {
-  const fmt = new Intl.DateTimeFormat('en-CA', {
+function cstDateParts(date = new Date()) {
+  const fmt = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Chicago',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
   });
   const parts = fmt.formatToParts(date);
-  const pick = (type) => parts.find((p) => p.type === type)?.value || '00';
-  return `${pick('year')}-${pick('month')}-${pick('day')}`;
+  const pick = (type) => Number(parts.find((p) => p.type === type)?.value || 0);
+  return {
+    year: pick('year'),
+    month: pick('month'),
+    day: pick('day')
+  };
+}
+
+function cstDateKey(date = new Date()) {
+  const p = cstDateParts(date);
+  return `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
+}
+
+function cstMonthKey(date = new Date()) {
+  const p = cstDateParts(date);
+  return `${p.year}-${String(p.month).padStart(2, '0')}`;
+}
+
+function isoWeekKeyFromParts(year, month, day) {
+  const d = new Date(Date.UTC(year, month - 1, day));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+}
+
+function cstWeekKey(date = new Date()) {
+  const p = cstDateParts(date);
+  return isoWeekKeyFromParts(p.year, p.month, p.day);
 }
 
 function cstMinuteOfDay(date = new Date()) {
@@ -80,7 +112,9 @@ function withDefaults(raw = {}) {
       paused: current?.paused ?? false,
       windowStart: clean(current?.windowStart || '09:00') || '09:00',
       windowEnd: clean(current?.windowEnd || '21:00') || '21:00',
-      capPerDay: current?.capPerDay == null || current?.capPerDay === '' ? null : Number(current.capPerDay)
+      capPerDay: current?.capPerDay == null || current?.capPerDay === '' ? null : Number(current.capPerDay),
+      capPerWeek: current?.capPerWeek == null || current?.capPerWeek === '' ? null : Number(current.capPerWeek),
+      capPerMonth: current?.capPerMonth == null || current?.capPerMonth === '' ? null : Number(current.capPerMonth)
     };
   });
   return merged;
@@ -120,7 +154,7 @@ function randomPick(arr = []) {
 
 async function postOutboundAssignment(settings, payload) {
   const url = clean(settings?.outboundWebhookUrl || '');
-  if (!url) return;
+  if (!url || !settings?.outboundEnabled) return;
 
   try {
     await fetch(url, {
@@ -160,26 +194,39 @@ function enrichEvents(events = [], sponsorshipMap = new Map()) {
   });
 }
 
+function buildAgentCounts(settings, events, keys) {
+  const counts = {};
+  for (const a of settings.agents) counts[a.name] = { today: 0, week: 0, month: 0 };
+
+  for (const e of events) {
+    if (e?.type !== 'assigned') continue;
+    const owner = clean(e?.assignedTo || '');
+    if (!counts[owner]) counts[owner] = { today: 0, week: 0, month: 0 };
+    if (e?.dateKey === keys.dateKey) counts[owner].today += 1;
+    if (e?.weekKey === keys.weekKey) counts[owner].week += 1;
+    if (e?.monthKey === keys.monthKey) counts[owner].month += 1;
+  }
+
+  return counts;
+}
+
 export async function GET() {
   const settings = withDefaults(await loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS));
   const events = await loadJsonStore(EVENTS_PATH, []);
   const sponsorship = await loadJsonStore(SPONSORSHIP_PATH, []);
 
-  const today = cstDateKey();
-  const counts = {};
-  for (const a of settings.agents) counts[a.name] = 0;
+  const keys = {
+    dateKey: cstDateKey(),
+    weekKey: cstWeekKey(),
+    monthKey: cstMonthKey()
+  };
 
-  for (const e of events) {
-    if (e?.type !== 'assigned') continue;
-    if (e?.dateKey !== today) continue;
-    const owner = clean(e?.assignedTo || '');
-    counts[owner] = Number(counts[owner] || 0) + 1;
-  }
+  const counts = buildAgentCounts(settings, events, keys);
 
   const sponsorshipMap = sponsorshipLookup(sponsorship);
   const recent = enrichEvents(events, sponsorshipMap).sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()).slice(0, 300);
 
-  return Response.json({ ok: true, settings, counts, recent, today });
+  return Response.json({ ok: true, settings, counts, recent, keys });
 }
 
 export async function PATCH(req) {
@@ -207,15 +254,14 @@ export async function POST(req) {
 
   const incoming = parseLeadPayload(body);
   const now = new Date();
-  const dateKey = cstDateKey(now);
+  const keys = {
+    dateKey: cstDateKey(now),
+    weekKey: cstWeekKey(now),
+    monthKey: cstMonthKey(now)
+  };
   const minute = cstMinuteOfDay(now);
 
-  const counts = {};
-  for (const a of settings.agents) counts[a.name] = 0;
-  for (const e of events) {
-    if (e?.type !== 'assigned' || e?.dateKey !== dateKey) continue;
-    counts[e.assignedTo] = Number(counts[e.assignedTo] || 0) + 1;
-  }
+  const counts = buildAgentCounts(settings, events, keys);
 
   let assignedTo = settings.overflowAgent || 'Kimora Link';
   let reason = 'overflow';
@@ -227,8 +273,15 @@ export async function POST(req) {
       const endMin = parseTimeToMin(a.windowEnd || '23:59');
       const inWindow = minute >= startMin && minute <= endMin;
       if (!inWindow) return false;
-      const cap = a.capPerDay == null ? Number(settings.maxPerDay || 0) : Number(a.capPerDay || 0);
-      if (cap > 0 && Number(counts[a.name] || 0) >= cap) return false;
+
+      const capDay = a.capPerDay == null ? Number(settings.maxPerDay || 0) : Number(a.capPerDay || 0);
+      const capWeek = a.capPerWeek == null ? Number(settings.maxPerWeek || 0) : Number(a.capPerWeek || 0);
+      const capMonth = a.capPerMonth == null ? Number(settings.maxPerMonth || 0) : Number(a.capPerMonth || 0);
+
+      const count = counts[a.name] || { today: 0, week: 0, month: 0 };
+      if (capDay > 0 && count.today >= capDay) return false;
+      if (capWeek > 0 && count.week >= capWeek) return false;
+      if (capMonth > 0 && count.month >= capMonth) return false;
       return true;
     });
 
@@ -277,7 +330,9 @@ export async function POST(req) {
     id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     type: 'assigned',
     timestamp: nowIso(),
-    dateKey,
+    dateKey: keys.dateKey,
+    weekKey: keys.weekKey,
+    monthKey: keys.monthKey,
     leadId: row.id,
     externalId: incoming.externalId,
     name: incoming.name,
@@ -295,6 +350,7 @@ export async function POST(req) {
     assignedTo,
     reason,
     timestamp: nowIso(),
+    message: `New lead assigned to ${assignedTo}: ${incoming.name} (${incoming.phone || incoming.email || 'no contact'})`,
     lead: {
       id: incoming.externalId || row.id,
       name: incoming.name,

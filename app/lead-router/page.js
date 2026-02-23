@@ -70,8 +70,9 @@ export default function LeadRouterPage() {
         >
           Router: {settings.enabled ? 'ON' : 'OFF'}
         </button>
+
         <label>
-          Max/day
+          Default Day Cap
           <input
             type="number"
             value={settings.maxPerDay}
@@ -81,6 +82,31 @@ export default function LeadRouterPage() {
             style={{ marginLeft: 6, width: 80 }}
           />
         </label>
+
+        <label>
+          Default Week Cap
+          <input
+            type="number"
+            value={settings.maxPerWeek}
+            min={0}
+            onChange={(e) => setSettings((s) => ({ ...s, maxPerWeek: Number(e.target.value || 0) }))}
+            onBlur={() => savePatch({ maxPerWeek: Number(settings.maxPerWeek || 0) })}
+            style={{ marginLeft: 6, width: 90 }}
+          />
+        </label>
+
+        <label>
+          Default Month Cap
+          <input
+            type="number"
+            value={settings.maxPerMonth}
+            min={0}
+            onChange={(e) => setSettings((s) => ({ ...s, maxPerMonth: Number(e.target.value || 0) }))}
+            onBlur={() => savePatch({ maxPerMonth: Number(settings.maxPerMonth || 0) })}
+            style={{ marginLeft: 6, width: 100 }}
+          />
+        </label>
+
         <label>
           Overflow
           <select
@@ -95,7 +121,37 @@ export default function LeadRouterPage() {
             {agentRows.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
           </select>
         </label>
-        <span className="muted">Reset: 12:00 AM CST • Mode: Random</span>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 10 }}>
+        <h3 style={{ marginTop: 0 }}>GHL Alert Webhook (Option A)</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px 120px', gap: 8, alignItems: 'center' }}>
+          <input
+            placeholder="Outbound webhook URL (to GHL workflow trigger)"
+            value={settings.outboundWebhookUrl || ''}
+            onChange={(e) => setSettings((s) => ({ ...s, outboundWebhookUrl: e.target.value }))}
+            onBlur={() => savePatch({ outboundWebhookUrl: settings.outboundWebhookUrl || '' })}
+          />
+          <input
+            placeholder="x-router-token (optional)"
+            value={settings.outboundToken || ''}
+            onChange={(e) => setSettings((s) => ({ ...s, outboundToken: e.target.value }))}
+            onBlur={() => savePatch({ outboundToken: settings.outboundToken || '' })}
+          />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input
+              type="checkbox"
+              checked={Boolean(settings.outboundEnabled)}
+              onChange={(e) => {
+                const value = e.target.checked;
+                setSettings((s) => ({ ...s, outboundEnabled: value }));
+                savePatch({ outboundEnabled: value });
+              }}
+            />
+            Alerts On
+          </label>
+        </div>
+        <small className="muted">When enabled, each assigned lead posts to this webhook so GHL can text/email only the assigned agent.</small>
       </div>
 
       <div className="panel">
@@ -105,66 +161,103 @@ export default function LeadRouterPage() {
             <tr>
               <th>Agent</th>
               <th>Today</th>
+              <th>Week</th>
+              <th>Month</th>
               <th>Paused</th>
               <th>Start</th>
               <th>End</th>
-              <th>Cap Override</th>
+              <th>Day Cap</th>
+              <th>Week Cap</th>
+              <th>Month Cap</th>
             </tr>
           </thead>
           <tbody>
-            {agentRows.map((a) => (
-              <tr key={a.name}>
-                <td>{a.name}</td>
-                <td><span className="pill">{counts[a.name] || 0}</span></td>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(a.paused)}
-                    onChange={(e) => {
-                      const agents = agentRows.map((x) => x.name === a.name ? { ...x, paused: e.target.checked } : x);
-                      setSettings((s) => ({ ...s, agents }));
-                      savePatch({ agents });
-                    }}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="time"
-                    value={a.windowStart || '09:00'}
-                    onChange={(e) => {
-                      const agents = agentRows.map((x) => x.name === a.name ? { ...x, windowStart: e.target.value } : x);
-                      setSettings((s) => ({ ...s, agents }));
-                      savePatch({ agents });
-                    }}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="time"
-                    value={a.windowEnd || '21:00'}
-                    onChange={(e) => {
-                      const agents = agentRows.map((x) => x.name === a.name ? { ...x, windowEnd: e.target.value } : x);
-                      setSettings((s) => ({ ...s, agents }));
-                      savePatch({ agents });
-                    }}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="number"
-                    placeholder="default"
-                    value={a.capPerDay ?? ''}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      const agents = agentRows.map((x) => x.name === a.name ? { ...x, capPerDay: v === '' ? null : Number(v) } : x);
-                      setSettings((s) => ({ ...s, agents }));
-                      savePatch({ agents });
-                    }}
-                    style={{ width: 90 }}
-                  />
-                </td>
-              </tr>
-            ))}
+            {agentRows.map((a) => {
+              const c = counts[a.name] || { today: 0, week: 0, month: 0 };
+              return (
+                <tr key={a.name}>
+                  <td>{a.name}</td>
+                  <td><span className="pill">{c.today}</span></td>
+                  <td><span className="pill">{c.week}</span></td>
+                  <td><span className="pill">{c.month}</span></td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(a.paused)}
+                      onChange={(e) => {
+                        const agents = agentRows.map((x) => x.name === a.name ? { ...x, paused: e.target.checked } : x);
+                        setSettings((s) => ({ ...s, agents }));
+                        savePatch({ agents });
+                      }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="time"
+                      value={a.windowStart || '09:00'}
+                      onChange={(e) => {
+                        const agents = agentRows.map((x) => x.name === a.name ? { ...x, windowStart: e.target.value } : x);
+                        setSettings((s) => ({ ...s, agents }));
+                        savePatch({ agents });
+                      }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="time"
+                      value={a.windowEnd || '21:00'}
+                      onChange={(e) => {
+                        const agents = agentRows.map((x) => x.name === a.name ? { ...x, windowEnd: e.target.value } : x);
+                        setSettings((s) => ({ ...s, agents }));
+                        savePatch({ agents });
+                      }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      placeholder="default"
+                      value={a.capPerDay ?? ''}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const agents = agentRows.map((x) => x.name === a.name ? { ...x, capPerDay: v === '' ? null : Number(v) } : x);
+                        setSettings((s) => ({ ...s, agents }));
+                        savePatch({ agents });
+                      }}
+                      style={{ width: 90 }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      placeholder="default"
+                      value={a.capPerWeek ?? ''}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const agents = agentRows.map((x) => x.name === a.name ? { ...x, capPerWeek: v === '' ? null : Number(v) } : x);
+                        setSettings((s) => ({ ...s, agents }));
+                        savePatch({ agents });
+                      }}
+                      style={{ width: 95 }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      placeholder="default"
+                      value={a.capPerMonth ?? ''}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const agents = agentRows.map((x) => x.name === a.name ? { ...x, capPerMonth: v === '' ? null : Number(v) } : x);
+                        setSettings((s) => ({ ...s, agents }));
+                        savePatch({ agents });
+                      }}
+                      style={{ width: 105 }}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
