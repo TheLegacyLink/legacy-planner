@@ -153,9 +153,9 @@ export default function SponsorshipBookingPage() {
     const notify = await sendInternalTelegram({ booking, alertText });
 
     if (notify.ok) {
-      setSaved('Booked. Telegram alert sent internally.');
+      setSaved('Booked successfully. Your sponsorship team has been notified.');
     } else {
-      setSaved('Booked. Telegram bridge not configured yet (set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID).');
+      setSaved('Booked successfully.');
     }
   };
 
@@ -167,10 +167,17 @@ export default function SponsorshipBookingPage() {
 
         <div style={{ border: '1px solid #bfdbfe', borderRadius: 12, background: '#eff6ff', padding: 12, marginBottom: 12 }}>
           <strong>Approved Benefits</strong>
-          <ul style={{ marginBottom: 0 }}>
-            <li>Sponsorship path with no upfront policy cost for onboarding</li>
-            <li>Training assets, Skool community, tutorial videos, sales training, onboarding support</li>
+          <ul style={{ marginBottom: 10 }}>
+            <li>Clear sponsorship path with no upfront policy cost for onboarding</li>
+            <li>Front-to-close support: training, scripts, onboarding help, and execution coaching</li>
+            <li>Beautiful growth community + Skool resources + tutorial library</li>
             <li>{record?.isLicensed === 'yes' ? 'Licensed path: move into contracting and production launch.' : 'Unlicensed path: pre-licensing with Jamal before full activation.'}</li>
+          </ul>
+
+          <strong>Meeting Expectations</strong>
+          <ul style={{ marginBottom: 0 }}>
+            <li>You will meet with our team to lock your sponsorship strategy and next steps.</li>
+            <li>If meeting via Zoom: keep your ID visible and camera on for at least the first 5 minutes.</li>
           </ul>
         </div>
 
@@ -214,7 +221,7 @@ export default function SponsorshipBookingPage() {
           </div>
 
           <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
-            <button type="submit">Confirm Booking + Notify Telegram</button>
+            <button type="submit">Confirm Booking</button>
           </div>
           {error ? <p className="red" style={{ gridColumn: '1 / -1' }}>{error}</p> : null}
           {saved ? <p className="green" style={{ gridColumn: '1 / -1' }}>{saved}</p> : null}
