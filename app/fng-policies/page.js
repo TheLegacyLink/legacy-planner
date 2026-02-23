@@ -47,6 +47,7 @@ export default function FngPoliciesPage() {
   const [queueFilter, setQueueFilter] = useState('all');
   const [threshold, setThreshold] = useState(THRESHOLD_DEFAULT);
   const [programOverrides, setProgramOverrides] = useState({});
+  const [requirementsProgress, setRequirementsProgress] = useState({});
   const [syncStatus, setSyncStatus] = useState('');
   const importRef = useRef(null);
 
@@ -108,7 +109,19 @@ export default function FngPoliciesPage() {
       }
     }
 
+    async function loadRequirementsProgress() {
+      try {
+        const res = await fetch('/api/requirements-workflow', { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!mounted || !res.ok || !data?.ok) return;
+        setRequirementsProgress(data.rows || {});
+      } catch {
+        // ignore
+      }
+    }
+
     load();
+    loadRequirementsProgress();
     return () => {
       mounted = false;
     };
@@ -134,6 +147,68 @@ export default function FngPoliciesPage() {
     const normalized = Number(nextThreshold || 0);
     setThreshold(normalized);
     persistRemote(normalized, programOverrides);
+  }
+
+
+  async function saveRequirementsPatch(policyNumber, patch) {
+    const key = String(policyNumber || '').toUpperCase().trim();
+    if (!key) return;
+
+    setRequirementsProgress((prev) => ({
+      ...prev,
+      [key]: { ...(prev[key] || {}), ...patch, policyNumber: key, updatedAt: new Date().toISOString() }
+    }));
+
+    try {
+      await fetch('/api/requirements-workflow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ policyNumber: key, patch })
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  function cyclePreparedDocs(row) {
+    const policy = String(row.policy_number || '').toUpperCase();
+    const current = Number(requirementsProgress?.[policy]?.preparedCount || 0);
+    const max = Number(row.requirements_count || 0);
+    const next = max > 0 ? ((current + 1) % (max + 1)) : 0;
+    saveRequirementsPatch(policy, { preparedCount: next });
+  }
+
+  function toggleDocsSent(row) {
+    const policy = String(row.policy_number || '').toUpperCase();
+    const sentAt = requirementsProgress?.[policy]?.docsSentAt || '';
+    saveRequirementsPatch(policy, { docsSentAt: sentAt ? '' : new Date().toISOString() });
+  }
+
+  function toggleFollowupSent(row) {
+    const policy = String(row.policy_number || '').toUpperCase();
+    const sentAt = requirementsProgress?.[policy]?.followupSentAt || '';
+    saveRequirementsPatch(policy, { followupSentAt: sentAt ? '' : new Date().toISOString() });
+  }
+
+  async function copyFollowupEmail(row) {
+    const txt = [
+      `Subject: Quick signature needed to continue your policy`,
+      '',
+      `Hi ${row.owner_name || row.requirements_name || 'there'},`,
+      '',
+      'Your required policy document is ready for signature. Please complete it as soon as possible so we can continue your policy without interruption.',
+      '',
+      'As soon as you sign and confirm, your $50 bonus will be on its way.',
+      '',
+      'Thank you,'
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(txt);
+      alert(`Follow-up email copied for ${row.policy_number}.`);
+    } catch {
+      alert('Could not copy email text.');
+    }
   }
 
   function exportOverrides() {
@@ -202,7 +277,9 @@ export default function FngPoliciesPage() {
       const windowMonth = months !== null && months >= 10 && months <= 12 ? months : null;
       const payWindowRelevant = windowMonth !== null && programType === 'regular';
 
-      const req = requirementsMap.get(String(p.policy_number || '').toUpperCase().trim()) || null;
+      const policyKey = String(p.policy_number || '').toUpperCase().trim();
+      const req = requirementsMap.get(policyKey) || null;
+      const reqProgress = requirementsProgress[policyKey] || {};
 
       return {
         ...p,
@@ -222,10 +299,13 @@ export default function FngPoliciesPage() {
         pay_window_relevant: payWindowRelevant,
         requirements_pending: Number(req?.pending || 0) > 0,
         requirements_count: Number(req?.pending || 0),
-        requirements_name: req?.name || ''
+        requirements_name: req?.name || '',
+        req_prepared_count: Number(reqProgress?.preparedCount || 0),
+        req_docs_sent: !!reqProgress?.docsSentAt,
+        req_followup_sent: !!reqProgress?.followupSentAt
       };
     });
-  }, [threshold, programOverrides, requirementsMap]);
+  }, [threshold, programOverrides, requirementsMap, requirementsProgress]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -418,7 +498,21 @@ export default function FngPoliciesPage() {
                 </td>
                 <td>
                   {p.requirements_pending ? (
-                    <span className="pill atrisk">Needs docs ({p.requirements_count})</span>
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      <span className="pill atrisk">Needs docs ({p.requirements_count})</span>
+                      <button type="button" className="ghost" onClick={() => cyclePreparedDocs(p)}>
+                        Prepared {p.req_prepared_count}/{p.requirements_count}
+                      </button>
+                      <button type="button" className="ghost" onClick={() => toggleDocsSent(p)}>
+                        {p.req_docs_sent ? 'Docs Sent ✅' : 'Mark Docs Sent'}
+                      </button>
+                      <button type="button" className="ghost" onClick={() => copyFollowupEmail(p)}>
+                        Copy Follow-up Email
+                      </button>
+                      <button type="button" className="ghost" onClick={() => toggleFollowupSent(p)}>
+                        {p.req_followup_sent ? 'Follow-up Sent ✅' : 'Mark Follow-up Sent'}
+                      </button>
+                    </div>
                   ) : (
                     '—'
                   )}
