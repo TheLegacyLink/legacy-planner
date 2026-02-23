@@ -26,6 +26,57 @@ function normalizePhone(v = '') {
   return String(v || '').replace(/\D/g, '');
 }
 
+function canonicalKey(row = {}) {
+  const name = normalizeName(`${row.firstName || ''} ${row.lastName || ''}`);
+  if (!name) return '';
+  const email = clean(row.email).toLowerCase();
+  const phone = normalizePhone(row.phone);
+  return `${name}|${email || '-'}|${phone || '-'}`;
+}
+
+function mostRecentIso(a, b) {
+  const da = new Date(a || 0).getTime();
+  const db = new Date(b || 0).getTime();
+  return db > da ? b : a;
+}
+
+function dedupeRows(rows = []) {
+  const byKey = new Map();
+  let removed = 0;
+
+  const sorted = [...rows].sort((a, b) => {
+    const ta = new Date(a.updatedAt || a.submitted_at || a.createdAt || 0).getTime();
+    const tb = new Date(b.updatedAt || b.submitted_at || b.createdAt || 0).getTime();
+    return tb - ta;
+  });
+
+  for (const row of sorted) {
+    const key = canonicalKey(row);
+    if (!key || key.endsWith('|-|-')) {
+      const passthroughKey = `id:${row.id || Math.random().toString(36).slice(2)}`;
+      byKey.set(passthroughKey, row);
+      continue;
+    }
+
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, row);
+      continue;
+    }
+
+    removed += 1;
+    byKey.set(key, {
+      ...row,
+      ...existing,
+      id: existing.id,
+      submitted_at: mostRecentIso(existing.submitted_at, row.submitted_at),
+      updatedAt: nowIso()
+    });
+  }
+
+  return { rows: Array.from(byKey.values()), removed };
+}
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const status = clean(searchParams.get('status')).toLowerCase();
@@ -86,6 +137,12 @@ export async function POST(req) {
 
     await writeStore(store);
     return Response.json({ ok: true, row: record });
+  }
+
+  if (mode === 'dedupe') {
+    const result = dedupeRows(store);
+    await writeStore(result.rows);
+    return Response.json({ ok: true, removed: result.removed, total: result.rows.length });
   }
 
   if (mode === 'review') {
