@@ -33,6 +33,19 @@ function addMonths(dateStr, monthsToAdd) {
   return out;
 }
 
+
+function parseOwnerName(ownerName = '') {
+  const raw = String(ownerName || '').trim();
+  if (!raw) return { first: '', last: '' };
+  if (raw.includes(',')) {
+    const [last, ...rest] = raw.split(',');
+    return { first: rest.join(',').trim(), last: last.trim() };
+  }
+  const parts = raw.split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return { first: raw, last: '' };
+  return { first: parts[0], last: parts.slice(1).join(' ') };
+}
+
 function formatDate(dateLike) {
   if (!dateLike) return '—';
   const d = typeof dateLike === 'string' ? new Date(dateLike + 'T00:00:00') : dateLike;
@@ -297,12 +310,15 @@ export default function FngPoliciesPage() {
         program_type: programType,
         auto_program_type: autoProgram,
         pay_window_relevant: payWindowRelevant,
-        requirements_pending: Number(req?.pending || 0) > 0,
+        requirements_pending: Number(req?.pending || 0) > 0 && !reqProgress?.docsSentAt,
         requirements_count: Number(req?.pending || 0),
         requirements_name: req?.name || '',
         req_prepared_count: Number(reqProgress?.preparedCount || 0),
         req_docs_sent: !!reqProgress?.docsSentAt,
-        req_followup_sent: !!reqProgress?.followupSentAt
+        req_followup_sent: !!reqProgress?.followupSentAt,
+        owner_first_name: parseOwnerName(p.owner_name).first,
+        owner_last_name: parseOwnerName(p.owner_name).last,
+        owner_email_clean: String(p.owner_email || '').trim()
       };
     });
   }, [threshold, programOverrides, requirementsMap, requirementsProgress]);
@@ -500,6 +516,27 @@ export default function FngPoliciesPage() {
                   {p.requirements_pending ? (
                     <div style={{ display: 'grid', gap: 6 }}>
                       <span className="pill atrisk">Needs docs ({p.requirements_count})</span>
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        {p.owner_first_name || '—'} {p.owner_last_name || ''} • {p.owner_email_clean || 'No email'}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button type="button" className="ghost" onClick={() => copyText(p.owner_first_name || '', 'First name')}>
+                          Copy First
+                        </button>
+                        <button type="button" className="ghost" onClick={() => copyText(p.owner_last_name || '', 'Last name')}>
+                          Copy Last
+                        </button>
+                        <button type="button" className="ghost" onClick={() => copyText(p.owner_email_clean || '', 'Email')}>
+                          Copy Email
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => copyText(`${p.owner_first_name || ''}	${p.owner_last_name || ''}	${p.owner_email_clean || ''}`, 'Recipient row')}
+                      >
+                        Copy Recipient Row
+                      </button>
                       <button type="button" className="ghost" onClick={() => cyclePreparedDocs(p)}>
                         Prepared {p.req_prepared_count}/{p.requirements_count}
                       </button>
