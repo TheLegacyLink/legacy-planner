@@ -13,6 +13,7 @@ function fmt(iso) {
 export default function LeadRouterPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [settings, setSettings] = useState(null);
   const [counts, setCounts] = useState({});
   const [recent, setRecent] = useState([]);
@@ -21,7 +22,7 @@ export default function LeadRouterPage() {
     const res = await fetch('/api/lead-router', { cache: 'no-store' });
     const data = await res.json().catch(() => ({}));
     if (res.ok && data?.ok) {
-      setSettings(data.settings);
+      if (!isDirty) setSettings(data.settings);
       setCounts(data.counts || {});
       setRecent(data.recent || []);
     }
@@ -30,8 +31,6 @@ export default function LeadRouterPage() {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 60000);
-    return () => clearInterval(id);
   }, []);
 
   async function savePatch(patch) {
@@ -48,6 +47,7 @@ export default function LeadRouterPage() {
         return;
       }
       setSettings(data.settings);
+      setIsDirty(false);
     } finally {
       setSaving(false);
     }
@@ -62,6 +62,26 @@ export default function LeadRouterPage() {
       outboundEnabled: Boolean(settings?.outboundEnabled)
     });
   }
+
+  async function saveAgentLimits() {
+    await savePatch({ agents: settings?.agents || [] });
+  }
+
+  const summary = useMemo(() => {
+    const totalAssigned = (recent || []).length;
+    const submitted = (recent || []).filter((r) => String(r?.sponsorshipStatus || '').trim() !== '').length;
+    const approved = (recent || []).filter((r) => String(r?.sponsorshipStatus || '').toLowerCase().includes('approved')).length;
+    const submitRate = totalAssigned ? Math.round((submitted / totalAssigned) * 100) : 0;
+    const approveRate = totalAssigned ? Math.round((approved / totalAssigned) * 100) : 0;
+
+    const byAgent = {};
+    for (const r of recent || []) {
+      const a = r?.assignedTo || 'Unassigned';
+      byAgent[a] = (byAgent[a] || 0) + 1;
+    }
+
+    return { totalAssigned, submitted, approved, submitRate, approveRate, byAgent };
+  }, [recent]);
 
   if (loading || !settings) {
     return <AppShell title="Lead Router Control"><p className="muted">Loading router control…</p></AppShell>;
@@ -85,7 +105,10 @@ export default function LeadRouterPage() {
             type="number"
             value={settings.maxPerDay}
             min={0}
-            onChange={(e) => setSettings((s) => ({ ...s, maxPerDay: Number(e.target.value || 0) }))}
+            onChange={(e) => {
+              setSettings((s) => ({ ...s, maxPerDay: Number(e.target.value || 0) }));
+              setIsDirty(true);
+            }}
             onBlur={() => savePatch({ maxPerDay: Number(settings.maxPerDay || 0) })}
             style={{ marginLeft: 6, width: 80 }}
           />
@@ -97,7 +120,10 @@ export default function LeadRouterPage() {
             type="number"
             value={settings.maxPerWeek}
             min={0}
-            onChange={(e) => setSettings((s) => ({ ...s, maxPerWeek: Number(e.target.value || 0) }))}
+            onChange={(e) => {
+              setSettings((s) => ({ ...s, maxPerWeek: Number(e.target.value || 0) }));
+              setIsDirty(true);
+            }}
             onBlur={() => savePatch({ maxPerWeek: Number(settings.maxPerWeek || 0) })}
             style={{ marginLeft: 6, width: 90 }}
           />
@@ -109,7 +135,10 @@ export default function LeadRouterPage() {
             type="number"
             value={settings.maxPerMonth}
             min={0}
-            onChange={(e) => setSettings((s) => ({ ...s, maxPerMonth: Number(e.target.value || 0) }))}
+            onChange={(e) => {
+              setSettings((s) => ({ ...s, maxPerMonth: Number(e.target.value || 0) }));
+              setIsDirty(true);
+            }}
             onBlur={() => savePatch({ maxPerMonth: Number(settings.maxPerMonth || 0) })}
             style={{ marginLeft: 6, width: 100 }}
           />
@@ -122,6 +151,7 @@ export default function LeadRouterPage() {
             onChange={(e) => {
               const value = e.target.value;
               setSettings((s) => ({ ...s, overflowAgent: value }));
+              setIsDirty(true);
               savePatch({ overflowAgent: value });
             }}
             style={{ marginLeft: 6 }}
@@ -141,12 +171,18 @@ export default function LeadRouterPage() {
           <input
             placeholder="Outbound webhook URL (to GHL workflow trigger)"
             value={settings.outboundWebhookUrl || ''}
-            onChange={(e) => setSettings((s) => ({ ...s, outboundWebhookUrl: e.target.value }))}
+            onChange={(e) => {
+              setSettings((s) => ({ ...s, outboundWebhookUrl: e.target.value }));
+              setIsDirty(true);
+            }}
           />
           <input
             placeholder="x-router-token (optional)"
             value={settings.outboundToken || ''}
-            onChange={(e) => setSettings((s) => ({ ...s, outboundToken: e.target.value }))}
+            onChange={(e) => {
+              setSettings((s) => ({ ...s, outboundToken: e.target.value }));
+              setIsDirty(true);
+            }}
           />
           <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <input
@@ -155,6 +191,7 @@ export default function LeadRouterPage() {
               onChange={(e) => {
                 const value = e.target.checked;
                 setSettings((s) => ({ ...s, outboundEnabled: value }));
+                setIsDirty(true);
               }}
             />
             Alerts On
@@ -165,7 +202,10 @@ export default function LeadRouterPage() {
       </div>
 
       <div className="panel">
-        <h3 style={{ marginTop: 0 }}>Agent Limits & Windows (CST)</h3>
+        <div className="panelRow" style={{ marginBottom: 8 }}>
+          <h3 style={{ marginTop: 0, marginBottom: 0 }}>Agent Limits & Windows (CST)</h3>
+          <button type="button" onClick={saveAgentLimits} disabled={saving}>Save Limits</button>
+        </div>
         <table>
           <thead>
             <tr>
@@ -197,7 +237,7 @@ export default function LeadRouterPage() {
                       onChange={(e) => {
                         const agents = agentRows.map((x) => x.name === a.name ? { ...x, paused: e.target.checked } : x);
                         setSettings((s) => ({ ...s, agents }));
-                        savePatch({ agents });
+                        setIsDirty(true);
                       }}
                     />
                   </td>
@@ -208,7 +248,7 @@ export default function LeadRouterPage() {
                       onChange={(e) => {
                         const agents = agentRows.map((x) => x.name === a.name ? { ...x, windowStart: e.target.value } : x);
                         setSettings((s) => ({ ...s, agents }));
-                        savePatch({ agents });
+                        setIsDirty(true);
                       }}
                     />
                   </td>
@@ -219,7 +259,7 @@ export default function LeadRouterPage() {
                       onChange={(e) => {
                         const agents = agentRows.map((x) => x.name === a.name ? { ...x, windowEnd: e.target.value } : x);
                         setSettings((s) => ({ ...s, agents }));
-                        savePatch({ agents });
+                        setIsDirty(true);
                       }}
                     />
                   </td>
@@ -232,7 +272,7 @@ export default function LeadRouterPage() {
                         const v = e.target.value;
                         const agents = agentRows.map((x) => x.name === a.name ? { ...x, capPerDay: v === '' ? null : Number(v) } : x);
                         setSettings((s) => ({ ...s, agents }));
-                        savePatch({ agents });
+                        setIsDirty(true);
                       }}
                       style={{ width: 90 }}
                     />
@@ -246,7 +286,7 @@ export default function LeadRouterPage() {
                         const v = e.target.value;
                         const agents = agentRows.map((x) => x.name === a.name ? { ...x, capPerWeek: v === '' ? null : Number(v) } : x);
                         setSettings((s) => ({ ...s, agents }));
-                        savePatch({ agents });
+                        setIsDirty(true);
                       }}
                       style={{ width: 95 }}
                     />
@@ -260,7 +300,7 @@ export default function LeadRouterPage() {
                         const v = e.target.value;
                         const agents = agentRows.map((x) => x.name === a.name ? { ...x, capPerMonth: v === '' ? null : Number(v) } : x);
                         setSettings((s) => ({ ...s, agents }));
-                        savePatch({ agents });
+                        setIsDirty(true);
                       }}
                       style={{ width: 105 }}
                     />
@@ -270,6 +310,23 @@ export default function LeadRouterPage() {
             })}
           </tbody>
         </table>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 10 }}>
+        <h3 style={{ marginTop: 0 }}>Lead Performance Snapshot</h3>
+        <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <span className="pill">Total Assigned: {summary.totalAssigned}</span>
+          <span className="pill">Form Submitted: {summary.submitted} ({summary.submitRate}%)</span>
+          <span className="pill onpace">Approved: {summary.approved} ({summary.approveRate}%)</span>
+        </div>
+        <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 8 }}>
+          {Object.entries(summary.byAgent).map(([name, qty]) => (
+            <div key={name} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 8 }}>
+              <div className="muted" style={{ fontSize: 12 }}>{name}</div>
+              <strong>{qty} leads</strong>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="panel">
