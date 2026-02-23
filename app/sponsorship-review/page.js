@@ -158,7 +158,7 @@ export default function SponsorshipReviewPage() {
             {answerFields(reviewRow).map(([label, value]) => (
               <div key={label} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 10, background: '#fff' }}>
                 <small className="muted" style={{ display: 'block', marginBottom: 4 }}>{label}</small>
-                <div>{String(value || '—')}</div>
+                <div style={{ color: '#0f172a', whiteSpace: 'pre-wrap', fontWeight: 500 }}>{String(value || '—')}</div>
               </div>
             ))}
           </div>

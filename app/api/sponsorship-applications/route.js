@@ -22,6 +22,10 @@ function normalizeName(v = '') {
   return clean(v).toUpperCase().replace(/[^A-Z ]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function normalizePhone(v = '') {
+  return String(v || '').replace(/\D/g, '');
+}
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const status = clean(searchParams.get('status')).toLowerCase();
@@ -55,9 +59,30 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'missing_name' }, { status: 400 });
     }
 
-    const idx = store.findIndex((r) => r.id === record.id);
-    if (idx >= 0) store[idx] = { ...store[idx], ...record, updatedAt: nowIso() };
-    else store.push(record);
+    const recordEmail = clean(record.email).toLowerCase();
+    const recordPhone = normalizePhone(record.phone);
+
+    const idx = store.findIndex((r) => {
+      if (r.id === record.id) return true;
+
+      const sameName = normalizeName(`${r.firstName || ''} ${r.lastName || ''}`) === record.normalizedName;
+      const sameEmail = recordEmail && clean(r.email).toLowerCase() === recordEmail;
+      const samePhone = recordPhone && normalizePhone(r.phone) === recordPhone;
+
+      return sameName && (sameEmail || samePhone);
+    });
+
+    if (idx >= 0) {
+      store[idx] = {
+        ...store[idx],
+        ...record,
+        id: store[idx].id,
+        submitted_at: store[idx].submitted_at || record.submitted_at,
+        updatedAt: nowIso()
+      };
+    } else {
+      store.push(record);
+    }
 
     await writeStore(store);
     return Response.json({ ok: true, row: record });
