@@ -212,7 +212,7 @@ export default function SponsorshipBookingPage() {
           </label>
           <label>
             Point of Contact
-            <input value={applicantState && fngEligibleClosers.length ? `Assigned from licensed ${applicantState} team after booking` : 'Assigned after booking'} disabled />
+            <input value={'Assigned after booking'} disabled />
           </label>
           <label>
             State
@@ -237,12 +237,6 @@ export default function SponsorshipBookingPage() {
             Notes (optional)
             <textarea rows={3} value={form.notes} onChange={(e) => update('notes', e.target.value)} />
           </label>
-
-          <div style={{ gridColumn: '1 / -1', border: '1px dashed #94a3b8', borderRadius: 10, padding: 10 }}>
-            <strong>Licensed closers for {applicantState || 'state'}:</strong>
-            <div className="muted">{fngEligibleClosers.length ? fngEligibleClosers.join(', ') : 'No state mapping found yet. Add in Settings → Licensing By State JSON.'}</div>
-            {sponsorMatch ? <div className="pill atrisk" style={{ marginTop: 8 }}>24h priority claim: {sponsorMatch}</div> : null}
-          </div>
 
           <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
             <button type="submit">Confirm Booking</button>
