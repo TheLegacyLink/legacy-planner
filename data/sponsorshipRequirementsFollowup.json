@@ -118,16 +118,19 @@
   {
     "policy_number": "LX508240",
     "name": "MCCAULEY, TAZJIONNA",
-    "pending": 0
+    "pending": 0,
+    "email": "santiitmccaul@gmail.com"
   },
   {
     "policy_number": "LX509054",
     "name": "OKOJIE, OSEREME",
-    "pending": 2
+    "pending": 2,
+    "email": "ocokojie4000@yahoo.com"
   },
   {
     "policy_number": "LX509683",
     "name": "DOWNS, GLENASHA",
-    "pending": 2
+    "pending": 2,
+    "email": "glenashad@gmail.com"
   }
 ]
