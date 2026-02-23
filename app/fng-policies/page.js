@@ -191,10 +191,21 @@ export default function FngPoliciesPage() {
     saveRequirementsPatch(policy, { preparedCount: next });
   }
 
-  function toggleDocsSent(row) {
+  async function toggleDocsSent(row) {
     const policy = String(row.policy_number || '').toUpperCase();
     const sentAt = requirementsProgress?.[policy]?.docsSentAt || '';
-    saveRequirementsPatch(policy, { docsSentAt: sentAt ? '' : new Date().toISOString() });
+
+    if (sentAt) {
+      saveRequirementsPatch(policy, { docsSentAt: '' });
+      return;
+    }
+
+    const ok = await sendRequirementEmail(row);
+    if (!ok) return;
+
+    const now = new Date().toISOString();
+    saveRequirementsPatch(policy, { docsSentAt: now, followupSentAt: now });
+    alert(`Docs sent + email sent for ${row.policy_number}.`);
   }
 
   function toggleFollowupSent(row) {
@@ -235,6 +246,43 @@ export default function FngPoliciesPage() {
       else alert('Copy failed.');
     } catch {
       alert('Copy failed.');
+    }
+  }
+
+  async function sendRequirementEmail(row) {
+    const to = String(row.owner_email_clean || '').trim();
+    if (!to) {
+      alert(`No email on file for ${row.policy_number}.`);
+      return false;
+    }
+
+    const first = row.owner_first_name || row.requirements_name || 'there';
+    const subject = 'Action Needed: Please sign your policy document';
+    const text = [
+      `Hi ${first},`,
+      '',
+      'Your policy document has been sent for signature. Please check your email and sign as soon as possible so we can continue your policy without interruption.',
+      '',
+      'As soon as you sign and confirm, your $50 bonus will be on its way.',
+      '',
+      'Thank you.'
+    ].join('\n');
+
+    try {
+      const res = await fetch('/api/send-welcome-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, subject, text })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        alert(`Email send failed for ${row.policy_number}.`);
+        return false;
+      }
+      return true;
+    } catch {
+      alert(`Email send failed for ${row.policy_number}.`);
+      return false;
     }
   }
 
@@ -579,7 +627,7 @@ export default function FngPoliciesPage() {
                         Prepared {p.req_prepared_count}/{p.requirements_count}
                       </button>
                       <button type="button" className="ghost" onClick={() => toggleDocsSent(p)}>
-                        {p.req_docs_sent ? 'Docs Sent ✅' : 'Mark Docs Sent'}
+                        {p.req_docs_sent ? 'Docs Sent ✅' : 'Mark Docs Sent + Email'}
                       </button>
                       <button type="button" className="ghost" onClick={() => copyFollowupEmail(p)}>
                         Copy Follow-up Email
