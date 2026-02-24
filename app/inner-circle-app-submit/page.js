@@ -76,6 +76,13 @@ function extractStateFromText(text = '') {
 function extractPremiumFromText(text = '') {
   const src = String(text || '');
   const lines = src.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+
+  const explicitInitial = lines.find((l) => /initial\s+premium/i.test(l));
+  if (explicitInitial) {
+    const m = explicitInitial.match(/\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]{2,6}(?:\.[0-9]{1,2})?)/);
+    if (m) return fmtCurrency(m[1]);
+  }
+
   const preferred = lines.find((l) => /monthly|modal|target premium|premium/i.test(l));
   const sample = preferred || src;
   const m = sample.match(/\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]{2,6}(?:\.[0-9]{1,2})?)/);
@@ -127,6 +134,7 @@ export default function InnerCircleAppSubmitPage() {
     applicantName: '',
     referredByName: '',
     policyWriterName: '',
+    policyWriterOtherName: '',
     state: '',
     policyNumber: '',
     monthlyPremium: '',
@@ -178,9 +186,9 @@ export default function InnerCircleAppSubmitPage() {
 
       setForm((prev) => ({
         ...prev,
-        applicantName: prev.applicantName || mapped.applicantName,
-        state: prev.state || mapped.state,
-        monthlyPremium: prev.monthlyPremium || mapped.monthlyPremium,
+        applicantName: mapped.applicantName || prev.applicantName,
+        state: mapped.state || prev.state,
+        monthlyPremium: mapped.monthlyPremium || prev.monthlyPremium,
         carrier: FIXED_CARRIER,
         productName: FIXED_PRODUCT
       }));
@@ -192,10 +200,14 @@ export default function InnerCircleAppSubmitPage() {
   }
 
   const canSubmit = useMemo(() => {
+    const writerOk = form.policyWriterName === 'Other'
+      ? form.policyWriterOtherName.trim()
+      : form.policyWriterName.trim();
+
     return (
       form.applicantName.trim() &&
       form.referredByName.trim() &&
-      form.policyWriterName.trim() &&
+      writerOk &&
       form.state.trim() &&
       form.monthlyPremium !== ''
     );
@@ -205,9 +217,14 @@ export default function InnerCircleAppSubmitPage() {
     e.preventDefault();
     if (!canSubmit) return;
 
+    const effectivePolicyWriter = form.policyWriterName === 'Other'
+      ? form.policyWriterOtherName.trim()
+      : form.policyWriterName;
+
     const record = {
       id: `app_${Date.now()}`,
       ...form,
+      policyWriterName: effectivePolicyWriter,
       carrier: FIXED_CARRIER,
       productName: FIXED_PRODUCT,
       refCode: ref,
@@ -232,6 +249,7 @@ export default function InnerCircleAppSubmitPage() {
       applicantName: '',
       referredByName: '',
       policyWriterName: '',
+      policyWriterOtherName: '',
       state: '',
       policyNumber: '',
       monthlyPremium: '',
@@ -275,8 +293,20 @@ export default function InnerCircleAppSubmitPage() {
               {innerCircleAgents.map((name) => (
                 <option key={`writer-${name}`} value={name}>{name}</option>
               ))}
+              <option value="Other">Other</option>
             </select>
           </label>
+
+          {form.policyWriterName === 'Other' ? (
+            <label>
+              Policy Writer Full Name *
+              <input
+                value={form.policyWriterOtherName}
+                onChange={(e) => update('policyWriterOtherName', e.target.value)}
+                placeholder="Enter full name"
+              />
+            </label>
+          ) : null}
 
           <label>
             State *
