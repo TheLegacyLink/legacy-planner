@@ -79,7 +79,7 @@ function extractPremiumFromText(text = '') {
 
   const explicitInitial = lines.find((l) => /initial\s+premium/i.test(l));
   if (explicitInitial) {
-    const m = explicitInitial.match(/\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]{2,6}(?:\.[0-9]{1,2})?)/);
+    const m = explicitInitial.match(/[\$S]?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]{2,6}(?:\.[0-9]{1,2})?)/i);
     if (m) return fmtCurrency(m[1]);
   }
 
@@ -120,6 +120,28 @@ async function extractTextFromImage(file) {
   } finally {
     await worker.terminate();
   }
+}
+
+async function extractTextFromPdf(file) {
+  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.149/legacy/build/pdf.worker.min.mjs';
+
+  const ab = await file.arrayBuffer();
+  const task = pdfjsLib.getDocument({ data: ab });
+  const pdf = await task.promise;
+  const page = await pdf.getPage(1);
+
+  const viewport = page.getViewport({ scale: 2 });
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = Math.floor(viewport.width);
+  canvas.height = Math.floor(viewport.height);
+
+  await page.render({ canvasContext: ctx, viewport }).promise;
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) return '';
+  return extractTextFromImage(blob);
 }
 
 export default function InnerCircleAppSubmitPage() {
@@ -166,16 +188,26 @@ export default function InnerCircleAppSubmitPage() {
       const fromFilename = parseFromFilename(file.name || '');
       let fromText = { applicantName: '', state: '', monthlyPremium: '' };
 
-      if (String(file.type || '').startsWith('image/')) {
+      const fileType = String(file.type || '').toLowerCase();
+
+      if (fileType.startsWith('image/')) {
         const text = await extractTextFromImage(file);
         fromText = {
           applicantName: extractNameFromText(text),
           state: extractStateFromText(text),
           monthlyPremium: extractPremiumFromText(text)
         };
-        setMappingStatus('Mapped from illustration text. Verify and submit.');
+        setMappingStatus('Mapped from illustration image text. Verify and submit.');
+      } else if (fileType.includes('pdf') || String(file.name || '').toLowerCase().endsWith('.pdf')) {
+        const text = await extractTextFromPdf(file);
+        fromText = {
+          applicantName: extractNameFromText(text),
+          state: extractStateFromText(text),
+          monthlyPremium: extractPremiumFromText(text)
+        };
+        setMappingStatus('Mapped from PDF illustration text. Verify and submit.');
       } else {
-        setMappingStatus('PDF uploaded. Used filename mapping; verify fields before submit.');
+        setMappingStatus('Unsupported file type for OCR. Used filename mapping only.');
       }
 
       const mapped = {
