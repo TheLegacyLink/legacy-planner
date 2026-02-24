@@ -34,6 +34,20 @@ function normalizeOwner(v = '') {
   return clean(v);
 }
 
+const CALL_RESULT_VALUES = new Set([
+  'missed call',
+  'voicemail left',
+  'do not disturb',
+  'no answer',
+  'wrong number',
+  'spoke - follow-up',
+  'spoke - booked'
+]);
+
+function isCallResultValue(v = '') {
+  return CALL_RESULT_VALUES.has(clean(v).toLowerCase());
+}
+
 function parseLeadPayload(body = {}) {
   const candidate = body?.lead || body?.contact || body || {};
 
@@ -70,7 +84,7 @@ function parseLeadPayload(body = {}) {
     callResult: clean(candidate.callResult || candidate.call_result || body.callResult || body.call_result || ''),
     callAttempts: Number(candidate.callAttempts || candidate.call_attempts || body.callAttempts || body.call_attempts || 0) || 0,
     lastCallAttemptAt: clean(candidate.lastCallAttemptAt || candidate.last_call_attempt_at || body.lastCallAttemptAt || body.last_call_attempt_at || ''),
-    stage: clean(candidate.stage || 'New') || 'New',
+    stage: 'New',
     owner: assignedTo,
     calledAt: '',
     connectedAt: '',
@@ -207,6 +221,7 @@ export async function POST(req) {
     store[idx] = {
       ...store[idx],
       ...incoming,
+      stage: store[idx].stage || 'New',
       id: store[idx].id,
       createdAt: store[idx].createdAt,
       updatedAt: nowIso()
@@ -229,7 +244,18 @@ export async function PATCH(req) {
   const idx = store.findIndex((r) => r.id === id);
   if (idx < 0) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
 
-  store[idx] = { ...store[idx], ...(body?.patch || {}), updatedAt: nowIso() };
+  const patch = { ...(body?.patch || {}) };
+
+  // Safety rail: logging a call result (no answer/voicemail/DND/etc.) should never auto-jump stages.
+  if (isCallResultValue(patch.callResult)) {
+    const currentStage = clean(store[idx]?.stage || 'New') || 'New';
+    const requestedStage = clean(patch.stage);
+    if (requestedStage && requestedStage !== 'Called' && requestedStage !== currentStage) {
+      patch.stage = currentStage;
+    }
+  }
+
+  store[idx] = { ...store[idx], ...patch, updatedAt: nowIso() };
   await writeStore(store);
   return Response.json({ ok: true, row: store[idx] });
 }
