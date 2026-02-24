@@ -74,6 +74,13 @@ function cstMonthKey(date = new Date()) {
   return `${p.year}-${String(p.month).padStart(2, '0')}`;
 }
 
+function cstDateKeyFromIso(iso = '') {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return cstDateKey(d);
+}
+
 function isoWeekKeyFromParts(year, month, day) {
   const d = new Date(Date.UTC(year, month - 1, day));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
@@ -295,9 +302,130 @@ function buildAgentCounts(settings, events, keys) {
   return counts;
 }
 
+function buildCallMetrics(settings, leads = [], sponsorshipMap = new Map()) {
+  const todayKey = cstDateKey();
+  const byOwner = {};
+
+  for (const a of settings.agents || []) {
+    byOwner[a.name] = {
+      assigned: 0,
+      exemptFormSubmitted: 0,
+      callable: 0,
+      called: 0,
+      calledToday: 0,
+      uncalled: 0,
+      totalFirstCallMinutes: 0,
+      firstCallSamples: 0,
+      totalWaitMinutes: 0,
+      waitSamples: 0
+    };
+  }
+
+  for (const row of leads || []) {
+    const owner = clean(row?.owner || '') || 'Unassigned';
+    if (!byOwner[owner]) {
+      byOwner[owner] = {
+        assigned: 0,
+        exemptFormSubmitted: 0,
+        callable: 0,
+        called: 0,
+        calledToday: 0,
+        uncalled: 0,
+        totalFirstCallMinutes: 0,
+        firstCallSamples: 0,
+        totalWaitMinutes: 0,
+        waitSamples: 0
+      };
+    }
+
+    const bucket = byOwner[owner];
+    bucket.assigned += 1;
+
+    const em = clean(row?.email || '').toLowerCase();
+    const ph = normalizePhone(row?.phone || '');
+    const n = normalizeName(row?.name || '');
+    const sponsorshipStatus = sponsorshipMap.get(`e:${em}`) || sponsorshipMap.get(`p:${ph}`) || sponsorshipMap.get(`n:${n}`) || '';
+    const isExempt = !!String(sponsorshipStatus || '').trim() || !!clean(row?.formCompletedAt);
+
+    if (isExempt) {
+      bucket.exemptFormSubmitted += 1;
+      continue;
+    }
+
+    bucket.callable += 1;
+
+    const calledAt = clean(row?.calledAt || '');
+    const createdAt = clean(row?.createdAt || row?.updatedAt || '');
+
+    if (calledAt) {
+      bucket.called += 1;
+      if (cstDateKeyFromIso(calledAt) === todayKey) bucket.calledToday += 1;
+
+      const calledTs = new Date(calledAt).getTime();
+      const createdTs = new Date(createdAt).getTime();
+      if (Number.isFinite(calledTs) && Number.isFinite(createdTs) && calledTs >= createdTs) {
+        bucket.totalFirstCallMinutes += Math.round((calledTs - createdTs) / 60000);
+        bucket.firstCallSamples += 1;
+      }
+    } else {
+      bucket.uncalled += 1;
+      const ageMin = minutesSince(createdAt);
+      bucket.totalWaitMinutes += ageMin;
+      bucket.waitSamples += 1;
+    }
+  }
+
+  const totals = Object.values(byOwner).reduce(
+    (acc, b) => {
+      acc.assigned += b.assigned;
+      acc.exemptFormSubmitted += b.exemptFormSubmitted;
+      acc.callable += b.callable;
+      acc.called += b.called;
+      acc.calledToday += b.calledToday;
+      acc.uncalled += b.uncalled;
+      acc.totalFirstCallMinutes += b.totalFirstCallMinutes;
+      acc.firstCallSamples += b.firstCallSamples;
+      acc.totalWaitMinutes += b.totalWaitMinutes;
+      acc.waitSamples += b.waitSamples;
+      return acc;
+    },
+    {
+      assigned: 0,
+      exemptFormSubmitted: 0,
+      callable: 0,
+      called: 0,
+      calledToday: 0,
+      uncalled: 0,
+      totalFirstCallMinutes: 0,
+      firstCallSamples: 0,
+      totalWaitMinutes: 0,
+      waitSamples: 0
+    }
+  );
+
+  const ownerRows = Object.entries(byOwner).map(([name, b]) => ({
+    name,
+    ...b,
+    callRate: b.callable ? Math.round((b.called / b.callable) * 100) : 0,
+    avgFirstCallMinutes: b.firstCallSamples ? Math.round(b.totalFirstCallMinutes / b.firstCallSamples) : null,
+    avgWaitMinutes: b.waitSamples ? Math.round(b.totalWaitMinutes / b.waitSamples) : null
+  }));
+
+  return {
+    totals: {
+      ...totals,
+      callRate: totals.callable ? Math.round((totals.called / totals.callable) * 100) : 0,
+      avgFirstCallMinutes: totals.firstCallSamples ? Math.round(totals.totalFirstCallMinutes / totals.firstCallSamples) : null,
+      avgWaitMinutes: totals.waitSamples ? Math.round(totals.totalWaitMinutes / totals.waitSamples) : null
+    },
+    byOwner: ownerRows.sort((a, b) => a.name.localeCompare(b.name))
+  };
+}
+
 export async function GET() {
   const settings = withDefaults(await loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS));
   const events = await loadJsonStore(EVENTS_PATH, []);
+  const leads = await loadJsonStore(CALLER_PATH, []);
   const sponsorship = await loadJsonStore(SPONSORSHIP_PATH, []);
 
   const keys = {
@@ -310,6 +438,7 @@ export async function GET() {
   const yesterdayCounts = computeYesterdayCounts(settings, events, new Date());
 
   const sponsorshipMap = sponsorshipLookup(sponsorship);
+  const callMetrics = buildCallMetrics(settings, leads, sponsorshipMap);
   const recent = enrichEvents(events, sponsorshipMap).sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()).slice(0, 300);
 
   const tomorrowStartOrder = [...(settings.agents || [])]
@@ -329,7 +458,7 @@ export async function GET() {
       yesterday: Number(yesterdayCounts[a.name] || 0)
     }));
 
-  return Response.json({ ok: true, settings, counts, recent, keys, tomorrowStartOrder });
+  return Response.json({ ok: true, settings, counts, recent, keys, tomorrowStartOrder, callMetrics });
 }
 
 export async function PATCH(req) {

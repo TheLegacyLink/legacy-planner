@@ -18,6 +18,14 @@ function clean(v = '') {
   return String(v || '').trim();
 }
 
+function normalizeName(v = '') {
+  return clean(v).toUpperCase().replace(/[^A-Z ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function normalizePhone(v = '') {
+  return String(v || '').replace(/\D/g, '');
+}
+
 function normalizeOwner(v = '') {
   const s = clean(v).toLowerCase();
   if (!s) return '';
@@ -136,6 +144,43 @@ export async function POST(req) {
     store.push(row);
     await writeStore(store);
     return Response.json({ ok: true, row });
+  }
+
+  if (mode === 'activity') {
+    const candidate = body?.lead || body?.contact || body || {};
+    const externalId = clean(candidate.externalId || candidate.id || candidate.contactId || candidate.contact_id);
+    const email = clean(candidate.email).toLowerCase();
+    const phone = normalizePhone(candidate.phone || candidate.phoneNumber || candidate.phone_number);
+    const name = normalizeName(candidate.name || `${candidate.firstName || ''} ${candidate.lastName || ''}`);
+    const eventType = clean(body?.event || candidate?.event || '').toLowerCase();
+
+    const idx = store.findIndex((r) => {
+      if (externalId && r.externalId && clean(r.externalId) === externalId) return true;
+      if (email && clean(r.email).toLowerCase() === email) return true;
+      if (phone && normalizePhone(r.phone) === phone) return true;
+      if (name && normalizeName(r.name) === name) return true;
+      return false;
+    });
+
+    if (idx < 0) {
+      return Response.json({ ok: false, error: 'lead_not_found' }, { status: 404 });
+    }
+
+    const now = nowIso();
+    const patch = { updatedAt: now };
+
+    if (eventType.includes('called') || eventType === 'call') patch.calledAt = store[idx].calledAt || now;
+    if (eventType.includes('connect')) patch.connectedAt = store[idx].connectedAt || now;
+    if (eventType.includes('qualif')) patch.qualifiedAt = store[idx].qualifiedAt || now;
+    if (eventType.includes('form_sent') || eventType.includes('invite')) patch.formSentAt = store[idx].formSentAt || now;
+    if (eventType.includes('form_completed') || eventType.includes('submitted')) patch.formCompletedAt = store[idx].formCompletedAt || now;
+
+    if (body?.stage) patch.stage = clean(body.stage);
+    if (body?.owner) patch.owner = normalizeOwner(body.owner);
+
+    store[idx] = { ...store[idx], ...patch };
+    await writeStore(store);
+    return Response.json({ ok: true, row: store[idx], upsert: 'activity' });
   }
 
   if (!validateToken(req, body)) {

@@ -18,6 +18,7 @@ export default function LeadRouterPage() {
   const [counts, setCounts] = useState({});
   const [recent, setRecent] = useState([]);
   const [tomorrowStartOrder, setTomorrowStartOrder] = useState([]);
+  const [callMetrics, setCallMetrics] = useState({ totals: {}, byOwner: [] });
 
   async function load() {
     const res = await fetch('/api/lead-router', { cache: 'no-store' });
@@ -27,6 +28,7 @@ export default function LeadRouterPage() {
       setCounts(data.counts || {});
       setRecent(data.recent || []);
       setTomorrowStartOrder(data.tomorrowStartOrder || []);
+      setCallMetrics(data.callMetrics || { totals: {}, byOwner: [] });
     }
     setLoading(false);
   }
@@ -378,6 +380,48 @@ export default function LeadRouterPage() {
                 </tr>
               );
             })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 10 }}>
+        <h3 style={{ marginTop: 0 }}>Call Activity (Form-submitted leads excluded)</h3>
+        <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <span className="pill">Callable: {callMetrics?.totals?.callable ?? 0}</span>
+          <span className="pill">Called: {callMetrics?.totals?.called ?? 0}</span>
+          <span className="pill">Call Rate: {callMetrics?.totals?.callRate ?? 0}%</span>
+          <span className="pill">Called Today: {callMetrics?.totals?.calledToday ?? 0}</span>
+          <span className="pill atrisk">Uncalled: {callMetrics?.totals?.uncalled ?? 0}</span>
+          <span className="pill">Avg First Call: {callMetrics?.totals?.avgFirstCallMinutes ?? '—'} min</span>
+          <span className="pill">Avg Wait (Uncalled): {callMetrics?.totals?.avgWaitMinutes ?? '—'} min</span>
+        </div>
+        <table style={{ marginTop: 8 }}>
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Callable</th>
+              <th>Called</th>
+              <th>Call Rate</th>
+              <th>Called Today</th>
+              <th>Uncalled</th>
+              <th>Avg First Call (min)</th>
+              <th>Avg Wait (min)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(callMetrics?.byOwner || []).map((r) => (
+              <tr key={r.name}>
+                <td>{r.name}</td>
+                <td>{r.callable}</td>
+                <td>{r.called}</td>
+                <td>{r.callRate}%</td>
+                <td>{r.calledToday}</td>
+                <td>{r.uncalled}</td>
+                <td>{r.avgFirstCallMinutes ?? '—'}</td>
+                <td>{r.avgWaitMinutes ?? '—'}</td>
+              </tr>
+            ))}
+            {!(callMetrics?.byOwner || []).length ? <tr><td colSpan={8} className="muted">No call metrics yet.</td></tr> : null}
           </tbody>
         </table>
       </div>
