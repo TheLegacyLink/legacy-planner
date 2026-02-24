@@ -57,9 +57,20 @@ function parseFromFilename(fileName = '') {
 }
 
 function extractStateFromText(text = '') {
-  const upper = String(text || '').toUpperCase();
+  const raw = String(text || '');
+  const upper = raw.toUpperCase();
+  const lines = upper.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
 
-  const labeledCode = upper.match(/(?:STATE|ST)\s*[:\-]?\s*([A-Z]{2})\b/);
+  // Primary: explicit State line, tolerant to OCR misspellings like STETE/STATE
+  for (const line of lines) {
+    const normalized = line.replace(/[^A-Z0-9: -]/g, ' ');
+    if (/\bST[A-Z]{2,4}\b/.test(normalized)) {
+      const m = normalized.match(/\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b/);
+      if (m) return m[1];
+    }
+  }
+
+  const labeledCode = upper.match(/(?:STATE|STETE|STATEE|ST)\s*[:\-]?\s*([A-Z]{2})\b/);
   if (labeledCode && STATE_CODES.has(labeledCode[1])) return labeledCode[1];
 
   const cityStateZip = upper.match(/,\s*(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\s+\d{5}/);
@@ -77,18 +88,37 @@ function extractPremiumFromText(text = '') {
   const src = String(text || '');
   const lines = src.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
 
-  const explicitInitial = lines.find((l) => /initial\s+premium/i.test(l));
+  const moneyRegex = /([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})|[0-9]{2,6}(?:\.[0-9]{1,2}))/;
+
+  // Highest priority: line containing INITIAL + PREMIUM (tolerant to OCR)
+  const explicitInitial = lines.find((l) => {
+    const norm = l.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return norm.includes('initial') && norm.includes('prem');
+  });
   if (explicitInitial) {
-    const m = explicitInitial.match(/[\$S]?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]{2,6}(?:\.[0-9]{1,2})?)/i);
+    const m = explicitInitial.match(moneyRegex);
     if (m) return fmtCurrency(m[1]);
   }
 
-  const preferred = lines.find((l) => /monthly|modal|target premium|premium/i.test(l));
-  const sample = preferred || src;
-  const m = sample.match(/\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]{2,6}(?:\.[0-9]{1,2})?)/);
-  if (m) return fmtCurrency(m[1]);
+  // Next priority: line containing MONTHLY + PREMIUM / MODAL
+  const monthlyLine = lines.find((l) => {
+    const norm = l.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return (norm.includes('monthly') && norm.includes('prem')) || norm.includes('modal');
+  });
+  if (monthlyLine) {
+    const m = monthlyLine.match(moneyRegex);
+    if (m) return fmtCurrency(m[1]);
+  }
 
-  const fallback = src.match(/([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})|[0-9]{2,6}(?:\.[0-9]{1,2}))/);
+  // Any line with premium keyword
+  const preferred = lines.find((l) => /prem|monthly|modal|target/i.test(l));
+  if (preferred) {
+    const m = preferred.match(moneyRegex);
+    if (m) return fmtCurrency(m[1]);
+  }
+
+  // Last fallback: first dollar-like amount in full OCR text
+  const fallback = src.match(moneyRegex);
   return fallback ? fmtCurrency(fallback[1]) : '';
 }
 
@@ -197,7 +227,6 @@ export default function InnerCircleAppSubmitPage() {
           state: extractStateFromText(text),
           monthlyPremium: extractPremiumFromText(text)
         };
-        setMappingStatus('Mapped from illustration image text. Verify and submit.');
       } else if (fileType.includes('pdf') || String(file.name || '').toLowerCase().endsWith('.pdf')) {
         const text = await extractTextFromPdf(file);
         fromText = {
@@ -205,7 +234,6 @@ export default function InnerCircleAppSubmitPage() {
           state: extractStateFromText(text),
           monthlyPremium: extractPremiumFromText(text)
         };
-        setMappingStatus('Mapped from PDF illustration text. Verify and submit.');
       } else {
         setMappingStatus('Unsupported file type for OCR. Used filename mapping only.');
       }
@@ -224,6 +252,10 @@ export default function InnerCircleAppSubmitPage() {
         carrier: FIXED_CARRIER,
         productName: FIXED_PRODUCT
       }));
+
+      setMappingStatus(
+        `Mapped values → State: ${mapped.state || 'not found'} | Monthly: ${mapped.monthlyPremium || 'not found'}`
+      );
     } catch {
       setMappingStatus('Could not auto-map this file. Please enter fields manually.');
     } finally {
