@@ -39,7 +39,6 @@ const STATE_NAME_TO_CODE = {
   TEXAS: 'TX', UTAH: 'UT', VERMONT: 'VT', VIRGINIA: 'VA', WASHINGTON: 'WA',
   'WEST VIRGINIA': 'WV', WISCONSIN: 'WI', WYOMING: 'WY'
 };
-
 const STATE_CODES = new Set(Object.values(STATE_NAME_TO_CODE));
 
 function parseFromFilename(fileName = '') {
@@ -48,8 +47,6 @@ function parseFromFilename(fileName = '') {
 
   const stateMatch = upper.match(/\b([A-Z]{2})\b/);
   const premiumMatch = raw.match(/\$?\s*([0-9]{2,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]{2,6}(?:\.[0-9]{1,2})?)/);
-
-  // Very light name guess from prefix before first number
   const namePart = raw.split(/[0-9$]/)[0] || '';
 
   return {
@@ -61,15 +58,8 @@ function parseFromFilename(fileName = '') {
 
 function extractStateFromText(text = '') {
   const upper = String(text || '').toUpperCase();
-
   const labeledCode = upper.match(/(?:STATE|ST)\s*[:\-]?\s*([A-Z]{2})\b/);
   if (labeledCode && STATE_CODES.has(labeledCode[1])) return labeledCode[1];
-
-  const labeledName = upper.match(/(?:STATE|ST)\s*[:\-]?\s*([A-Z ]{4,})/);
-  if (labeledName) {
-    const cleaned = labeledName[1].replace(/[^A-Z ]/g, ' ').replace(/\s+/g, ' ').trim();
-    if (STATE_NAME_TO_CODE[cleaned]) return STATE_NAME_TO_CODE[cleaned];
-  }
 
   for (const [name, code] of Object.entries(STATE_NAME_TO_CODE)) {
     if (upper.includes(name)) return code;
@@ -82,7 +72,6 @@ function extractStateFromText(text = '') {
 function extractPremiumFromText(text = '') {
   const src = String(text || '');
   const lines = src.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
-
   const preferred = lines.find((l) => /monthly|modal|target premium|premium/i.test(l));
   const sample = preferred || src;
   const m = sample.match(/\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]{2,6}(?:\.[0-9]{1,2})?)/);
@@ -125,18 +114,17 @@ async function extractTextFromImage(file) {
 export default function InnerCircleAppSubmitPage() {
   const [ref, setRef] = useState('');
   const [saved, setSaved] = useState('');
-  const [step, setStep] = useState(1);
   const [uploadFileName, setUploadFileName] = useState('');
   const [mappingBusy, setMappingBusy] = useState(false);
   const [mappingStatus, setMappingStatus] = useState('');
 
   const [form, setForm] = useState({
     applicantName: '',
+    referredByName: '',
     state: '',
+    policyNumber: '',
     initialPremium: '',
     monthlyPremium: '',
-    policyNumber: '',
-    referredByName: '',
     carrier: FIXED_CARRIER,
     productName: FIXED_PRODUCT,
     status: 'Submitted'
@@ -167,9 +155,9 @@ export default function InnerCircleAppSubmitPage() {
           state: extractStateFromText(text),
           monthlyPremium: extractPremiumFromText(text)
         };
-        setMappingStatus('Mapped from illustration text. Please verify before submit.');
+        setMappingStatus('Mapped from illustration text. Verify and submit.');
       } else {
-        setMappingStatus('PDF uploaded. Used filename mapping; please verify all fields.');
+        setMappingStatus('PDF uploaded. Used filename mapping; verify fields before submit.');
       }
 
       const mapped = {
@@ -187,11 +175,8 @@ export default function InnerCircleAppSubmitPage() {
         carrier: FIXED_CARRIER,
         productName: FIXED_PRODUCT
       }));
-
-      setStep(3);
     } catch {
       setMappingStatus('Could not auto-map this file. Please enter fields manually.');
-      setStep(1);
     } finally {
       setMappingBusy(false);
     }
@@ -200,6 +185,7 @@ export default function InnerCircleAppSubmitPage() {
   const canSubmit = useMemo(() => {
     return (
       form.applicantName.trim() &&
+      form.referredByName.trim() &&
       form.state.trim() &&
       form.initialPremium !== '' &&
       form.monthlyPremium !== ''
@@ -230,17 +216,16 @@ export default function InnerCircleAppSubmitPage() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify([record, ...list]));
     }
 
-    setSaved('Application submitted and mapped successfully.');
-    setStep(1);
+    setSaved('Application submitted successfully.');
     setUploadFileName('');
     setMappingStatus('');
     setForm({
       applicantName: '',
+      referredByName: '',
       state: '',
+      policyNumber: '',
       initialPremium: '',
       monthlyPremium: '',
-      policyNumber: '',
-      referredByName: '',
       carrier: FIXED_CARRIER,
       productName: FIXED_PRODUCT,
       status: 'Submitted'
@@ -250,161 +235,93 @@ export default function InnerCircleAppSubmitPage() {
   return (
     <main className="publicPage">
       <div className="panel" style={{ maxWidth: 840 }}>
-        <h3 style={{ marginTop: 0 }}>Inner Circle App Submit</h3>
-        <p className="muted" style={{ marginTop: -4 }}>
-          Upload illustration → map key fields → review and submit.
-        </p>
-        {ref ? <p className="pill onpace">Referral code locked: {ref}</p> : <p className="muted">No referral code detected.</p>}
-
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-          {[1, 2, 3].map((n) => (
-            <button
-              key={n}
-              type="button"
-              className={step === n ? '' : 'ghost'}
-              onClick={() => setStep(n)}
-            >
-              Step {n}
-            </button>
-          ))}
-        </div>
+        <h3 style={{ marginTop: 0 }}>Policy Details</h3>
+        <p className="muted" style={{ marginTop: -2 }}>Fill out the information below to submit your policy.</p>
+        {ref ? <p className="pill onpace">Referral code locked: {ref}</p> : null}
 
         <form className="settingsGrid" onSubmit={submit}>
-          {step === 1 ? (
-            <>
-              <label>
-                Client Name *
-                <input
-                  value={form.applicantName}
-                  onChange={(e) => update('applicantName', e.target.value)}
-                  placeholder="Enter client full name"
-                />
-              </label>
-              <label>
-                State *
-                <input
-                  value={form.state}
-                  onChange={(e) => update('state', e.target.value.toUpperCase())}
-                  placeholder="e.g., TX"
-                  maxLength={2}
-                />
-              </label>
+          <label>
+            Client Name *
+            <input
+              value={form.applicantName}
+              onChange={(e) => update('applicantName', e.target.value)}
+              placeholder="Enter client's full name"
+            />
+          </label>
 
-              <label>
-                Initial Premium *
-                <input
-                  value={form.initialPremium}
-                  onChange={(e) => update('initialPremium', fmtCurrency(e.target.value))}
-                  placeholder="0.00"
-                />
-              </label>
-              <label>
-                Monthly Premium *
-                <input
-                  value={form.monthlyPremium}
-                  onChange={(e) => update('monthlyPremium', fmtCurrency(e.target.value))}
-                  placeholder="0.00"
-                />
-              </label>
+          <label>
+            Referred By *
+            <input
+              value={form.referredByName}
+              onChange={(e) => update('referredByName', e.target.value)}
+              placeholder="Agent/Upline name"
+            />
+          </label>
 
-              <label>
-                Carrier
-                <input value={FIXED_CARRIER} disabled readOnly />
-              </label>
-              <label>
-                Product
-                <input value={FIXED_PRODUCT} disabled readOnly />
-              </label>
+          <label>
+            Carrier *
+            <input value={FIXED_CARRIER} disabled readOnly />
+          </label>
 
-              <label>
-                Policy Number (optional)
-                <input value={form.policyNumber} onChange={(e) => update('policyNumber', e.target.value)} />
-              </label>
-              <label>
-                Referred By (optional)
-                <input value={form.referredByName} onChange={(e) => update('referredByName', e.target.value)} />
-              </label>
-            </>
-          ) : null}
+          <label>
+            Product *
+            <input value={FIXED_PRODUCT} disabled readOnly />
+          </label>
 
-          {step === 2 ? (
-            <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 10 }}>
-              <label>
-                Upload Illustration (PNG, JPG, PDF)
-                <input
-                  type="file"
-                  accept=".png,.jpg,.jpeg,.pdf"
-                  disabled={mappingBusy}
-                  onChange={(e) => applyIllustrationMap(e.target.files?.[0])}
-                />
-              </label>
+          <label>
+            State *
+            <input
+              value={form.state}
+              onChange={(e) => update('state', e.target.value.toUpperCase())}
+              placeholder="e.g., FL"
+              maxLength={2}
+            />
+          </label>
 
-              {mappingBusy ? <p className="muted">Mapping in progress...</p> : null}
-              {mappingStatus ? <p className="muted">{mappingStatus}</p> : null}
+          <label>
+            Policy Number (Optional)
+            <input
+              value={form.policyNumber}
+              onChange={(e) => update('policyNumber', e.target.value)}
+              placeholder="Enter policy number if available"
+            />
+          </label>
 
-              <div className="panel" style={{ padding: 12 }}>
-                <strong>Mapping rules locked</strong>
-                <ul style={{ margin: '8px 0 0 18px' }}>
-                  <li>Carrier = <strong>F&amp;G</strong> (always)</li>
-                  <li>Product = <strong>IUL Pathsetter</strong> (always)</li>
-                  <li>Mapped fields shown on Step 3 immediately after upload</li>
-                </ul>
-              </div>
-            </div>
-          ) : null}
+          <label>
+            Initial Premium *
+            <input
+              value={form.initialPremium}
+              onChange={(e) => update('initialPremium', fmtCurrency(e.target.value))}
+              placeholder="0.00"
+            />
+          </label>
 
-          {step === 3 ? (
-            <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 10 }}>
-              <div className="panel" style={{ padding: 14 }}>
-                <h4 style={{ marginTop: 0, marginBottom: 8 }}>Review Mapped Policy</h4>
-                <div className="settingsGrid">
-                  <label>
-                    Client Name
-                    <input value={form.applicantName} onChange={(e) => update('applicantName', e.target.value)} />
-                  </label>
-                  <label>
-                    State
-                    <input value={form.state} onChange={(e) => update('state', e.target.value.toUpperCase())} maxLength={2} />
-                  </label>
-                  <label>
-                    Initial Premium
-                    <input value={form.initialPremium} onChange={(e) => update('initialPremium', fmtCurrency(e.target.value))} />
-                  </label>
-                  <label>
-                    Monthly Premium
-                    <input value={form.monthlyPremium} onChange={(e) => update('monthlyPremium', fmtCurrency(e.target.value))} />
-                  </label>
-                  <label>
-                    Carrier
-                    <input value={FIXED_CARRIER} disabled readOnly />
-                  </label>
-                  <label>
-                    Product
-                    <input value={FIXED_PRODUCT} disabled readOnly />
-                  </label>
-                </div>
+          <label>
+            Monthly Premium *
+            <input
+              value={form.monthlyPremium}
+              onChange={(e) => update('monthlyPremium', fmtCurrency(e.target.value))}
+              placeholder="0.00"
+            />
+          </label>
 
-                <div style={{ marginTop: 8 }}>
-                  <small className="muted">Illustration file: {uploadFileName || 'Not uploaded yet'}</small>
-                  {mappingStatus ? <><br /><small className="muted">{mappingStatus}</small></> : null}
-                </div>
-              </div>
-            </div>
-          ) : null}
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label>
+              Policy Documents (Upload illustration to auto-fill)
+              <input
+                type="file"
+                accept=".png,.jpg,.jpeg,.pdf"
+                disabled={mappingBusy}
+                onChange={(e) => applyIllustrationMap(e.target.files?.[0])}
+              />
+            </label>
+            {mappingBusy ? <p className="muted">Mapping in progress...</p> : null}
+            {mappingStatus ? <p className="muted">{mappingStatus}</p> : null}
+            <small className="muted">File: {uploadFileName || 'Not uploaded yet'}</small>
+          </div>
 
           <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
-            {step > 1 ? (
-              <button type="button" className="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))}>
-                Back
-              </button>
-            ) : null}
-            {step < 3 ? (
-              <button type="button" onClick={() => setStep((s) => Math.min(3, s + 1))}>
-                Next
-              </button>
-            ) : (
-              <button type="submit" disabled={!canSubmit}>Submit Application</button>
-            )}
+            <button type="submit" disabled={!canSubmit}>Submit Application</button>
           </div>
         </form>
 
