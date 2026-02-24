@@ -152,6 +152,40 @@ async function extractTextFromImage(file) {
   }
 }
 
+async function loadImageBitmapFromFile(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = url;
+    });
+    return img;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function extractTextFromImageRegion(file, region) {
+  const img = await loadImageBitmapFromFile(file);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  const sx = Math.max(0, Math.floor(img.width * region.x));
+  const sy = Math.max(0, Math.floor(img.height * region.y));
+  const sw = Math.max(1, Math.floor(img.width * region.w));
+  const sh = Math.max(1, Math.floor(img.height * region.h));
+
+  canvas.width = sw;
+  canvas.height = sh;
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) return '';
+  return extractTextFromImage(blob);
+}
+
 async function extractTextFromPdf(file) {
   const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.149/legacy/build/pdf.worker.min.mjs';
@@ -221,11 +255,21 @@ export default function InnerCircleAppSubmitPage() {
       const fileType = String(file.type || '').toLowerCase();
 
       if (fileType.startsWith('image/')) {
-        const text = await extractTextFromImage(file);
+        const fullText = await extractTextFromImage(file);
+
+        // Targeted crop OCR for the exact illustration layout:
+        // - State is near upper-middle left
+        // - Initial/Monthly premium is near upper-right
+        const stateRegionText = await extractTextFromImageRegion(file, { x: 0.28, y: 0.08, w: 0.28, h: 0.28 });
+        const premiumRegionText = await extractTextFromImageRegion(file, { x: 0.56, y: 0.06, w: 0.42, h: 0.34 });
+
+        const state = extractStateFromText(`${stateRegionText}\n${fullText}`);
+        const monthlyPremium = extractPremiumFromText(`${premiumRegionText}\n${fullText}`);
+
         fromText = {
-          applicantName: extractNameFromText(text),
-          state: extractStateFromText(text),
-          monthlyPremium: extractPremiumFromText(text)
+          applicantName: extractNameFromText(fullText),
+          state,
+          monthlyPremium
         };
       } else if (fileType.includes('pdf') || String(file.name || '').toLowerCase().endsWith('.pdf')) {
         const text = await extractTextFromPdf(file);
