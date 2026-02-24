@@ -17,6 +17,7 @@ export default function LeadRouterPage() {
   const [settings, setSettings] = useState(null);
   const [counts, setCounts] = useState({});
   const [recent, setRecent] = useState([]);
+  const [tomorrowStartOrder, setTomorrowStartOrder] = useState([]);
 
   async function load() {
     const res = await fetch('/api/lead-router', { cache: 'no-store' });
@@ -25,6 +26,7 @@ export default function LeadRouterPage() {
       if (!isDirty) setSettings(data.settings);
       setCounts(data.counts || {});
       setRecent(data.recent || []);
+      setTomorrowStartOrder(data.tomorrowStartOrder || []);
     }
     setLoading(false);
   }
@@ -60,6 +62,14 @@ export default function LeadRouterPage() {
       outboundWebhookUrl: settings?.outboundWebhookUrl || '',
       outboundToken: settings?.outboundToken || '',
       outboundEnabled: Boolean(settings?.outboundEnabled)
+    });
+  }
+
+  async function saveSlaSettings() {
+    await savePatch({
+      slaEnabled: Boolean(settings?.slaEnabled),
+      slaMinutes: Number(settings?.slaMinutes || 10),
+      slaAction: settings?.slaAction || 'reassign'
     });
   }
 
@@ -199,6 +209,66 @@ export default function LeadRouterPage() {
           <button type="button" onClick={saveOutboundSettings} disabled={saving}>Save URL</button>
         </div>
         <small className="muted">After editing URL/token/toggle, click <strong>Save URL</strong>.</small>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 10 }}>
+        <h3 style={{ marginTop: 0 }}>Speed-to-Lead SLA</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '160px 160px 180px auto', gap: 8, alignItems: 'center' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input
+              type="checkbox"
+              checked={Boolean(settings.slaEnabled)}
+              onChange={(e) => {
+                setSettings((s) => ({ ...s, slaEnabled: e.target.checked }));
+                setIsDirty(true);
+              }}
+            />
+            SLA On
+          </label>
+          <label>
+            SLA Minutes
+            <input
+              type="number"
+              min={1}
+              value={settings.slaMinutes ?? 10}
+              onChange={(e) => {
+                setSettings((s) => ({ ...s, slaMinutes: Number(e.target.value || 10) }));
+                setIsDirty(true);
+              }}
+              style={{ marginLeft: 6, width: 70 }}
+            />
+          </label>
+          <label>
+            Action
+            <select
+              value={settings.slaAction || 'reassign'}
+              onChange={(e) => {
+                setSettings((s) => ({ ...s, slaAction: e.target.value }));
+                setIsDirty(true);
+              }}
+              style={{ marginLeft: 6 }}
+            >
+              <option value="reassign">Auto Reassign</option>
+              <option value="alert">Alert Only</option>
+            </select>
+          </label>
+          <button type="button" onClick={saveSlaSettings} disabled={saving}>Save SLA</button>
+        </div>
+        <small className="muted">When a new lead arrives, stale uncalled leads older than SLA minutes can be reassigned automatically.</small>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 10 }}>
+        <h3 style={{ marginTop: 0 }}>Tomorrow Start Order (Fairness Preview)</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8 }}>
+          {tomorrowStartOrder.map((r, idx) => (
+            <div key={r.name} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 8 }}>
+              <div className="muted" style={{ fontSize: 12 }}>#{idx + 1}</div>
+              <strong>{r.name}</strong>
+              <div className="muted" style={{ fontSize: 12 }}>Today: {r.today} • Yesterday: {r.yesterday}</div>
+            </div>
+          ))}
+          {!tomorrowStartOrder.length ? <div className="muted">No active agents.</div> : null}
+        </div>
       </div>
 
       <div className="panel">

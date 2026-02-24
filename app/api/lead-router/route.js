@@ -26,7 +26,10 @@ const DEFAULT_SETTINGS = {
   })),
   outboundWebhookUrl: '',
   outboundToken: '',
-  outboundEnabled: false
+  outboundEnabled: false,
+  slaEnabled: true,
+  slaMinutes: 10,
+  slaAction: 'reassign'
 };
 
 function clean(v = '') {
@@ -99,6 +102,47 @@ function cstMinuteOfDay(date = new Date()) {
 function parseTimeToMin(v = '00:00') {
   const [h, m] = String(v || '00:00').split(':').map((x) => Number(x));
   return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+}
+
+
+function minutesSince(iso = '') {
+  if (!iso) return 0;
+  const ts = new Date(iso).getTime();
+  if (!Number.isFinite(ts) || ts <= 0) return 0;
+  return Math.floor((Date.now() - ts) / 60000);
+}
+
+function computeYesterdayCounts(settings, events, now = new Date()) {
+  const yesterdayKey = cstDateKey(new Date(now.getTime() - 24 * 60 * 60 * 1000));
+  const out = {};
+  for (const a of settings.agents) out[a.name] = 0;
+  for (const e of events) {
+    if (e?.type !== 'assigned' || e?.dateKey !== yesterdayKey) continue;
+    const owner = clean(e?.assignedTo || '');
+    if (!owner) continue;
+    out[owner] = Number(out[owner] || 0) + 1;
+  }
+  return out;
+}
+
+function getEligibleAgents(settings, counts, minute) {
+  return settings.agents.filter((a) => {
+    if (!a.active || a.paused) return false;
+    const startMin = parseTimeToMin(a.windowStart || '00:00');
+    const endMin = parseTimeToMin(a.windowEnd || '23:59');
+    const inWindow = minute >= startMin && minute <= endMin;
+    if (!inWindow) return false;
+
+    const capDay = a.capPerDay == null ? Number(settings.maxPerDay || 0) : Number(a.capPerDay || 0);
+    const capWeek = a.capPerWeek == null ? Number(settings.maxPerWeek || 0) : Number(a.capPerWeek || 0);
+    const capMonth = a.capPerMonth == null ? Number(settings.maxPerMonth || 0) : Number(a.capPerMonth || 0);
+
+    const count = counts[a.name] || { today: 0, week: 0, month: 0 };
+    if (capDay > 0 && count.today >= capDay) return false;
+    if (capWeek > 0 && count.week >= capWeek) return false;
+    if (capMonth > 0 && count.month >= capMonth) return false;
+    return true;
+  });
 }
 
 function withDefaults(raw = {}) {
@@ -263,11 +307,29 @@ export async function GET() {
   };
 
   const counts = buildAgentCounts(settings, events, keys);
+  const yesterdayCounts = computeYesterdayCounts(settings, events, new Date());
 
   const sponsorshipMap = sponsorshipLookup(sponsorship);
   const recent = enrichEvents(events, sponsorshipMap).sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()).slice(0, 300);
 
-  return Response.json({ ok: true, settings, counts, recent, keys });
+  const tomorrowStartOrder = [...(settings.agents || [])]
+    .filter((a) => a.active && !a.paused)
+    .sort((a, b) => {
+      const aToday = Number(counts[a.name]?.today || 0);
+      const bToday = Number(counts[b.name]?.today || 0);
+      if (aToday !== bToday) return aToday - bToday;
+      const aY = Number(yesterdayCounts[a.name] || 0);
+      const bY = Number(yesterdayCounts[b.name] || 0);
+      if (aY !== bY) return aY - bY;
+      return a.name.localeCompare(b.name);
+    })
+    .map((a) => ({
+      name: a.name,
+      today: Number(counts[a.name]?.today || 0),
+      yesterday: Number(yesterdayCounts[a.name] || 0)
+    }));
+
+  return Response.json({ ok: true, settings, counts, recent, keys, tomorrowStartOrder });
 }
 
 export async function PATCH(req) {
@@ -303,37 +365,13 @@ export async function POST(req) {
   const minute = cstMinuteOfDay(now);
 
   const counts = buildAgentCounts(settings, events, keys);
-  const yesterdayKey = cstDateKey(new Date(now.getTime() - 24 * 60 * 60 * 1000));
-  const yesterdayCounts = {};
-  for (const a of settings.agents) yesterdayCounts[a.name] = 0;
-  for (const e of events) {
-    if (e?.type !== 'assigned' || e?.dateKey !== yesterdayKey) continue;
-    const owner = clean(e?.assignedTo || '');
-    if (!owner) continue;
-    yesterdayCounts[owner] = Number(yesterdayCounts[owner] || 0) + 1;
-  }
+  const yesterdayCounts = computeYesterdayCounts(settings, events, now);
 
   let assignedTo = settings.overflowAgent || 'Kimora Link';
   let reason = 'overflow';
 
   if (settings.enabled) {
-    const eligible = settings.agents.filter((a) => {
-      if (!a.active || a.paused) return false;
-      const startMin = parseTimeToMin(a.windowStart || '00:00');
-      const endMin = parseTimeToMin(a.windowEnd || '23:59');
-      const inWindow = minute >= startMin && minute <= endMin;
-      if (!inWindow) return false;
-
-      const capDay = a.capPerDay == null ? Number(settings.maxPerDay || 0) : Number(a.capPerDay || 0);
-      const capWeek = a.capPerWeek == null ? Number(settings.maxPerWeek || 0) : Number(a.capPerWeek || 0);
-      const capMonth = a.capPerMonth == null ? Number(settings.maxPerMonth || 0) : Number(a.capPerMonth || 0);
-
-      const count = counts[a.name] || { today: 0, week: 0, month: 0 };
-      if (capDay > 0 && count.today >= capDay) return false;
-      if (capWeek > 0 && count.week >= capWeek) return false;
-      if (capMonth > 0 && count.month >= capMonth) return false;
-      return true;
-    });
+    const eligible = getEligibleAgents(settings, counts, minute);
 
     if (eligible.length) {
       const picked = pickBalancedEligible(eligible, counts, events, yesterdayCounts);
@@ -344,6 +382,83 @@ export async function POST(req) {
     }
   } else {
     reason = 'router_disabled';
+  }
+
+
+  let slaReassigned = 0;
+  if (settings.enabled && settings.slaEnabled) {
+    const stale = leads
+      .filter((r) => {
+        const stage = clean(r?.stage || 'New').toLowerCase();
+        if (stage !== 'new') return false;
+        if (clean(r?.calledAt)) return false;
+        if (!clean(r?.owner)) return false;
+        const ageMin = minutesSince(r?.createdAt || r?.updatedAt || '');
+        return ageMin >= Number(settings.slaMinutes || 10);
+      })
+      .sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime())
+      .slice(0, 5);
+
+    for (const row of stale) {
+      const currentOwner = clean(row.owner || '');
+      const eligibleNow = getEligibleAgents(settings, counts, minute).filter((a) => a.name !== currentOwner);
+      if (!eligibleNow.length) continue;
+
+      if (settings.slaAction === 'reassign') {
+        const picked = pickBalancedEligible(eligibleNow, counts, events, yesterdayCounts);
+        if (!picked?.name) continue;
+
+        row.owner = picked.name;
+        row.updatedAt = nowIso();
+        row.reassignedAt = nowIso();
+        row.reassignCount = Number(row.reassignCount || 0) + 1;
+
+        const toCount = counts[picked.name] || { today: 0, week: 0, month: 0 };
+        toCount.today += 1;
+        toCount.week += 1;
+        toCount.month += 1;
+        counts[picked.name] = toCount;
+
+        events.push({
+          id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          type: 'reassigned_sla',
+          timestamp: nowIso(),
+          dateKey: keys.dateKey,
+          weekKey: keys.weekKey,
+          monthKey: keys.monthKey,
+          leadId: row.id,
+          externalId: row.externalId || '',
+          name: row.name || '',
+          email: row.email || '',
+          phone: row.phone || '',
+          assignedTo: picked.name,
+          previousOwner: currentOwner,
+          reason: 'sla_reassign',
+          mode: settings.mode
+        });
+
+        await postOutboundAssignment(settings, {
+          event: 'sla_reassign',
+          assignedTo: picked.name,
+          previousOwner: currentOwner,
+          reason: 'sla_reassign',
+          timestamp: nowIso(),
+          message: `SLA reassigned lead to ${picked.name}: ${row.name} (${row.phone || row.email || 'no contact'})`,
+          lead: {
+            id: row.externalId || row.id,
+            name: row.name,
+            email: row.email,
+            phone: row.phone
+          }
+        });
+
+        slaReassigned += 1;
+      }
+    }
+
+    if (slaReassigned > 0) {
+      await saveJsonStore(CALLER_PATH, leads);
+    }
   }
 
   const existingIdx = leads.findIndex((r) => r.externalId && r.externalId === incoming.externalId);
@@ -409,5 +524,5 @@ export async function POST(req) {
     }
   });
 
-  return Response.json({ ok: true, assignedTo, reason, row });
+  return Response.json({ ok: true, assignedTo, reason, row, slaReassigned });
 }
