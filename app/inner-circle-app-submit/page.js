@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { DEFAULT_CONFIG, loadRuntimeConfig } from '../../lib/runtimeConfig';
 
 const STORAGE_KEY = 'legacy-inner-circle-policy-apps-v1';
 const FIXED_CARRIER = 'F&G';
@@ -44,7 +45,6 @@ const STATE_CODES = new Set(Object.values(STATE_NAME_TO_CODE));
 function parseFromFilename(fileName = '') {
   const raw = String(fileName || '');
   const upper = raw.toUpperCase();
-
   const stateMatch = upper.match(/\b([A-Z]{2})\b/);
   const premiumMatch = raw.match(/\$?\s*([0-9]{2,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]{2,6}(?:\.[0-9]{1,2})?)/);
   const namePart = raw.split(/[0-9$]/)[0] || '';
@@ -58,8 +58,12 @@ function parseFromFilename(fileName = '') {
 
 function extractStateFromText(text = '') {
   const upper = String(text || '').toUpperCase();
+
   const labeledCode = upper.match(/(?:STATE|ST)\s*[:\-]?\s*([A-Z]{2})\b/);
   if (labeledCode && STATE_CODES.has(labeledCode[1])) return labeledCode[1];
+
+  const cityStateZip = upper.match(/,\s*(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\s+\d{5}/);
+  if (cityStateZip) return cityStateZip[1];
 
   for (const [name, code] of Object.entries(STATE_NAME_TO_CODE)) {
     if (upper.includes(name)) return code;
@@ -117,13 +121,14 @@ export default function InnerCircleAppSubmitPage() {
   const [uploadFileName, setUploadFileName] = useState('');
   const [mappingBusy, setMappingBusy] = useState(false);
   const [mappingStatus, setMappingStatus] = useState('');
+  const [innerCircleAgents, setInnerCircleAgents] = useState(DEFAULT_CONFIG.agents || []);
 
   const [form, setForm] = useState({
     applicantName: '',
     referredByName: '',
+    policyWriterName: '',
     state: '',
     policyNumber: '',
-    initialPremium: '',
     monthlyPremium: '',
     carrier: FIXED_CARRIER,
     productName: FIXED_PRODUCT,
@@ -134,6 +139,11 @@ export default function InnerCircleAppSubmitPage() {
     if (typeof window === 'undefined') return;
     const sp = new URLSearchParams(window.location.search);
     setRef(normalizeRef(sp.get('ref') || ''));
+
+    const cfg = loadRuntimeConfig();
+    if (Array.isArray(cfg?.agents) && cfg.agents.length) {
+      setInnerCircleAgents(cfg.agents);
+    }
   }, []);
 
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -171,7 +181,6 @@ export default function InnerCircleAppSubmitPage() {
         applicantName: prev.applicantName || mapped.applicantName,
         state: prev.state || mapped.state,
         monthlyPremium: prev.monthlyPremium || mapped.monthlyPremium,
-        initialPremium: prev.initialPremium || mapped.monthlyPremium,
         carrier: FIXED_CARRIER,
         productName: FIXED_PRODUCT
       }));
@@ -186,8 +195,8 @@ export default function InnerCircleAppSubmitPage() {
     return (
       form.applicantName.trim() &&
       form.referredByName.trim() &&
+      form.policyWriterName.trim() &&
       form.state.trim() &&
-      form.initialPremium !== '' &&
       form.monthlyPremium !== ''
     );
   }, [form]);
@@ -222,9 +231,9 @@ export default function InnerCircleAppSubmitPage() {
     setForm({
       applicantName: '',
       referredByName: '',
+      policyWriterName: '',
       state: '',
       policyNumber: '',
-      initialPremium: '',
       monthlyPremium: '',
       carrier: FIXED_CARRIER,
       productName: FIXED_PRODUCT,
@@ -251,10 +260,31 @@ export default function InnerCircleAppSubmitPage() {
 
           <label>
             Referred By *
+            <select value={form.referredByName} onChange={(e) => update('referredByName', e.target.value)}>
+              <option value="">Select inner circle agent</option>
+              {innerCircleAgents.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Policy Written By *
+            <select value={form.policyWriterName} onChange={(e) => update('policyWriterName', e.target.value)}>
+              <option value="">Select policy writer</option>
+              {innerCircleAgents.map((name) => (
+                <option key={`writer-${name}`} value={name}>{name}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            State *
             <input
-              value={form.referredByName}
-              onChange={(e) => update('referredByName', e.target.value)}
-              placeholder="Agent/Upline name"
+              value={form.state}
+              onChange={(e) => update('state', e.target.value.toUpperCase())}
+              placeholder="e.g., FL"
+              maxLength={2}
             />
           </label>
 
@@ -269,30 +299,11 @@ export default function InnerCircleAppSubmitPage() {
           </label>
 
           <label>
-            State *
-            <input
-              value={form.state}
-              onChange={(e) => update('state', e.target.value.toUpperCase())}
-              placeholder="e.g., FL"
-              maxLength={2}
-            />
-          </label>
-
-          <label>
             Policy Number (Optional)
             <input
               value={form.policyNumber}
               onChange={(e) => update('policyNumber', e.target.value)}
               placeholder="Enter policy number if available"
-            />
-          </label>
-
-          <label>
-            Initial Premium *
-            <input
-              value={form.initialPremium}
-              onChange={(e) => update('initialPremium', fmtCurrency(e.target.value))}
-              placeholder="0.00"
             />
           </label>
 
