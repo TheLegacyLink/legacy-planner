@@ -23,7 +23,6 @@ function fmtCurrency(v = '') {
 export default function InnerCircleAppSubmitPage() {
   const [ref, setRef] = useState('');
   const [saved, setSaved] = useState('');
-  const [uploadFileName, setUploadFileName] = useState('');
   const [innerCircleAgents, setInnerCircleAgents] = useState(DEFAULT_CONFIG.agents || []);
 
   const [form, setForm] = useState({
@@ -81,7 +80,6 @@ export default function InnerCircleAppSubmitPage() {
       carrier: FIXED_CARRIER,
       productName: FIXED_PRODUCT,
       refCode: ref,
-      illustrationFileName: uploadFileName,
       submittedAt: new Date().toISOString()
     };
 
@@ -96,7 +94,6 @@ export default function InnerCircleAppSubmitPage() {
     }
 
     setSaved('Application submitted successfully.');
-    setUploadFileName('');
     setForm({
       applicantName: '',
       referredByName: '',
@@ -197,18 +194,6 @@ export default function InnerCircleAppSubmitPage() {
               placeholder="0.00"
             />
           </label>
-
-          <div style={{ gridColumn: '1 / -1' }}>
-            <label>
-              Policy Documents (optional upload)
-              <input
-                type="file"
-                accept=".png,.jpg,.jpeg,.pdf"
-                onChange={(e) => setUploadFileName(e.target.files?.[0]?.name || '')}
-              />
-            </label>
-            <small className="muted">File: {uploadFileName || 'Not uploaded yet'}</small>
-          </div>
 
           <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
             <button type="submit" disabled={!canSubmit}>Submit Application</button>
