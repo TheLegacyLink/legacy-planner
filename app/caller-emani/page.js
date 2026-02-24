@@ -19,6 +19,16 @@ const STAGES = [
   'Onboarding Started'
 ];
 
+const CALL_RESULTS = [
+  'Missed Call',
+  'Voicemail Left',
+  'Do Not Disturb',
+  'No Answer',
+  'Wrong Number',
+  'Spoke - Follow-Up',
+  'Spoke - Booked'
+];
+
 const MOVE_FORWARD_STAGE = 'Onboarding Started';
 const KIMORA_SPONSORSHIP_LINK = 'https://innercirclelink.com/sponsorship-signup?ref=kimora_link';
 
@@ -261,6 +271,25 @@ export default function CallerEmaniPage() {
     }
   }
 
+  async function logCallResult(row, callResult) {
+    if (!callResult) return;
+    setSyncing(true);
+    try {
+      const now = new Date().toISOString();
+      await updateRow(row.id, {
+        callResult,
+        callAttempts: Number(row.callAttempts || 0) + 1,
+        lastCallAttemptAt: now,
+        calledAt: row.calledAt || now,
+        stage: row.stage === 'New' ? 'Called' : row.stage
+      });
+    } catch (error) {
+      window.alert(`Call log update failed: ${error?.message || 'unknown_error'}`);
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   async function removeLead(id) {
     if (!confirm('Delete this lead?')) return;
     setSyncing(true);
@@ -326,7 +355,7 @@ export default function CallerEmaniPage() {
 
   function exportCsv() {
     const headers = [
-      'name', 'email', 'phone', 'licensedStatus', 'stage', 'source', 'notes',
+      'name', 'email', 'phone', 'licensedStatus', 'stage', 'callResult', 'callAttempts', 'lastCallAttemptAt', 'source', 'notes',
       'calledAt', 'connectedAt', 'qualifiedAt', 'formSentAt', 'inviteSentAt', 'formCompletedAt',
       'policyStartedAt', 'approvedAt', 'onboardingStartedAt', 'movedForwardAt',
       'createdAt', 'updatedAt'
@@ -535,7 +564,7 @@ export default function CallerEmaniPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  {['Name', 'Email', 'Phone', 'Licensed', 'Stage', 'Quick Update', 'Notes', 'Updated', 'Payout', 'Actions'].map((h) => (
+                  {['Name', 'Email', 'Phone', 'Licensed', 'Stage', 'Call Log', 'Quick Update', 'Notes', 'Updated', 'Payout', 'Actions'].map((h) => (
                     <th key={h} style={{ textAlign: 'left', borderBottom: '1px solid #e2e8f0', padding: 8 }}>{h}</th>
                   ))}
                 </tr>
@@ -561,6 +590,21 @@ export default function CallerEmaniPage() {
                       </select>
                     </td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}><strong>{row.stage}</strong></td>
+                    <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9', minWidth: 210 }}>
+                      <select
+                        value={row.callResult || ''}
+                        onChange={(e) => logCallResult(row, e.target.value)}
+                        style={{ width: '100%' }}
+                      >
+                        <option value="">Log call result…</option>
+                        {CALL_RESULTS.map((x) => <option key={x} value={x}>{x}</option>)}
+                      </select>
+                      <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
+                        Attempts: <strong>{Number(row.callAttempts || 0)}</strong>
+                        <br />
+                        Last: {fmtDateTime(row.lastCallAttemptAt)}
+                      </div>
+                    </td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>
                       <select value={row.stage} onChange={(e) => setStage(row, e.target.value)}>
                         {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -600,7 +644,7 @@ export default function CallerEmaniPage() {
                 })}
                 {!rows.length ? (
                   <tr>
-                    <td colSpan={10} style={{ padding: 14, color: '#64748b' }}>No leads yet. Add first lead above.</td>
+                    <td colSpan={11} style={{ padding: 14, color: '#64748b' }}>No leads yet. Add first lead above.</td>
                   </tr>
                 ) : null}
               </tbody>
