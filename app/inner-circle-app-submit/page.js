@@ -252,34 +252,48 @@ export default function InnerCircleAppSubmitPage() {
       const fromFilename = parseFromFilename(file.name || '');
       let fromText = { applicantName: '', state: '', monthlyPremium: '' };
 
+      // Server OCR first (most reliable across devices)
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch('/api/illustration-map', { method: 'POST', body: fd });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.ok && data?.mapped) {
+          fromText = {
+            applicantName: data.mapped.applicantName || '',
+            state: data.mapped.state || '',
+            monthlyPremium: data.mapped.monthlyPremium || ''
+          };
+        }
+      } catch {
+        // fall back to client OCR
+      }
+
       const fileType = String(file.type || '').toLowerCase();
 
-      if (fileType.startsWith('image/')) {
-        const fullText = await extractTextFromImage(file);
+      if (!fromText.state || !fromText.monthlyPremium || !fromText.applicantName) {
+        if (fileType.startsWith('image/')) {
+          const fullText = await extractTextFromImage(file);
 
-        // Targeted crop OCR for the exact illustration layout:
-        // - State is near upper-middle left
-        // - Initial/Monthly premium is near upper-right
-        const stateRegionText = await extractTextFromImageRegion(file, { x: 0.28, y: 0.08, w: 0.28, h: 0.28 });
-        const premiumRegionText = await extractTextFromImageRegion(file, { x: 0.56, y: 0.06, w: 0.42, h: 0.34 });
+          const stateRegionText = await extractTextFromImageRegion(file, { x: 0.28, y: 0.08, w: 0.28, h: 0.28 });
+          const premiumRegionText = await extractTextFromImageRegion(file, { x: 0.56, y: 0.06, w: 0.42, h: 0.34 });
 
-        const state = extractStateFromText(`${stateRegionText}\n${fullText}`);
-        const monthlyPremium = extractPremiumFromText(`${premiumRegionText}\n${fullText}`);
+          const state = extractStateFromText(`${stateRegionText}\n${fullText}`) || fromText.state;
+          const monthlyPremium = extractPremiumFromText(`${premiumRegionText}\n${fullText}`) || fromText.monthlyPremium;
 
-        fromText = {
-          applicantName: extractNameFromText(fullText),
-          state,
-          monthlyPremium
-        };
-      } else if (fileType.includes('pdf') || String(file.name || '').toLowerCase().endsWith('.pdf')) {
-        const text = await extractTextFromPdf(file);
-        fromText = {
-          applicantName: extractNameFromText(text),
-          state: extractStateFromText(text),
-          monthlyPremium: extractPremiumFromText(text)
-        };
-      } else {
-        setMappingStatus('Unsupported file type for OCR. Used filename mapping only.');
+          fromText = {
+            applicantName: fromText.applicantName || extractNameFromText(fullText),
+            state,
+            monthlyPremium
+          };
+        } else if (fileType.includes('pdf') || String(file.name || '').toLowerCase().endsWith('.pdf')) {
+          const text = await extractTextFromPdf(file);
+          fromText = {
+            applicantName: fromText.applicantName || extractNameFromText(text),
+            state: fromText.state || extractStateFromText(text),
+            monthlyPremium: fromText.monthlyPremium || extractPremiumFromText(text)
+          };
+        }
       }
 
       const mapped = {
