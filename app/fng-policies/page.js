@@ -429,6 +429,26 @@ export default function FngPoliciesPage() {
       });
   }, [enriched, statusFilter, programFilter, queueFilter, search]);
 
+  async function sendCatchupDocsSentEmails() {
+    const candidates = enriched.filter((r) => r.req_docs_sent && !r.req_followup_sent && r.owner_email_clean);
+    if (!candidates.length) {
+      alert('No docs-sent rows waiting for follow-up email.');
+      return;
+    }
+
+    let sent = 0;
+    for (const row of candidates) {
+      const ok = await sendRequirementEmail(row);
+      if (ok) {
+        sent += 1;
+        const policy = String(row.policy_number || '').toUpperCase();
+        await saveRequirementsPatch(policy, { followupSentAt: new Date().toISOString() });
+      }
+    }
+
+    alert(`Sent ${sent} follow-up email(s).`);
+  }
+
   const stats = useMemo(() => {
     const out = {
       total: filtered.length,
@@ -485,6 +505,7 @@ export default function FngPoliciesPage() {
         <div className="panelRow" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
           <button type="button" onClick={exportOverrides}>Export Tags</button>
           <button type="button" onClick={() => importRef.current?.click()}>Import Tags</button>
+          <button type="button" className="ghost" onClick={sendCatchupDocsSentEmails}>Send Catch-up Emails (Docs Sent)</button>
           <input
             ref={importRef}
             type="file"
