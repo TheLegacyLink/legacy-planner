@@ -162,25 +162,33 @@ export async function POST(req) {
       return false;
     });
 
-    if (idx < 0) {
-      return Response.json({ ok: false, error: 'lead_not_found' }, { status: 404 });
+    let targetIdx = idx;
+    if (targetIdx < 0) {
+      const seeded = parseLeadPayload({
+        ...candidate,
+        source: clean(candidate.source || body.source || 'Activity Webhook') || 'Activity Webhook',
+        assignedTo: clean(body?.owner || candidate?.owner || ''),
+        assignedToName: clean(body?.owner || candidate?.owner || '')
+      });
+      store.push(seeded);
+      targetIdx = store.length - 1;
     }
 
     const now = nowIso();
     const patch = { updatedAt: now };
 
-    if (eventType.includes('called') || eventType === 'call') patch.calledAt = store[idx].calledAt || now;
-    if (eventType.includes('connect')) patch.connectedAt = store[idx].connectedAt || now;
-    if (eventType.includes('qualif')) patch.qualifiedAt = store[idx].qualifiedAt || now;
-    if (eventType.includes('form_sent') || eventType.includes('invite')) patch.formSentAt = store[idx].formSentAt || now;
-    if (eventType.includes('form_completed') || eventType.includes('submitted')) patch.formCompletedAt = store[idx].formCompletedAt || now;
+    if (eventType.includes('called') || eventType === 'call') patch.calledAt = store[targetIdx].calledAt || now;
+    if (eventType.includes('connect')) patch.connectedAt = store[targetIdx].connectedAt || now;
+    if (eventType.includes('qualif')) patch.qualifiedAt = store[targetIdx].qualifiedAt || now;
+    if (eventType.includes('form_sent') || eventType.includes('invite')) patch.formSentAt = store[targetIdx].formSentAt || now;
+    if (eventType.includes('form_completed') || eventType.includes('submitted')) patch.formCompletedAt = store[targetIdx].formCompletedAt || now;
 
     if (body?.stage) patch.stage = clean(body.stage);
     if (body?.owner) patch.owner = normalizeOwner(body.owner);
 
-    store[idx] = { ...store[idx], ...patch };
+    store[targetIdx] = { ...store[targetIdx], ...patch };
     await writeStore(store);
-    return Response.json({ ok: true, row: store[idx], upsert: 'activity' });
+    return Response.json({ ok: true, row: store[targetIdx], upsert: idx < 0 ? 'activity_seeded' : 'activity' });
   }
 
   if (!validateToken(req, body)) {
