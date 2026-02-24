@@ -152,7 +152,7 @@ function randomPick(arr = []) {
   return arr[i];
 }
 
-function pickBalancedEligible(eligible = [], counts = {}, events = []) {
+function pickBalancedEligible(eligible = [], counts = {}, events = [], yesterdayCounts = {}) {
   if (!eligible.length) return null;
 
   const recentAssigned = [...events]
@@ -169,6 +169,12 @@ function pickBalancedEligible(eligible = [], counts = {}, events = []) {
 
   const minToday = Math.min(...eligible.map((a) => Number(counts[a.name]?.today || 0)));
   let pool = eligible.filter((a) => Number(counts[a.name]?.today || 0) === minToday);
+
+  // Carry-over fairness: among today's lowest, prioritize who got fewer leads yesterday
+  if (pool.length > 1) {
+    const minYesterday = Math.min(...pool.map((a) => Number(yesterdayCounts[a.name] || 0)));
+    pool = pool.filter((a) => Number(yesterdayCounts[a.name] || 0) === minYesterday);
+  }
 
   // Avoid same person twice in a row when alternatives exist
   if (pool.length > 1 && lastAssignedName) {
@@ -297,6 +303,15 @@ export async function POST(req) {
   const minute = cstMinuteOfDay(now);
 
   const counts = buildAgentCounts(settings, events, keys);
+  const yesterdayKey = cstDateKey(new Date(now.getTime() - 24 * 60 * 60 * 1000));
+  const yesterdayCounts = {};
+  for (const a of settings.agents) yesterdayCounts[a.name] = 0;
+  for (const e of events) {
+    if (e?.type !== 'assigned' || e?.dateKey !== yesterdayKey) continue;
+    const owner = clean(e?.assignedTo || '');
+    if (!owner) continue;
+    yesterdayCounts[owner] = Number(yesterdayCounts[owner] || 0) + 1;
+  }
 
   let assignedTo = settings.overflowAgent || 'Kimora Link';
   let reason = 'overflow';
@@ -321,10 +336,10 @@ export async function POST(req) {
     });
 
     if (eligible.length) {
-      const picked = pickBalancedEligible(eligible, counts, events);
+      const picked = pickBalancedEligible(eligible, counts, events, yesterdayCounts);
       if (picked?.name) {
         assignedTo = picked.name;
-        reason = 'eligible_balanced';
+        reason = 'eligible_balanced_carryover';
       }
     }
   } else {
