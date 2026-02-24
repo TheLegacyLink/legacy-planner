@@ -230,11 +230,11 @@ export default function CallerEmaniPage() {
     }
   }
 
-  async function updateRow(id, patch) {
+  async function updateRow(id, patch, actor = 'Emani Manual') {
     const res = await fetch('/api/caller-leads', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, patch })
+      body: JSON.stringify({ id, patch, actor })
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data?.ok) {
@@ -263,7 +263,7 @@ export default function CallerEmaniPage() {
 
     setSyncing(true);
     try {
-      await updateRow(row.id, { stage, ...stampPatch });
+      await updateRow(row.id, { stage, ...stampPatch }, 'Emani Stage Update');
     } catch (error) {
       window.alert(`Stage update failed: ${error?.message || 'unknown_error'}`);
     } finally {
@@ -282,7 +282,7 @@ export default function CallerEmaniPage() {
         lastCallAttemptAt: now,
         calledAt: row.calledAt || now,
         stage: row.stage === 'New' ? 'Called' : row.stage
-      });
+      }, 'Emani Call Log');
     } catch (error) {
       window.alert(`Call log update failed: ${error?.message || 'unknown_error'}`);
     } finally {
@@ -589,7 +589,14 @@ export default function CallerEmaniPage() {
                         {['Unknown', 'Licensed', 'Unlicensed'].map((x) => <option key={x} value={x}>{x}</option>)}
                       </select>
                     </td>
-                    <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}><strong>{row.stage}</strong></td>
+                    <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>
+                      <strong>{row.stage}</strong>
+                      <div style={{ marginTop: 6, fontSize: 11, color: '#64748b' }}>
+                        By: {row.stageUpdatedBy || '—'}
+                        <br />
+                        At: {fmtDateTime(row.stageUpdatedAt)}
+                      </div>
+                    </td>
                     <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9', minWidth: 210 }}>
                       <select
                         value={row.callResult || ''}

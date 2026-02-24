@@ -48,6 +48,17 @@ function isCallResultValue(v = '') {
   return CALL_RESULT_VALUES.has(clean(v).toLowerCase());
 }
 
+function withStageAudit(prevStage = 'New', nextStage = 'New', actor = 'System') {
+  const from = clean(prevStage || 'New') || 'New';
+  const to = clean(nextStage || from) || from;
+  if (from === to) return {};
+  return {
+    stage: to,
+    stageUpdatedAt: nowIso(),
+    stageUpdatedBy: clean(actor || 'System') || 'System'
+  };
+}
+
 function parseLeadPayload(body = {}) {
   const candidate = body?.lead || body?.contact || body || {};
 
@@ -96,6 +107,8 @@ function parseLeadPayload(body = {}) {
     approvedAt: '',
     onboardingStartedAt: '',
     movedForwardAt: '',
+    stageUpdatedAt: clean(candidate.stageUpdatedAt || candidate.stage_updated_at || ''),
+    stageUpdatedBy: clean(candidate.stageUpdatedBy || candidate.stage_updated_by || body.stageUpdatedBy || body.stage_updated_by || ''),
     createdAt: nowIso(),
     updatedAt: nowIso()
   };
@@ -153,6 +166,8 @@ export async function POST(req) {
       approvedAt: '',
       onboardingStartedAt: '',
       movedForwardAt: '',
+      stageUpdatedAt: nowIso(),
+      stageUpdatedBy: 'Manual Create',
       createdAt: nowIso(),
       updatedAt: nowIso()
     };
@@ -196,6 +211,7 @@ export async function POST(req) {
 
     const now = nowIso();
     const patch = { updatedAt: now };
+    const actor = clean(body?.actor || 'System Activity');
 
     if (eventType.includes('called') || eventType === 'call') patch.calledAt = store[targetIdx].calledAt || now;
     if (eventType.includes('connect')) patch.connectedAt = store[targetIdx].connectedAt || now;
@@ -203,7 +219,9 @@ export async function POST(req) {
     if (eventType.includes('form_sent') || eventType.includes('invite')) patch.formSentAt = store[targetIdx].formSentAt || now;
     if (eventType.includes('form_completed') || eventType.includes('submitted')) patch.formCompletedAt = store[targetIdx].formCompletedAt || now;
 
-    if (body?.stage) patch.stage = clean(body.stage);
+    if (body?.stage) {
+      Object.assign(patch, withStageAudit(store[targetIdx]?.stage, clean(body.stage), actor));
+    }
     if (body?.owner) patch.owner = normalizeOwner(body.owner);
 
     store[targetIdx] = { ...store[targetIdx], ...patch };
@@ -230,9 +248,16 @@ export async function POST(req) {
     return Response.json({ ok: true, row: store[idx], upsert: 'updated' });
   }
 
-  store.push(incoming);
+  const inserted = {
+    ...incoming,
+    stage: clean(incoming.stage || 'New') || 'New',
+    stageUpdatedAt: incoming.stageUpdatedAt || nowIso(),
+    stageUpdatedBy: incoming.stageUpdatedBy || 'System Intake'
+  };
+
+  store.push(inserted);
   await writeStore(store);
-  return Response.json({ ok: true, row: incoming, upsert: 'inserted' });
+  return Response.json({ ok: true, row: inserted, upsert: 'inserted' });
 }
 
 export async function PATCH(req) {
@@ -245,6 +270,7 @@ export async function PATCH(req) {
   if (idx < 0) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
 
   const patch = { ...(body?.patch || {}) };
+  const actor = clean(body?.actor || 'Manual Update') || 'Manual Update';
 
   // Safety rail: logging a call result (no answer/voicemail/DND/etc.) should never auto-jump stages.
   if (isCallResultValue(patch.callResult)) {
@@ -255,7 +281,16 @@ export async function PATCH(req) {
     }
   }
 
-  store[idx] = { ...store[idx], ...patch, updatedAt: nowIso() };
+  const currentStage = clean(store[idx]?.stage || 'New') || 'New';
+  const requestedStage = clean(patch.stage || currentStage) || currentStage;
+  const stageAudit = withStageAudit(currentStage, requestedStage, actor);
+
+  store[idx] = {
+    ...store[idx],
+    ...patch,
+    ...stageAudit,
+    updatedAt: nowIso()
+  };
   await writeStore(store);
   return Response.json({ ok: true, row: store[idx] });
 }
