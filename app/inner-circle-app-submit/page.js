@@ -141,15 +141,27 @@ function extractNameFromText(text = '') {
   return '';
 }
 
-async function extractTextFromImage(file) {
-  const { createWorker } = await import('tesseract.js');
-  const worker = await createWorker('eng');
-  try {
-    const result = await worker.recognize(file);
-    return String(result?.data?.text || '');
-  } finally {
-    await worker.terminate();
+let ocrWorkerPromise;
+
+async function getOcrWorker() {
+  if (!ocrWorkerPromise) {
+    ocrWorkerPromise = (async () => {
+      const { createWorker, PSM } = await import('tesseract.js');
+      const worker = await createWorker('eng');
+      await worker.setParameters({
+        tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+        preserve_interword_spaces: '1'
+      });
+      return worker;
+    })();
   }
+  return ocrWorkerPromise;
+}
+
+async function extractTextFromImage(fileOrBlob) {
+  const worker = await getOcrWorker();
+  const result = await worker.recognize(fileOrBlob);
+  return String(result?.data?.text || '');
 }
 
 async function loadImageBitmapFromFile(file) {
@@ -167,23 +179,22 @@ async function loadImageBitmapFromFile(file) {
   }
 }
 
-async function extractTextFromImageRegion(file, region) {
+async function cropTopSummaryBlobFromImage(file) {
   const img = await loadImageBitmapFromFile(file);
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
-  const sx = Math.max(0, Math.floor(img.width * region.x));
-  const sy = Math.max(0, Math.floor(img.height * region.y));
-  const sw = Math.max(1, Math.floor(img.width * region.w));
-  const sh = Math.max(1, Math.floor(img.height * region.h));
+  const sx = 0;
+  const sy = Math.floor(img.height * 0.04);
+  const sw = img.width;
+  const sh = Math.max(1, Math.floor(img.height * 0.33));
 
   canvas.width = sw;
   canvas.height = sh;
   ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
 
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-  if (!blob) return '';
-  return extractTextFromImage(blob);
+  return blob || file;
 }
 
 async function extractTextFromPdf(file) {
@@ -195,7 +206,7 @@ async function extractTextFromPdf(file) {
   const pdf = await task.promise;
   const page = await pdf.getPage(1);
 
-  const viewport = page.getViewport({ scale: 2 });
+  const viewport = page.getViewport({ scale: 1.4 });
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   canvas.width = Math.floor(viewport.width);
@@ -203,7 +214,16 @@ async function extractTextFromPdf(file) {
 
   await page.render({ canvasContext: ctx, viewport }).promise;
 
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  // OCR only the summary band at top for speed
+  const crop = document.createElement('canvas');
+  const cropCtx = crop.getContext('2d');
+  const sy = Math.floor(canvas.height * 0.04);
+  const sh = Math.max(1, Math.floor(canvas.height * 0.33));
+  crop.width = canvas.width;
+  crop.height = sh;
+  cropCtx.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh);
+
+  const blob = await new Promise((resolve) => crop.toBlob(resolve, 'image/png'));
   if (!blob) return '';
   return extractTextFromImage(blob);
 }
@@ -251,49 +271,25 @@ export default function InnerCircleAppSubmitPage() {
     try {
       const fromFilename = parseFromFilename(file.name || '');
       let fromText = { applicantName: '', state: '', monthlyPremium: '' };
-
-      // Server OCR first (most reliable across devices)
-      try {
-        const fd = new FormData();
-        fd.append('file', file);
-        const res = await fetch('/api/illustration-map', { method: 'POST', body: fd });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data?.ok && data?.mapped) {
-          fromText = {
-            applicantName: data.mapped.applicantName || '',
-            state: data.mapped.state || '',
-            monthlyPremium: data.mapped.monthlyPremium || ''
-          };
-        }
-      } catch {
-        // fall back to client OCR
-      }
-
       const fileType = String(file.type || '').toLowerCase();
 
-      if (!fromText.state || !fromText.monthlyPremium || !fromText.applicantName) {
-        if (fileType.startsWith('image/')) {
-          const fullText = await extractTextFromImage(file);
+      setMappingStatus('Mapping top summary section...');
 
-          const stateRegionText = await extractTextFromImageRegion(file, { x: 0.28, y: 0.08, w: 0.28, h: 0.28 });
-          const premiumRegionText = await extractTextFromImageRegion(file, { x: 0.56, y: 0.06, w: 0.42, h: 0.34 });
-
-          const state = extractStateFromText(`${stateRegionText}\n${fullText}`) || fromText.state;
-          const monthlyPremium = extractPremiumFromText(`${premiumRegionText}\n${fullText}`) || fromText.monthlyPremium;
-
-          fromText = {
-            applicantName: fromText.applicantName || extractNameFromText(fullText),
-            state,
-            monthlyPremium
-          };
-        } else if (fileType.includes('pdf') || String(file.name || '').toLowerCase().endsWith('.pdf')) {
-          const text = await extractTextFromPdf(file);
-          fromText = {
-            applicantName: fromText.applicantName || extractNameFromText(text),
-            state: fromText.state || extractStateFromText(text),
-            monthlyPremium: fromText.monthlyPremium || extractPremiumFromText(text)
-          };
-        }
+      if (fileType.startsWith('image/')) {
+        const topBlob = await cropTopSummaryBlobFromImage(file);
+        const topText = await extractTextFromImage(topBlob);
+        fromText = {
+          applicantName: extractNameFromText(topText),
+          state: extractStateFromText(topText),
+          monthlyPremium: extractPremiumFromText(topText)
+        };
+      } else if (fileType.includes('pdf') || String(file.name || '').toLowerCase().endsWith('.pdf')) {
+        const text = await extractTextFromPdf(file);
+        fromText = {
+          applicantName: extractNameFromText(text),
+          state: extractStateFromText(text),
+          monthlyPremium: extractPremiumFromText(text)
+        };
       }
 
       const mapped = {
