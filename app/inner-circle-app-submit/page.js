@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { DEFAULT_CONFIG, loadRuntimeConfig } from '../../lib/runtimeConfig';
 
 const STORAGE_KEY = 'legacy-inner-circle-policy-apps-v1';
+const SESSION_KEY = 'legacy-inner-circle-submit-session-v1';
 const FIXED_CARRIER = 'F&G';
 const FIXED_PRODUCT = 'IUL Pathsetter';
 
@@ -23,7 +23,14 @@ function fmtCurrency(v = '') {
 export default function InnerCircleAppSubmitPage() {
   const [ref, setRef] = useState('');
   const [saved, setSaved] = useState('');
-  const [innerCircleAgents, setInnerCircleAgents] = useState(DEFAULT_CONFIG.agents || []);
+
+  const [authLoading, setAuthLoading] = useState(true);
+  const [session, setSession] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [loginName, setLoginName] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loginBusy, setLoginBusy] = useState(false);
 
   const [form, setForm] = useState({
     applicantName: '',
@@ -43,10 +50,30 @@ export default function InnerCircleAppSubmitPage() {
     const sp = new URLSearchParams(window.location.search);
     setRef(normalizeRef(sp.get('ref') || ''));
 
-    const cfg = loadRuntimeConfig();
-    if (Array.isArray(cfg?.agents) && cfg.agents.length) {
-      setInnerCircleAgents(cfg.agents);
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.name) setSession(parsed);
+      }
+    } catch {
+      // ignore
     }
+
+    async function loadUsers() {
+      try {
+        const res = await fetch('/api/inner-circle-auth', { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.ok && Array.isArray(data.users)) {
+          setUsers(data.users);
+          if (!loginName && data.users[0]?.name) setLoginName(data.users[0].name);
+        }
+      } finally {
+        setAuthLoading(false);
+      }
+    }
+
+    loadUsers();
   }, []);
 
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -65,9 +92,40 @@ export default function InnerCircleAppSubmitPage() {
     );
   }, [form]);
 
+  async function login(e) {
+    e.preventDefault();
+    setLoginError('');
+    setLoginBusy(true);
+    try {
+      const res = await fetch('/api/inner-circle-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: loginName, password: loginPassword })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok || !data?.user) {
+        setLoginError('Invalid login. Please check your password.');
+        return;
+      }
+
+      setSession(data.user);
+      localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
+      setLoginPassword('');
+    } catch {
+      setLoginError('Login failed. Please retry.');
+    } finally {
+      setLoginBusy(false);
+    }
+  }
+
+  function logout() {
+    setSession(null);
+    if (typeof window !== 'undefined') localStorage.removeItem(SESSION_KEY);
+  }
+
   const submit = (e) => {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit || !session?.name) return;
 
     const effectivePolicyWriter = form.policyWriterName === 'Other'
       ? form.policyWriterOtherName.trim()
@@ -79,6 +137,8 @@ export default function InnerCircleAppSubmitPage() {
       policyWriterName: effectivePolicyWriter,
       carrier: FIXED_CARRIER,
       productName: FIXED_PRODUCT,
+      submittedBy: session.name,
+      submittedByRole: session.role || 'submitter',
       refCode: ref,
       submittedAt: new Date().toISOString()
     };
@@ -108,11 +168,56 @@ export default function InnerCircleAppSubmitPage() {
     });
   };
 
+  if (authLoading) {
+    return (
+      <main className="publicPage">
+        <div className="panel" style={{ maxWidth: 480 }}>
+          <h3 style={{ marginTop: 0 }}>Loading...</h3>
+        </div>
+      </main>
+    );
+  }
+
+  if (!session) {
+    return (
+      <main className="publicPage">
+        <div className="panel" style={{ maxWidth: 480 }}>
+          <h3 style={{ marginTop: 0 }}>Inner Circle Login</h3>
+          <p className="muted" style={{ marginTop: -2 }}>Use your individual password to access policy submission.</p>
+
+          <form className="settingsGrid" onSubmit={login}>
+            <label>
+              Name
+              <select value={loginName} onChange={(e) => setLoginName(e.target.value)}>
+                {users.map((u) => (
+                  <option key={u.name} value={u.name}>{u.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Password
+              <input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
+            </label>
+            <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
+              <button type="submit" disabled={loginBusy}>{loginBusy ? 'Signing in...' : 'Sign In'}</button>
+            </div>
+            {loginError ? <p className="red">{loginError}</p> : null}
+          </form>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="publicPage">
       <div className="panel" style={{ maxWidth: 840 }}>
-        <h3 style={{ marginTop: 0 }}>Policy Details</h3>
-        <p className="muted" style={{ marginTop: -2 }}>Fill out the information below to submit your policy.</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div>
+            <h3 style={{ marginTop: 0, marginBottom: 4 }}>Policy Details</h3>
+            <p className="muted" style={{ margin: 0 }}>Signed in as {session.name}</p>
+          </div>
+          <button type="button" className="ghost" onClick={logout}>Log Out</button>
+        </div>
         {ref ? <p className="pill onpace">Referral code locked: {ref}</p> : null}
 
         <form className="settingsGrid" onSubmit={submit}>
@@ -129,8 +234,8 @@ export default function InnerCircleAppSubmitPage() {
             Referred By *
             <select value={form.referredByName} onChange={(e) => update('referredByName', e.target.value)}>
               <option value="">Select inner circle agent</option>
-              {innerCircleAgents.map((name) => (
-                <option key={name} value={name}>{name}</option>
+              {users.map((u) => (
+                <option key={`ref-${u.name}`} value={u.name}>{u.name}</option>
               ))}
             </select>
           </label>
@@ -139,8 +244,8 @@ export default function InnerCircleAppSubmitPage() {
             Policy Written By *
             <select value={form.policyWriterName} onChange={(e) => update('policyWriterName', e.target.value)}>
               <option value="">Select policy writer</option>
-              {innerCircleAgents.map((name) => (
-                <option key={`writer-${name}`} value={name}>{name}</option>
+              {users.map((u) => (
+                <option key={`writer-${u.name}`} value={u.name}>{u.name}</option>
               ))}
               <option value="Other">Other</option>
             </select>

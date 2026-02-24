@@ -1,0 +1,58 @@
+[
+  {
+    "name": "Kimora Link",
+    "email": "investalinkinsurance@gmail.com",
+    "role": "admin",
+    "passwordHash": "b770f4d493f2f4aea5246585818ce97d68a7240f4e92bea49da39de729a7e146",
+    "active": true
+  },
+  {
+    "name": "Jamal Holmes",
+    "email": "jamalholmes195@yahoo.com",
+    "role": "admin",
+    "passwordHash": "876418ddf3b1e60b9a712077a5f0a099785d7a728778799f60991fa48104a619",
+    "active": true
+  },
+  {
+    "name": "Mahogany Burns",
+    "email": "divinedynasty1@icloud.com",
+    "role": "submitter",
+    "passwordHash": "8d43688880820636d88b0980684c22089053721c7451905cf8f4284932f646cc",
+    "active": true
+  },
+  {
+    "name": "Leticia Wright",
+    "email": "leticiawright05@gmail.com",
+    "role": "submitter",
+    "passwordHash": "7b3cc5a39bb59272ddfaf3ad2e27ac102f5e8dea9961fe4954b1807e020eb148",
+    "active": true
+  },
+  {
+    "name": "Kelin Brown",
+    "email": "kelinb63@gmail.com",
+    "role": "submitter",
+    "passwordHash": "80aefc7bd75199cbdaca37f4be1b0ba3e37423c4e8d301e3e240140bb2ba842d",
+    "active": true
+  },
+  {
+    "name": "Madalyn Adams",
+    "email": "madalynm13@gmail.com",
+    "role": "submitter",
+    "passwordHash": "b9297f927824f37d2e90284b9176b23095e4fbd02938a219f1c71054005a2e40",
+    "active": true
+  },
+  {
+    "name": "Breanna James",
+    "email": "drboss637@gmail.com",
+    "role": "submitter",
+    "passwordHash": "6ed336cccd7c568dc5701722efe2698dd500202aaf4e365d813a8767cf8e9983",
+    "active": true
+  },
+  {
+    "name": "Emani Lee",
+    "email": "emani.daniellelee@gmail.com",
+    "role": "submitter",
+    "passwordHash": "c553b97f721c4181f9f2157dc1a4fcdb01904129eec9d9a41c855d3e1e531129",
+    "active": true
+  }
+]
