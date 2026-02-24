@@ -1,4 +1,4 @@
-import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import { loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 
 const STORE_PATH = 'stores/requirements-workflow.json';
 
@@ -11,8 +11,8 @@ function nowIso() {
 }
 
 export async function GET() {
-  const rows = await loadJsonStore(STORE_PATH, {});
-  return Response.json({ ok: true, rows: rows || {} });
+  const rows = await loadJsonFile(STORE_PATH, {});
+  return Response.json({ ok: true, rows: rows && typeof rows === 'object' && !Array.isArray(rows) ? rows : {} });
 }
 
 export async function POST(req) {
@@ -24,7 +24,8 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'missing_fields' }, { status: 400 });
   }
 
-  const store = await loadJsonStore(STORE_PATH, {});
+  const loaded = await loadJsonFile(STORE_PATH, {});
+  const store = loaded && typeof loaded === 'object' && !Array.isArray(loaded) ? loaded : {};
   const prev = store[policyNumber] || {};
 
   const next = {
@@ -35,7 +36,7 @@ export async function POST(req) {
   };
 
   store[policyNumber] = next;
-  await saveJsonStore(STORE_PATH, store);
+  await saveJsonFile(STORE_PATH, store);
 
   return Response.json({ ok: true, row: next });
 }
