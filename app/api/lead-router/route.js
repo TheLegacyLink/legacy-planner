@@ -152,6 +152,41 @@ function randomPick(arr = []) {
   return arr[i];
 }
 
+function pickBalancedEligible(eligible = [], counts = {}, events = []) {
+  if (!eligible.length) return null;
+
+  const recentAssigned = [...events]
+    .filter((e) => e?.type === 'assigned' && clean(e?.assignedTo))
+    .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+
+  const lastAssignedName = clean(recentAssigned[0]?.assignedTo || '');
+  const lastAssignedAtByName = {};
+  for (const e of recentAssigned) {
+    const name = clean(e?.assignedTo || '');
+    if (!name || lastAssignedAtByName[name]) continue;
+    lastAssignedAtByName[name] = new Date(e.timestamp || 0).getTime() || 0;
+  }
+
+  const minToday = Math.min(...eligible.map((a) => Number(counts[a.name]?.today || 0)));
+  let pool = eligible.filter((a) => Number(counts[a.name]?.today || 0) === minToday);
+
+  // Avoid same person twice in a row when alternatives exist
+  if (pool.length > 1 && lastAssignedName) {
+    const withoutLast = pool.filter((a) => a.name !== lastAssignedName);
+    if (withoutLast.length) pool = withoutLast;
+  }
+
+  // Deterministic tie-break: least recently assigned, then name
+  pool.sort((a, b) => {
+    const aTs = Number(lastAssignedAtByName[a.name] || 0);
+    const bTs = Number(lastAssignedAtByName[b.name] || 0);
+    if (aTs !== bTs) return aTs - bTs;
+    return a.name.localeCompare(b.name);
+  });
+
+  return pool[0] || null;
+}
+
 async function postOutboundAssignment(settings, payload) {
   const url = clean(settings?.outboundWebhookUrl || '');
   if (!url || !settings?.outboundEnabled) return;
@@ -286,10 +321,10 @@ export async function POST(req) {
     });
 
     if (eligible.length) {
-      const picked = settings.mode === 'random' ? randomPick(eligible) : randomPick(eligible);
+      const picked = pickBalancedEligible(eligible, counts, events);
       if (picked?.name) {
         assignedTo = picked.name;
-        reason = 'eligible_random';
+        reason = 'eligible_balanced';
       }
     }
   } else {
