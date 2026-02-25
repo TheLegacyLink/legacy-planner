@@ -10,6 +10,10 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function normalize(v = '') {
+  return clean(v).toLowerCase().replace(/\s+/g, ' ');
+}
+
 function claimerFromMessage(msg = {}) {
   const text = clean(msg?.text);
   const byPattern = text.match(/^\s*CONFIRM\s+book_[0-9]+\s*-\s*([^\-\n]+)(?:-|$)/i);
@@ -66,6 +70,26 @@ export async function POST(req) {
   if (idx < 0) {
     await tgSend(msg.chat?.id, `Booking ${bookingId} not found.`);
     return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
+  }
+
+  const currentStatus = normalize(rows[idx]?.claim_status);
+  const currentClaimer = clean(rows[idx]?.claimed_by);
+
+  // First valid confirm wins. Keep idempotent response for same claimer.
+  if (currentStatus === 'claimed' && currentClaimer) {
+    if (normalize(currentClaimer) === normalize(claimedBy)) {
+      await tgSend(
+        msg.chat?.id,
+        `✅ Already claimed by you: ${bookingId}\nApplicant: ${rows[idx].applicant_name || 'Unknown'}\nTime: ${rows[idx].requested_at_est || '—'}`
+      );
+      return Response.json({ ok: true, bookingId, claimedBy, duplicate: true });
+    }
+
+    await tgSend(
+      msg.chat?.id,
+      `⚠️ ${bookingId} is already claimed by ${currentClaimer}.`
+    );
+    return Response.json({ ok: false, error: 'already_claimed', claimedBy: currentClaimer }, { status: 409 });
   }
 
   rows[idx] = {
