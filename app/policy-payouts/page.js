@@ -132,7 +132,7 @@ export default function PolicyPayoutsPage() {
         } else {
           await load();
         }
-        if (data?.email?.ok) setSyncMsg('Saved. Approval notification sent to agent.');
+        if (data?.email?.ok) setSyncMsg('Saved. Notification email sent to agent.');
         else setSyncMsg('Saved successfully.');
       } else {
         setSyncMsg(`Save failed: ${data?.error || 'unknown error'}`);
@@ -309,11 +309,32 @@ export default function PolicyPayoutsPage() {
                     <td>{r.state || '—'}</td>
                     <td>{fmtDate(r.submittedAt)}</td>
                     <td>
-                      {String(r.status || '').toLowerCase() === 'approved' ? (
-                        <span className="pill onpace">Approved</span>
-                      ) : (
-                        <button type="button" onClick={() => patchRow(r.id, { status: 'Approved' })}>Approve + Notify</button>
-                      )}
+                      <div style={{ display: 'grid', gap: 6 }}>
+                        {String(r.status || '').toLowerCase() === 'approved' ? (
+                          <span className="pill onpace">Approved</span>
+                        ) : String(r.status || '').toLowerCase() === 'declined' ? (
+                          <span className="pill offpace">Declined</span>
+                        ) : (
+                          <span className="pill">Submitted</span>
+                        )}
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => patchRow(r.id, { status: 'Approved' })}
+                            disabled={String(r.status || '').toLowerCase() === 'approved'}
+                          >
+                            Approve + Notify
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost"
+                            onClick={() => patchRow(r.id, { status: 'Declined' })}
+                            disabled={String(r.status || '').toLowerCase() === 'declined'}
+                          >
+                            Decline + Notify
+                          </button>
+                        </div>
+                      </div>
                     </td>
                     <td>{fmtDate(r.payoutDueAt)}</td>
                     <td>

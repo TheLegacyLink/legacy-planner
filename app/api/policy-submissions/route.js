@@ -120,6 +120,42 @@ async function sendApprovalEmail(row = {}) {
   return { ok: true, messageId: info.messageId, to: recipients };
 }
 
+async function sendDeclineEmail(row = {}) {
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  if (!user || !pass) return { ok: false, error: 'missing_gmail_env' };
+
+  const writer = clean(row.policyWriterName);
+  const writerEmail = findUserEmailByName(writer);
+  const recipients = [...new Set([writerEmail, ...adminEmails()].filter(Boolean))];
+  if (!recipients.length) return { ok: false, error: 'no_recipients' };
+
+  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+  const subject = `Policy Declined: ${row.applicantName || 'Applicant'} — next options`;
+  const text = [
+    `Hi ${writer || 'Agent'},`,
+    '',
+    'This policy has been marked as declined.',
+    '',
+    `Client: ${row.applicantName || '—'}`,
+    `Referred By: ${row.referredByName || '—'}`,
+    `Policy Writer: ${row.policyWriterName || '—'}`,
+    '',
+    'Next options to present:',
+    '1) JumpStart Program with a qualifying family member',
+    '2) Sponsorship Program with spouse (if married)',
+    '3) Sponsorship Program with a child age 18+',
+    '',
+    'Please follow up with the prospect and offer the options above.',
+    '',
+    'Thanks,'
+  ].join('\n');
+
+  const info = await tx.sendMail({ from, to: recipients.join(', '), subject, text });
+  return { ok: true, messageId: info.messageId, to: recipients };
+}
+
 function mapRefCodeToInnerCircleName(refCode = '') {
   const rc = clean(refCode).toLowerCase();
   if (!rc) return '';
@@ -235,9 +271,14 @@ export async function PATCH(req) {
   const prevStatus = clean(store[idx].status).toLowerCase();
   const nextStatus = patch.status != null ? clean(patch.status) : store[idx].status;
   const approveTransition = prevStatus !== 'approved' && clean(nextStatus).toLowerCase() === 'approved';
+  const declineTransition = prevStatus !== 'declined' && clean(nextStatus).toLowerCase() === 'declined';
 
-  const approvedAt = approveTransition ? nowIso() : (patch.approvedAt != null ? clean(patch.approvedAt) : store[idx].approvedAt);
-  const payoutDueAt = approveTransition ? followingWeekFridayIso(approvedAt) : (patch.payoutDueAt != null ? clean(patch.payoutDueAt) : store[idx].payoutDueAt);
+  const approvedAt = approveTransition
+    ? nowIso()
+    : (declineTransition ? '' : (patch.approvedAt != null ? clean(patch.approvedAt) : store[idx].approvedAt));
+  const payoutDueAt = approveTransition
+    ? followingWeekFridayIso(approvedAt)
+    : (declineTransition ? '' : (patch.payoutDueAt != null ? clean(patch.payoutDueAt) : store[idx].payoutDueAt));
 
   store[idx] = {
     ...store[idx],
@@ -259,6 +300,8 @@ export async function PATCH(req) {
   let email = null;
   if (approveTransition) {
     email = await sendApprovalEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'email_failed' }));
+  } else if (declineTransition) {
+    email = await sendDeclineEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'email_failed' }));
   }
 
   await writeStore(store);
