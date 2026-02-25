@@ -123,7 +123,7 @@ export default function InnerCircleAppSubmitPage() {
     if (typeof window !== 'undefined') localStorage.removeItem(SESSION_KEY);
   }
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (!canSubmit || !session?.name) return;
 
@@ -140,7 +140,9 @@ export default function InnerCircleAppSubmitPage() {
       submittedBy: session.name,
       submittedByRole: session.role || 'submitter',
       refCode: ref,
-      submittedAt: new Date().toISOString()
+      submittedAt: new Date().toISOString(),
+      payoutStatus: 'Unpaid',
+      payoutAmount: 0
     };
 
     if (typeof window !== 'undefined') {
@@ -151,6 +153,16 @@ export default function InnerCircleAppSubmitPage() {
         list = [];
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify([record, ...list]));
+    }
+
+    try {
+      await fetch('/api/policy-submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'upsert', record })
+      });
+    } catch {
+      // non-blocking: keep local backup
     }
 
     setSaved('Application submitted successfully.');
