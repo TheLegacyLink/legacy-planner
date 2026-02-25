@@ -266,7 +266,10 @@ export default function MissionControl() {
       const sheetTodayApprovals = Number(sponsorshipTodayApprovalsByAgent[agent] || 0);
       const pendingRevenueSync = Math.max(sheetApprovals - monthReferrals, 0);
       const todayPendingSync = Math.max(sheetTodayApprovals - todayReferrals, 0);
-      const effectiveTodayReferrals = Math.max(todayReferrals, sheetTodayApprovals);
+
+      // Today should reflect true same-day sponsorship approvals from Sponsorship Tracker,
+      // not potentially cumulative values from leaderboard "today" fields.
+      const effectiveTodayReferrals = sheetTodayApprovals;
       const roi = monthReferrals ? monthApps / monthReferrals : monthApps > 0 ? monthApps : 0;
 
       return {
