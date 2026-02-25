@@ -17,8 +17,24 @@ function fmtDate(iso = '') {
   return d.toLocaleString();
 }
 
+function normalize(v = '') {
+  return String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function bonusSplit(row) {
+  const monthly = Number(row?.monthlyPremium || 0) || 0;
+  const maxBonus = Math.min(monthly, 700);
+  const referred = normalize(row?.referredByName || '');
+  const writer = normalize(row?.policyWriterName || '');
+  const writerEligible = !!writer && !!referred && writer !== referred;
+  const writerBonus = writerEligible ? Math.min(100, maxBonus) : 0;
+  const referralBonus = Math.max(maxBonus - writerBonus, 0);
+  return { referralBonus, writerBonus, totalRecommended: maxBonus };
+}
+
 export default function PolicyPayoutsPage() {
   const [rows, setRows] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('all');
@@ -28,9 +44,15 @@ export default function PolicyPayoutsPage() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch('/api/policy-submissions', { cache: 'no-store' });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data?.ok) setRows(Array.isArray(data.rows) ? data.rows : []);
+      const [rowsRes, usersRes] = await Promise.all([
+        fetch('/api/policy-submissions', { cache: 'no-store' }),
+        fetch('/api/inner-circle-auth', { cache: 'no-store' })
+      ]);
+      const rowsData = await rowsRes.json().catch(() => ({}));
+      const usersData = await usersRes.json().catch(() => ({}));
+
+      if (rowsRes.ok && rowsData?.ok) setRows(Array.isArray(rowsData.rows) ? rowsData.rows : []);
+      if (usersRes.ok && usersData?.ok) setUsers(Array.isArray(usersData.users) ? usersData.users : []);
     } finally {
       setLoading(false);
     }
@@ -128,6 +150,9 @@ export default function PolicyPayoutsPage() {
           <button type="button" onClick={importBase44InnerCircle}>Import Base44 (Inner Circle Only)</button>
         </div>
         {syncMsg ? <p className="muted">{syncMsg}</p> : null}
+        <p className="muted" style={{ marginTop: 6 }}>
+          Bonus logic: payout max is monthly premium capped at $700. If writing agent differs from referred owner, writer gets $100 and referral owner gets remaining amount.
+        </p>
 
         <div className="settingsGrid" style={{ marginTop: 8 }}>
           <label>
@@ -161,6 +186,9 @@ export default function PolicyPayoutsPage() {
                 <th>Referred By</th>
                 <th>Policy Writer</th>
                 <th>Monthly</th>
+                <th>Referral Bonus</th>
+                <th>Writer Bonus</th>
+                <th>Recommended Total</th>
                 <th>State</th>
                 <th>Submitted</th>
                 <th>Approval</th>
@@ -172,48 +200,68 @@ export default function PolicyPayoutsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.applicantName || '—'}</td>
-                  <td>{r.referredByName || '—'}</td>
-                  <td>{r.policyWriterName || '—'}</td>
-                  <td>{money(r.monthlyPremium)}</td>
-                  <td>{r.state || '—'}</td>
-                  <td>{fmtDate(r.submittedAt)}</td>
-                  <td>
-                    {String(r.status || '').toLowerCase() === 'approved' ? (
-                      <span className="pill onpace">Approved</span>
-                    ) : (
-                      <button type="button" onClick={() => patchRow(r.id, { status: 'Approved' })}>Approve + Notify</button>
-                    )}
-                  </td>
-                  <td>{fmtDate(r.payoutDueAt)}</td>
-                  <td>
-                    <input
-                      style={{ width: 92 }}
-                      defaultValue={Number(r.payoutAmount || 0)}
-                      onBlur={(e) => patchRow(r.id, { payoutAmount: Number(e.target.value || 0) || 0 })}
-                    />
-                  </td>
-                  <td>
-                    <select
-                      value={r.payoutStatus || 'Unpaid'}
-                      onChange={(e) => patchRow(r.id, {
-                        payoutStatus: e.target.value,
-                        payoutPaidAt: e.target.value === 'Paid' ? new Date().toISOString() : '',
-                        payoutPaidBy: e.target.value === 'Paid' ? 'Kimora' : ''
-                      })}
-                    >
-                      <option value="Unpaid">Unpaid</option>
-                      <option value="Paid">Paid</option>
-                    </select>
-                  </td>
-                  <td>{fmtDate(r.payoutPaidAt)}</td>
-                  <td>{r.payoutPaidBy || '—'}</td>
-                </tr>
-              ))}
+              {filtered.map((r) => {
+                const split = bonusSplit(r);
+                return (
+                  <tr key={r.id}>
+                    <td>{r.applicantName || '—'}</td>
+                    <td>{r.referredByName || '—'}</td>
+                    <td>
+                      <select
+                        value={r.policyWriterName || ''}
+                        onChange={(e) => patchRow(r.id, { policyWriterName: e.target.value })}
+                      >
+                        <option value="">Select writer</option>
+                        {users.map((u) => <option key={`writer-${u.name}`} value={u.name}>{u.name}</option>)}
+                        <option value="Other">Other</option>
+                      </select>
+                    </td>
+                    <td>{money(r.monthlyPremium)}</td>
+                    <td>{money(split.referralBonus)}</td>
+                    <td>{money(split.writerBonus)}</td>
+                    <td>{money(split.totalRecommended)}</td>
+                    <td>{r.state || '—'}</td>
+                    <td>{fmtDate(r.submittedAt)}</td>
+                    <td>
+                      {String(r.status || '').toLowerCase() === 'approved' ? (
+                        <span className="pill onpace">Approved</span>
+                      ) : (
+                        <button type="button" onClick={() => patchRow(r.id, { status: 'Approved' })}>Approve + Notify</button>
+                      )}
+                    </td>
+                    <td>{fmtDate(r.payoutDueAt)}</td>
+                    <td>
+                      <div style={{ display: 'grid', gap: 4 }}>
+                        <input
+                          style={{ width: 92 }}
+                          defaultValue={Number(r.payoutAmount || 0)}
+                          onBlur={(e) => patchRow(r.id, { payoutAmount: Number(e.target.value || 0) || 0 })}
+                        />
+                        <button type="button" className="ghost" onClick={() => patchRow(r.id, { payoutAmount: split.totalRecommended })}>
+                          Use calc
+                        </button>
+                      </div>
+                    </td>
+                    <td>
+                      <select
+                        value={r.payoutStatus || 'Unpaid'}
+                        onChange={(e) => patchRow(r.id, {
+                          payoutStatus: e.target.value,
+                          payoutPaidAt: e.target.value === 'Paid' ? new Date().toISOString() : '',
+                          payoutPaidBy: e.target.value === 'Paid' ? 'Kimora' : ''
+                        })}
+                      >
+                        <option value="Unpaid">Unpaid</option>
+                        <option value="Paid">Paid</option>
+                      </select>
+                    </td>
+                    <td>{fmtDate(r.payoutPaidAt)}</td>
+                    <td>{r.payoutPaidBy || '—'}</td>
+                  </tr>
+                );
+              })}
               {!filtered.length ? (
-                <tr><td colSpan={12} className="muted">No policy submissions found yet.</td></tr>
+                <tr><td colSpan={15} className="muted">No policy submissions found yet.</td></tr>
               ) : null}
             </tbody>
           </table>
