@@ -141,6 +141,28 @@ export default function PolicyPayoutsPage() {
     else setSyncMsg(`Import failed: ${data?.error || 'unknown'}`);
   }
 
+
+  async function applyRecommendedToAllUnpaid() {
+    const targets = rows.filter((r) => String(r.payoutStatus || 'Unpaid').toLowerCase() !== 'paid');
+    if (!targets.length) {
+      setSyncMsg('No unpaid rows found.');
+      return;
+    }
+
+    setSyncMsg(`Applying recommended payouts to ${targets.length} unpaid rows...`);
+    for (const r of targets) {
+      const split = bonusSplit(r);
+      await fetch('/api/policy-submissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: r.id, patch: { payoutAmount: split.totalRecommended } })
+      }).catch(() => null);
+    }
+
+    await load();
+    setSyncMsg(`Applied recommended payout amounts to ${targets.length} unpaid rows.`);
+  }
+
   return (
     <AppShell title="Policy Payout Ledger">
       <div className="panel">
@@ -148,6 +170,7 @@ export default function PolicyPayoutsPage() {
           <h3 style={{ margin: 0 }}>Submitted Policies + Payout Tracker</h3>
           <button type="button" onClick={syncLocalBackup}>Sync Local App Submit Backup</button>
           <button type="button" onClick={importBase44InnerCircle}>Import Base44 (Inner Circle Only)</button>
+          <button type="button" onClick={applyRecommendedToAllUnpaid}>Apply Recommended to All Unpaid</button>
         </div>
         {syncMsg ? <p className="muted">{syncMsg}</p> : null}
         <p className="muted" style={{ marginTop: 6 }}>
