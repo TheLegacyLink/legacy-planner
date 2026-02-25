@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { loadRuntimeConfig } from '../../lib/runtimeConfig';
-import { applyReferralCorrections, loadReferralCorrections } from '../../lib/referralCorrections';
 import { loadSponsorshipBookings, saveSponsorshipBookings } from '../../lib/sponsorshipBookings';
 
 const DEFAULTS = loadRuntimeConfig();
@@ -116,19 +115,30 @@ function matchAgentFromReferrer(referrer, agents) {
   return bestScore > 0 ? best : null;
 }
 
+function mapApplicationToAgent(row, agents) {
+  const direct = row?.referralName || row?.referred_by || row?.referredBy || '';
+  let mapped = matchAgentFromReferrer(direct, agents);
+  if (mapped) return mapped;
+
+  const refCode = String(row?.refCode || row?.referral_code || '').replace(/[_-]+/g, ' ');
+  mapped = matchAgentFromReferrer(refCode, agents);
+  return mapped || null;
+}
+
 export default function MissionControl() {
   const [config, setConfig] = useState(DEFAULTS);
   const [rows, setRows] = useState([]);
   const [revenueRows, setRevenueRows] = useState([]);
   const [sponsorshipApprovalsByAgent, setSponsorshipApprovalsByAgent] = useState({});
   const [sponsorshipTodayApprovalsByAgent, setSponsorshipTodayApprovalsByAgent] = useState({});
+  const [sponsorshipAppsByAgent, setSponsorshipAppsByAgent] = useState({});
+  const [sponsorshipTodayAppsByAgent, setSponsorshipTodayAppsByAgent] = useState({});
   const [todaySponsorshipDetails, setTodaySponsorshipDetails] = useState([]);
   const [sponsorshipSyncIssue, setSponsorshipSyncIssue] = useState('');
   const [manualReviewCount, setManualReviewCount] = useState(0);
   const [bookingQueue, setBookingQueue] = useState([]);
   const [claimBy, setClaimBy] = useState('');
   const [detailsModal, setDetailsModal] = useState({ open: false, type: '' });
-  const [corrections, setCorrections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastSyncAt, setLastSyncAt] = useState(null);
@@ -137,7 +147,6 @@ export default function MissionControl() {
   useEffect(() => {
     const cfg = loadRuntimeConfig();
     setConfig(cfg);
-    setCorrections(loadReferralCorrections());
     setBookingQueue(loadSponsorshipBookings());
     setClaimBy(cfg.agents?.[0] || '');
   }, []);
@@ -166,11 +175,27 @@ export default function MissionControl() {
         const todayDetails = [];
         let sponsorshipIssue = '';
         let reviewCount = 0;
+        const monthlyApps = {};
+        const todayApps = {};
 
         if (manualReviewRes.ok) {
           const reviewJson = await manualReviewRes.json().catch(() => ({}));
           const reviewRows = Array.isArray(reviewJson?.rows) ? reviewJson.rows : [];
           reviewCount = reviewRows.filter((r) => String(r?.decision_bucket || '').toLowerCase() === 'manual_review').length;
+
+          for (const r of reviewRows) {
+            const submitted = new Date(r?.submitted_at || r?.createdAt || r?.updatedAt || 0);
+            if (Number.isNaN(submitted.getTime())) continue;
+            const mapped = mapApplicationToAgent(r, config.agents);
+            if (!mapped) continue;
+
+            if (sameMonthYear(submitted)) {
+              monthlyApps[mapped] = Number(monthlyApps[mapped] || 0) + 1;
+            }
+            if (sameDay(submitted)) {
+              todayApps[mapped] = Number(todayApps[mapped] || 0) + 1;
+            }
+          }
         }
 
         if (sponsorshipRes.ok) {
@@ -210,6 +235,8 @@ export default function MissionControl() {
         setRevenueRows(normalizeRows(revenueJson));
         setSponsorshipApprovalsByAgent(monthlyApprovals);
         setSponsorshipTodayApprovalsByAgent(todayApprovals);
+        setSponsorshipAppsByAgent(monthlyApps);
+        setSponsorshipTodayAppsByAgent(todayApps);
         setTodaySponsorshipDetails(todayDetails);
         setSponsorshipSyncIssue(sponsorshipIssue);
         setManualReviewCount(reviewCount);
@@ -232,35 +259,24 @@ export default function MissionControl() {
   }, [config.leaderboardUrl, config.revenueUrl, config.sponsorshipTrackerUrl, config.refreshIntervalSec, config.agents]);
 
   const team = useMemo(() => {
-    const baseReferralsByAgent = {};
-
-    config.agents.forEach((agent) => {
-      const match = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
-      const revenueMatch = revenueRows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
-
-      const monthlyReferrals = byScope(match, 'monthly', ['referral_count', 'referrals']);
-      const leaderboardReferrals =
-        monthlyReferrals !== null
-          ? monthlyReferrals
-          : Number(match?.referral_count ?? match?.referrals ?? (match?.event_type === 'referral' ? 1 : 0) ?? 0) || 0;
-      const fallbackReferrals = Number(revenueMatch?.activity_bonus ?? 0) || 0;
-      baseReferralsByAgent[agent] = Math.max(leaderboardReferrals, fallbackReferrals);
-    });
-
-    const adjustedReferralsByAgent = applyReferralCorrections(baseReferralsByAgent, corrections);
-
     return config.agents.map((agent) => {
       const match = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
 
-      const monthReferrals = Number(adjustedReferralsByAgent[agent] || 0);
-      const monthlyApps = byScope(match, 'monthly', ['app_submitted_count', 'apps_submitted', 'apps']);
-      const monthApps =
-        monthlyApps !== null
-          ? monthlyApps
+      const base44MonthlyAppsByAgent = byScope(match, 'monthly', ['app_submitted_count', 'apps_submitted', 'apps']);
+      const base44MonthApps =
+        base44MonthlyAppsByAgent !== null
+          ? base44MonthlyAppsByAgent
           : Number(match?.app_submitted_count ?? match?.apps_submitted ?? match?.apps ?? (match?.event_type === 'app_submitted' ? 1 : 0) ?? 0) || 0;
 
-      const todayReferrals = Number(match?.referrals_count_today ?? match?.referral_count_today ?? match?.referrals_today ?? 0) || 0;
-      const todayApps = Number(match?.apps_submitted_count_today ?? match?.app_submitted_count_today ?? match?.apps_today ?? 0) || 0;
+      const base44TodayApps = Number(match?.apps_submitted_count_today ?? match?.app_submitted_count_today ?? match?.apps_today ?? 0) || 0;
+      const localMonthApps = Number(sponsorshipAppsByAgent[agent] || 0);
+      const localTodayApps = Number(sponsorshipTodayAppsByAgent[agent] || 0);
+
+      // Sponsorship referrals are counted as completed sponsorship applications (Base44 + local app form).
+      const monthReferrals = base44MonthApps + localMonthApps;
+      const monthApps = monthReferrals;
+      const todayReferrals = base44TodayApps + localTodayApps;
+      const todayApps = todayReferrals;
 
       const sheetApprovals = Number(sponsorshipApprovalsByAgent[agent] || 0);
       const sheetTodayApprovals = Number(sponsorshipTodayApprovalsByAgent[agent] || 0);
@@ -286,7 +302,7 @@ export default function MissionControl() {
         status: getStatus(monthReferrals, monthApps)
       };
     });
-  }, [rows, revenueRows, sponsorshipApprovalsByAgent, sponsorshipTodayApprovalsByAgent, config.agents, corrections]);
+  }, [rows, sponsorshipApprovalsByAgent, sponsorshipTodayApprovalsByAgent, sponsorshipAppsByAgent, sponsorshipTodayAppsByAgent, config.agents]);
 
   const totals = useMemo(
     () =>
@@ -395,7 +411,7 @@ export default function MissionControl() {
         <div className="card">
           <p>Sponsorship Referrals ({scopeLabel})</p>
           <h2>{totals.month.referrals}</h2>
-          <span className="pill onpace">Source: Leaderboard + Revenue approvals</span>
+          <span className="pill onpace">Source: Sponsorship app submissions (Base44 + local)</span>
         </div>
         <div className="card">
           <p>Apps Submitted ({scopeLabel})</p>
@@ -421,7 +437,7 @@ export default function MissionControl() {
           <p>Sponsorship Referrals (Today)</p>
           <h2>{totals.today.referrals}</h2>
           <span className={`pill ${totals.today.pendingSync > 0 ? 'atrisk' : 'onpace'}`}>
-            {totals.today.pendingSync > 0 ? `${totals.today.pendingSync} pending Base44 sync` : 'Daily production'}
+            {totals.today.pendingSync > 0 ? `${totals.today.pendingSync} pending Base44 sync` : 'Daily app submissions'}
           </span>
           <div style={{ marginTop: 8 }}>
             <button type="button" className="ghost" onClick={() => setDetailsModal({ open: true, type: 'referrals' })}>
@@ -432,7 +448,7 @@ export default function MissionControl() {
         <div className="card">
           <p>Apps Submitted (Today)</p>
           <h2>{totals.today.apps}</h2>
-          <span className="pill onpace">Daily production</span>
+          <span className="pill onpace">Daily app submissions</span>
           <div style={{ marginTop: 8 }}>
             <button type="button" className="ghost" onClick={() => setDetailsModal({ open: true, type: 'apps' })}>
               View details below
