@@ -87,6 +87,28 @@ function adminEmails() {
     .map((u) => clean(u.email)))];
 }
 
+function emailLogoUrl() {
+  return clean(process.env.LEGACY_LINK_LOGO_URL || 'https://innercirclelink.com/legacy-link-sponsorship-badge.jpg');
+}
+
+function brandEmailFrame(title = '', bodyHtml = '') {
+  const logo = emailLogoUrl();
+  return `
+  <div style="font-family:Inter,Arial,sans-serif; background:#f8fafc; padding:20px;">
+    <div style="max-width:640px; margin:0 auto; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;">
+      <div style="padding:16px 20px; background:#0f172a; text-align:center;">
+        <img src="${logo}" alt="The Legacy Link" style="max-height:56px; width:auto; object-fit:contain;" />
+      </div>
+      <div style="padding:20px; color:#0f172a;">
+        <h2 style="margin:0 0 14px 0; font-size:20px;">${title}</h2>
+        ${bodyHtml}
+        <p style="margin:18px 0 0 0;">Keep up the great work. 💪</p>
+        <p style="margin:8px 0 0 0; color:#334155;"><strong>The Legacy Link Support Team</strong></p>
+      </div>
+    </div>
+  </div>`;
+}
+
 async function sendApprovalEmail(row = {}) {
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
@@ -101,6 +123,7 @@ async function sendApprovalEmail(row = {}) {
   const due = row.payoutDueAt ? new Date(row.payoutDueAt).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : 'next Friday';
   const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
   const subject = `Policy Approved: ${row.applicantName || 'Applicant'} — payout next week`;
+
   const text = [
     `Hi ${writer || 'Agent'},`,
     '',
@@ -113,10 +136,25 @@ async function sendApprovalEmail(row = {}) {
     '',
     `Payout timing: Expect payout the following week on Friday (${due}).`,
     '',
-    'Thanks,'
+    'Keep up the great work.',
+    '',
+    'The Legacy Link Support Team'
   ].join('\n');
 
-  const info = await tx.sendMail({ from, to: recipients.join(', '), subject, text });
+  const html = brandEmailFrame(
+    'Policy Approved',
+    `<p>Hi <strong>${writer || 'Agent'}</strong>,</p>
+     <p>Your submitted policy has been approved.</p>
+     <ul style="padding-left:18px; margin:10px 0;">
+       <li><strong>Client:</strong> ${row.applicantName || '—'}</li>
+       <li><strong>Referred By:</strong> ${row.referredByName || '—'}</li>
+       <li><strong>Policy Writer:</strong> ${row.policyWriterName || '—'}</li>
+       <li><strong>Monthly Premium:</strong> ${Number(row.monthlyPremium || 0) || 0}</li>
+     </ul>
+     <p><strong>Payout timing:</strong> Expect payout the following week on Friday (${due}).</p>`
+  );
+
+  const info = await tx.sendMail({ from, to: recipients.join(', '), subject, text, html });
   return { ok: true, messageId: info.messageId, to: recipients };
 }
 
@@ -149,10 +187,30 @@ async function sendDeclineEmail(row = {}) {
     '',
     'Please follow up with the prospect and offer the options above.',
     '',
-    'Thanks,'
+    'Keep up the great work.',
+    '',
+    'The Legacy Link Support Team'
   ].join('\n');
 
-  const info = await tx.sendMail({ from, to: recipients.join(', '), subject, text });
+  const html = brandEmailFrame(
+    'Policy Declined — Next Options',
+    `<p>Hi <strong>${writer || 'Agent'}</strong>,</p>
+     <p>This policy has been marked as declined.</p>
+     <ul style="padding-left:18px; margin:10px 0;">
+       <li><strong>Client:</strong> ${row.applicantName || '—'}</li>
+       <li><strong>Referred By:</strong> ${row.referredByName || '—'}</li>
+       <li><strong>Policy Writer:</strong> ${row.policyWriterName || '—'}</li>
+     </ul>
+     <p><strong>Next options to present:</strong></p>
+     <ol style="padding-left:18px; margin:8px 0;">
+       <li>JumpStart Program with a qualifying family member</li>
+       <li>Sponsorship Program with spouse (if married)</li>
+       <li>Sponsorship Program with a child age 18+</li>
+     </ol>
+     <p>Please follow up with the prospect and offer the options above.</p>`
+  );
+
+  const info = await tx.sendMail({ from, to: recipients.join(', '), subject, text, html });
   return { ok: true, messageId: info.messageId, to: recipients };
 }
 
