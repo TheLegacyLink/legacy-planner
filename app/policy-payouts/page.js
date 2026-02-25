@@ -32,6 +32,13 @@ function bonusSplit(row) {
   return { referralBonus, writerBonus, totalRecommended: maxBonus };
 }
 
+
+function effectivePayoutAmount(row) {
+  const explicit = Number(row?.payoutAmount || 0) || 0;
+  if (explicit > 0) return explicit;
+  return bonusSplit(row).totalRecommended;
+}
+
 export default function PolicyPayoutsPage() {
   const [rows, setRows] = useState([]);
   const [users, setUsers] = useState([]);
@@ -76,13 +83,35 @@ export default function PolicyPayoutsPage() {
     let unpaid = 0;
     let paid = 0;
     for (const r of filtered) {
-      const amt = Number(r.payoutAmount || 0) || 0;
+      const amt = effectivePayoutAmount(r);
       if (String(r.payoutStatus || 'Unpaid').toLowerCase() === 'paid') paid += amt;
       else unpaid += amt;
     }
     return { unpaid, paid, total: paid + unpaid, count: filtered.length };
   }, [filtered]);
 
+
+
+  const owedByReferralOwner = useMemo(() => {
+    const map = new Map();
+    rows
+      .filter((r) => String(r.payoutStatus || 'Unpaid').toLowerCase() !== 'paid')
+      .forEach((r) => {
+        const owner = String(r.referredByName || 'Unassigned').trim();
+        const item = {
+          id: r.id,
+          client: r.applicantName || 'Unknown',
+          writer: r.policyWriterName || '—',
+          amount: effectivePayoutAmount(r)
+        };
+        if (!map.has(owner)) map.set(owner, { owner, total: 0, items: [] });
+        const bucket = map.get(owner);
+        bucket.items.push(item);
+        bucket.total += item.amount;
+      });
+
+    return [...map.values()].sort((a, b) => b.total - a.total);
+  }, [rows]);
 
   const monthlyEarnings = useMemo(() => {
     const now = new Date();
@@ -242,6 +271,32 @@ export default function PolicyPayoutsPage() {
       </div>
 
       <div className="panel" style={{ overflowX: 'auto' }}>
+        <h3 style={{ marginTop: 0 }}>What You Owe (Grouped by Referral Owner)</h3>
+        {owedByReferralOwner.length ? (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Referral Owner</th>
+                <th>Client</th>
+                <th>Policy Writer</th>
+                <th>Amount Owed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {owedByReferralOwner.map((group) => group.items.map((item, idx) => (
+                <tr key={`${group.owner}-${item.id}`}>
+                  <td>{idx === 0 ? (<><strong>{group.owner}</strong><br /><small className="muted">Total: {money(group.total)}</small></>) : ''}</td>
+                  <td>{item.client}</td>
+                  <td>{item.writer}</td>
+                  <td>{money(item.amount)}</td>
+                </tr>
+              )))}
+            </tbody>
+          </table>
+        ) : <p className="muted">No unpaid policies in queue.</p>}
+      </div>
+
+      <div className="panel" style={{ overflowX: 'auto' }}>
         <h3 style={{ marginTop: 0 }}>Inner Circle Earnings This Month (Paid)</h3>
         {monthlyEarnings.length ? (
           <table className="table">
@@ -341,7 +396,7 @@ export default function PolicyPayoutsPage() {
                       <div style={{ display: 'grid', gap: 4 }}>
                         <input
                           style={{ width: 92 }}
-                          defaultValue={Number(r.payoutAmount || 0)}
+                          defaultValue={effectivePayoutAmount(r)}
                           onBlur={(e) => patchRow(r.id, { payoutAmount: Number(e.target.value || 0) || 0 })}
                         />
                         <button type="button" className="ghost" onClick={() => patchRow(r.id, { payoutAmount: split.totalRecommended })}>

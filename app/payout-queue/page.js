@@ -15,6 +15,28 @@ function fmtDate(iso = '') {
   return d.toLocaleString();
 }
 
+
+function normalize(v = '') {
+  return String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function bonusSplit(row) {
+  const monthly = Number(row?.monthlyPremium || 0) || 0;
+  const maxBonus = Math.min(monthly, 700);
+  const referred = normalize(row?.referredByName || '');
+  const writer = normalize(row?.policyWriterName || '');
+  const writerEligible = !!writer && !!referred && writer !== referred;
+  const writerBonus = writerEligible ? Math.min(100, maxBonus) : 0;
+  const referralBonus = Math.max(maxBonus - writerBonus, 0);
+  return { referralBonus, writerBonus, totalRecommended: maxBonus };
+}
+
+function effectivePayoutAmount(row) {
+  const explicit = Number(row?.payoutAmount || 0) || 0;
+  if (explicit > 0) return explicit;
+  return bonusSplit(row).totalRecommended;
+}
+
 function countdownLabel(ms = 0) {
   if (ms <= 0) return 'Due now';
   const totalMin = Math.floor(ms / 60000);
@@ -93,6 +115,7 @@ export default function PayoutQueuePage() {
         body: JSON.stringify({
           id: row.id,
           patch: {
+            payoutAmount: effectivePayoutAmount(row),
             payoutStatus: 'Paid',
             payoutPaidAt: new Date().toISOString(),
             payoutPaidBy: 'Kimora'
@@ -152,7 +175,7 @@ export default function PayoutQueuePage() {
                   <td>{r.referredByName || '—'}</td>
                   <td>{r.policyWriterName || '—'}</td>
                   <td>{fmtDate(r.payoutDueAt)}</td>
-                  <td>{money(r.payoutAmount)}</td>
+                  <td>{money(effectivePayoutAmount(r))}</td>
                   <td>
                     <button type="button" onClick={() => markPaid(r)} disabled={savingId === r.id}>
                       {savingId === r.id ? 'Saving...' : 'Mark Paid'}
