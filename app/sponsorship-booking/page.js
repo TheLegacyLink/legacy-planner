@@ -151,6 +151,8 @@ export default function SponsorshipBookingPage() {
     const booking = {
       id: `book_${Date.now()}`,
       source_application_id: id || record?.id || '',
+      applicant_first_name: record?.firstName || '',
+      applicant_last_name: record?.lastName || '',
       applicant_name: `${record?.firstName || ''} ${record?.lastName || ''}`.trim() || 'Unknown',
       applicant_phone: record?.phone || '',
       applicant_email: record?.email || '',
