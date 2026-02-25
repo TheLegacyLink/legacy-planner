@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import nodemailer from 'nodemailer';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 import users from '../../../data/innerCircleUsers.json';

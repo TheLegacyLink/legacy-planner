@@ -127,7 +127,11 @@ export default function PolicyPayoutsPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        await load();
+        if (data?.row?.id) {
+          setRows((prev) => prev.map((r) => (r.id === data.row.id ? { ...r, ...data.row } : r)));
+        } else {
+          await load();
+        }
         if (data?.email?.ok) setSyncMsg('Saved. Approval notification sent to agent.');
         else setSyncMsg('Saved successfully.');
       } else {
