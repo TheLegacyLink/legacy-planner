@@ -48,6 +48,15 @@ function buildSlots(startHour = 9, endHour = 21) {
   return slots;
 }
 
+function to12Hour(time24 = '') {
+  const [hRaw = '0', m = '00'] = String(time24 || '').split(':');
+  const h = Number(hRaw);
+  if (Number.isNaN(h)) return String(time24 || '');
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const hr = h % 12 === 0 ? 12 : h % 12;
+  return `${hr}:${m} ${suffix}`;
+}
+
 export default function SponsorshipBookingPage() {
   const [config, setConfig] = useState(loadRuntimeConfig());
   const [id, setId] = useState('');
@@ -137,6 +146,8 @@ export default function SponsorshipBookingPage() {
 
     const priority_expires_at = sponsorMatch ? new Date(Date.now() + priorityHours * 60 * 60 * 1000).toISOString() : null;
 
+    const requestedAt12 = `${form.date} ${to12Hour(form.time)}`;
+
     const booking = {
       id: `book_${Date.now()}`,
       source_application_id: id || record?.id || '',
@@ -146,7 +157,7 @@ export default function SponsorshipBookingPage() {
       licensed_status: record?.isLicensed === 'yes' ? 'Licensed' : 'Unlicensed',
       referred_by: referredBy,
       referral_code: record?.refCode || '',
-      requested_at_est: `${form.date} ${form.time}`,
+      requested_at_est: requestedAt12,
       score: record?.application_score || 0,
       decision_bucket: record?.decision_bucket || '',
       eligible_closers: fngEligibleClosers,
@@ -163,6 +174,7 @@ export default function SponsorshipBookingPage() {
 
     const alertText = [
       'New Sponsorship Booking',
+      `Booking ID: ${booking.id}`,
       `Referral: ${booking.referred_by}`,
       `Applicant: ${booking.applicant_name}`,
       `State: ${booking.applicant_state}`,
@@ -171,7 +183,9 @@ export default function SponsorshipBookingPage() {
       `Score: ${booking.score}`,
       sponsorMatch ? `Priority Holder (24h): ${sponsorMatch}` : 'Priority Holder (24h): none',
       `Eligible Closers: ${booking.eligible_closers.join(', ') || 'None mapped yet'}`,
-      'Please claim in Mission Control.'
+      '',
+      'Claim in Telegram (no Mission Control needed):',
+      `Reply: CONFIRM ${booking.id} - [Your Name] - I can take this.`
     ].join('\n');
 
     const notify = await sendInternalTelegram({ booking, alertText });
@@ -229,7 +243,7 @@ export default function SponsorshipBookingPage() {
             Time (EST)
             <select value={form.time} onChange={(e) => update('time', e.target.value)}>
               <option value="">Select time</option>
-              {slots.map((t) => <option key={t} value={t}>{t}</option>)}
+              {slots.map((t) => <option key={t} value={t}>{to12Hour(t)}</option>)}
             </select>
           </label>
 
