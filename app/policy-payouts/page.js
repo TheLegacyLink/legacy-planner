@@ -83,6 +83,40 @@ export default function PolicyPayoutsPage() {
     return { unpaid, paid, total: paid + unpaid, count: filtered.length };
   }, [filtered]);
 
+
+  const monthlyEarnings = useMemo(() => {
+    const now = new Date();
+    const month = now.getMonth();
+    const year = now.getFullYear();
+    const map = new Map();
+
+    const add = (name, amount) => {
+      const n = String(name || '').trim();
+      const amt = Number(amount || 0) || 0;
+      if (!n || amt <= 0) return;
+      map.set(n, Number(map.get(n) || 0) + amt);
+    };
+
+    rows.forEach((r) => {
+      if (String(r.payoutStatus || '').toLowerCase() !== 'paid') return;
+      const paidAt = r.payoutPaidAt ? new Date(r.payoutPaidAt) : null;
+      if (!paidAt || Number.isNaN(paidAt.getTime())) return;
+      if (paidAt.getMonth() !== month || paidAt.getFullYear() !== year) return;
+
+      const split = bonusSplit(r);
+      add(r.referredByName, split.referralBonus);
+      if (split.writerBonus > 0) add(r.policyWriterName, split.writerBonus);
+      if (split.writerBonus === 0 && split.referralBonus === 0) {
+        // fallback for legacy rows paid before split logic
+        add(r.referredByName || r.policyWriterName, Number(r.payoutAmount || 0) || 0);
+      }
+    });
+
+    return [...map.entries()]
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [rows]);
+
   async function patchRow(id, patch) {
     setSavingId(id);
     try {
@@ -94,7 +128,10 @@ export default function PolicyPayoutsPage() {
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         await load();
-        if (data?.email?.ok) setSyncMsg('Approval notification sent to agent.');
+        if (data?.email?.ok) setSyncMsg('Saved. Approval notification sent to agent.');
+        else setSyncMsg('Saved successfully.');
+      } else {
+        setSyncMsg(`Save failed: ${data?.error || 'unknown error'}`);
       }
     } finally {
       setSavingId('');
@@ -198,6 +235,28 @@ export default function PolicyPayoutsPage() {
           <div className="card"><p>Paid</p><h2>{money(totals.paid)}</h2></div>
           <div className="card"><p>Total</p><h2>{money(totals.total)}</h2></div>
         </div>
+      </div>
+
+      <div className="panel" style={{ overflowX: 'auto' }}>
+        <h3 style={{ marginTop: 0 }}>Inner Circle Earnings This Month (Paid)</h3>
+        {monthlyEarnings.length ? (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Agent</th>
+                <th>Paid This Month</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthlyEarnings.map((e) => (
+                <tr key={e.name}>
+                  <td>{e.name}</td>
+                  <td>{money(e.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <p className="muted">No paid records this month yet.</p>}
       </div>
 
       <div className="panel" style={{ overflowX: 'auto' }}>
