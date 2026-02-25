@@ -69,7 +69,11 @@ export default function PolicyPayoutsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, patch })
       });
-      if (res.ok) await load();
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        await load();
+        if (data?.email?.ok) setSyncMsg('Approval notification sent to agent.');
+      }
     } finally {
       setSavingId('');
     }
@@ -102,12 +106,26 @@ export default function PolicyPayoutsPage() {
     setSyncMsg(`Synced ${count} local records.`);
   }
 
+  async function importBase44InnerCircle() {
+    setSyncMsg('Importing Base44 Inner Circle app submissions...');
+    const res = await fetch('/api/policy-submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'import_base44' })
+    });
+    const data = await res.json().catch(() => ({}));
+    await load();
+    if (res.ok) setSyncMsg(`Imported ${Number(data.imported || 0)} Base44 Inner Circle records.`);
+    else setSyncMsg(`Import failed: ${data?.error || 'unknown'}`);
+  }
+
   return (
     <AppShell title="Policy Payout Ledger">
       <div className="panel">
         <div className="panelRow" style={{ gap: 12, flexWrap: 'wrap' }}>
           <h3 style={{ margin: 0 }}>Submitted Policies + Payout Tracker</h3>
           <button type="button" onClick={syncLocalBackup}>Sync Local App Submit Backup</button>
+          <button type="button" onClick={importBase44InnerCircle}>Import Base44 (Inner Circle Only)</button>
         </div>
         {syncMsg ? <p className="muted">{syncMsg}</p> : null}
 
@@ -145,8 +163,10 @@ export default function PolicyPayoutsPage() {
                 <th>Monthly</th>
                 <th>State</th>
                 <th>Submitted</th>
+                <th>Approval</th>
+                <th>Payout Due</th>
                 <th>Payout $</th>
-                <th>Status</th>
+                <th>Payout Status</th>
                 <th>Paid At</th>
                 <th>Paid By</th>
               </tr>
@@ -160,6 +180,14 @@ export default function PolicyPayoutsPage() {
                   <td>{money(r.monthlyPremium)}</td>
                   <td>{r.state || '—'}</td>
                   <td>{fmtDate(r.submittedAt)}</td>
+                  <td>
+                    {String(r.status || '').toLowerCase() === 'approved' ? (
+                      <span className="pill onpace">Approved</span>
+                    ) : (
+                      <button type="button" onClick={() => patchRow(r.id, { status: 'Approved' })}>Approve + Notify</button>
+                    )}
+                  </td>
+                  <td>{fmtDate(r.payoutDueAt)}</td>
                   <td>
                     <input
                       style={{ width: 92 }}
@@ -185,7 +213,7 @@ export default function PolicyPayoutsPage() {
                 </tr>
               ))}
               {!filtered.length ? (
-                <tr><td colSpan={10} className="muted">No policy submissions found yet.</td></tr>
+                <tr><td colSpan={12} className="muted">No policy submissions found yet.</td></tr>
               ) : null}
             </tbody>
           </table>

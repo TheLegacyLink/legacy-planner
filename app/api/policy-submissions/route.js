@@ -1,6 +1,9 @@
+import nodemailer from 'nodemailer';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import users from '../../../data/innerCircleUsers.json';
 
 const STORE_PATH = 'stores/policy-submissions.json';
+const SPONSORSHIP_APPS_STORE_PATH = 'stores/sponsorship-applications.json';
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -8,6 +11,30 @@ function clean(v = '') {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function normalize(v = '') {
+  return clean(v).toLowerCase().replace(/\s+/g, ' ');
+}
+
+function refCodeFromName(name = '') {
+  return clean(name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+function followingWeekFridayIso(fromIso = '') {
+  const d = fromIso ? new Date(fromIso) : new Date();
+  if (Number.isNaN(d.getTime())) return '';
+
+  const day = d.getDay(); // 0 Sun ... 6 Sat
+  const mondayOffset = (day + 6) % 7; // Mon->0 ... Sun->6
+  const monday = new Date(d);
+  monday.setHours(12, 0, 0, 0);
+  monday.setDate(monday.getDate() - mondayOffset);
+
+  const nextWeekFriday = new Date(monday);
+  nextWeekFriday.setDate(monday.getDate() + 11); // Friday next week
+  nextWeekFriday.setHours(12, 0, 0, 0);
+  return nextWeekFriday.toISOString();
 }
 
 async function getStore() {
@@ -32,6 +59,8 @@ function normalizedRecord(row = {}) {
     carrier: clean(row.carrier || 'F&G') || 'F&G',
     productName: clean(row.productName || 'IUL Pathsetter') || 'IUL Pathsetter',
     status: clean(row.status || 'Submitted') || 'Submitted',
+    approvedAt: clean(row.approvedAt || ''),
+    payoutDueAt: clean(row.payoutDueAt || ''),
     payoutAmount: Number(row.payoutAmount || 0) || 0,
     payoutStatus: clean(row.payoutStatus || 'Unpaid') || 'Unpaid',
     payoutPaidAt: clean(row.payoutPaidAt || ''),
@@ -41,6 +70,67 @@ function normalizedRecord(row = {}) {
     submittedAt: clean(row.submittedAt || nowIso()),
     updatedAt: nowIso()
   };
+}
+
+function findUserEmailByName(name = '') {
+  const n = normalize(name);
+  const hit = (users || []).find((u) => normalize(u.name) === n);
+  return clean(hit?.email);
+}
+
+function adminEmails() {
+  return [...new Set((users || [])
+    .filter((u) => normalize(u.role) === 'admin' && clean(u.email))
+    .map((u) => clean(u.email)))];
+}
+
+async function sendApprovalEmail(row = {}) {
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  if (!user || !pass) return { ok: false, error: 'missing_gmail_env' };
+
+  const writer = clean(row.policyWriterName);
+  const writerEmail = findUserEmailByName(writer);
+  const recipients = [...new Set([writerEmail, ...adminEmails()].filter(Boolean))];
+  if (!recipients.length) return { ok: false, error: 'no_recipients' };
+
+  const due = row.payoutDueAt ? new Date(row.payoutDueAt).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : 'next Friday';
+  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+  const subject = `Policy Approved: ${row.applicantName || 'Applicant'} — payout next week`;
+  const text = [
+    `Hi ${writer || 'Agent'},`,
+    '',
+    'Your submitted policy has been approved.',
+    '',
+    `Client: ${row.applicantName || '—'}`,
+    `Referred By: ${row.referredByName || '—'}`,
+    `Policy Writer: ${row.policyWriterName || '—'}`,
+    `Monthly Premium: ${Number(row.monthlyPremium || 0) || 0}`,
+    '',
+    `Payout timing: Expect payout the following week on Friday (${due}).`,
+    '',
+    'Thanks,'
+  ].join('\n');
+
+  const info = await tx.sendMail({ from, to: recipients.join(', '), subject, text });
+  return { ok: true, messageId: info.messageId, to: recipients };
+}
+
+function mapRefCodeToInnerCircleName(refCode = '') {
+  const rc = clean(refCode).toLowerCase();
+  if (!rc) return '';
+
+  const exact = (users || []).find((u) => refCodeFromName(u.name) === rc);
+  if (exact) return clean(exact.name);
+
+  // common alias seen in flows
+  if (rc === 'latricia_wright') {
+    const leticia = (users || []).find((u) => normalize(u.name).includes('leticia wright'));
+    if (leticia) return clean(leticia.name);
+  }
+
+  return '';
 }
 
 export async function GET() {
@@ -53,6 +143,59 @@ export async function POST(req) {
   const body = await req.json().catch(() => ({}));
   const mode = clean(body?.mode || 'upsert').toLowerCase();
   const store = await getStore();
+
+  if (mode === 'import_base44') {
+    const sourceRows = await loadJsonStore(SPONSORSHIP_APPS_STORE_PATH, []);
+    let imported = 0;
+
+    for (const app of sourceRows) {
+      const referredByName = mapRefCodeToInnerCircleName(app?.refCode || app?.referral_code || '');
+      if (!referredByName) continue; // Inner Circle only
+
+      const applicantName = clean(`${app?.firstName || ''} ${app?.lastName || ''}`);
+      if (!applicantName) continue;
+
+      const id = `base44_${clean(app?.id || applicantName.replace(/\s+/g, '_').toLowerCase())}`;
+      const idx = store.findIndex((r) => clean(r.id) === id);
+      const approved = String(app?.status || '').toLowerCase().includes('approved');
+      const approvedAt = approved ? clean(app?.approved_at || app?.reviewedAt || app?.updatedAt || app?.submitted_at || nowIso()) : '';
+
+      const rec = normalizedRecord({
+        id,
+        applicantName,
+        referredByName,
+        policyWriterName: clean(app?.policyWriterName || ''),
+        submittedBy: 'Base44 Sync',
+        submittedByRole: 'system',
+        state: clean(app?.state || ''),
+        policyNumber: clean(app?.policyNumber || ''),
+        monthlyPremium: Number(app?.monthlyPremium || 0) || 0,
+        carrier: 'F&G',
+        productName: 'IUL Pathsetter',
+        status: approved ? 'Approved' : 'Submitted',
+        approvedAt,
+        payoutDueAt: approved ? followingWeekFridayIso(approvedAt) : '',
+        refCode: clean(app?.refCode || ''),
+        submittedAt: clean(app?.submitted_at || app?.createdAt || nowIso())
+      });
+
+      if (idx >= 0) {
+        store[idx] = {
+          ...store[idx],
+          ...rec,
+          id: store[idx].id,
+          submittedAt: store[idx].submittedAt || rec.submittedAt,
+          updatedAt: nowIso()
+        };
+      } else {
+        store.unshift(rec);
+      }
+      imported += 1;
+    }
+
+    await writeStore(store);
+    return Response.json({ ok: true, imported, total: store.length });
+  }
 
   if (mode !== 'upsert') return Response.json({ ok: false, error: 'unsupported_mode' }, { status: 400 });
 
@@ -86,6 +229,13 @@ export async function PATCH(req) {
   if (idx < 0) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
 
   const patch = body?.patch || {};
+  const prevStatus = clean(store[idx].status).toLowerCase();
+  const nextStatus = patch.status != null ? clean(patch.status) : store[idx].status;
+  const approveTransition = prevStatus !== 'approved' && clean(nextStatus).toLowerCase() === 'approved';
+
+  const approvedAt = approveTransition ? nowIso() : (patch.approvedAt != null ? clean(patch.approvedAt) : store[idx].approvedAt);
+  const payoutDueAt = approveTransition ? followingWeekFridayIso(approvedAt) : (patch.payoutDueAt != null ? clean(patch.payoutDueAt) : store[idx].payoutDueAt);
+
   store[idx] = {
     ...store[idx],
     payoutAmount: patch.payoutAmount != null ? Number(patch.payoutAmount || 0) || 0 : store[idx].payoutAmount,
@@ -93,11 +243,18 @@ export async function PATCH(req) {
     payoutPaidAt: patch.payoutPaidAt != null ? clean(patch.payoutPaidAt) : store[idx].payoutPaidAt,
     payoutPaidBy: patch.payoutPaidBy != null ? clean(patch.payoutPaidBy) : store[idx].payoutPaidBy,
     payoutNotes: patch.payoutNotes != null ? clean(patch.payoutNotes) : store[idx].payoutNotes,
-    status: patch.status != null ? clean(patch.status) : store[idx].status,
+    status: nextStatus,
+    approvedAt,
+    payoutDueAt,
     policyNumber: patch.policyNumber != null ? clean(patch.policyNumber) : store[idx].policyNumber,
     updatedAt: nowIso()
   };
 
+  let email = null;
+  if (approveTransition) {
+    email = await sendApprovalEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'email_failed' }));
+  }
+
   await writeStore(store);
-  return Response.json({ ok: true, row: store[idx] });
+  return Response.json({ ok: true, row: store[idx], email });
 }
