@@ -172,6 +172,17 @@ export default function SponsorshipBookingPage() {
 
     upsertSponsorshipBooking(booking);
 
+    // Persist server-side so Telegram CONFIRM replies can update claim status.
+    try {
+      await fetch('/api/sponsorship-bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'upsert', booking })
+      });
+    } catch {
+      // Non-blocking; local submit should still complete.
+    }
+
     const alertText = [
       'New Sponsorship Booking',
       `Booking ID: ${booking.id}`,
