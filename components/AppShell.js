@@ -18,6 +18,7 @@ const tabs = [
   { href: '/sponsorship-signup', label: 'Sponsor Signup' },
   { href: '/inner-circle-app-submit', label: 'App Submit' },
   { href: '/policy-payouts', label: 'Policy Payouts' },
+  { href: '/payout-queue', label: 'Payout Queue' },
   { href: '/inner-circle-links', label: 'Inner Circle Links' },
   { href: '/sponsorship-booking', label: 'Booking Hub' },
   { href: '/fng-policies', label: 'F&G Policies' },
