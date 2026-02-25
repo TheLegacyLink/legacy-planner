@@ -153,6 +153,7 @@ export default function SponsorshipBookingPage() {
       source_application_id: id || record?.id || '',
       applicant_name: `${record?.firstName || ''} ${record?.lastName || ''}`.trim() || 'Unknown',
       applicant_phone: record?.phone || '',
+      applicant_email: record?.email || '',
       applicant_state: applicantState,
       licensed_status: record?.isLicensed === 'yes' ? 'Licensed' : 'Unlicensed',
       referred_by: referredBy,
