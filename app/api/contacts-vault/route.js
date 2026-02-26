@@ -1,4 +1,4 @@
-import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import { loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 
 const STORE_PATH = 'stores/contacts-vault.json';
 
@@ -17,7 +17,7 @@ function summarize(rows = []) {
 }
 
 export async function GET() {
-  const payload = await loadJsonStore(STORE_PATH, { rows: [], updatedAt: '' });
+  const payload = await loadJsonFile(STORE_PATH, { rows: [], updatedAt: '' });
   const rows = Array.isArray(payload?.rows) ? payload.rows : [];
   return Response.json({ ok: true, rows, updatedAt: payload?.updatedAt || '', summary: summarize(rows) });
 }
@@ -30,6 +30,6 @@ export async function POST(req) {
     source: clean(body?.source || 'CSV Upload'),
     updatedAt: new Date().toISOString()
   };
-  await saveJsonStore(STORE_PATH, next);
+  await saveJsonFile(STORE_PATH, next);
   return Response.json({ ok: true, updatedAt: next.updatedAt, summary: summarize(rows) });
 }
