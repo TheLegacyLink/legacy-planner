@@ -24,6 +24,14 @@ function normalize(v = '') {
   return String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+function nameKey(v = '') {
+  return normalize(v).replace(/[^a-z0-9]/g, '');
+}
+
+function phoneKey(v = '') {
+  return String(v || '').replace(/[^0-9]/g, '');
+}
+
 function displayName(row = {}) {
   const full = pick(row, ['full_name', 'fullName', 'Name', 'name']);
   if (full) return full;
@@ -123,6 +131,9 @@ export default function ContactsVaultPage() {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [users, setUsers] = useState([]);
+  const [sponsorshipApps, setSponsorshipApps] = useState([]);
+  const [policySubs, setPolicySubs] = useState([]);
+  const [bookings, setBookings] = useState([]);
   const [assigneeFilter, setAssigneeFilter] = useState('');
   const [assigneeView, setAssigneeView] = useState('inner');
 
@@ -148,15 +159,30 @@ export default function ContactsVaultPage() {
   async function load() {
     const local = loadLocalFallback();
 
-    const [vaultRes, usersRes] = await Promise.all([
+    const [vaultRes, usersRes, appsRes, policyRes, bookingsRes] = await Promise.all([
       fetch('/api/contacts-vault', { cache: 'no-store' }),
-      fetch('/api/inner-circle-auth', { cache: 'no-store' })
+      fetch('/api/inner-circle-auth', { cache: 'no-store' }),
+      fetch('/api/sponsorship-applications', { cache: 'no-store' }),
+      fetch('/api/policy-submissions', { cache: 'no-store' }),
+      fetch('/api/sponsorship-bookings', { cache: 'no-store' })
     ]);
     const vaultData = await vaultRes.json().catch(() => ({}));
     const usersData = await usersRes.json().catch(() => ({}));
+    const appsData = await appsRes.json().catch(() => ({}));
+    const policyData = await policyRes.json().catch(() => ({}));
+    const bookingsData = await bookingsRes.json().catch(() => ({}));
 
     if (usersRes.ok && usersData?.ok) {
       setUsers(Array.isArray(usersData.users) ? usersData.users : []);
+    }
+    if (appsRes.ok && appsData?.ok) {
+      setSponsorshipApps(Array.isArray(appsData.rows) ? appsData.rows : []);
+    }
+    if (policyRes.ok && policyData?.ok) {
+      setPolicySubs(Array.isArray(policyData.rows) ? policyData.rows : []);
+    }
+    if (bookingsRes.ok && bookingsData?.ok) {
+      setBookings(Array.isArray(bookingsData.rows) ? bookingsData.rows : []);
     }
 
     if (vaultRes.ok && vaultData?.ok) {
@@ -184,22 +210,58 @@ export default function ContactsVaultPage() {
 
   useEffect(() => { load(); }, []);
 
+  const processRefs = useMemo(() => {
+    const emailSet = new Set();
+    const phoneSet = new Set();
+    const nameSet = new Set();
+
+    sponsorshipApps.forEach((a) => {
+      const nm = `${a?.firstName || ''} ${a?.lastName || ''}`.trim();
+      if (nm) nameSet.add(nameKey(nm));
+      if (a?.email) emailSet.add(normalize(a.email));
+      if (a?.phone) phoneSet.add(phoneKey(a.phone));
+    });
+
+    policySubs.forEach((p) => {
+      if (p?.applicantName) nameSet.add(nameKey(p.applicantName));
+      if (p?.email) emailSet.add(normalize(p.email));
+      if (p?.phone) phoneSet.add(phoneKey(p.phone));
+    });
+
+    bookings.forEach((b) => {
+      if (b?.applicant_name) nameSet.add(nameKey(b.applicant_name));
+      if (b?.applicant_email) emailSet.add(normalize(b.applicant_email));
+      if (b?.applicant_phone) phoneSet.add(phoneKey(b.applicant_phone));
+    });
+
+    return { emailSet, phoneSet, nameSet };
+  }, [sponsorshipApps, policySubs, bookings]);
+
   const rowsWithMeta = useMemo(() => {
     return rows.map((r, idx) => {
       const parsedDate = leadDate(r);
+      const nm = displayName(r);
+      const email = displayEmail(r);
+      const phone = displayPhone(r);
+      const inProcess =
+        (email && processRefs.emailSet.has(normalize(email))) ||
+        (phone && processRefs.phoneSet.has(phoneKey(phone))) ||
+        (nm && processRefs.nameSet.has(nameKey(nm)));
+
       return {
         raw: r,
         idx,
-        name: displayName(r),
-        email: displayEmail(r),
-        phone: displayPhone(r),
+        name: nm,
+        email,
+        phone,
         assignedText: assignedRaw(r),
         assignedTo: matchInnerCircleAssignee(assignedRaw(r), users),
+        inProcess,
         dateObj: parsedDate,
         dateTs: parsedDate ? parsedDate.getTime() : 0
       };
     });
-  }, [rows, users]);
+  }, [rows, users, processRefs]);
 
   const assignmentCounts = useMemo(() => {
     const map = new Map();
@@ -381,7 +443,7 @@ export default function ContactsVaultPage() {
       </div>
 
       <div className="panel" style={{ overflowX: 'auto' }}>
-        <h3 style={{ marginTop: 0 }}>Latest Unassigned Leads (Newest First • Cleaned)</h3>
+        <h3 style={{ marginTop: 0 }}>Latest Unassigned Leads (Newest First • Cleaned • Cross-Referenced)</h3>
         <table className="table">
           <thead>
             <tr>
@@ -389,6 +451,8 @@ export default function ContactsVaultPage() {
               <th>Email</th>
               <th>Phone</th>
               <th>Date</th>
+              <th>Process</th>
+              <th>Process Match</th>
               <th>Assigned Field</th>
             </tr>
           </thead>
@@ -399,13 +463,15 @@ export default function ContactsVaultPage() {
                 <td>{r.email || '—'}</td>
                 <td>{r.phone || '—'}</td>
                 <td>{r.dateObj ? r.dateObj.toLocaleString() : '—'}</td>
+                <td>{r.inProcess ? '✅ Already in process' : '—'}</td>
                 <td>{r.assignedText || '—'}</td>
               </tr>
             ))}
-            {!latestUnassigned.length ? <tr><td colSpan={5} className="muted">No unassigned leads found.</td></tr> : null}
+            {!latestUnassigned.length ? <tr><td colSpan={6} className="muted">No unassigned leads found.</td></tr> : null}
           </tbody>
         </table>
         {latestUnassigned.length >= 200 ? <p className="muted">Showing first 200 latest unassigned leads.</p> : null}
+        <p className="muted">Cross-reference checks against sponsorship applications, sponsorship bookings, and policy submissions.</p>
       </div>
 
       <div className="panel" style={{ overflowX: 'auto' }}>
@@ -433,6 +499,7 @@ export default function ContactsVaultPage() {
               <th>Phone</th>
               <th>Assigned To</th>
               <th>Date</th>
+              <th>Process</th>
             </tr>
           </thead>
           <tbody>
@@ -443,9 +510,10 @@ export default function ContactsVaultPage() {
                 <td>{r.phone || '—'}</td>
                 <td>{r.assignedTo || r.assignedText || '—'}</td>
                 <td>{r.dateObj ? r.dateObj.toLocaleString() : '—'}</td>
+                <td>{r.inProcess ? '✅ In process' : '—'}</td>
               </tr>
             ))}
-            {!preview.length ? <tr><td colSpan={5} className="muted">No contacts loaded yet.</td></tr> : null}
+            {!preview.length ? <tr><td colSpan={6} className="muted">No contacts loaded yet.</td></tr> : null}
           </tbody>
         </table>
         {filtered.length > 200 ? <p className="muted">Showing first 200 of {filtered.length} matches.</p> : null}
