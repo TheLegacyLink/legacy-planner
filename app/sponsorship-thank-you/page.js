@@ -23,7 +23,7 @@ export default function SponsorshipThankYouPage() {
     }
   }, [id]);
 
-  const bookingUrl = record?.id ? `/sponsorship-booking?id=${encodeURIComponent(record.id)}` : '/sponsorship-booking';
+  const bookingUrl = record?.id ? `/sponsorship-booking?id=${encodeURIComponent(record.id)}` : '';
 
   const shareTelegram = async () => {
     if (!record) return;
@@ -61,9 +61,15 @@ export default function SponsorshipThankYouPage() {
             </p>
 
             <div className="rowActions" style={{ flexWrap: 'wrap' }}>
-              <a href={bookingUrl}>
-                <button type="button">Book Onboarding Call</button>
-              </a>
+              {bookingUrl ? (
+                <a href={bookingUrl}>
+                  <button type="button">Book Onboarding Call</button>
+                </a>
+              ) : (
+                <button type="button" disabled title="Open from the original device or use your personal booking link">
+                  Book Onboarding Call
+                </button>
+              )}
               <button type="button" className="ghost" onClick={shareTelegram}>Need Licensed Closer (Telegram)</button>
             </div>
 

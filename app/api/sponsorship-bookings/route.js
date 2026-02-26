@@ -34,6 +34,15 @@ export async function POST(req) {
     const id = clean(booking?.id);
     if (!id) return Response.json({ ok: false, error: 'missing_booking_id' }, { status: 400 });
 
+    // Guardrail: block orphan bookings with no linked application context.
+    const sourceId = clean(booking?.source_application_id);
+    const applicantFirst = clean(booking?.applicant_first_name);
+    const applicantLast = clean(booking?.applicant_last_name);
+    const applicantName = clean(booking?.applicant_name);
+    if (!sourceId || (!applicantFirst && !applicantLast) || applicantName.toLowerCase() === 'unknown') {
+      return Response.json({ ok: false, error: 'invalid_booking_context' }, { status: 400 });
+    }
+
     const idx = store.findIndex((r) => clean(r.id) === id);
     const next = {
       ...(idx >= 0 ? store[idx] : {}),

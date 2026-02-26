@@ -139,6 +139,12 @@ export default function SponsorshipBookingPage() {
     e.preventDefault();
     setError('');
     setSaved('');
+
+    if (!record || !(id || record?.id)) {
+      setError('Invalid booking link. Please use your personal booking link from your email/text.');
+      return;
+    }
+
     if (!form.date || !form.time || !form.state) {
       setError('Please select date, time, and state.');
       return;
@@ -223,6 +229,12 @@ export default function SponsorshipBookingPage() {
           </ul>
         </div>
 
+        {!record ? (
+          <p className="red" style={{ marginTop: 8 }}>
+            Invalid booking context. Please open your personal booking link from the approval message.
+          </p>
+        ) : null}
+
         <form className="settingsGrid" onSubmit={submitBooking}>
           <label>
             Applicant
@@ -257,7 +269,7 @@ export default function SponsorshipBookingPage() {
           </label>
 
           <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
-            <button type="submit">Confirm Booking</button>
+            <button type="submit" disabled={!record}>Confirm Booking</button>
           </div>
           {error ? <p className="red" style={{ gridColumn: '1 / -1' }}>{error}</p> : null}
           {saved ? <p className="green" style={{ gridColumn: '1 / -1' }}>{saved}</p> : null}
