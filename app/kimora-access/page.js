@@ -6,6 +6,7 @@ const MASTER_PASS = 'LegacyLink216';
 
 const links = [
   { label: 'Mission Control', href: '/mission-control' },
+  { label: 'Contacts Vault', href: '/contacts-vault' },
   { label: 'Policy Payout Ledger', href: '/policy-payouts' },
   { label: 'Payout Queue', href: '/payout-queue' },
   { label: 'Inner Circle App Submit', href: '/inner-circle-app-submit' },
