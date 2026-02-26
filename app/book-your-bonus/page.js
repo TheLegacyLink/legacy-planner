@@ -78,6 +78,16 @@ export default function BookYourBonusPage() {
       // keep going
     }
 
+    try {
+      await fetch('/api/bonus-bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ booking })
+      });
+    } catch {
+      // non-blocking
+    }
+
     const alertText = [
       'New Bonus Call Booking',
       `Booking ID: ${booking.id}`,
