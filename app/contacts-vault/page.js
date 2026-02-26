@@ -105,6 +105,7 @@ export default function ContactsVaultPage() {
   const [progress, setProgress] = useState(0);
   const [users, setUsers] = useState([]);
   const [assigneeFilter, setAssigneeFilter] = useState('');
+  const [assigneeView, setAssigneeView] = useState('inner');
 
   function loadLocalFallback() {
     try {
@@ -192,6 +193,18 @@ export default function ContactsVaultPage() {
     return [...map.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
   }, [rowsWithMeta, users]);
 
+  const allAssigneeCounts = useMemo(() => {
+    const map = new Map();
+    rowsWithMeta.forEach((r) => {
+      const label = String(r.assignedTo || r.assignedText || '').trim();
+      if (!label) return;
+      map.set(label, Number(map.get(label) || 0) + 1);
+    });
+    return [...map.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  }, [rowsWithMeta]);
+
+  const assigneeCountsToShow = assigneeView === 'all' ? allAssigneeCounts : assignmentCounts;
+
   const latestUnassigned = useMemo(() => {
     return rowsWithMeta
       .filter((r) => !r.assignedTo)
@@ -205,7 +218,7 @@ export default function ContactsVaultPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const scoped = assigneeFilter
-      ? rowsWithMeta.filter((r) => r.assignedTo === assigneeFilter)
+      ? rowsWithMeta.filter((r) => String(r.assignedTo || r.assignedText || '').trim() === assigneeFilter)
       : rowsWithMeta;
 
     if (!q) return scoped;
@@ -320,22 +333,28 @@ export default function ContactsVaultPage() {
       </div>
 
       <div className="panel" style={{ overflowX: 'auto' }}>
-        <h3 style={{ marginTop: 0 }}>Assigned Lead Counts (Inner Circle)</h3>
+        <div className="panelRow" style={{ marginBottom: 8 }}>
+          <h3 style={{ marginTop: 0 }}>Assigned Lead Counts</h3>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className={assigneeView === 'inner' ? '' : 'ghost'} onClick={() => setAssigneeView('inner')}>Inner Circle Only</button>
+            <button type="button" className={assigneeView === 'all' ? '' : 'ghost'} onClick={() => setAssigneeView('all')}>All Assignees</button>
+          </div>
+        </div>
         <table className="table">
           <thead>
             <tr>
-              <th>Agent</th>
+              <th>{assigneeView === 'all' ? 'Assigned To' : 'Agent'}</th>
               <th>Assigned Leads</th>
             </tr>
           </thead>
           <tbody>
-            {assignmentCounts.map((a) => (
+            {assigneeCountsToShow.map((a) => (
               <tr key={a.name}>
                 <td>{a.name}</td>
                 <td>{a.count}</td>
               </tr>
             ))}
-            {!assignmentCounts.length ? <tr><td colSpan={2} className="muted">No inner circle users loaded.</td></tr> : null}
+            {!assigneeCountsToShow.length ? <tr><td colSpan={2} className="muted">No assignment data found.</td></tr> : null}
           </tbody>
         </table>
       </div>
@@ -374,7 +393,7 @@ export default function ContactsVaultPage() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)}>
               <option value="">All assignees</option>
-              {users.map((u) => <option key={u.name} value={u.name}>{u.name}</option>)}
+              {(assigneeView === 'all' ? allAssigneeCounts : assignmentCounts).map((u) => <option key={u.name} value={u.name}>{u.name}</option>)}
             </select>
             <input
               placeholder="Search name/email/phone"
