@@ -40,6 +40,25 @@ function displayPhone(row = {}) {
   return pick(row, ['Phone', 'phone', 'Phone Number', 'phone_number', 'mobile', 'Mobile Phone', 'Number']);
 }
 
+function firstNameValue(row = {}) {
+  return pick(row, ['First Name', 'first_name', 'firstName', 'firstname']);
+}
+
+function lastNameValue(row = {}) {
+  return pick(row, ['Last Name', 'last_name', 'lastName', 'lastname']);
+}
+
+function isValidUnassignedLead(rowMeta = {}) {
+  const first = String(firstNameValue(rowMeta.raw) || '').trim();
+  const last = String(lastNameValue(rowMeta.raw) || '').trim();
+  const email = String(rowMeta.email || '').trim();
+
+  if (!email) return false;
+  if (!last) return false;
+  if (first.length <= 1) return false;
+  return true;
+}
+
 function assignedRaw(row = {}) {
   return pick(row, ['Assigned To', 'assigned_to', 'AssignedTo', 'Assigned', 'Lead Owner', 'Owner', 'Agent']);
 }
@@ -208,9 +227,11 @@ export default function ContactsVaultPage() {
   const latestUnassigned = useMemo(() => {
     return rowsWithMeta
       .filter((r) => !r.assignedTo)
+      .filter((r) => isValidUnassignedLead(r))
       .sort((a, b) => {
         if (b.dateTs !== a.dateTs) return b.dateTs - a.dateTs;
-        return b.idx - a.idx;
+        // Fallback CSV order: prefer top rows as newer imports.
+        return a.idx - b.idx;
       })
       .slice(0, 200);
   }, [rowsWithMeta]);
@@ -360,7 +381,7 @@ export default function ContactsVaultPage() {
       </div>
 
       <div className="panel" style={{ overflowX: 'auto' }}>
-        <h3 style={{ marginTop: 0 }}>Latest Unassigned Leads (Action List)</h3>
+        <h3 style={{ marginTop: 0 }}>Latest Unassigned Leads (Newest First • Cleaned)</h3>
         <table className="table">
           <thead>
             <tr>
