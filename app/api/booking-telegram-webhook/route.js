@@ -129,14 +129,30 @@ export async function POST(req) {
   if (!msg?.text) return Response.json({ ok: true, skipped: 'no_text' });
 
   const text = clean(msg.text);
+  const rows = await loadJsonStore(STORE_PATH, []);
+  const open = rows.filter((r) => normalize(r?.claim_status) !== 'claimed');
+
   if (!/^\s*CONFIRM\b/i.test(text)) {
+    const sample = open[0]?.id ? `Example: CONFIRM ${open[0].id}` : 'Example: CONFIRM book_1234567890';
+    await tgSend(
+      msg.chat?.id,
+      `👋 Claim helper is active.\n${sample}\n${open.length ? `Open bookings: ${open.length}` : 'No open bookings right now.'}`
+    );
     return Response.json({ ok: true, skipped: 'not_confirm' });
   }
 
-  const bookingId = bookingIdFromMessage(text);
+  let bookingId = bookingIdFromMessage(text);
   if (!bookingId) {
-    await tgSend(msg.chat?.id, 'Please use: CONFIRM book_1234567890 - Your Name - I can take this.');
-    return Response.json({ ok: false, error: 'missing_booking_id' }, { status: 400 });
+    if (open.length === 1) {
+      bookingId = clean(open[0].id);
+    } else if (open.length > 1) {
+      const list = open.slice(0, 8).map((r) => `- ${r.id}: ${r.applicant_name || 'Unknown'} (${r.requested_at_est || '—'})`).join('\n');
+      await tgSend(msg.chat?.id, `Please include booking ID.\nUse: CONFIRM book_123...\n\nOpen bookings:\n${list}`);
+      return Response.json({ ok: false, error: 'missing_booking_id' }, { status: 400 });
+    } else {
+      await tgSend(msg.chat?.id, 'No open bookings to claim right now.');
+      return Response.json({ ok: false, error: 'no_open_bookings' }, { status: 400 });
+    }
   }
 
   const claimedBy = claimerFromMessage(msg);
@@ -145,7 +161,6 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'missing_name' }, { status: 400 });
   }
 
-  const rows = await loadJsonStore(STORE_PATH, []);
   const idx = rows.findIndex((r) => clean(r.id) === bookingId);
 
   if (idx < 0) {
