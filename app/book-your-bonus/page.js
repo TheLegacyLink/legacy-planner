@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEY = 'legacy-bonus-bookings-v1';
+const CONTACTS_KEY = 'legacy-bonus-contacts-csv-v1';
 
 function nextBookingDates(leadHours = 24, days = 21) {
   const out = [];
@@ -36,9 +37,23 @@ function to12Hour(time24 = '') {
   return `${hr}:${m} ${suffix}`;
 }
 
+function parseCsv(text = '') {
+  const lines = String(text || '').split(/\r?\n/).filter((l) => l.trim());
+  if (!lines.length) return [];
+  const headers = lines[0].split(',').map((h) => h.trim());
+  return lines.slice(1).map((line) => {
+    const vals = line.split(',');
+    const row = {};
+    headers.forEach((h, i) => { row[h] = (vals[i] || '').trim(); });
+    return row;
+  });
+}
+
 export default function BookYourBonusPage() {
   const [saved, setSaved] = useState('');
   const [error, setError] = useState('');
+  const [contactsMsg, setContactsMsg] = useState('');
+  const [contactCount, setContactCount] = useState(0);
   const [form, setForm] = useState({
     name: '',
     state: '',
@@ -50,7 +65,35 @@ export default function BookYourBonusPage() {
   const dates = useMemo(() => nextBookingDates(24, 21), []);
   const slots = useMemo(() => buildSlots(9, 21), []);
 
+  useEffect(() => {
+    try {
+      const rows = JSON.parse(localStorage.getItem(CONTACTS_KEY) || '[]');
+      if (Array.isArray(rows)) setContactCount(rows.length);
+    } catch {
+      setContactCount(0);
+    }
+  }, []);
+
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  function onCsvUpload(file) {
+    setContactsMsg('');
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const rows = parseCsv(String(reader.result || ''));
+        localStorage.setItem(CONTACTS_KEY, JSON.stringify(rows));
+        setContactCount(rows.length);
+        setContactsMsg(`Loaded ${rows.length} contacts from CSV.`);
+      } catch {
+        setContactsMsg('Could not parse CSV.');
+      }
+    };
+    reader.onerror = () => setContactsMsg('CSV upload failed.');
+    reader.readAsText(file);
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -112,6 +155,17 @@ export default function BookYourBonusPage() {
           <p style={{ margin: '8px 0 0 0' }}>
             If you are a licensed agent, you will receive a <strong>$250 bonus</strong> after we complete the bonus policy the company is covering.
           </p>
+          <p style={{ margin: '8px 0 0 0' }}>
+            If you are <strong>not licensed</strong>, we hold the $250 bonus and release it as soon as your license is active.
+          </p>
+        </div>
+
+        <div className="panel" style={{ marginBottom: 12 }}>
+          <strong>Load Contacts CSV</strong>
+          <p className="muted" style={{ margin: '6px 0' }}>Upload your contact list CSV here for bonus outreach prep.</p>
+          <input type="file" accept=".csv,text/csv" onChange={(e) => onCsvUpload(e.target.files?.[0])} />
+          <p className="muted" style={{ marginTop: 8 }}>Current contacts loaded: {contactCount}</p>
+          {contactsMsg ? <p className="muted">{contactsMsg}</p> : null}
         </div>
 
         <form className="settingsGrid" onSubmit={submit}>
