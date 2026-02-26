@@ -12,14 +12,9 @@ export async function POST(req) {
     }
 
     const text = alertText || [
-      'New Sponsorship Booking',
-      `Referral: ${booking.referred_by || 'Unknown'}`,
-      `Applicant: ${booking.applicant_name || 'Unknown'}`,
+      'New policy help request',
       `State: ${booking.applicant_state || '—'}`,
-      `Licensed: ${booking.licensed_status || '—'}`,
-      `Requested Time (EST): ${booking.requested_at_est || '—'}`,
-      `Score: ${booking.score || 0}`,
-      `Eligible Closers: ${Array.isArray(booking.eligible_closers) ? booking.eligible_closers.join(', ') : 'None'}`
+      `Referred by: ${booking.referred_by || 'Unknown'}`
     ].join('\n');
 
     const tg = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {

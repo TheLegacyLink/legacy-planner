@@ -97,7 +97,7 @@ async function sendAssignmentEmail(booking = {}, claimedBy = '') {
 
 function claimerFromMessage(msg = {}) {
   const text = clean(msg?.text);
-  const byPattern = text.match(/^\s*CONFIRM\s+book_[0-9]+\s*-\s*([^\-\n]+)(?:-|$)/i);
+  const byPattern = text.match(/^\s*(?:CONFIRM|CLAIM)\b(?:\s+book_[0-9]+)?\s*-\s*([^\-\n]+)(?:-|$)/i);
   if (byPattern?.[1]) return clean(byPattern[1]);
   const first = clean(msg?.from?.first_name);
   const last = clean(msg?.from?.last_name);
@@ -132,19 +132,16 @@ export async function POST(req) {
   const rows = await loadJsonStore(STORE_PATH, []);
   const open = rows.filter((r) => normalize(r?.claim_status) !== 'claimed');
 
-  // Keep group noise low: only process explicit CONFIRM messages.
-  if (!/^\s*CONFIRM\b/i.test(text)) {
-    return Response.json({ ok: true, skipped: 'not_confirm' });
+  // Keep group noise low: only process explicit claim messages.
+  if (!/^\s*(?:CONFIRM|CLAIM)\b/i.test(text)) {
+    return Response.json({ ok: true, skipped: 'not_claim' });
   }
 
   let bookingId = bookingIdFromMessage(text);
   if (!bookingId) {
-    if (open.length === 1) {
+    if (open.length >= 1) {
+      // Simplicity mode: if no booking id is given, auto-claim the newest open booking.
       bookingId = clean(open[0].id);
-    } else if (open.length > 1) {
-      const list = open.slice(0, 8).map((r) => `- ${r.id}: ${r.applicant_name || 'Unknown'} (${r.requested_at_est || '—'})`).join('\n');
-      await tgSend(msg.chat?.id, `Please include booking ID.\nUse: CONFIRM book_123...\n\nOpen bookings:\n${list}`);
-      return Response.json({ ok: false, error: 'missing_booking_id' }, { status: 400 });
     } else {
       await tgSend(msg.chat?.id, 'No open bookings to claim right now.');
       return Response.json({ ok: false, error: 'no_open_bookings' }, { status: 400 });
@@ -153,7 +150,7 @@ export async function POST(req) {
 
   const claimedBy = claimerFromMessage(msg);
   if (!claimedBy) {
-    await tgSend(msg.chat?.id, 'Could not read your name. Please use: CONFIRM book_1234567890 - Your Name - I can take this.');
+    await tgSend(msg.chat?.id, 'Could not read your name. Please use: CLAIM - Your Name');
     return Response.json({ ok: false, error: 'missing_name' }, { status: 400 });
   }
 

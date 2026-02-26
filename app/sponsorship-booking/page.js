@@ -188,9 +188,8 @@ export default function SponsorshipBookingPage() {
 
     const alertText = [
       'New policy help request',
-      `${booking.applicant_name} • ${booking.applicant_state} • ${booking.requested_at_est}`,
-      `Referred by: ${booking.referred_by}`,
-      `Reply: CONFIRM ${booking.id} - [Your Name]`
+      `State: ${booking.applicant_state || '—'}`,
+      `Referred by: ${booking.referred_by || 'Unknown'}`
     ].join('\n');
 
     const notify = await sendInternalTelegram({ booking, alertText });
