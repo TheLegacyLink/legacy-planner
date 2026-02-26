@@ -157,6 +157,9 @@ export default function SponsorshipOpsPage() {
         <p className="muted" style={{ marginTop: 8 }}>
           See who booked sponsorship appointments and who is approved but still not booked.
         </p>
+        <p className="pill onpace" style={{ marginTop: 8 }}>
+          Email queued: Approved-not-booked follow-up sends Thu 9:00 AM EST.
+        </p>
 
         <div className="settingsGrid" style={{ marginTop: 8 }}>
           <label>
