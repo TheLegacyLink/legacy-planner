@@ -73,6 +73,12 @@ export default function SponsorshipOpsPage() {
   const bookedRows = useMemo(() => {
     const deduped = new Map();
     bookings.forEach((b) => {
+      const orphanUnknown =
+        !clean(b.source_application_id) &&
+        normalize(b.applicant_name) === 'unknown' &&
+        normalize(b.referred_by) === 'unknown';
+      if (orphanUnknown || normalize(b.claim_status) === 'invalid') return;
+
       const applicant = clean(b.applicant_name);
       const requestedAt = clean(b.requested_at_est);
       const dedupeKey = `${normalize(applicant)}|${normalize(requestedAt)}`;

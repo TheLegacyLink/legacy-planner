@@ -80,5 +80,36 @@ export async function POST(req) {
     return Response.json({ ok: true, row: store[idx] });
   }
 
+  if (mode === 'invalidate') {
+    const bookingId = clean(body?.bookingId);
+    const reason = clean(body?.reason || 'Invalid booking context');
+    if (!bookingId) return Response.json({ ok: false, error: 'missing_booking_id' }, { status: 400 });
+
+    const idx = store.findIndex((r) => clean(r.id) === bookingId);
+    if (idx < 0) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
+
+    store[idx] = {
+      ...store[idx],
+      claim_status: 'Invalid',
+      notes: [clean(store[idx]?.notes), reason].filter(Boolean).join(' | '),
+      updated_at: nowIso()
+    };
+
+    await writeStore(store);
+    return Response.json({ ok: true, row: store[idx] });
+  }
+
+  if (mode === 'delete') {
+    const bookingId = clean(body?.bookingId);
+    if (!bookingId) return Response.json({ ok: false, error: 'missing_booking_id' }, { status: 400 });
+
+    const idx = store.findIndex((r) => clean(r.id) === bookingId);
+    if (idx < 0) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
+
+    const [removed] = store.splice(idx, 1);
+    await writeStore(store);
+    return Response.json({ ok: true, removed });
+  }
+
   return Response.json({ ok: false, error: 'unsupported_mode' }, { status: 400 });
 }
