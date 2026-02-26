@@ -88,6 +88,21 @@ function shortDate(date) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+
+function parseCsvRows(text = '') {
+  const lines = String(text || '').split(/\r?\n/).filter((l) => l.trim());
+  if (!lines.length) return [];
+  const headers = lines[0].split(',').map((h) => h.trim());
+  return lines.slice(1).map((line) => {
+    const vals = line.split(',');
+    const row = {};
+    headers.forEach((h, i) => {
+      row[h] = (vals[i] || '').trim();
+    });
+    return row;
+  });
+}
+
 function matchAgentFromReferrer(referrer, agents) {
   const ref = cleanName(referrer || '');
   if (!ref) return null;
@@ -139,6 +154,9 @@ export default function MissionControl() {
   const [bookingQueue, setBookingQueue] = useState([]);
   const [claimBy, setClaimBy] = useState('');
   const [detailsModal, setDetailsModal] = useState({ open: false, type: '' });
+  const [contactsVaultSummary, setContactsVaultSummary] = useState({ total: 0, withEmail: 0, withoutEmail: 0 });
+  const [contactsVaultUpdatedAt, setContactsVaultUpdatedAt] = useState('');
+  const [contactsCsvMsg, setContactsCsvMsg] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastSyncAt, setLastSyncAt] = useState(null);
@@ -149,6 +167,16 @@ export default function MissionControl() {
     setConfig(cfg);
     setBookingQueue(loadSponsorshipBookings());
     setClaimBy(cfg.agents?.[0] || '');
+
+    fetch('/api/contacts-vault', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.ok) {
+          setContactsVaultSummary(d.summary || { total: 0, withEmail: 0, withoutEmail: 0 });
+          setContactsVaultUpdatedAt(d.updatedAt || '');
+        }
+      })
+      .catch(() => null);
   }, []);
 
   useEffect(() => {
@@ -386,6 +414,35 @@ export default function MissionControl() {
     saveSponsorshipBookings(next);
   };
 
+  const onContactsCsvUpload = (file) => {
+    setContactsCsvMsg('');
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const rows = parseCsvRows(String(reader.result || ''));
+        const res = await fetch('/api/contacts-vault', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rows, source: file.name || 'contacts.csv' })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.ok) {
+          setContactsVaultSummary(data.summary || { total: 0, withEmail: 0, withoutEmail: 0 });
+          setContactsVaultUpdatedAt(data.updatedAt || '');
+          setContactsCsvMsg(`Loaded ${Number(data?.summary?.total || 0)} contacts. Email matches: ${Number(data?.summary?.withEmail || 0)}.`);
+        } else {
+          setContactsCsvMsg(`Upload failed: ${data?.error || 'unknown error'}`);
+        }
+      } catch {
+        setContactsCsvMsg('Could not parse CSV.');
+      }
+    };
+    reader.onerror = () => setContactsCsvMsg('CSV read failed.');
+    reader.readAsText(file);
+  };
+
   return (
     <AppShell title="Mission Control">
       <div className="panelRow" style={{ gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
@@ -405,6 +462,25 @@ export default function MissionControl() {
             <button type="button">Open Agency Owner Dashboard</button>
           </a>
         </div>
+      </div>
+
+      <div className="panel" style={{ marginBottom: '1rem' }}>
+        <div className="panelRow" style={{ gap: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <h3 style={{ margin: 0 }}>Contacts Vault (Internal)</h3>
+            <p className="muted" style={{ margin: 0 }}>
+              Upload your full contacts CSV here (9,000+ safe storage) for future promotions and email matching.
+            </p>
+          </div>
+          <div style={{ marginLeft: 'auto' }}>
+            <input type="file" accept=".csv,text/csv" onChange={(e) => onContactsCsvUpload(e.target.files?.[0])} />
+          </div>
+        </div>
+        <p className="muted" style={{ marginTop: 8 }}>
+          Stored: {contactsVaultSummary.total} contacts • With email: {contactsVaultSummary.withEmail} • Missing email: {contactsVaultSummary.withoutEmail}
+          {contactsVaultUpdatedAt ? ` • Updated: ${toLocalTime(contactsVaultUpdatedAt, config.timezone)}` : ''}
+        </p>
+        {contactsCsvMsg ? <p className="muted">{contactsCsvMsg}</p> : null}
       </div>
 
       <div className="grid4">
