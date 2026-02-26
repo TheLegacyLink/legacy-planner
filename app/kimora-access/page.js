@@ -9,6 +9,7 @@ const links = [
   { label: 'Policy Payout Ledger', href: '/policy-payouts' },
   { label: 'Payout Queue', href: '/payout-queue' },
   { label: 'Inner Circle App Submit', href: '/inner-circle-app-submit' },
+  { label: 'Book Your Bonus', href: '/book-your-bonus' },
   { label: 'Policy Rescue', href: '/policy-rescue' },
   { label: 'FNG Policies', href: '/fng-policies' },
   { label: 'Sponsorships', href: '/sponsorships' },
