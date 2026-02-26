@@ -71,8 +71,12 @@ function assignedRaw(row = {}) {
   return pick(row, ['Assigned To', 'assigned_to', 'AssignedTo', 'Assigned', 'Lead Owner', 'Owner', 'Agent']);
 }
 
+function leadCreatedText(row = {}) {
+  return pick(row, ['Created At', 'created_at', 'Date Added', 'Lead Date', 'Timestamp', 'Date', 'Submitted At']);
+}
+
 function leadDate(row = {}) {
-  const v = pick(row, ['Created At', 'created_at', 'Date Added', 'Lead Date', 'Timestamp', 'Date', 'Submitted At']);
+  const v = leadCreatedText(row);
   if (!v) return null;
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? null : d;
@@ -240,6 +244,7 @@ export default function ContactsVaultPage() {
   const rowsWithMeta = useMemo(() => {
     return rows.map((r, idx) => {
       const parsedDate = leadDate(r);
+      const createdAtText = leadCreatedText(r);
       const nm = displayName(r);
       const email = displayEmail(r);
       const phone = displayPhone(r);
@@ -257,8 +262,9 @@ export default function ContactsVaultPage() {
         assignedText: assignedRaw(r),
         assignedTo: matchInnerCircleAssignee(assignedRaw(r), users),
         inProcess,
+        createdAtText,
         dateObj: parsedDate,
-        dateTs: parsedDate ? parsedDate.getTime() : 0
+        dateTs: parsedDate ? parsedDate.getTime() : -1
       };
     });
   }, [rows, users, processRefs]);
@@ -292,7 +298,7 @@ export default function ContactsVaultPage() {
       .filter((r) => isValidUnassignedLead(r))
       .sort((a, b) => {
         if (b.dateTs !== a.dateTs) return b.dateTs - a.dateTs;
-        // Fallback CSV order: prefer top rows as newer imports.
+        // If created date ties/missing, keep latest sheet rows first.
         return a.idx - b.idx;
       })
       .slice(0, 200);
@@ -450,8 +456,7 @@ export default function ContactsVaultPage() {
               <th>Name</th>
               <th>Email</th>
               <th>Phone</th>
-              <th>Date</th>
-              <th>Process</th>
+              <th>Created At</th>
               <th>Process Match</th>
               <th>Assigned Field</th>
             </tr>
@@ -462,7 +467,7 @@ export default function ContactsVaultPage() {
                 <td>{r.name || '—'}</td>
                 <td>{r.email || '—'}</td>
                 <td>{r.phone || '—'}</td>
-                <td>{r.dateObj ? r.dateObj.toLocaleString() : '—'}</td>
+                <td>{r.dateObj ? r.dateObj.toLocaleString() : (r.createdAtText || '—')}</td>
                 <td>{r.inProcess ? '✅ Already in process' : '—'}</td>
                 <td>{r.assignedText || '—'}</td>
               </tr>
@@ -498,7 +503,7 @@ export default function ContactsVaultPage() {
               <th>Email</th>
               <th>Phone</th>
               <th>Assigned To</th>
-              <th>Date</th>
+              <th>Created At</th>
               <th>Process</th>
             </tr>
           </thead>
@@ -509,7 +514,7 @@ export default function ContactsVaultPage() {
                 <td>{r.email || '—'}</td>
                 <td>{r.phone || '—'}</td>
                 <td>{r.assignedTo || r.assignedText || '—'}</td>
-                <td>{r.dateObj ? r.dateObj.toLocaleString() : '—'}</td>
+                <td>{r.dateObj ? r.dateObj.toLocaleString() : (r.createdAtText || '—')}</td>
                 <td>{r.inProcess ? '✅ In process' : '—'}</td>
               </tr>
             ))}
