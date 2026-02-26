@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 const tabs = [
   { href: '/mission-control', label: 'Mission Control' },
+  { href: '/sponsorship-ops', label: 'Sponsorship Ops' },
   { href: '/contacts-vault', label: 'Contacts Vault' },
   { href: '/bonus-bookings', label: 'Bonus Bookings' },
   { href: '/policy-rescue', label: 'Policy Rescue' },
