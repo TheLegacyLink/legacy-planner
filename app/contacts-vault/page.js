@@ -20,6 +20,10 @@ function toLocal(iso = '') {
   return d.toLocaleString();
 }
 
+function normalize(v = '') {
+  return String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 function displayName(row = {}) {
   const full = pick(row, ['full_name', 'fullName', 'Name', 'name']);
   if (full) return full;
@@ -36,10 +40,59 @@ function displayPhone(row = {}) {
   return pick(row, ['Phone', 'phone', 'Phone Number', 'phone_number', 'mobile', 'Mobile Phone', 'Number']);
 }
 
+function assignedRaw(row = {}) {
+  return pick(row, ['Assigned To', 'assigned_to', 'AssignedTo', 'Assigned', 'Lead Owner', 'Owner', 'Agent']);
+}
+
+function leadDate(row = {}) {
+  const v = pick(row, ['Created At', 'created_at', 'Date Added', 'Lead Date', 'Timestamp', 'Date', 'Submitted At']);
+  if (!v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 function summarize(rows = []) {
   const total = rows.length;
   const withEmail = rows.filter((r) => displayEmail(r)).length;
   return { total, withEmail, withoutEmail: Math.max(0, total - withEmail) };
+}
+
+function scoreAssignee(raw = '', userName = '') {
+  const r = normalize(raw);
+  const u = normalize(userName);
+  if (!r || !u) return 0;
+  if (r === u) return 100;
+
+  const uParts = u.split(' ');
+  const first = uParts[0] || '';
+  const last = uParts[uParts.length - 1] || '';
+
+  let score = 0;
+  if (first && r.includes(first)) score += 50;
+  if (last && r.includes(last)) score += 45;
+
+  // tolerate minor misspellings for first name (e.g., Kellen vs Kelin)
+  if (!r.includes(first) && first && r[0] === first[0]) score += 15;
+
+  return score;
+}
+
+function matchInnerCircleAssignee(raw = '', users = []) {
+  const r = normalize(raw);
+  if (!r) return '';
+
+  let best = '';
+  let bestScore = 0;
+  for (const u of users) {
+    const name = String(u?.name || '').trim();
+    const sc = scoreAssignee(r, name);
+    if (sc > bestScore) {
+      bestScore = sc;
+      best = name;
+    }
+  }
+
+  return bestScore >= 50 ? best : '';
 }
 
 export default function ContactsVaultPage() {
@@ -50,6 +103,8 @@ export default function ContactsVaultPage() {
   const [query, setQuery] = useState('');
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [users, setUsers] = useState([]);
+  const [assigneeFilter, setAssigneeFilter] = useState('');
 
   function loadLocalFallback() {
     try {
@@ -73,19 +128,27 @@ export default function ContactsVaultPage() {
   async function load() {
     const local = loadLocalFallback();
 
-    const res = await fetch('/api/contacts-vault', { cache: 'no-store' });
-    const data = await res.json().catch(() => ({}));
+    const [vaultRes, usersRes] = await Promise.all([
+      fetch('/api/contacts-vault', { cache: 'no-store' }),
+      fetch('/api/inner-circle-auth', { cache: 'no-store' })
+    ]);
+    const vaultData = await vaultRes.json().catch(() => ({}));
+    const usersData = await usersRes.json().catch(() => ({}));
 
-    if (res.ok && data?.ok) {
-      const serverRows = Array.isArray(data.rows) ? data.rows : [];
+    if (usersRes.ok && usersData?.ok) {
+      setUsers(Array.isArray(usersData.users) ? usersData.users : []);
+    }
+
+    if (vaultRes.ok && vaultData?.ok) {
+      const serverRows = Array.isArray(vaultData.rows) ? vaultData.rows : [];
       // Prefer whichever source currently has more rows so user never sees "0" after upload.
       if (serverRows.length >= local.rows.length) {
         setRows(serverRows);
-        setUpdatedAt(data.updatedAt || '');
-        setSummary(data.summary || summarize(serverRows));
+        setUpdatedAt(vaultData.updatedAt || '');
+        setSummary(vaultData.summary || summarize(serverRows));
       } else {
         setRows(local.rows);
-        setUpdatedAt(local.updatedAt || data.updatedAt || '');
+        setUpdatedAt(local.updatedAt || vaultData.updatedAt || '');
         setSummary(summarize(local.rows));
         setMsg('Using local cached contacts view.');
       }
@@ -101,16 +164,56 @@ export default function ContactsVaultPage() {
 
   useEffect(() => { load(); }, []);
 
+  const rowsWithMeta = useMemo(() => {
+    return rows.map((r, idx) => {
+      const parsedDate = leadDate(r);
+      return {
+        raw: r,
+        idx,
+        name: displayName(r),
+        email: displayEmail(r),
+        phone: displayPhone(r),
+        assignedText: assignedRaw(r),
+        assignedTo: matchInnerCircleAssignee(assignedRaw(r), users),
+        dateObj: parsedDate,
+        dateTs: parsedDate ? parsedDate.getTime() : 0
+      };
+    });
+  }, [rows, users]);
+
+  const assignmentCounts = useMemo(() => {
+    const map = new Map();
+    users.forEach((u) => map.set(u.name, 0));
+    rowsWithMeta.forEach((r) => {
+      if (r.assignedTo && map.has(r.assignedTo)) {
+        map.set(r.assignedTo, Number(map.get(r.assignedTo) || 0) + 1);
+      }
+    });
+    return [...map.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  }, [rowsWithMeta, users]);
+
+  const latestUnassigned = useMemo(() => {
+    return rowsWithMeta
+      .filter((r) => !r.assignedTo)
+      .sort((a, b) => {
+        if (b.dateTs !== a.dateTs) return b.dateTs - a.dateTs;
+        return b.idx - a.idx;
+      })
+      .slice(0, 200);
+  }, [rowsWithMeta]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => {
-      const name = `${displayName(r)}`.toLowerCase();
-      const email = `${displayEmail(r)}`.toLowerCase();
-      const phone = `${displayPhone(r)}`.toLowerCase();
-      return name.includes(q) || email.includes(q) || phone.includes(q);
+    const scoped = assigneeFilter
+      ? rowsWithMeta.filter((r) => r.assignedTo === assigneeFilter)
+      : rowsWithMeta;
+
+    if (!q) return scoped;
+    return scoped.filter((r) => {
+      const hay = `${r.name} ${r.email} ${r.phone} ${r.assignedTo || r.assignedText}`.toLowerCase();
+      return hay.includes(q);
     });
-  }, [rows, query]);
+  }, [rowsWithMeta, query, assigneeFilter]);
 
   const preview = useMemo(() => filtered.slice(0, 200), [filtered]);
 
@@ -142,7 +245,9 @@ export default function ContactsVaultPage() {
           setMsg(`CSV parsed with ${parsed.errors.length} warning(s). Continuing...`);
         }
 
-        const parsedRows = Array.isArray(parsed.data) ? parsed.data.filter((r) => Object.values(r || {}).some((v) => String(v || '').trim())) : [];
+        const parsedRows = Array.isArray(parsed.data)
+          ? parsed.data.filter((r) => Object.values(r || {}).some((v) => String(v || '').trim()))
+          : [];
 
         // immediate UI + local cache so user sees progress even if server storage is slow/unavailable
         setRows(parsedRows);
@@ -187,7 +292,7 @@ export default function ContactsVaultPage() {
           <div>
             <h3 style={{ margin: 0 }}>Upload Contacts File (CSV)</h3>
             <p className="muted" style={{ margin: 0 }}>
-              Internal-only storage for outreach/promotions and email lookups.
+              Internal-only storage for outreach/promotions and lead assignment visibility.
             </p>
           </div>
           <div style={{ marginLeft: 'auto' }}>
@@ -215,14 +320,69 @@ export default function ContactsVaultPage() {
       </div>
 
       <div className="panel" style={{ overflowX: 'auto' }}>
+        <h3 style={{ marginTop: 0 }}>Assigned Lead Counts (Inner Circle)</h3>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Assigned Leads</th>
+            </tr>
+          </thead>
+          <tbody>
+            {assignmentCounts.map((a) => (
+              <tr key={a.name}>
+                <td>{a.name}</td>
+                <td>{a.count}</td>
+              </tr>
+            ))}
+            {!assignmentCounts.length ? <tr><td colSpan={2} className="muted">No inner circle users loaded.</td></tr> : null}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="panel" style={{ overflowX: 'auto' }}>
+        <h3 style={{ marginTop: 0 }}>Latest Unassigned Leads (Action List)</h3>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Date</th>
+              <th>Assigned Field</th>
+            </tr>
+          </thead>
+          <tbody>
+            {latestUnassigned.map((r, i) => (
+              <tr key={`u-${i}`}>
+                <td>{r.name || '—'}</td>
+                <td>{r.email || '—'}</td>
+                <td>{r.phone || '—'}</td>
+                <td>{r.dateObj ? r.dateObj.toLocaleString() : '—'}</td>
+                <td>{r.assignedText || '—'}</td>
+              </tr>
+            ))}
+            {!latestUnassigned.length ? <tr><td colSpan={5} className="muted">No unassigned leads found.</td></tr> : null}
+          </tbody>
+        </table>
+        {latestUnassigned.length >= 200 ? <p className="muted">Showing first 200 latest unassigned leads.</p> : null}
+      </div>
+
+      <div className="panel" style={{ overflowX: 'auto' }}>
         <div className="panelRow" style={{ marginBottom: 8 }}>
           <h3 style={{ margin: 0 }}>Contacts Preview</h3>
-          <input
-            placeholder="Search name/email/phone"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            style={{ maxWidth: 280 }}
-          />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)}>
+              <option value="">All assignees</option>
+              {users.map((u) => <option key={u.name} value={u.name}>{u.name}</option>)}
+            </select>
+            <input
+              placeholder="Search name/email/phone"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              style={{ maxWidth: 280 }}
+            />
+          </div>
         </div>
 
         <table className="table">
@@ -231,17 +391,21 @@ export default function ContactsVaultPage() {
               <th>Name</th>
               <th>Email</th>
               <th>Phone</th>
+              <th>Assigned To</th>
+              <th>Date</th>
             </tr>
           </thead>
           <tbody>
             {preview.map((r, i) => (
               <tr key={`r-${i}`}>
-                <td>{displayName(r) || '—'}</td>
-                <td>{displayEmail(r) || '—'}</td>
-                <td>{displayPhone(r) || '—'}</td>
+                <td>{r.name || '—'}</td>
+                <td>{r.email || '—'}</td>
+                <td>{r.phone || '—'}</td>
+                <td>{r.assignedTo || r.assignedText || '—'}</td>
+                <td>{r.dateObj ? r.dateObj.toLocaleString() : '—'}</td>
               </tr>
             ))}
-            {!preview.length ? <tr><td colSpan={3} className="muted">No contacts loaded yet.</td></tr> : null}
+            {!preview.length ? <tr><td colSpan={5} className="muted">No contacts loaded yet.</td></tr> : null}
           </tbody>
         </table>
         {filtered.length > 200 ? <p className="muted">Showing first 200 of {filtered.length} matches.</p> : null}
