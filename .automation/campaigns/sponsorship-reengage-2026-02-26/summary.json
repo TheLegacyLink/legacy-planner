@@ -1,0 +1,17 @@
+{
+  "generatedAt": "2026-02-26T22:00:39.112Z",
+  "sourceRows": 9861,
+  "inWindowWithEmail": 5100,
+  "deduped": 5097,
+  "sendable": 5068,
+  "suppressed": 29,
+  "cadence": {
+    "emailsPerHour": 8,
+    "hoursPerDay": 10,
+    "estimatedPerDay": 80
+  },
+  "notes": [
+    "Range filter: 2024-06-01 through 2025-06-30 (America/Chicago approx).",
+    "Suppressed: role-based emails + @thelegacylink.com internal addresses."
+  ]
+}
