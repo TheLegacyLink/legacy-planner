@@ -132,12 +132,8 @@ export async function POST(req) {
   const rows = await loadJsonStore(STORE_PATH, []);
   const open = rows.filter((r) => normalize(r?.claim_status) !== 'claimed');
 
+  // Keep group noise low: only process explicit CONFIRM messages.
   if (!/^\s*CONFIRM\b/i.test(text)) {
-    const sample = open[0]?.id ? `Example: CONFIRM ${open[0].id}` : 'Example: CONFIRM book_1234567890';
-    await tgSend(
-      msg.chat?.id,
-      `👋 Claim helper is active.\n${sample}\n${open.length ? `Open bookings: ${open.length}` : 'No open bookings right now.'}`
-    );
     return Response.json({ ok: true, skipped: 'not_confirm' });
   }
 

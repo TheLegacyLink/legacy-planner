@@ -187,19 +187,10 @@ export default function SponsorshipBookingPage() {
     }
 
     const alertText = [
-      'New Sponsorship Booking',
-      `Booking ID: ${booking.id}`,
-      `Referral: ${booking.referred_by}`,
-      `Applicant: ${booking.applicant_name}`,
-      `State: ${booking.applicant_state}`,
-      `Licensed: ${booking.licensed_status}`,
-      `Requested Time (EST): ${booking.requested_at_est}`,
-      `Score: ${booking.score}`,
-      sponsorMatch ? `Priority Holder (24h): ${sponsorMatch}` : 'Priority Holder (24h): none',
-      `Eligible Closers: ${booking.eligible_closers.join(', ') || 'None mapped yet'}`,
-      '',
-      'Claim in Telegram (no Mission Control needed):',
-      `Reply: CONFIRM ${booking.id} - [Your Name] - I can take this.`
+      'New policy help request',
+      `${booking.applicant_name} • ${booking.applicant_state} • ${booking.requested_at_est}`,
+      `Referred by: ${booking.referred_by}`,
+      `Reply: CONFIRM ${booking.id} - [Your Name]`
     ].join('\n');
 
     const notify = await sendInternalTelegram({ booking, alertText });
