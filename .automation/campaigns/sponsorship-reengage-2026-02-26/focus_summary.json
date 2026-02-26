@@ -1,0 +1,38 @@
+{
+  "focusedSendable": 952,
+  "unassignedSendable": 887,
+  "kimoraAssignedSendable": 65,
+  "link": "https://innercirclelink.com/sponsorship-signup?ref=kimora_link",
+  "recommendedRamp": [
+    {
+      "day": 1,
+      "perHour": 4,
+      "hours": 10,
+      "total": 40
+    },
+    {
+      "day": 2,
+      "perHour": 4,
+      "hours": 10,
+      "total": 40
+    },
+    {
+      "day": 3,
+      "perHour": 6,
+      "hours": 10,
+      "total": 60
+    },
+    {
+      "day": 4,
+      "perHour": 6,
+      "hours": 10,
+      "total": 60
+    },
+    {
+      "day": 5,
+      "perHour": 8,
+      "hours": 10,
+      "total": 80
+    }
+  ]
+}
