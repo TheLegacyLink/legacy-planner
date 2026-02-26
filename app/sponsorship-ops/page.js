@@ -71,20 +71,40 @@ export default function SponsorshipOpsPage() {
   }, [bookings]);
 
   const bookedRows = useMemo(() => {
-    return bookings.map((b) => ({
-      id: b.id,
-      applicant: clean(b.applicant_name),
-      state: clean(b.applicant_state),
-      requestedAt: clean(b.requested_at_est),
-      referredBy: clean(b.referred_by),
-      claimStatus: clean(b.claim_status || 'Open'),
-      claimedBy: clean(b.claimed_by || ''),
-      createdAt: clean(b.created_at)
-    }));
+    const deduped = new Map();
+    bookings.forEach((b) => {
+      const applicant = clean(b.applicant_name);
+      const requestedAt = clean(b.requested_at_est);
+      const dedupeKey = `${normalize(applicant)}|${normalize(requestedAt)}`;
+      const row = {
+        id: b.id,
+        applicant,
+        state: clean(b.applicant_state),
+        requestedAt,
+        referredBy: clean(b.referred_by),
+        claimStatus: clean(b.claim_status || 'Open'),
+        claimedBy: clean(b.claimed_by || ''),
+        createdAt: clean(b.created_at)
+      };
+
+      if (!deduped.has(dedupeKey)) {
+        deduped.set(dedupeKey, row);
+        return;
+      }
+
+      const prev = deduped.get(dedupeKey);
+      const prevTs = new Date(prev.createdAt || 0).getTime();
+      const curTs = new Date(row.createdAt || 0).getTime();
+      if (curTs > prevTs) deduped.set(dedupeKey, row);
+    });
+
+    return Array.from(deduped.values());
   }, [bookings]);
 
   const approvedNotBooked = useMemo(() => {
     const list = [];
+    const seen = new Set();
+
     apps.forEach((a) => {
       if (!isApprovedStatus(a.status)) return;
 
@@ -92,9 +112,14 @@ export default function SponsorshipOpsPage() {
       const nameMatch = bookingByName.get(normalize(fullName(a)));
       if (idMatch || nameMatch) return;
 
+      const applicant = fullName(a);
+      const dedupeKey = `${normalize(applicant)}|${normalize(a.email)}|${normalize(a.phone)}`;
+      if (seen.has(dedupeKey)) return;
+      seen.add(dedupeKey);
+
       list.push({
         id: a.id,
-        applicant: fullName(a),
+        applicant,
         firstName: clean(a.firstName),
         lastName: clean(a.lastName),
         email: clean(a.email),
