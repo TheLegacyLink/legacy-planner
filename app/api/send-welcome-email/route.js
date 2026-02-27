@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import nodemailer from 'nodemailer';
 
 function getEnv(name) {
@@ -15,36 +13,25 @@ function escapeHtml(value = '') {
     .replace(/'/g, '&#39;');
 }
 
-function logoAttachment() {
-  const localPath = path.join(process.cwd(), 'public', 'legacy-link-logo-white.png');
-  if (!fs.existsSync(localPath)) return null;
-  return {
-    filename: 'legacy-link-logo-white.png',
-    path: localPath,
-    cid: 'legacy-link-logo'
-  };
+function brandHeader() {
+  const royalBlue = '#0047AB';
+  return `<div style="background:${royalBlue};padding:18px 18px;text-align:center;"><div style="color:#ffffff;font-weight:800;font-size:32px;letter-spacing:.8px;line-height:1;">THE LEGACY LINK</div></div>`;
 }
 
 function defaultBrandedHtml({ subject = '', text = '' } = {}) {
   const safeSubject = escapeHtml(subject);
   const bodyHtml = escapeHtml(text).replace(/\n/g, '<br/>');
-  // Shifted to a noticeably stronger royal blue
-  const royalBlue = '#0047AB';
-
-  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;"><div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:${royalBlue};padding:14px 18px;text-align:center;"><img src="cid:legacy-link-logo" alt="The Legacy Link" style="max-height:74px;width:auto;object-fit:contain;display:block;margin:0 auto;" /><div style="margin-top:8px;color:#ffffff;font-weight:700;letter-spacing:.3px;">THE LEGACY LINK</div></div><div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">${safeSubject}</h2><div style="font-size:15px;">${bodyHtml}</div><p style="margin:18px 0 0;color:#475569;">— The Legacy Link Support Team</p></div></div></div>`;
+  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;"><div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">${brandHeader()}<div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">${safeSubject}</h2><div style="font-size:15px;">${bodyHtml}</div><p style="margin:18px 0 0;color:#475569;">— The Legacy Link Support Team</p></div></div></div>`;
 }
 
 function ensureBrandedHtml({ subject = '', text = '', html = '' } = {}) {
   const raw = String(html || '').trim();
   if (!raw) return defaultBrandedHtml({ subject, text });
 
-  // If caller already included logo header, keep as-is.
-  if (raw.includes('cid:legacy-link-logo') || raw.includes('legacy-link-logo-white.png')) return raw;
+  if (raw.includes('THE LEGACY LINK') && raw.includes('#0047AB')) return raw;
 
-  // Otherwise wrap provided body in branded frame so every email has logo at top.
   const safeSubject = escapeHtml(subject);
-  const royalBlue = '#0047AB';
-  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;"><div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:${royalBlue};padding:14px 18px;text-align:center;"><img src="cid:legacy-link-logo" alt="The Legacy Link" style="max-height:74px;width:auto;object-fit:contain;display:block;margin:0 auto;" /><div style="margin-top:8px;color:#ffffff;font-weight:700;letter-spacing:.3px;">THE LEGACY LINK</div></div><div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">${safeSubject}</h2><div style="font-size:15px;">${raw}</div><p style="margin:18px 0 0;color:#475569;">— The Legacy Link Support Team</p></div></div></div>`;
+  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;"><div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">${brandHeader()}<div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">${safeSubject}</h2><div style="font-size:15px;">${raw}</div><p style="margin:18px 0 0;color:#475569;">— The Legacy Link Support Team</p></div></div></div>`;
 }
 
 export async function POST(req) {
@@ -73,15 +60,13 @@ export async function POST(req) {
     });
 
     const generatedHtml = ensureBrandedHtml({ subject, text, html });
-    const logo = logoAttachment();
 
     const info = await transporter.sendMail({
       from,
       to,
       subject,
       text: text || undefined,
-      html: generatedHtml,
-      attachments: logo && generatedHtml?.includes('cid:legacy-link-logo') ? [logo] : undefined
+      html: generatedHtml
     });
 
     return Response.json({ ok: true, messageId: info.messageId });
