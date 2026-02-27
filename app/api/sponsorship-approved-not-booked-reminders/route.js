@@ -74,11 +74,14 @@ function referredAgentName(app = {}) {
   return clean(hit?.name);
 }
 
-function referredAgentEmail(app = {}) {
-  const name = referredAgentName(app);
+function emailByName(name = '') {
   if (!name) return '';
   const hit = (users || []).find((u) => normalize(u?.name) === normalize(name));
   return clean(hit?.email);
+}
+
+function referredAgentEmail(app = {}) {
+  return emailByName(referredAgentName(app));
 }
 
 function smtp() {
@@ -121,6 +124,7 @@ export async function POST() {
   let attempted = 0;
   let applicantSent = 0;
   let agentSent = 0;
+  let escalation48hSent = 0;
   const errors = [];
 
   for (const app of apps) {
@@ -137,7 +141,7 @@ export async function POST() {
     if (!appId) continue;
 
     const record = byId[appId] || {};
-    if (record?.followup24hSentAt && record?.agent24hSentAt) continue;
+    if (record?.followup24hSentAt && record?.agent24hSentAt && record?.escalation48hSentAt) continue;
 
     const fullName = applicantName(app) || 'Applicant';
     const email = clean(app?.email || app?.applicant_email || '');
@@ -220,7 +224,54 @@ export async function POST() {
       }
     }
 
-    if (record.followup24hSentAt || record.agent24hSentAt) {
+    if (ageMs >= 48 * 60 * 60 * 1000 && !record?.escalation48hSentAt) {
+      const kimoraEmail = emailByName('Kimora Link');
+      const jamalEmail = emailByName('Jamal Holmes');
+      const recipients = [...new Set([kimoraEmail, jamalEmail].filter(Boolean))];
+
+      if (recipients.length) {
+        const escalationSubject = `48-Hour Escalation: ${fullName} still not booked`;
+        const escalationText = [
+          'This is a 48-hour escalation for an approved sponsorship applicant who is still not booked.',
+          '',
+          `Applicant Name: ${fullName}`,
+          `Applicant Email: ${email || 'N/A'}`,
+          `Applicant Phone: ${phone}`,
+          `Referred By: ${referredAgentName(app) || 'N/A'}`,
+          `Booking Link: ${bookingLink}`,
+          '',
+          'Please coordinate immediately and get this applicant scheduled.'
+        ].join('\n');
+
+        const escalationHtmlBody = `
+          <p>This is a <strong>48-hour escalation</strong> for an approved sponsorship applicant who is still not booked.</p>
+          <ul>
+            <li><strong>Applicant Name:</strong> ${fullName}</li>
+            <li><strong>Applicant Email:</strong> ${email || 'N/A'}</li>
+            <li><strong>Applicant Phone:</strong> ${phone}</li>
+            <li><strong>Referred By:</strong> ${referredAgentName(app) || 'N/A'}</li>
+            <li><strong>Booking Link:</strong> <a href="${bookingLink}">${bookingLink}</a></li>
+          </ul>
+          <p>Please coordinate immediately and get this applicant scheduled.</p>
+        `;
+
+        const out = await sendBrandedEmail({
+          to: recipients.join(', '),
+          subject: escalationSubject,
+          text: escalationText,
+          htmlBody: escalationHtmlBody
+        });
+
+        if (out.ok) {
+          escalation48hSent += 1;
+          record.escalation48hSentAt = nowIso();
+        } else {
+          errors.push({ appId, type: 'escalation48h', error: out.error });
+        }
+      }
+    }
+
+    if (record.followup24hSentAt || record.agent24hSentAt || record.escalation48hSentAt) {
       record.lastTouchedAt = nowIso();
       byId[appId] = record;
     }
@@ -233,6 +284,7 @@ export async function POST() {
     attempted,
     applicantSent,
     agentSent,
+    escalation48hSent,
     errorsCount: errors.length,
     errors
   });
