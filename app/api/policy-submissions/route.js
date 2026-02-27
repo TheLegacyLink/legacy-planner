@@ -383,6 +383,7 @@ export async function PATCH(req) {
   const patch = body?.patch || {};
   const prevStatus = clean(store[idx].status).toLowerCase();
   const nextStatus = patch.status != null ? clean(patch.status) : store[idx].status;
+  const suppressEmail = Boolean(patch?.suppressEmail);
   const approveTransition = prevStatus !== 'approved' && clean(nextStatus).toLowerCase() === 'approved';
   const declineTransition = prevStatus !== 'declined' && clean(nextStatus).toLowerCase() === 'declined';
 
@@ -411,9 +412,9 @@ export async function PATCH(req) {
   };
 
   let email = null;
-  if (approveTransition) {
+  if (!suppressEmail && approveTransition) {
     email = await sendApprovalEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'email_failed' }));
-  } else if (declineTransition) {
+  } else if (!suppressEmail && declineTransition) {
     email = await sendDeclineEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'email_failed' }));
   }
 

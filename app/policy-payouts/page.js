@@ -50,7 +50,8 @@ function rowVisualState(row = {}) {
     return { tone: 'declined', terminal: true }; // red
   }
 
-  if (isApproved && payoutStatus === 'paid') {
+  // Paid should always lock approval actions.
+  if (payoutStatus === 'paid') {
     return { tone: 'approved_paid', terminal: true }; // green
   }
 
@@ -461,11 +462,16 @@ export default function PolicyPayoutsPage() {
                     <td>
                       <select
                         value={r.payoutStatus || 'Unpaid'}
-                        onChange={(e) => patchRow(r.id, {
-                          payoutStatus: e.target.value,
-                          payoutPaidAt: e.target.value === 'Paid' ? new Date().toISOString() : '',
-                          payoutPaidBy: e.target.value === 'Paid' ? 'Kimora' : ''
-                        })}
+                        onChange={(e) => {
+                          const isPaid = e.target.value === 'Paid';
+                          patchRow(r.id, {
+                            payoutStatus: e.target.value,
+                            payoutPaidAt: isPaid ? new Date().toISOString() : '',
+                            payoutPaidBy: isPaid ? 'Kimora' : '',
+                            status: isPaid ? 'Approved' : r.status,
+                            suppressEmail: isPaid
+                          });
+                        }}
                       >
                         <option value="Unpaid">Unpaid</option>
                         <option value="Paid">Paid</option>
