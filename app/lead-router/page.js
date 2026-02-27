@@ -10,6 +10,21 @@ function fmt(iso) {
   return d.toLocaleString();
 }
 
+function secsToClock(sec = 0) {
+  const n = Number(sec || 0) || 0;
+  if (n <= 0) return '—';
+  const m = Math.floor(n / 60);
+  const s = n % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function cstDayKey(iso = '') {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(d);
+}
+
 export default function LeadRouterPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -19,6 +34,8 @@ export default function LeadRouterPage() {
   const [recent, setRecent] = useState([]);
   const [tomorrowStartOrder, setTomorrowStartOrder] = useState([]);
   const [callMetrics, setCallMetrics] = useState({ totals: {}, byOwner: [] });
+  const [calledLeadRows, setCalledLeadRows] = useState([]);
+  const [callDrilldown, setCallDrilldown] = useState(null);
 
   async function load() {
     const res = await fetch('/api/lead-router', { cache: 'no-store' });
@@ -29,12 +46,15 @@ export default function LeadRouterPage() {
       setRecent(data.recent || []);
       setTomorrowStartOrder(data.tomorrowStartOrder || []);
       setCallMetrics(data.callMetrics || { totals: {}, byOwner: [] });
+      setCalledLeadRows(data.calledLeadRows || []);
     }
     setLoading(false);
   }
 
   useEffect(() => {
     load();
+    const id = setInterval(load, 5 * 60 * 1000); // every 5 minutes
+    return () => clearInterval(id);
   }, []);
 
   async function savePatch(patch) {
@@ -94,6 +114,16 @@ export default function LeadRouterPage() {
 
     return { totalAssigned, submitted, approved, submitRate, approveRate, byAgent };
   }, [recent]);
+
+  const callDrilldownRows = useMemo(() => {
+    if (!callDrilldown?.owner) return [];
+    const todayKey = cstDayKey(new Date().toISOString());
+    return (calledLeadRows || []).filter((r) => {
+      if (r.owner !== callDrilldown.owner) return false;
+      if (callDrilldown.mode === 'today') return cstDayKey(r.calledAt) === todayKey;
+      return true;
+    });
+  }, [callDrilldown, calledLeadRows]);
 
   if (loading || !settings) {
     return <AppShell title="Lead Router Control"><p className="muted">Loading router control…</p></AppShell>;
@@ -413,9 +443,17 @@ export default function LeadRouterPage() {
               <tr key={r.name}>
                 <td>{r.name}</td>
                 <td>{r.callable}</td>
-                <td>{r.called}</td>
+                <td>
+                  <button type="button" className="ghost" onClick={() => setCallDrilldown({ owner: r.name, mode: 'all' })}>
+                    {r.called}
+                  </button>
+                </td>
                 <td>{r.callRate}%</td>
-                <td>{r.calledToday}</td>
+                <td>
+                  <button type="button" className="ghost" onClick={() => setCallDrilldown({ owner: r.name, mode: 'today' })}>
+                    {r.calledToday}
+                  </button>
+                </td>
                 <td>{r.uncalled}</td>
                 <td>{r.avgFirstCallMinutes ?? '—'}</td>
                 <td>{r.avgWaitMinutes ?? '—'}</td>
@@ -425,6 +463,50 @@ export default function LeadRouterPage() {
           </tbody>
         </table>
       </div>
+
+      {callDrilldown ? (
+        <div className="panel" style={{ marginBottom: 10, borderColor: '#bfdbfe', background: '#f8fbff' }}>
+          <div className="panelRow" style={{ marginBottom: 8 }}>
+            <h3 style={{ margin: 0 }}>
+              {callDrilldown.mode === 'today' ? 'Called Today' : 'All Called'} — {callDrilldown.owner}
+            </h3>
+            <button type="button" className="ghost" onClick={() => setCallDrilldown(null)}>Close</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Lead</th>
+                <th>Phone</th>
+                <th>Called At</th>
+                <th>Duration</th>
+                <th>Result</th>
+                <th>Recording</th>
+              </tr>
+            </thead>
+            <tbody>
+              {callDrilldownRows.map((row) => (
+                <tr key={`${row.id}-${row.calledAt}`}>
+                  <td>
+                    <div>{row.name || '—'}</div>
+                    <small className="muted">{row.email || row.stage || '—'}</small>
+                  </td>
+                  <td>{row.phone || '—'}</td>
+                  <td>{fmt(row.calledAt)}</td>
+                  <td>{secsToClock(row.lastCallDurationSec)}</td>
+                  <td>{row.callResult || '—'}</td>
+                  <td>
+                    {row.lastCallRecordingUrl ? (
+                      <a href={row.lastCallRecordingUrl} target="_blank" rel="noreferrer">Open</a>
+                    ) : '—'}
+                  </td>
+                </tr>
+              ))}
+              {!callDrilldownRows.length ? <tr><td colSpan={6} className="muted">No called leads found in this view yet.</td></tr> : null}
+            </tbody>
+          </table>
+          <small className="muted">Tip: recording links appear when the call source sends recordingUrl in activity events.</small>
+        </div>
+      ) : null}
 
       <div className="panel" style={{ marginBottom: 10 }}>
         <h3 style={{ marginTop: 0 }}>Lead Performance Snapshot</h3>

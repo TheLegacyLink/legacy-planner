@@ -319,6 +319,26 @@ function buildAgentCounts(settings, events, keys) {
   return counts;
 }
 
+function buildCalledLeadRows(leads = [], sponsorshipMap = new Map()) {
+  return (leads || [])
+    .filter((r) => clean(r?.calledAt))
+    .map((r) => ({
+      id: r.id,
+      owner: clean(r.owner || '') || 'Unknown',
+      name: clean(r.name || '') || 'Unknown Lead',
+      email: clean(r.email || ''),
+      phone: clean(r.phone || ''),
+      calledAt: clean(r.calledAt || ''),
+      callResult: clean(r.callResult || ''),
+      lastCallDurationSec: Number(r.lastCallDurationSec || 0) || 0,
+      lastCallRecordingUrl: clean(r.lastCallRecordingUrl || ''),
+      stage: clean(r.stage || ''),
+      sponsorshipStatus: resolveSponsorshipStatus({ name: r?.name, email: r?.email, phone: r?.phone }, sponsorshipMap)
+    }))
+    .sort((a, b) => new Date(b.calledAt || 0).getTime() - new Date(a.calledAt || 0).getTime())
+    .slice(0, 1000);
+}
+
 function buildCallMetrics(settings, leads = [], sponsorshipMap = new Map()) {
   const todayKey = cstDateKey();
   const byOwner = {};
@@ -457,6 +477,7 @@ export async function GET() {
 
   const sponsorshipMap = sponsorshipLookup(sponsorship);
   const callMetrics = buildCallMetrics(settings, leads, sponsorshipMap);
+  const calledLeadRows = buildCalledLeadRows(leads, sponsorshipMap);
   const recent = enrichEvents(events, sponsorshipMap).sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()).slice(0, 300);
 
   const tomorrowStartOrder = [...(settings.agents || [])]
@@ -476,7 +497,7 @@ export async function GET() {
       yesterday: Number(yesterdayCounts[a.name] || 0)
     }));
 
-  return Response.json({ ok: true, settings, counts, recent, keys, tomorrowStartOrder, callMetrics });
+  return Response.json({ ok: true, settings, counts, recent, keys, tomorrowStartOrder, callMetrics, calledLeadRows });
 }
 
 export async function PATCH(req) {

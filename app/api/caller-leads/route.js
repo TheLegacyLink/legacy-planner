@@ -107,6 +107,8 @@ function parseLeadPayload(body = {}) {
     approvedAt: '',
     onboardingStartedAt: '',
     movedForwardAt: '',
+    lastCallDurationSec: Number(candidate.lastCallDurationSec || candidate.callDurationSec || candidate.call_duration_sec || candidate.duration || body.lastCallDurationSec || body.callDurationSec || body.call_duration_sec || body.duration || 0) || 0,
+    lastCallRecordingUrl: clean(candidate.lastCallRecordingUrl || candidate.recordingUrl || candidate.recording_url || body.lastCallRecordingUrl || body.recordingUrl || body.recording_url || ''),
     stageUpdatedAt: clean(candidate.stageUpdatedAt || candidate.stage_updated_at || ''),
     stageUpdatedBy: clean(candidate.stageUpdatedBy || candidate.stage_updated_by || body.stageUpdatedBy || body.stage_updated_by || ''),
     createdAt: nowIso(),
@@ -166,6 +168,8 @@ export async function POST(req) {
       approvedAt: '',
       onboardingStartedAt: '',
       movedForwardAt: '',
+      lastCallDurationSec: 0,
+      lastCallRecordingUrl: '',
       stageUpdatedAt: nowIso(),
       stageUpdatedBy: 'Manual Create',
       createdAt: nowIso(),
@@ -213,11 +217,17 @@ export async function POST(req) {
     const patch = { updatedAt: now };
     const actor = clean(body?.actor || 'System Activity');
 
+    const durationSec = Number(body?.callDurationSec || body?.duration || candidate?.callDurationSec || candidate?.duration || 0) || 0;
+    const recordingUrl = clean(body?.recordingUrl || body?.recording_url || candidate?.recordingUrl || candidate?.recording_url || '');
+
     if (eventType.includes('called') || eventType === 'call') patch.calledAt = store[targetIdx].calledAt || now;
     if (eventType.includes('connect')) patch.connectedAt = store[targetIdx].connectedAt || now;
     if (eventType.includes('qualif')) patch.qualifiedAt = store[targetIdx].qualifiedAt || now;
     if (eventType.includes('form_sent') || eventType.includes('invite')) patch.formSentAt = store[targetIdx].formSentAt || now;
     if (eventType.includes('form_completed') || eventType.includes('submitted')) patch.formCompletedAt = store[targetIdx].formCompletedAt || now;
+
+    if (durationSec > 0) patch.lastCallDurationSec = durationSec;
+    if (recordingUrl) patch.lastCallRecordingUrl = recordingUrl;
 
     if (body?.stage) {
       Object.assign(patch, withStageAudit(store[targetIdx]?.stage, clean(body.stage), actor));
