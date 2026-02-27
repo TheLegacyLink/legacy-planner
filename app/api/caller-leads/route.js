@@ -28,6 +28,14 @@ function normalizePhone(v = '') {
   return String(v || '').replace(/\D/g, '');
 }
 
+function normalizeDirection(v = '') {
+  const s = clean(v).toLowerCase();
+  if (!s) return '';
+  if (s.includes('inbound') || s === 'in') return 'inbound';
+  if (s.includes('outbound') || s === 'out') return 'outbound';
+  return '';
+}
+
 function normalizeOwner(v = '') {
   const s = clean(v).toLowerCase();
   if (!s) return '';
@@ -140,6 +148,18 @@ function parseLeadPayload(body = {}) {
 
   const assignedTo = isUnknownOwner(ownerHint) ? (overrideOwner || 'Unknown') : ownerHint;
 
+  const direction = normalizeDirection(
+    candidate.callDirection ||
+      candidate.call_direction ||
+      candidate.direction ||
+      body.callDirection ||
+      body.call_direction ||
+      body.direction ||
+      body.event ||
+      candidate.event ||
+      ''
+  );
+
   return {
     id,
     externalId: clean(candidate.id || candidate.contactId || candidate.contact_id || ''),
@@ -152,6 +172,7 @@ function parseLeadPayload(body = {}) {
     callResult: clean(candidate.callResult || candidate.call_result || body.callResult || body.call_result || ''),
     callAttempts: Number(candidate.callAttempts || candidate.call_attempts || body.callAttempts || body.call_attempts || 0) || 0,
     lastCallAttemptAt: clean(candidate.lastCallAttemptAt || candidate.last_call_attempt_at || body.lastCallAttemptAt || body.last_call_attempt_at || ''),
+    callDirection: direction,
     stage: 'New',
     owner: assignedTo,
     calledAt: '',
@@ -233,6 +254,7 @@ export async function POST(req) {
       callResult: clean(body?.callResult || ''),
       callAttempts: Number(body?.callAttempts || 0) || 0,
       lastCallAttemptAt: clean(body?.lastCallAttemptAt || ''),
+      callDirection: normalizeDirection(body?.callDirection || body?.direction || ''),
       stage: clean(body?.stage || 'New') || 'New',
       owner: normalizeOwner(body?.owner || 'Kimora Link') || 'Kimora Link',
       calledAt: '',
@@ -269,6 +291,7 @@ export async function POST(req) {
     const phone = normalizePhone(candidate.phone || candidate.phoneNumber || candidate.phone_number);
     const name = normalizeName(candidate.name || `${candidate.firstName || ''} ${candidate.lastName || ''}`);
     const eventType = clean(body?.event || candidate?.event || '').toLowerCase();
+    const callDirection = normalizeDirection(body?.callDirection || body?.direction || candidate?.callDirection || candidate?.direction || eventType);
 
     const idx = store.findIndex((r) => {
       if (externalId && r.externalId && clean(r.externalId) === externalId) return true;
@@ -311,6 +334,7 @@ export async function POST(req) {
 
     if (durationSec > 0) patch.lastCallDurationSec = durationSec;
     if (recordingUrl) patch.lastCallRecordingUrl = recordingUrl;
+    if (callDirection) patch.callDirection = callDirection;
 
     if (body?.stage) {
       Object.assign(patch, withStageAudit(store[targetIdx]?.stage, clean(body.stage), actor));

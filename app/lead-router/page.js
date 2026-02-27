@@ -423,7 +423,7 @@ export default function LeadRouterPage() {
       </div>
 
       <div className="panel" style={{ marginBottom: 10 }}>
-        <h3 style={{ marginTop: 0 }}>Call Activity</h3>
+        <h3 style={{ marginTop: 0 }}>Call Activity (Outbound • Inner Circle only)</h3>
         <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
           <span className="pill">Callable: {callMetrics?.totals?.callable ?? 0}</span>
           <span className="pill">Called: {callMetrics?.totals?.called ?? 0}</span>

@@ -45,6 +45,14 @@ function normalizePhone(v = '') {
   return String(v || '').replace(/\D/g, '');
 }
 
+function normalizeDirection(v = '') {
+  const s = clean(v).toLowerCase();
+  if (!s) return '';
+  if (s.includes('inbound') || s === 'in') return 'inbound';
+  if (s.includes('outbound') || s === 'out') return 'outbound';
+  return '';
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -358,6 +366,24 @@ function resolveLeadOwner(row = {}, ownerLookup = new Map()) {
   return current || 'Unknown';
 }
 
+function isInnerCircleOwner(owner = '', settings = {}) {
+  const set = new Set((settings?.agents || []).map((a) => clean(a.name)));
+  return set.has(clean(owner));
+}
+
+function isOutboundCall(row = {}) {
+  const dir = normalizeDirection(row?.callDirection || row?.direction || row?.event || '');
+  if (dir === 'inbound') return false;
+  if (dir === 'outbound') return true;
+
+  const source = clean(row?.source || '').toLowerCase();
+  if (source.includes('inbound')) return false;
+  if (source.includes('outbound')) return true;
+
+  // fallback: if direction is missing, treat as outbound for legacy records
+  return true;
+}
+
 function enrichEvents(events = [], sponsorshipMap = new Map()) {
   return events.map((e) => {
     const sponsorshipStatus = resolveSponsorshipStatus({
@@ -403,11 +429,16 @@ function inferDurationSec(row = {}) {
   return explicit > 0 ? explicit : 0;
 }
 
-function buildCalledLeadRows(leads = [], sponsorshipMap = new Map(), ownerLookup = new Map()) {
+function buildCalledLeadRows(leads = [], sponsorshipMap = new Map(), ownerLookup = new Map(), settings = {}) {
   return (leads || [])
     .map((r) => {
       const calledAt = inferCalledAt(r);
       if (!calledAt) return null;
+
+      const owner = resolveLeadOwner(r, ownerLookup);
+      if (!isInnerCircleOwner(owner, settings)) return null;
+      if (!isOutboundCall(r)) return null;
+
       const createdAt = clean(r?.createdAt || r?.updatedAt || '');
       const calledTs = new Date(calledAt || 0).getTime();
       const createdTs = new Date(createdAt || 0).getTime();
@@ -417,13 +448,14 @@ function buildCalledLeadRows(leads = [], sponsorshipMap = new Map(), ownerLookup
 
       return {
         id: r.id,
-        owner: resolveLeadOwner(r, ownerLookup),
+        owner,
         name: clean(r.name || '') || 'Unknown Lead',
         email: clean(r.email || ''),
         phone: clean(r.phone || ''),
         createdAt,
         calledAt,
         callResult: clean(r.callResult || ''),
+        callDirection: normalizeDirection(r.callDirection || ''),
         lastCallDurationSec: inferDurationSec(r),
         lastCallRecordingUrl: clean(r.lastCallRecordingUrl || ''),
         stage: clean(r.stage || ''),
@@ -457,6 +489,9 @@ function buildCallMetrics(settings, leads = [], sponsorshipMap = new Map(), owne
 
   for (const row of leads || []) {
     const owner = resolveLeadOwner(row, ownerLookup) || 'Unassigned';
+    if (!isInnerCircleOwner(owner, settings)) continue;
+    if (!isOutboundCall(row)) continue;
+
     if (!byOwner[owner]) {
       byOwner[owner] = {
         assigned: 0,
@@ -509,41 +544,46 @@ function buildCallMetrics(settings, leads = [], sponsorshipMap = new Map(), owne
     }
   }
 
-  const totals = Object.values(byOwner).reduce(
-    (acc, b) => {
-      acc.assigned += b.assigned;
-      acc.exemptFormSubmitted += b.exemptFormSubmitted;
-      acc.callable += b.callable;
-      acc.called += b.called;
-      acc.calledToday += b.calledToday;
-      acc.uncalled += b.uncalled;
-      acc.totalFirstCallMinutes += b.totalFirstCallMinutes;
-      acc.firstCallSamples += b.firstCallSamples;
-      acc.totalWaitMinutes += b.totalWaitMinutes;
-      acc.waitSamples += b.waitSamples;
-      return acc;
-    },
-    {
-      assigned: 0,
-      exemptFormSubmitted: 0,
-      callable: 0,
-      called: 0,
-      calledToday: 0,
-      uncalled: 0,
-      totalFirstCallMinutes: 0,
-      firstCallSamples: 0,
-      totalWaitMinutes: 0,
-      waitSamples: 0
-    }
-  );
+  const totals = Object.entries(byOwner)
+    .filter(([name]) => !isUnknownOwner(name))
+    .map(([, b]) => b)
+    .reduce(
+      (acc, b) => {
+        acc.assigned += b.assigned;
+        acc.exemptFormSubmitted += b.exemptFormSubmitted;
+        acc.callable += b.callable;
+        acc.called += b.called;
+        acc.calledToday += b.calledToday;
+        acc.uncalled += b.uncalled;
+        acc.totalFirstCallMinutes += b.totalFirstCallMinutes;
+        acc.firstCallSamples += b.firstCallSamples;
+        acc.totalWaitMinutes += b.totalWaitMinutes;
+        acc.waitSamples += b.waitSamples;
+        return acc;
+      },
+      {
+        assigned: 0,
+        exemptFormSubmitted: 0,
+        callable: 0,
+        called: 0,
+        calledToday: 0,
+        uncalled: 0,
+        totalFirstCallMinutes: 0,
+        firstCallSamples: 0,
+        totalWaitMinutes: 0,
+        waitSamples: 0
+      }
+    );
 
-  const ownerRows = Object.entries(byOwner).map(([name, b]) => ({
-    name,
-    ...b,
-    callRate: b.callable ? Math.round((b.called / b.callable) * 100) : 0,
-    avgFirstCallMinutes: b.firstCallSamples ? Math.round(b.totalFirstCallMinutes / b.firstCallSamples) : null,
-    avgWaitMinutes: b.waitSamples ? Math.round(b.totalWaitMinutes / b.waitSamples) : null
-  }));
+  const ownerRows = Object.entries(byOwner)
+    .filter(([name]) => !isUnknownOwner(name))
+    .map(([name, b]) => ({
+      name,
+      ...b,
+      callRate: b.callable ? Math.round((b.called / b.callable) * 100) : 0,
+      avgFirstCallMinutes: b.firstCallSamples ? Math.round(b.totalFirstCallMinutes / b.firstCallSamples) : null,
+      avgWaitMinutes: b.waitSamples ? Math.round(b.totalWaitMinutes / b.waitSamples) : null
+    }));
 
   return {
     totals: {
@@ -574,7 +614,7 @@ export async function GET() {
   const sponsorshipMap = sponsorshipLookup(sponsorship);
   const ownerLookup = buildOwnerLookup(events);
   const callMetrics = buildCallMetrics(settings, leads, sponsorshipMap, ownerLookup);
-  const calledLeadRows = buildCalledLeadRows(leads, sponsorshipMap, ownerLookup);
+  const calledLeadRows = buildCalledLeadRows(leads, sponsorshipMap, ownerLookup, settings);
   const recent = enrichEvents(events, sponsorshipMap).sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()).slice(0, 300);
 
   const tomorrowStartOrder = [...(settings.agents || [])]
