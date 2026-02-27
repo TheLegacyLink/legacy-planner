@@ -1,3 +1,5 @@
+import licensedAgents from '../../../data/licensedAgents.json';
+
 function clean(v = '') {
   return String(v || '').trim();
 }
@@ -6,10 +8,52 @@ function normalize(v = '') {
   return clean(v).toLowerCase().replace(/\s+/g, ' ');
 }
 
+function normalizeKey(v = '') {
+  return clean(v).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+const REF_CODE_MAP = {
+  kimora_link: 'Kimora Link',
+  jamal_holmes: 'Jamal Holmes',
+  mahogany_burns: 'Mahogany Burns',
+  madalyn_adams: 'Madalyn Adams',
+  kelin_brown: 'Kelin Brown',
+  leticia_wright: 'Leticia Wright',
+  latricia_wright: 'Leticia Wright',
+  breanna_james: 'Breanna James',
+  dr_brianna: 'Breanna James'
+};
+
+function referralOwnerName(booking = {}) {
+  const byName = clean(booking?.referred_by || booking?.referredBy || '');
+  if (byName) return byName;
+  const byCode = clean(booking?.referral_code || booking?.refCode || '').toLowerCase();
+  return REF_CODE_MAP[byCode] || '';
+}
+
 function isKimoraReferral(booking = {}) {
-  const byName = normalize(booking?.referred_by || booking?.referredBy || '');
-  const byCode = normalize(booking?.referral_code || booking?.refCode || '').replace(/[_-]+/g, ' ');
-  return byName === 'kimora link' || byCode === 'kimora link';
+  return normalize(referralOwnerName(booking)) === 'kimora link';
+}
+
+function parseFullName(lastFirst = '') {
+  const raw = clean(lastFirst);
+  if (!raw) return '';
+  if (!raw.includes(',')) return raw;
+  const [last, first] = raw.split(',').map((x) => clean(x));
+  return clean(`${first} ${last}`);
+}
+
+function hasStateLicense(agentName = '', state = '') {
+  const nameKey = normalizeKey(agentName);
+  const stateCode = clean(state).toUpperCase().slice(0, 2);
+  if (!nameKey || !stateCode) return false;
+
+  return (licensedAgents || []).some((row) => {
+    const rowName = parseFullName(row?.full_name || row?.name || '');
+    const rowKey = normalizeKey(rowName);
+    const rowState = clean(row?.state_code || row?.home_state || '').toUpperCase().slice(0, 2);
+    return rowKey === nameKey && rowState === stateCode;
+  });
 }
 
 export async function POST(req) {
@@ -18,10 +62,20 @@ export async function POST(req) {
     const booking = body?.booking || {};
     const alertText = body?.alertText || '';
 
-    // For sponsorship call alerts, only send Telegram notifications for Kimora referrals.
+    // Sponsorship call alert routing:
+    // 1) Kimora referrals => always send Telegram.
+    // 2) Non-Kimora referrals => send Telegram only when referral owner is NOT licensed in applicant state.
     const isSponsorshipBooking = Boolean(clean(booking?.source_application_id));
-    if (isSponsorshipBooking && !isKimoraReferral(booking)) {
-      return Response.json({ ok: true, skipped: 'non_kimora_referral' });
+    if (isSponsorshipBooking) {
+      if (!isKimoraReferral(booking)) {
+        const owner = referralOwnerName(booking);
+        const state = clean(booking?.applicant_state || '').toUpperCase();
+        const ownerLicensedInState = hasStateLicense(owner, state);
+
+        if (ownerLicensedInState) {
+          return Response.json({ ok: true, skipped: 'owner_licensed_in_state' });
+        }
+      }
     }
 
     const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
