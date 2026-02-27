@@ -292,6 +292,53 @@ function resolveSponsorshipStatus({ name = '', email = '', phone = '' } = {}, sp
   return '';
 }
 
+function isUnknownOwner(v = '') {
+  const s = clean(v).toLowerCase();
+  return !s || s === 'unknown' || s === 'unassigned';
+}
+
+function buildOwnerLookup(events = []) {
+  const map = new Map();
+  const sorted = [...(events || [])].sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+  for (const e of sorted) {
+    const owner = clean(e?.assignedTo || e?.owner || '');
+    if (isUnknownOwner(owner)) continue;
+
+    const keys = [
+      clean(e?.leadId || ''),
+      clean(e?.externalId || ''),
+      clean(e?.email || '').toLowerCase(),
+      normalizePhone(e?.phone || ''),
+      normalizeName(e?.name || '')
+    ].filter(Boolean);
+
+    for (const key of keys) {
+      if (!map.has(key)) map.set(key, owner);
+    }
+  }
+  return map;
+}
+
+function resolveLeadOwner(row = {}, ownerLookup = new Map()) {
+  const current = clean(row?.owner || '');
+  if (!isUnknownOwner(current)) return current;
+
+  const keys = [
+    clean(row?.id || ''),
+    clean(row?.externalId || ''),
+    clean(row?.email || '').toLowerCase(),
+    normalizePhone(row?.phone || ''),
+    normalizeName(row?.name || '')
+  ].filter(Boolean);
+
+  for (const key of keys) {
+    const hit = clean(ownerLookup.get(key) || '');
+    if (!isUnknownOwner(hit)) return hit;
+  }
+
+  return current || 'Unknown';
+}
+
 function enrichEvents(events = [], sponsorshipMap = new Map()) {
   return events.map((e) => {
     const sponsorshipStatus = resolveSponsorshipStatus({
@@ -337,7 +384,7 @@ function inferDurationSec(row = {}) {
   return explicit > 0 ? explicit : 0;
 }
 
-function buildCalledLeadRows(leads = [], sponsorshipMap = new Map()) {
+function buildCalledLeadRows(leads = [], sponsorshipMap = new Map(), ownerLookup = new Map()) {
   return (leads || [])
     .map((r) => {
       const calledAt = inferCalledAt(r);
@@ -351,7 +398,7 @@ function buildCalledLeadRows(leads = [], sponsorshipMap = new Map()) {
 
       return {
         id: r.id,
-        owner: clean(r.owner || '') || 'Unknown',
+        owner: resolveLeadOwner(r, ownerLookup),
         name: clean(r.name || '') || 'Unknown Lead',
         email: clean(r.email || ''),
         phone: clean(r.phone || ''),
@@ -370,7 +417,7 @@ function buildCalledLeadRows(leads = [], sponsorshipMap = new Map()) {
     .slice(0, 1000);
 }
 
-function buildCallMetrics(settings, leads = [], sponsorshipMap = new Map()) {
+function buildCallMetrics(settings, leads = [], sponsorshipMap = new Map(), ownerLookup = new Map()) {
   const todayKey = cstDateKey();
   const byOwner = {};
 
@@ -390,7 +437,7 @@ function buildCallMetrics(settings, leads = [], sponsorshipMap = new Map()) {
   }
 
   for (const row of leads || []) {
-    const owner = clean(row?.owner || '') || 'Unassigned';
+    const owner = resolveLeadOwner(row, ownerLookup) || 'Unassigned';
     if (!byOwner[owner]) {
       byOwner[owner] = {
         assigned: 0,
@@ -506,8 +553,9 @@ export async function GET() {
   const yesterdayCounts = computeYesterdayCounts(settings, events, new Date());
 
   const sponsorshipMap = sponsorshipLookup(sponsorship);
-  const callMetrics = buildCallMetrics(settings, leads, sponsorshipMap);
-  const calledLeadRows = buildCalledLeadRows(leads, sponsorshipMap);
+  const ownerLookup = buildOwnerLookup(events);
+  const callMetrics = buildCallMetrics(settings, leads, sponsorshipMap, ownerLookup);
+  const calledLeadRows = buildCalledLeadRows(leads, sponsorshipMap, ownerLookup);
   const recent = enrichEvents(events, sponsorshipMap).sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()).slice(0, 300);
 
   const tomorrowStartOrder = [...(settings.agents || [])]

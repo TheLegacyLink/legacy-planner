@@ -1,6 +1,7 @@
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 
 const STORE_PATH = 'stores/caller-leads.json';
+const LEAD_ROUTER_EVENTS_PATH = 'stores/lead-router-events.json';
 
 async function getStore() {
   return await loadJsonStore(STORE_PATH, []);
@@ -31,7 +32,39 @@ function normalizeOwner(v = '') {
   if (!s) return '';
   if (s.includes('kimora')) return 'Kimora Link';
   if (s.includes('jamal')) return 'Jamal Holmes';
+  if (s.includes('leticia') || s.includes('latricia')) return 'Leticia Wright';
+  if (s.includes('kelin')) return 'Kelin Brown';
+  if (s.includes('mahogany')) return 'Mahogany Burns';
+  if (s.includes('madalyn')) return 'Madalyn Adams';
+  if (s.includes('breanna') || s.includes('brianna')) return 'Breanna James';
   return clean(v);
+}
+
+function isUnknownOwner(v = '') {
+  const s = clean(v).toLowerCase();
+  return !s || s === 'unknown' || s === 'unassigned';
+}
+
+function ownerFromEventsForLead(lead = {}, events = []) {
+  const ext = clean(lead.externalId || '');
+  const em = clean(lead.email || '').toLowerCase();
+  const ph = normalizePhone(lead.phone || '');
+  const nm = normalizeName(lead.name || '');
+
+  const sorted = [...(events || [])].sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+  const hit = sorted.find((e) => {
+    const owner = normalizeOwner(e?.assignedTo || e?.owner || '');
+    if (isUnknownOwner(owner)) return false;
+
+    const eExt = clean(e?.externalId || '');
+    const eEm = clean(e?.email || '').toLowerCase();
+    const ePh = normalizePhone(e?.phone || '');
+    const eNm = normalizeName(e?.name || '');
+
+    return (ext && eExt && ext === eExt) || (em && eEm && em === eEm) || (ph && ePh && ph === ePh) || (nm && eNm && nm === eNm);
+  });
+
+  return normalizeOwner(hit?.assignedTo || hit?.owner || '');
 }
 
 const CALL_RESULT_VALUES = new Set([
@@ -143,6 +176,24 @@ export async function POST(req) {
   const store = await getStore();
   const mode = clean(body?.mode || 'upsert').toLowerCase();
 
+  if (mode === 'repair-unknown-owners') {
+    const events = await loadJsonStore(LEAD_ROUTER_EVENTS_PATH, []);
+    let updated = 0;
+
+    for (const row of store) {
+      if (!isUnknownOwner(row?.owner)) continue;
+      const inferred = ownerFromEventsForLead(row, events);
+      if (isUnknownOwner(inferred)) continue;
+      row.owner = inferred;
+      row.updatedAt = nowIso();
+      row.stageUpdatedBy = clean(row.stageUpdatedBy || 'System Repair');
+      updated += 1;
+    }
+
+    if (updated > 0) await writeStore(store);
+    return Response.json({ ok: true, updated, total: store.length });
+  }
+
   if (mode === 'create-manual') {
     const row = {
       id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -203,11 +254,17 @@ export async function POST(req) {
 
     let targetIdx = idx;
     if (targetIdx < 0) {
+      const inferredOwner =
+        clean(body?.owner || '') ||
+        clean(candidate?.owner || '') ||
+        clean(candidate?.assignedToName || candidate?.assigned_to_name || '') ||
+        clean(candidate?.assignedTo || candidate?.assigned_to || '');
+
       const seeded = parseLeadPayload({
         ...candidate,
         source: clean(candidate.source || body.source || 'Activity Webhook') || 'Activity Webhook',
-        assignedTo: clean(body?.owner || candidate?.owner || ''),
-        assignedToName: clean(body?.owner || candidate?.owner || '')
+        assignedTo: inferredOwner,
+        assignedToName: inferredOwner
       });
       store.push(seeded);
       targetIdx = store.length - 1;
@@ -249,6 +306,7 @@ export async function POST(req) {
     store[idx] = {
       ...store[idx],
       ...incoming,
+      owner: isUnknownOwner(incoming.owner) ? store[idx].owner : incoming.owner,
       stage: store[idx].stage || 'New',
       id: store[idx].id,
       createdAt: store[idx].createdAt,
