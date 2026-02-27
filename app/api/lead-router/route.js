@@ -1,5 +1,6 @@
 import { DEFAULT_CONFIG } from '../../../lib/runtimeConfig';
 import { loadJsonFile, saveJsonFile, loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import ownerOverrides from '../../../data/callerOwnerOverrides.json';
 
 const SETTINGS_PATH = 'stores/lead-router-settings.json';
 const EVENTS_PATH = 'stores/lead-router-events.json';
@@ -297,6 +298,21 @@ function isUnknownOwner(v = '') {
   return !s || s === 'unknown' || s === 'unassigned';
 }
 
+function ownerOverrideForLead(row = {}) {
+  const n = normalizeName(row?.name || '');
+  const e = clean(row?.email || '').toLowerCase();
+  const p = normalizePhone(row?.phone || '');
+
+  const hit = (ownerOverrides || []).find((o) => {
+    const on = normalizeName(o?.name || '');
+    const oe = clean(o?.email || '').toLowerCase();
+    const op = normalizePhone(o?.phone || '');
+    return (on && n && on === n) || (oe && e && oe === e) || (op && p && op === p);
+  });
+
+  return clean(hit?.owner || '');
+}
+
 function buildOwnerLookup(events = []) {
   const map = new Map();
   const sorted = [...(events || [])].sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
@@ -322,6 +338,9 @@ function buildOwnerLookup(events = []) {
 function resolveLeadOwner(row = {}, ownerLookup = new Map()) {
   const current = clean(row?.owner || '');
   if (!isUnknownOwner(current)) return current;
+
+  const overrideOwner = ownerOverrideForLead(row);
+  if (!isUnknownOwner(overrideOwner)) return overrideOwner;
 
   const keys = [
     clean(row?.id || ''),
