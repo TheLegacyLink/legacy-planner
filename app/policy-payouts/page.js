@@ -370,7 +370,14 @@ export default function PolicyPayoutsPage() {
                 const visual = rowVisualState(r);
                 const approvalLocked = visual.terminal;
                 return (
-                  <tr key={r.id} style={{ backgroundColor: visual.background, boxShadow: `inset 0 0 0 1px ${visual.border}` }}>
+                  <tr
+                    key={r.id}
+                    style={{
+                      backgroundColor: visual.background,
+                      boxShadow: `inset 0 0 0 1px ${visual.border}`,
+                      color: '#0f172a'
+                    }}
+                  >
                     <td>{r.applicantName || '—'}</td>
                     <td>{r.referredByName || '—'}</td>
                     <td>
