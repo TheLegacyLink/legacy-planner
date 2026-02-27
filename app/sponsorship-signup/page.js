@@ -53,7 +53,7 @@ export default function SponsorshipSignupPage() {
         <div style={{ display: 'grid', gap: 14 }}>
           <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
             <img
-              src="/legacy-link-logo-mark.png"
+              src="/legacy-link-logo-official.png"
               alt="Legacy Link"
               style={{ width: 80, height: 80, borderRadius: 999, objectFit: 'contain', background: '#0047AB', padding: 10, border: '2px solid #dbe5f5' }}
             />
