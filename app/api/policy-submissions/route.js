@@ -100,12 +100,13 @@ function emailLogoUrl() {
 
 function brandEmailFrame(title = '', bodyHtml = '') {
   const logo = emailLogoUrl();
-  const royalBlue = '#006BB6'; // Knicks-style royal blue
+  const royalBlue = '#0047AB'; // stronger royal blue
   return `
   <div style="font-family:Inter,Arial,sans-serif; background:#f8fafc; padding:20px;">
     <div style="max-width:640px; margin:0 auto; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;">
       <div style="padding:16px 20px; background:${royalBlue}; text-align:center;">
-        <img src="${logo}" alt="The Legacy Link" style="max-height:56px; width:auto; object-fit:contain;" />
+        <img src="${logo}" alt="The Legacy Link" style="max-height:56px; width:auto; object-fit:contain; display:block; margin:0 auto;" />
+        <div style="margin-top:8px;color:#fff;font-weight:700;letter-spacing:.3px;">THE LEGACY LINK</div>
       </div>
       <div style="padding:20px; color:#0f172a;">
         <h2 style="margin:0 0 14px 0; font-size:20px;">${title}</h2>
