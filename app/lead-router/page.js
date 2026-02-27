@@ -473,14 +473,14 @@ export default function LeadRouterPage() {
       </div>
 
       {callDrilldown ? (
-        <div className="panel" style={{ marginBottom: 10, borderColor: '#bfdbfe', background: '#f8fbff' }}>
+        <div className="panel" style={{ marginBottom: 10, borderColor: '#bfdbfe', background: '#f8fbff', color: '#0f172a' }}>
           <div className="panelRow" style={{ marginBottom: 8 }}>
-            <h3 style={{ margin: 0 }}>
+            <h3 style={{ margin: 0, color: '#0f172a' }}>
               {callDrilldown.mode === 'today' ? 'Called Today' : 'All Called'} — {callDrilldown.owner}
             </h3>
             <button type="button" className="ghost" onClick={() => setCallDrilldown(null)}>Close</button>
           </div>
-          <table>
+          <table style={{ color: '#0f172a' }}>
             <thead>
               <tr>
                 <th>Lead</th>
@@ -496,8 +496,8 @@ export default function LeadRouterPage() {
               {callDrilldownRows.map((row) => (
                 <tr key={`${row.id}-${row.calledAt}`}>
                   <td>
-                    <div>{displayLeadName(row)}</div>
-                    <small className="muted">{[row.email, 'Called'].filter(Boolean).join(' • ') || '—'}</small>
+                    <div style={{ color: '#0f172a', fontWeight: 700 }}>{displayLeadName(row)}</div>
+                    <small style={{ color: '#475569' }}>{[row.email, 'Called'].filter(Boolean).join(' • ') || '—'}</small>
                   </td>
                   <td>{row.phone || '—'}</td>
                   <td>{fmt(row.calledAt)}</td>
@@ -514,7 +514,7 @@ export default function LeadRouterPage() {
               {!callDrilldownRows.length ? <tr><td colSpan={7} className="muted">No called leads found in this view yet.</td></tr> : null}
             </tbody>
           </table>
-          <small className="muted">Tip: recording links appear when the call source sends recordingUrl in activity events.</small>
+          <small style={{ color: '#475569' }}>Tip: recording links appear when the call source sends recordingUrl in activity events.</small>
         </div>
       ) : null}
 
