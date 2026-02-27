@@ -276,12 +276,29 @@ function sponsorshipLookup(rows = []) {
   return map;
 }
 
+function resolveSponsorshipStatus({ name = '', email = '', phone = '' } = {}, sponsorshipMap = new Map()) {
+  const em = clean(email).toLowerCase();
+  const ph = normalizePhone(phone);
+  const n = normalizeName(name);
+
+  // Strict priority: email match first (most reliable), then exact name.
+  if (em && sponsorshipMap.has(`e:${em}`)) return sponsorshipMap.get(`e:${em}`) || '';
+  if (n && sponsorshipMap.has(`n:${n}`)) return sponsorshipMap.get(`n:${n}`) || '';
+
+  // Phone-only matches can cross-wire people; use only if name is blank/unknown.
+  const unknownName = !n || n === 'UNKNOWN LEAD';
+  if (unknownName && ph && sponsorshipMap.has(`p:${ph}`)) return sponsorshipMap.get(`p:${ph}`) || '';
+
+  return '';
+}
+
 function enrichEvents(events = [], sponsorshipMap = new Map()) {
   return events.map((e) => {
-    const n = normalizeName(e?.name || '');
-    const em = clean(e?.email || '').toLowerCase();
-    const ph = normalizePhone(e?.phone || '');
-    const sponsorshipStatus = sponsorshipMap.get(`e:${em}`) || sponsorshipMap.get(`p:${ph}`) || sponsorshipMap.get(`n:${n}`) || '';
+    const sponsorshipStatus = resolveSponsorshipStatus({
+      name: e?.name || '',
+      email: e?.email || '',
+      phone: e?.phone || ''
+    }, sponsorshipMap);
     return { ...e, sponsorshipStatus };
   });
 }
@@ -341,10 +358,11 @@ function buildCallMetrics(settings, leads = [], sponsorshipMap = new Map()) {
     const bucket = byOwner[owner];
     bucket.assigned += 1;
 
-    const em = clean(row?.email || '').toLowerCase();
-    const ph = normalizePhone(row?.phone || '');
-    const n = normalizeName(row?.name || '');
-    const sponsorshipStatus = sponsorshipMap.get(`e:${em}`) || sponsorshipMap.get(`p:${ph}`) || sponsorshipMap.get(`n:${n}`) || '';
+    const sponsorshipStatus = resolveSponsorshipStatus({
+      name: row?.name || '',
+      email: row?.email || '',
+      phone: row?.phone || ''
+    }, sponsorshipMap);
     const isExempt = !!String(sponsorshipStatus || '').trim() || !!clean(row?.formCompletedAt);
 
     if (isExempt) {
