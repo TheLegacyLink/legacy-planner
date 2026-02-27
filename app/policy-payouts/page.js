@@ -39,6 +39,25 @@ function effectivePayoutAmount(row) {
   return bonusSplit(row).totalRecommended;
 }
 
+function rowVisualState(row = {}) {
+  const status = String(row?.status || '').toLowerCase();
+  const payoutStatus = String(row?.payoutStatus || 'Unpaid').toLowerCase();
+
+  if (status === 'declined') {
+    return { background: '#fee2e2', border: '#fecaca', terminal: true }; // red
+  }
+
+  if (status === 'approved' && payoutStatus === 'paid') {
+    return { background: '#dcfce7', border: '#bbf7d0', terminal: true }; // green
+  }
+
+  if (status === 'approved') {
+    return { background: '#fef9c3', border: '#fde68a', terminal: true }; // yellow
+  }
+
+  return { background: 'transparent', border: 'transparent', terminal: false };
+}
+
 export default function PolicyPayoutsPage() {
   const [rows, setRows] = useState([]);
   const [users, setUsers] = useState([]);
@@ -319,6 +338,11 @@ export default function PolicyPayoutsPage() {
       </div>
 
       <div className="panel" style={{ overflowX: 'auto' }}>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Row colors: <span style={{ background: '#fef9c3', padding: '2px 6px', borderRadius: 6 }}>Approved / Unpaid</span>{' '}
+          <span style={{ background: '#dcfce7', padding: '2px 6px', borderRadius: 6 }}>Approved / Paid</span>{' '}
+          <span style={{ background: '#fee2e2', padding: '2px 6px', borderRadius: 6 }}>Declined</span>
+        </p>
         {loading ? <p className="muted">Loading...</p> : (
           <table className="table">
             <thead>
@@ -343,8 +367,10 @@ export default function PolicyPayoutsPage() {
             <tbody>
               {filtered.map((r) => {
                 const split = bonusSplit(r);
+                const visual = rowVisualState(r);
+                const approvalLocked = visual.terminal;
                 return (
-                  <tr key={r.id}>
+                  <tr key={r.id} style={{ backgroundColor: visual.background, boxShadow: `inset 0 0 0 1px ${visual.border}` }}>
                     <td>{r.applicantName || '—'}</td>
                     <td>{r.referredByName || '—'}</td>
                     <td>
@@ -376,15 +402,15 @@ export default function PolicyPayoutsPage() {
                           <button
                             type="button"
                             onClick={() => patchRow(r.id, { status: 'Approved' })}
-                            disabled={String(r.status || '').toLowerCase() === 'approved'}
+                            disabled={approvalLocked}
                           >
                             Approve + Notify
                           </button>
                           <button
                             type="button"
-                            className="ghost"
                             onClick={() => patchRow(r.id, { status: 'Declined' })}
-                            disabled={String(r.status || '').toLowerCase() === 'declined'}
+                            disabled={approvalLocked}
+                            style={{ background: '#b91c1c', color: '#fff', border: '1px solid #991b1b' }}
                           >
                             Decline + Notify
                           </button>
