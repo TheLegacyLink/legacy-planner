@@ -1,4 +1,5 @@
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import ownerOverrides from '../../../data/callerOwnerOverrides.json';
 
 const STORE_PATH = 'stores/caller-leads.json';
 const LEAD_ROUTER_EVENTS_PATH = 'stores/lead-router-events.json';
@@ -43,6 +44,22 @@ function normalizeOwner(v = '') {
 function isUnknownOwner(v = '') {
   const s = clean(v).toLowerCase();
   return !s || s === 'unknown' || s === 'unassigned';
+}
+
+function ownerOverrideForLead(lead = {}) {
+  const nameKey = normalizeName(lead?.name || `${lead?.firstName || ''} ${lead?.lastName || ''}`);
+  const emailKey = clean(lead?.email || '').toLowerCase();
+  const phoneKey = normalizePhone(lead?.phone || '');
+
+  const hit = (ownerOverrides || []).find((r) => {
+    const byName = normalizeName(r?.name || '');
+    const byEmail = clean(r?.email || '').toLowerCase();
+    const byPhone = normalizePhone(r?.phone || '');
+
+    return (byName && nameKey && byName === nameKey) || (byEmail && emailKey && byEmail === emailKey) || (byPhone && phoneKey && byPhone === phoneKey);
+  });
+
+  return normalizeOwner(hit?.owner || '');
 }
 
 function ownerFromEventsForLead(lead = {}, events = []) {
@@ -106,15 +123,22 @@ function parseLeadPayload(body = {}) {
   const last = clean(candidate.lastName || candidate.last_name);
   const fullName = clean(candidate.name) || clean(`${first} ${last}`) || 'Unknown Lead';
 
-  const assignedTo =
-    normalizeOwner(
-      candidate.assignedToName ||
-        candidate.assigned_to_name ||
-        candidate.assignedTo ||
-        candidate.assigned_to ||
-        body.assignedToName ||
-        body.assigned_to_name
-    ) || 'Unknown';
+  const ownerHint = normalizeOwner(
+    candidate.assignedToName ||
+      candidate.assigned_to_name ||
+      candidate.assignedTo ||
+      candidate.assigned_to ||
+      body.assignedToName ||
+      body.assigned_to_name
+  );
+
+  const overrideOwner = ownerOverrideForLead({
+    name: fullName,
+    email: clean(candidate.email),
+    phone: clean(candidate.phone || candidate.phoneNumber || candidate.phone_number)
+  });
+
+  const assignedTo = isUnknownOwner(ownerHint) ? (overrideOwner || 'Unknown') : ownerHint;
 
   return {
     id,
@@ -182,7 +206,9 @@ export async function POST(req) {
 
     for (const row of store) {
       if (!isUnknownOwner(row?.owner)) continue;
-      const inferred = ownerFromEventsForLead(row, events);
+
+      const overrideOwner = ownerOverrideForLead(row);
+      const inferred = overrideOwner || ownerFromEventsForLead(row, events);
       if (isUnknownOwner(inferred)) continue;
       row.owner = inferred;
       row.updatedAt = nowIso();
