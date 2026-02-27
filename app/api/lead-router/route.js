@@ -319,22 +319,49 @@ function buildAgentCounts(settings, events, keys) {
   return counts;
 }
 
+function inferCalledAt(row = {}) {
+  const direct = clean(row?.calledAt || '');
+  if (direct) return direct;
+
+  const stage = clean(row?.stage || '').toLowerCase();
+  const impliesCall = ['called', 'connected', 'qualified', 'form completed', 'policy started', 'approved', 'onboarding started', 'moved forward'].includes(stage);
+  if (!impliesCall) return '';
+
+  const fallback = clean(row?.lastCallAttemptAt || row?.updatedAt || '');
+  return fallback;
+}
+
+function inferDurationSec(row = {}) {
+  const explicit = Number(row?.lastCallDurationSec || 0) || 0;
+  if (explicit > 0) return explicit;
+  const calledTs = new Date(inferCalledAt(row) || 0).getTime();
+  const createdTs = new Date(row?.createdAt || row?.updatedAt || 0).getTime();
+  if (!Number.isFinite(calledTs) || !Number.isFinite(createdTs)) return 0;
+  const sec = Math.round((calledTs - createdTs) / 1000);
+  // only trust as proxy if in a sane range
+  return sec > 0 && sec <= 4 * 60 * 60 ? sec : 0;
+}
+
 function buildCalledLeadRows(leads = [], sponsorshipMap = new Map()) {
   return (leads || [])
-    .filter((r) => clean(r?.calledAt))
-    .map((r) => ({
-      id: r.id,
-      owner: clean(r.owner || '') || 'Unknown',
-      name: clean(r.name || '') || 'Unknown Lead',
-      email: clean(r.email || ''),
-      phone: clean(r.phone || ''),
-      calledAt: clean(r.calledAt || ''),
-      callResult: clean(r.callResult || ''),
-      lastCallDurationSec: Number(r.lastCallDurationSec || 0) || 0,
-      lastCallRecordingUrl: clean(r.lastCallRecordingUrl || ''),
-      stage: clean(r.stage || ''),
-      sponsorshipStatus: resolveSponsorshipStatus({ name: r?.name, email: r?.email, phone: r?.phone }, sponsorshipMap)
-    }))
+    .map((r) => {
+      const calledAt = inferCalledAt(r);
+      if (!calledAt) return null;
+      return {
+        id: r.id,
+        owner: clean(r.owner || '') || 'Unknown',
+        name: clean(r.name || '') || 'Unknown Lead',
+        email: clean(r.email || ''),
+        phone: clean(r.phone || ''),
+        calledAt,
+        callResult: clean(r.callResult || ''),
+        lastCallDurationSec: inferDurationSec(r),
+        lastCallRecordingUrl: clean(r.lastCallRecordingUrl || ''),
+        stage: clean(r.stage || ''),
+        sponsorshipStatus: resolveSponsorshipStatus({ name: r?.name, email: r?.email, phone: r?.phone }, sponsorshipMap)
+      };
+    })
+    .filter(Boolean)
     .sort((a, b) => new Date(b.calledAt || 0).getTime() - new Date(a.calledAt || 0).getTime())
     .slice(0, 1000);
 }
@@ -392,7 +419,7 @@ function buildCallMetrics(settings, leads = [], sponsorshipMap = new Map()) {
 
     bucket.callable += 1;
 
-    const calledAt = clean(row?.calledAt || '');
+    const calledAt = inferCalledAt(row);
     const createdAt = clean(row?.createdAt || row?.updatedAt || '');
 
     if (calledAt) {

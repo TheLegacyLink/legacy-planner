@@ -18,6 +18,14 @@ function secsToClock(sec = 0) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+function displayLeadName(row = {}) {
+  const name = String(row?.name || '').trim();
+  if (name && name.toLowerCase() !== 'unknown lead') return name;
+  const email = String(row?.email || '').trim();
+  if (email.includes('@')) return email.split('@')[0];
+  return 'Unknown Lead';
+}
+
 function cstDayKey(iso = '') {
   if (!iso) return '';
   const d = new Date(iso);
@@ -487,8 +495,8 @@ export default function LeadRouterPage() {
               {callDrilldownRows.map((row) => (
                 <tr key={`${row.id}-${row.calledAt}`}>
                   <td>
-                    <div>{row.name || '—'}</div>
-                    <small className="muted">{row.email || row.stage || '—'}</small>
+                    <div>{displayLeadName(row)}</div>
+                    <small className="muted">{[row.email, row.stage].filter(Boolean).join(' • ') || '—'}</small>
                   </td>
                   <td>{row.phone || '—'}</td>
                   <td>{fmt(row.calledAt)}</td>
