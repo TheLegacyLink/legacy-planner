@@ -369,13 +369,14 @@ export default function PolicyPayoutsPage() {
                 const split = bonusSplit(r);
                 const visual = rowVisualState(r);
                 const approvalLocked = visual.terminal;
+                const statusLower = String(r.status || '').toLowerCase();
                 return (
                   <tr
                     key={r.id}
+                    className={approvalLocked ? 'terminal-row' : ''}
                     style={{
                       backgroundColor: visual.background,
-                      boxShadow: `inset 0 0 0 1px ${visual.border}`,
-                      color: '#0f172a'
+                      boxShadow: `inset 0 0 0 1px ${visual.border}`
                     }}
                   >
                     <td>{r.applicantName || '—'}</td>
@@ -397,32 +398,30 @@ export default function PolicyPayoutsPage() {
                     <td>{r.state || '—'}</td>
                     <td>{fmtDate(r.submittedAt)}</td>
                     <td>
-                      <div style={{ display: 'grid', gap: 6 }}>
-                        {String(r.status || '').toLowerCase() === 'approved' ? (
-                          <span className="pill onpace">Approved</span>
-                        ) : String(r.status || '').toLowerCase() === 'declined' ? (
-                          <span className="pill offpace">Declined</span>
-                        ) : (
-                          <span className="pill">Submitted</span>
-                        )}
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <button
-                            type="button"
-                            onClick={() => patchRow(r.id, { status: 'Approved' })}
-                            disabled={approvalLocked}
-                          >
-                            Approve + Notify
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => patchRow(r.id, { status: 'Declined' })}
-                            disabled={approvalLocked}
-                            style={{ background: '#b91c1c', color: '#fff', border: '1px solid #991b1b' }}
-                          >
-                            Decline + Notify
-                          </button>
+                      {approvalLocked ? (
+                        <div style={{ textAlign: 'center', fontWeight: 700, color: '#111827' }}>
+                          {statusLower === 'declined' ? 'Declined' : 'Approved'}
                         </div>
-                      </div>
+                      ) : (
+                        <div style={{ display: 'grid', gap: 6 }}>
+                          <span className="pill">Submitted</span>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              onClick={() => patchRow(r.id, { status: 'Approved' })}
+                            >
+                              Approve + Notify
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => patchRow(r.id, { status: 'Declined' })}
+                              style={{ background: '#b91c1c', color: '#fff', border: '1px solid #991b1b' }}
+                            >
+                              Decline + Notify
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </td>
                     <td>{fmtDate(r.payoutDueAt)}</td>
                     <td>
@@ -463,6 +462,21 @@ export default function PolicyPayoutsPage() {
         )}
         {savingId ? <p className="muted">Saving {savingId}...</p> : null}
       </div>
+
+      <style jsx>{`
+        .terminal-row td,
+        .terminal-row td small,
+        .terminal-row td .muted {
+          color: #111827 !important;
+        }
+
+        .terminal-row select,
+        .terminal-row input {
+          color: #111827 !important;
+          border-color: #475569 !important;
+          background: #ffffff !important;
+        }
+      `}</style>
     </AppShell>
   );
 }
