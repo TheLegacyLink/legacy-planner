@@ -423,7 +423,7 @@ export default function LeadRouterPage() {
       </div>
 
       <div className="panel" style={{ marginBottom: 10 }}>
-        <h3 style={{ marginTop: 0 }}>Call Activity (Form-submitted leads excluded)</h3>
+        <h3 style={{ marginTop: 0 }}>Call Activity</h3>
         <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
           <span className="pill">Callable: {callMetrics?.totals?.callable ?? 0}</span>
           <span className="pill">Called: {callMetrics?.totals?.called ?? 0}</span>
@@ -486,6 +486,7 @@ export default function LeadRouterPage() {
                 <th>Lead</th>
                 <th>Phone</th>
                 <th>Called At</th>
+                <th>Time to First Call</th>
                 <th>Duration</th>
                 <th>Result</th>
                 <th>Recording</th>
@@ -496,10 +497,11 @@ export default function LeadRouterPage() {
                 <tr key={`${row.id}-${row.calledAt}`}>
                   <td>
                     <div>{displayLeadName(row)}</div>
-                    <small className="muted">{[row.email, row.stage].filter(Boolean).join(' • ') || '—'}</small>
+                    <small className="muted">{[row.email, 'Called'].filter(Boolean).join(' • ') || '—'}</small>
                   </td>
                   <td>{row.phone || '—'}</td>
                   <td>{fmt(row.calledAt)}</td>
+                  <td>{row.timeToFirstCallMin != null ? `${row.timeToFirstCallMin} min` : '—'}</td>
                   <td>{secsToClock(row.lastCallDurationSec)}</td>
                   <td>{row.callResult || '—'}</td>
                   <td>
@@ -509,7 +511,7 @@ export default function LeadRouterPage() {
                   </td>
                 </tr>
               ))}
-              {!callDrilldownRows.length ? <tr><td colSpan={6} className="muted">No called leads found in this view yet.</td></tr> : null}
+              {!callDrilldownRows.length ? <tr><td colSpan={7} className="muted">No called leads found in this view yet.</td></tr> : null}
             </tbody>
           </table>
           <small className="muted">Tip: recording links appear when the call source sends recordingUrl in activity events.</small>

@@ -347,17 +347,26 @@ function buildCalledLeadRows(leads = [], sponsorshipMap = new Map()) {
     .map((r) => {
       const calledAt = inferCalledAt(r);
       if (!calledAt) return null;
+      const createdAt = clean(r?.createdAt || r?.updatedAt || '');
+      const calledTs = new Date(calledAt || 0).getTime();
+      const createdTs = new Date(createdAt || 0).getTime();
+      const timeToFirstCallMin = Number.isFinite(calledTs) && Number.isFinite(createdTs) && calledTs >= createdTs
+        ? Math.round((calledTs - createdTs) / 60000)
+        : null;
+
       return {
         id: r.id,
         owner: clean(r.owner || '') || 'Unknown',
         name: clean(r.name || '') || 'Unknown Lead',
         email: clean(r.email || ''),
         phone: clean(r.phone || ''),
+        createdAt,
         calledAt,
         callResult: clean(r.callResult || ''),
         lastCallDurationSec: inferDurationSec(r),
         lastCallRecordingUrl: clean(r.lastCallRecordingUrl || ''),
         stage: clean(r.stage || ''),
+        timeToFirstCallMin,
         sponsorshipStatus: resolveSponsorshipStatus({ name: r?.name, email: r?.email, phone: r?.phone }, sponsorshipMap)
       };
     })
@@ -410,13 +419,12 @@ function buildCallMetrics(settings, leads = [], sponsorshipMap = new Map()) {
       email: row?.email || '',
       phone: row?.phone || ''
     }, sponsorshipMap);
-    const isExempt = !!String(sponsorshipStatus || '').trim() || !!clean(row?.formCompletedAt);
 
-    if (isExempt) {
+    if (!!String(sponsorshipStatus || '').trim() || !!clean(row?.formCompletedAt)) {
       bucket.exemptFormSubmitted += 1;
-      continue;
     }
 
+    // Kimora requirement: every call counts as a call, regardless of form completion stage.
     bucket.callable += 1;
 
     const calledAt = inferCalledAt(row);
