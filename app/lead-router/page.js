@@ -348,6 +348,8 @@ export default function LeadRouterPage() {
                         const agents = agentRows.map((x) => x.name === a.name ? { ...x, paused: e.target.checked } : x);
                         setSettings((s) => ({ ...s, agents }));
                         setIsDirty(true);
+                        // Persist pause/unpause immediately so refresh cannot revert it.
+                        savePatch({ agents });
                       }}
                     />
                   </td>
