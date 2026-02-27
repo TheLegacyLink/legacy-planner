@@ -247,9 +247,9 @@ export default function SponsorshipApplicationPage() {
         <div style={{ display: 'grid', gap: 14, marginBottom: 14 }}>
           <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
             <img
-              src="/legacy-link-sponsorship-badge.jpg"
+              src="/legacy-link-logo-mark.png"
               alt="Legacy Link"
-              style={{ width: 76, height: 76, borderRadius: 999, objectFit: 'cover', border: '2px solid #dbe5f5' }}
+              style={{ width: 76, height: 76, borderRadius: 999, objectFit: 'contain', background: '#0047AB', padding: 10, border: '2px solid #dbe5f5' }}
             />
             <div>
               <h2 style={{ margin: 0 }}>Legacy Link Sponsorship Application</h2>
