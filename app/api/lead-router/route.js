@@ -332,14 +332,9 @@ function inferCalledAt(row = {}) {
 }
 
 function inferDurationSec(row = {}) {
+  // Duration must be exact from call-source payload; no estimates.
   const explicit = Number(row?.lastCallDurationSec || 0) || 0;
-  if (explicit > 0) return explicit;
-  const calledTs = new Date(inferCalledAt(row) || 0).getTime();
-  const createdTs = new Date(row?.createdAt || row?.updatedAt || 0).getTime();
-  if (!Number.isFinite(calledTs) || !Number.isFinite(createdTs)) return 0;
-  const sec = Math.round((calledTs - createdTs) / 1000);
-  // only trust as proxy if in a sane range
-  return sec > 0 && sec <= 4 * 60 * 60 ? sec : 0;
+  return explicit > 0 ? explicit : 0;
 }
 
 function buildCalledLeadRows(leads = [], sponsorshipMap = new Map()) {
