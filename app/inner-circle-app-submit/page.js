@@ -13,11 +13,21 @@ function normalizeRef(ref = '') {
   return cleaned;
 }
 
-function fmtCurrency(v = '') {
-  if (v === '' || v == null) return '';
-  const n = Number(String(v).replace(/[^0-9.]/g, ''));
+function normalizePremiumInput(v = '') {
+  const raw = String(v || '').replace(/[^0-9.]/g, '');
+  if (!raw) return '';
+
+  const [wholeRaw, ...rest] = raw.split('.');
+  const whole = wholeRaw || '0';
+  const decimal = rest.join('').slice(0, 2);
+  const rebuilt = decimal ? `${whole}.${decimal}` : whole;
+
+  const n = Number(rebuilt);
   if (Number.isNaN(n)) return '';
-  return n.toFixed(2);
+
+  // Hard cap requested by Kimora.
+  if (n > 5000) return '5000';
+  return rebuilt;
 }
 
 export default function InnerCircleAppSubmitPage() {
@@ -306,8 +316,18 @@ export default function InnerCircleAppSubmitPage() {
           <label>
             Monthly Premium *
             <input
+              type="number"
+              min="0"
+              max="5000"
+              step="0.01"
               value={form.monthlyPremium}
-              onChange={(e) => update('monthlyPremium', fmtCurrency(e.target.value))}
+              onChange={(e) => update('monthlyPremium', normalizePremiumInput(e.target.value))}
+              onBlur={() => {
+                const n = Number(form.monthlyPremium || 0);
+                if (!Number.isNaN(n) && form.monthlyPremium !== '') {
+                  update('monthlyPremium', Math.min(5000, n).toFixed(2));
+                }
+              }}
               placeholder="0.00"
             />
           </label>

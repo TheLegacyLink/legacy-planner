@@ -24,6 +24,13 @@ function refCodeFromName(name = '') {
   return clean(name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
 
+function clampMonthlyPremium(value = 0) {
+  const n = Number(value || 0);
+  if (Number.isNaN(n) || n < 0) return 0;
+  if (n > 5000) return 5000;
+  return Math.round(n * 100) / 100;
+}
+
 function followingWeekFridayIso(fromIso = '') {
   const d = fromIso ? new Date(fromIso) : new Date();
   if (Number.isNaN(d.getTime())) return '';
@@ -58,7 +65,7 @@ function normalizedRecord(row = {}) {
     submittedByRole: clean(row.submittedByRole),
     state: clean(row.state).toUpperCase(),
     policyNumber: clean(row.policyNumber),
-    monthlyPremium: Number(row.monthlyPremium || 0) || 0,
+    monthlyPremium: clampMonthlyPremium(row.monthlyPremium || 0),
     carrier: clean(row.carrier || 'F&G') || 'F&G',
     productName: clean(row.productName || 'IUL Pathsetter') || 'IUL Pathsetter',
     status: clean(row.status || 'Submitted') || 'Submitted',
@@ -132,7 +139,7 @@ async function sendApprovalEmail(row = {}) {
     `Client: ${row.applicantName || '—'}`,
     `Referred By: ${row.referredByName || '—'}`,
     `Policy Writer: ${row.policyWriterName || '—'}`,
-    `Monthly Premium: ${Number(row.monthlyPremium || 0) || 0}`,
+    `Monthly Premium: ${clampMonthlyPremium(row.monthlyPremium || 0)}`, 
     '',
     `Payout timing: Expect payout the following week on Friday (${due}).`,
     '',
@@ -149,7 +156,7 @@ async function sendApprovalEmail(row = {}) {
        <li><strong>Client:</strong> ${row.applicantName || '—'}</li>
        <li><strong>Referred By:</strong> ${row.referredByName || '—'}</li>
        <li><strong>Policy Writer:</strong> ${row.policyWriterName || '—'}</li>
-       <li><strong>Monthly Premium:</strong> ${Number(row.monthlyPremium || 0) || 0}</li>
+       <li><strong>Monthly Premium:</strong> ${clampMonthlyPremium(row.monthlyPremium || 0)}</li>
      </ul>
      <p><strong>Payout timing:</strong> Expect payout the following week on Friday (${due}).</p>`
   );
@@ -266,7 +273,7 @@ export async function POST(req) {
         submittedByRole: 'system',
         state: clean(app?.state || ''),
         policyNumber: clean(app?.policyNumber || ''),
-        monthlyPremium: Number(app?.monthlyPremium || 0) || 0,
+        monthlyPremium: clampMonthlyPremium(app?.monthlyPremium || 0),
         carrier: 'F&G',
         productName: 'IUL Pathsetter',
         status: approved ? 'Approved' : 'Submitted',
@@ -347,7 +354,7 @@ export async function PATCH(req) {
     payoutNotes: patch.payoutNotes != null ? clean(patch.payoutNotes) : store[idx].payoutNotes,
     referredByName: patch.referredByName != null ? clean(patch.referredByName) : store[idx].referredByName,
     policyWriterName: patch.policyWriterName != null ? clean(patch.policyWriterName) : store[idx].policyWriterName,
-    monthlyPremium: patch.monthlyPremium != null ? Number(patch.monthlyPremium || 0) || 0 : store[idx].monthlyPremium,
+    monthlyPremium: patch.monthlyPremium != null ? clampMonthlyPremium(patch.monthlyPremium || 0) : store[idx].monthlyPremium,
     status: nextStatus,
     approvedAt,
     payoutDueAt,
