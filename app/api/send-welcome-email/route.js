@@ -13,10 +13,18 @@ function escapeHtml(value = '') {
     .replace(/'/g, '&#39;');
 }
 
+function logoUrl() {
+  return getEnv('LEGACY_LINK_LOGO_URL') || 'https://innercirclelink.com/legacy-link-logo-white.png';
+}
+
 function defaultBrandedHtml({ subject = '', text = '' } = {}) {
   const safeSubject = escapeHtml(subject);
   const bodyHtml = escapeHtml(text).replace(/\n/g, '<br/>');
-  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;"><div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:#0b3b8f;color:#ffffff;padding:14px 18px;font-weight:700;">The Legacy Link</div><div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">${safeSubject}</h2><div style="font-size:15px;">${bodyHtml}</div><p style="margin:18px 0 0;color:#475569;">— The Legacy Link Team</p></div></div></div>`;
+  const logo = logoUrl();
+  // Knicks-style royal blue
+  const royalBlue = '#006BB6';
+
+  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;"><div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:${royalBlue};padding:14px 18px;text-align:center;"><img src="${logo}" alt="The Legacy Link" style="max-height:56px;width:auto;object-fit:contain;" /></div><div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">${safeSubject}</h2><div style="font-size:15px;">${bodyHtml}</div><p style="margin:18px 0 0;color:#475569;">— The Legacy Link Support Team</p></div></div></div>`;
 }
 
 export async function POST(req) {

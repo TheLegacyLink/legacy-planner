@@ -95,15 +95,16 @@ function adminEmails() {
 }
 
 function emailLogoUrl() {
-  return clean(process.env.LEGACY_LINK_LOGO_URL || 'https://innercirclelink.com/legacy-link-sponsorship-badge.jpg');
+  return clean(process.env.LEGACY_LINK_LOGO_URL || 'https://innercirclelink.com/legacy-link-logo-white.png');
 }
 
 function brandEmailFrame(title = '', bodyHtml = '') {
   const logo = emailLogoUrl();
+  const royalBlue = '#006BB6'; // Knicks-style royal blue
   return `
   <div style="font-family:Inter,Arial,sans-serif; background:#f8fafc; padding:20px;">
     <div style="max-width:640px; margin:0 auto; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;">
-      <div style="padding:16px 20px; background:#0f172a; text-align:center;">
+      <div style="padding:16px 20px; background:${royalBlue}; text-align:center;">
         <img src="${logo}" alt="The Legacy Link" style="max-height:56px; width:auto; object-fit:contain;" />
       </div>
       <div style="padding:20px; color:#0f172a;">
