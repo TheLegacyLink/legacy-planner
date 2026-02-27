@@ -25,26 +25,6 @@ export default function SponsorshipThankYouPage() {
 
   const bookingUrl = record?.id ? `/sponsorship-booking?id=${encodeURIComponent(record.id)}` : '';
 
-  const shareTelegram = async () => {
-    if (!record) return;
-    const text = [
-      'Inner Circle Sponsor Alert',
-      `Applicant: ${record.firstName || ''} ${record.lastName || ''}`.trim(),
-      `Score: ${record.application_score || 0}`,
-      'Needs licensed closer support for policy writing.',
-      'Who can take this one?'
-    ].join('\n');
-
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // ignore
-    }
-
-    const tg = `https://t.me/share/url?url=&text=${encodeURIComponent(text)}`;
-    window.open(tg, '_blank', 'noopener,noreferrer');
-  };
-
   return (
     <main className="publicPage">
       <div className="panel" style={{ maxWidth: 760 }}>
@@ -70,7 +50,6 @@ export default function SponsorshipThankYouPage() {
                   Book Onboarding Call
                 </button>
               )}
-              <button type="button" className="ghost" onClick={shareTelegram}>Need Licensed Closer (Telegram)</button>
             </div>
 
             <div style={{ marginTop: 12, border: '1px solid #bfdbfe', borderRadius: 12, background: '#eff6ff', padding: 12 }}>

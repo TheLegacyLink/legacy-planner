@@ -1,8 +1,28 @@
+function clean(v = '') {
+  return String(v || '').trim();
+}
+
+function normalize(v = '') {
+  return clean(v).toLowerCase().replace(/\s+/g, ' ');
+}
+
+function isKimoraReferral(booking = {}) {
+  const byName = normalize(booking?.referred_by || booking?.referredBy || '');
+  const byCode = normalize(booking?.referral_code || booking?.refCode || '').replace(/[_-]+/g, ' ');
+  return byName === 'kimora link' || byCode === 'kimora link';
+}
+
 export async function POST(req) {
   try {
     const body = await req.json();
     const booking = body?.booking || {};
     const alertText = body?.alertText || '';
+
+    // For sponsorship call alerts, only send Telegram notifications for Kimora referrals.
+    const isSponsorshipBooking = Boolean(clean(booking?.source_application_id));
+    if (isSponsorshipBooking && !isKimoraReferral(booking)) {
+      return Response.json({ ok: true, skipped: 'non_kimora_referral' });
+    }
 
     const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
     const chatId = String(process.env.TELEGRAM_CHAT_ID || '').trim();

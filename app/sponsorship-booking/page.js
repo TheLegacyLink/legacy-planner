@@ -200,7 +200,7 @@ export default function SponsorshipBookingPage() {
 
     const notify = await sendInternalTelegram({ booking, alertText });
 
-    if (notify.ok) {
+    if (notify.ok && !notify?.data?.skipped) {
       setSaved('Booked successfully. Your sponsorship team has been notified.');
     } else {
       setSaved('Booked successfully.');
