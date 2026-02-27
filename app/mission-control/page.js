@@ -131,13 +131,34 @@ function matchAgentFromReferrer(referrer, agents) {
 }
 
 function mapApplicationToAgent(row, agents) {
-  const direct = row?.referralName || row?.referred_by || row?.referredBy || '';
+  const direct = row?.referralName || row?.referred_by || row?.referredBy || row?.referredByName || '';
   let mapped = matchAgentFromReferrer(direct, agents);
   if (mapped) return mapped;
 
   const refCode = String(row?.refCode || row?.referral_code || '').replace(/[_-]+/g, ' ');
   mapped = matchAgentFromReferrer(refCode, agents);
+  if (mapped) return mapped;
+
+  mapped = matchAgentFromReferrer(row?.submittedBy || row?.policyWriterName || '', agents);
   return mapped || null;
+}
+
+function applicantNameFromRow(row = {}) {
+  const first = String(row?.firstName || row?.first_name || '').trim();
+  const last = String(row?.lastName || row?.last_name || '').trim();
+  const full = String(row?.applicantName || row?.name || `${first} ${last}`).trim();
+  return full || 'Unknown';
+}
+
+function applicantKey(row = {}) {
+  const email = String(row?.email || row?.applicant_email || '').trim().toLowerCase();
+  const phone = String(row?.phone || row?.applicant_phone || '').replace(/\D/g, '');
+  const name = cleanName(applicantNameFromRow(row)).replace(/\s+/g, '');
+
+  if (email) return `e:${email}`;
+  if (phone) return `p:${phone}`;
+  if (name) return `n:${name}`;
+  return `id:${String(row?.id || row?.applicantName || '').trim().toLowerCase()}`;
 }
 
 export default function MissionControl() {
@@ -149,6 +170,7 @@ export default function MissionControl() {
   const [sponsorshipAppsByAgent, setSponsorshipAppsByAgent] = useState({});
   const [sponsorshipTodayAppsByAgent, setSponsorshipTodayAppsByAgent] = useState({});
   const [todaySponsorshipDetails, setTodaySponsorshipDetails] = useState([]);
+  const [todayApplicationDetails, setTodayApplicationDetails] = useState([]);
   const [sponsorshipSyncIssue, setSponsorshipSyncIssue] = useState('');
   const [manualReviewCount, setManualReviewCount] = useState(0);
   const [bookingQueue, setBookingQueue] = useState([]);
@@ -202,11 +224,52 @@ export default function MissionControl() {
         const monthlyApprovals = {};
         const todayApprovals = {};
         const todayDetails = [];
+        const todayAppDetailsRows = [];
         let sponsorshipIssue = '';
         let reviewCount = 0;
         const monthlyApps = {};
         const todayApps = {};
 
+        const monthSeen = new Set();
+        const todaySeen = new Set();
+
+        const registerApp = ({ row, mapped, submitted, source }) => {
+          if (!mapped || !submitted || Number.isNaN(submitted.getTime())) return;
+
+          const key = applicantKey(row);
+          const name = applicantNameFromRow(row);
+
+          if (sameMonthYear(submitted) && !monthSeen.has(key)) {
+            monthSeen.add(key);
+            monthlyApps[mapped] = Number(monthlyApps[mapped] || 0) + 1;
+          }
+
+          if (sameDay(submitted) && !todaySeen.has(key)) {
+            todaySeen.add(key);
+            todayApps[mapped] = Number(todayApps[mapped] || 0) + 1;
+            todayAppDetailsRows.push({
+              key,
+              name,
+              mappedAgent: mapped,
+              source,
+              submittedAt: submitted
+            });
+          }
+        };
+
+        // Priority 1: internal Policy Submission flow (prevents duplicate credit from later Base44 entries)
+        if (policySubmissionsRes.ok) {
+          const policyJson = await policySubmissionsRes.json().catch(() => ({}));
+          const policyRows = Array.isArray(policyJson?.rows) ? policyJson.rows : [];
+
+          for (const r of policyRows) {
+            const submitted = new Date(r?.submittedAt || r?.createdAt || r?.updatedAt || 0);
+            const mapped = mapApplicationToAgent(r, config.agents);
+            registerApp({ row: r, mapped, submitted, source: 'Internal Policy Submission' });
+          }
+        }
+
+        // Priority 2: Base44 / sponsorship app feed (deduped by applicant key)
         if (manualReviewRes.ok) {
           const reviewJson = await manualReviewRes.json().catch(() => ({}));
           const reviewRows = Array.isArray(reviewJson?.rows) ? reviewJson.rows : [];
@@ -214,40 +277,8 @@ export default function MissionControl() {
 
           for (const r of reviewRows) {
             const submitted = new Date(r?.submitted_at || r?.createdAt || r?.updatedAt || 0);
-            if (Number.isNaN(submitted.getTime())) continue;
             const mapped = mapApplicationToAgent(r, config.agents);
-            if (!mapped) continue;
-
-            if (sameMonthYear(submitted)) {
-              monthlyApps[mapped] = Number(monthlyApps[mapped] || 0) + 1;
-            }
-            if (sameDay(submitted)) {
-              todayApps[mapped] = Number(todayApps[mapped] || 0) + 1;
-            }
-          }
-        }
-
-        // Include policy-submission app flow so Mission Control reflects real same-day app submissions.
-        if (policySubmissionsRes.ok) {
-          const policyJson = await policySubmissionsRes.json().catch(() => ({}));
-          const policyRows = Array.isArray(policyJson?.rows) ? policyJson.rows : [];
-
-          for (const r of policyRows) {
-            const submitted = new Date(r?.submittedAt || r?.createdAt || r?.updatedAt || 0);
-            if (Number.isNaN(submitted.getTime())) continue;
-
-            const mapped =
-              matchAgentFromReferrer(r?.referredByName || '', config.agents) ||
-              matchAgentFromReferrer(r?.submittedBy || '', config.agents) ||
-              matchAgentFromReferrer(r?.policyWriterName || '', config.agents);
-            if (!mapped) continue;
-
-            if (sameMonthYear(submitted)) {
-              monthlyApps[mapped] = Number(monthlyApps[mapped] || 0) + 1;
-            }
-            if (sameDay(submitted)) {
-              todayApps[mapped] = Number(todayApps[mapped] || 0) + 1;
-            }
+            registerApp({ row: r, mapped, submitted, source: 'Base44 / Sponsorship App' });
           }
         }
 
@@ -291,6 +322,7 @@ export default function MissionControl() {
         setSponsorshipAppsByAgent(monthlyApps);
         setSponsorshipTodayAppsByAgent(todayApps);
         setTodaySponsorshipDetails(todayDetails);
+        setTodayApplicationDetails(todayAppDetailsRows);
         setSponsorshipSyncIssue(sponsorshipIssue);
         setManualReviewCount(reviewCount);
         setLastSyncAt(new Date().toISOString());
@@ -376,10 +408,13 @@ export default function MissionControl() {
     [team]
   );
 
-  const todayAppDetails = useMemo(
-    () => team.filter((t) => t.todayApps > 0).map((t) => ({ agent: t.name, count: t.todayApps })),
-    [team]
-  );
+  const todayAppCountsByAgent = useMemo(() => {
+    const map = new Map();
+    for (const item of todayApplicationDetails) {
+      map.set(item.mappedAgent, Number(map.get(item.mappedAgent) || 0) + 1);
+    }
+    return [...map.entries()].map(([agent, count]) => ({ agent, count })).sort((a, b) => b.count - a.count);
+  }, [todayApplicationDetails]);
 
   const dataConfidence = useMemo(() => {
     if (error) return { label: 'Low', tone: 'offpace', score: 35 };
@@ -675,9 +710,30 @@ export default function MissionControl() {
               ) : (
                 <p className="muted">No sponsorship referrals logged today yet.</p>
               )
-            ) : todayAppDetails.length ? (
+            ) : todayApplicationDetails.length ? (
               <>
                 <table>
+                  <thead>
+                    <tr>
+                      <th>Applicant</th>
+                      <th>Credited To</th>
+                      <th>Source</th>
+                      <th>Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {todayApplicationDetails.map((item, idx) => (
+                      <tr key={`${item.key}-${idx}`}>
+                        <td>{item.name}</td>
+                        <td>{item.mappedAgent}</td>
+                        <td>{item.source}</td>
+                        <td>{shortDate(item.submittedAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <table style={{ marginTop: 12 }}>
                   <thead>
                     <tr>
                       <th>Agent</th>
@@ -685,7 +741,7 @@ export default function MissionControl() {
                     </tr>
                   </thead>
                   <tbody>
-                    {todayAppDetails.map((item) => (
+                    {todayAppCountsByAgent.map((item) => (
                       <tr key={item.agent}>
                         <td>{item.agent}</td>
                         <td>{item.count}</td>
@@ -693,8 +749,9 @@ export default function MissionControl() {
                     ))}
                   </tbody>
                 </table>
+
                 <p className="muted" style={{ marginTop: 10 }}>
-                  Note: Base44 leaderboard currently returns app counts by agent, not individual applicant names.
+                  Duplicate submissions are deduped by applicant (email/phone/name). Internal Policy Submission entries are prioritized over Base44 duplicates.
                 </p>
               </>
             ) : (

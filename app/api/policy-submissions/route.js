@@ -24,6 +24,16 @@ function refCodeFromName(name = '') {
   return clean(name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
 
+function applicantNameKey(name = '') {
+  return clean(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function findApplicantIndex(rows = [], applicantName = '', exceptId = '') {
+  const key = applicantNameKey(applicantName);
+  if (!key) return -1;
+  return rows.findIndex((r) => applicantNameKey(r?.applicantName) === key && clean(r?.id) !== clean(exceptId));
+}
+
 function clampMonthlyPremium(value = 0) {
   const n = Number(value || 0);
   if (Number.isNaN(n) || n < 0) return 0;
@@ -247,6 +257,7 @@ export async function POST(req) {
   if (mode === 'import_base44') {
     const sourceRows = await loadJsonStore(SPONSORSHIP_APPS_STORE_PATH, []);
     let imported = 0;
+    let skippedDuplicates = 0;
 
     for (const app of sourceRows) {
       const referredByName = mapRefCodeToInnerCircleName(app?.refCode || app?.referral_code || '');
@@ -257,6 +268,7 @@ export async function POST(req) {
 
       const id = `base44_${clean(app?.id || applicantName.replace(/\s+/g, '_').toLowerCase())}`;
       const idx = store.findIndex((r) => clean(r.id) === id);
+      const duplicateIdx = findApplicantIndex(store, applicantName, id);
       const approved = String(app?.status || '').toLowerCase().includes('approved');
       const approvedAt = approved ? clean(app?.approved_at || app?.reviewedAt || app?.updatedAt || app?.submitted_at || nowIso()) : '';
 
@@ -279,6 +291,35 @@ export async function POST(req) {
         submittedAt: clean(app?.submitted_at || app?.createdAt || nowIso())
       });
 
+      // Prevent duplicate credit: keep existing non-system (human-entered) applicant records.
+      if (duplicateIdx >= 0 && normalize(store[duplicateIdx]?.submittedByRole) !== 'system') {
+        if (approved && normalize(store[duplicateIdx]?.status) !== 'approved') {
+          store[duplicateIdx] = {
+            ...store[duplicateIdx],
+            status: 'Approved',
+            approvedAt: store[duplicateIdx]?.approvedAt || approvedAt,
+            payoutDueAt: store[duplicateIdx]?.payoutDueAt || followingWeekFridayIso(approvedAt),
+            updatedAt: nowIso()
+          };
+          imported += 1;
+        } else {
+          skippedDuplicates += 1;
+        }
+        continue;
+      }
+
+      if (duplicateIdx >= 0 && normalize(store[duplicateIdx]?.submittedByRole) === 'system') {
+        store[duplicateIdx] = {
+          ...store[duplicateIdx],
+          ...rec,
+          id: store[duplicateIdx].id,
+          submittedAt: store[duplicateIdx].submittedAt || rec.submittedAt,
+          updatedAt: nowIso()
+        };
+        imported += 1;
+        continue;
+      }
+
       if (idx >= 0) {
         store[idx] = {
           ...store[idx],
@@ -294,7 +335,7 @@ export async function POST(req) {
     }
 
     await writeStore(store);
-    return Response.json({ ok: true, imported, total: store.length });
+    return Response.json({ ok: true, imported, skippedDuplicates, total: store.length });
   }
 
   if (mode !== 'upsert') return Response.json({ ok: false, error: 'unsupported_mode' }, { status: 400 });
@@ -303,6 +344,8 @@ export async function POST(req) {
   if (!rec.applicantName) return Response.json({ ok: false, error: 'missing_applicant' }, { status: 400 });
 
   const idx = store.findIndex((r) => clean(r.id) === rec.id);
+  const duplicateIdx = findApplicantIndex(store, rec.applicantName, rec.id);
+
   if (idx >= 0) {
     store[idx] = {
       ...store[idx],
@@ -311,12 +354,21 @@ export async function POST(req) {
       submittedAt: store[idx].submittedAt || rec.submittedAt,
       updatedAt: nowIso()
     };
+  } else if (duplicateIdx >= 0) {
+    // Merge duplicates by applicant name to avoid double credit.
+    store[duplicateIdx] = {
+      ...store[duplicateIdx],
+      ...rec,
+      id: store[duplicateIdx].id,
+      submittedAt: store[duplicateIdx].submittedAt || rec.submittedAt,
+      updatedAt: nowIso()
+    };
   } else {
     store.unshift(rec);
   }
 
   await writeStore(store);
-  return Response.json({ ok: true, row: rec });
+  return Response.json({ ok: true, row: idx >= 0 ? store[idx] : duplicateIdx >= 0 ? store[duplicateIdx] : rec });
 }
 
 export async function PATCH(req) {
