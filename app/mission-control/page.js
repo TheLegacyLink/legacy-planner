@@ -186,11 +186,12 @@ export default function MissionControl() {
       setLoading(true);
       setError('');
       try {
-        const [leaderboardRes, revenueRes, sponsorshipRes, manualReviewRes] = await Promise.all([
+        const [leaderboardRes, revenueRes, sponsorshipRes, manualReviewRes, policySubmissionsRes] = await Promise.all([
           fetch(config.leaderboardUrl, { cache: 'no-store' }),
           fetch(config.revenueUrl, { cache: 'no-store' }),
           fetch(config.sponsorshipTrackerUrl, { cache: 'no-store' }),
-          fetch('/api/sponsorship-applications', { cache: 'no-store' })
+          fetch('/api/sponsorship-applications', { cache: 'no-store' }),
+          fetch('/api/policy-submissions', { cache: 'no-store' })
         ]);
 
         if (!leaderboardRes.ok) throw new Error(`Leaderboard HTTP ${leaderboardRes.status}`);
@@ -215,6 +216,30 @@ export default function MissionControl() {
             const submitted = new Date(r?.submitted_at || r?.createdAt || r?.updatedAt || 0);
             if (Number.isNaN(submitted.getTime())) continue;
             const mapped = mapApplicationToAgent(r, config.agents);
+            if (!mapped) continue;
+
+            if (sameMonthYear(submitted)) {
+              monthlyApps[mapped] = Number(monthlyApps[mapped] || 0) + 1;
+            }
+            if (sameDay(submitted)) {
+              todayApps[mapped] = Number(todayApps[mapped] || 0) + 1;
+            }
+          }
+        }
+
+        // Include policy-submission app flow so Mission Control reflects real same-day app submissions.
+        if (policySubmissionsRes.ok) {
+          const policyJson = await policySubmissionsRes.json().catch(() => ({}));
+          const policyRows = Array.isArray(policyJson?.rows) ? policyJson.rows : [];
+
+          for (const r of policyRows) {
+            const submitted = new Date(r?.submittedAt || r?.createdAt || r?.updatedAt || 0);
+            if (Number.isNaN(submitted.getTime())) continue;
+
+            const mapped =
+              matchAgentFromReferrer(r?.referredByName || '', config.agents) ||
+              matchAgentFromReferrer(r?.submittedBy || '', config.agents) ||
+              matchAgentFromReferrer(r?.policyWriterName || '', config.agents);
             if (!mapped) continue;
 
             if (sameMonthYear(submitted)) {
