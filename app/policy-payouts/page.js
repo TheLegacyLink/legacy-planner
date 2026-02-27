@@ -40,22 +40,25 @@ function effectivePayoutAmount(row) {
 }
 
 function rowVisualState(row = {}) {
-  const status = String(row?.status || '').toLowerCase();
-  const payoutStatus = String(row?.payoutStatus || 'Unpaid').toLowerCase();
+  const statusRaw = String(row?.status || '').trim().toLowerCase();
+  const payoutStatus = String(row?.payoutStatus || 'Unpaid').trim().toLowerCase();
 
-  if (status === 'declined') {
-    return { background: '#fee2e2', border: '#fecaca', terminal: true }; // red
+  const isDeclined = statusRaw.startsWith('declined');
+  const isApproved = statusRaw.startsWith('approved');
+
+  if (isDeclined) {
+    return { tone: 'declined', terminal: true }; // red
   }
 
-  if (status === 'approved' && payoutStatus === 'paid') {
-    return { background: '#dcfce7', border: '#bbf7d0', terminal: true }; // green
+  if (isApproved && payoutStatus === 'paid') {
+    return { tone: 'approved_paid', terminal: true }; // green
   }
 
-  if (status === 'approved') {
-    return { background: '#fef9c3', border: '#fde68a', terminal: true }; // yellow
+  if (isApproved) {
+    return { tone: 'approved_unpaid', terminal: true }; // yellow
   }
 
-  return { background: 'transparent', border: 'transparent', terminal: false };
+  return { tone: 'submitted', terminal: false };
 }
 
 export default function PolicyPayoutsPage() {
@@ -339,9 +342,9 @@ export default function PolicyPayoutsPage() {
 
       <div className="panel" style={{ overflowX: 'auto' }}>
         <p className="muted" style={{ marginTop: 0 }}>
-          Row colors: <span style={{ background: '#fef9c3', padding: '2px 6px', borderRadius: 6 }}>Approved / Unpaid</span>{' '}
-          <span style={{ background: '#dcfce7', padding: '2px 6px', borderRadius: 6 }}>Approved / Paid</span>{' '}
-          <span style={{ background: '#fee2e2', padding: '2px 6px', borderRadius: 6 }}>Declined</span>
+          Status labels: <span style={{ background: '#fef9c3', color: '#111827', padding: '2px 6px', borderRadius: 6 }}>Approved / Unpaid</span>{' '}
+          <span style={{ background: '#dcfce7', color: '#111827', padding: '2px 6px', borderRadius: 6 }}>Approved / Paid</span>{' '}
+          <span style={{ background: '#fee2e2', color: '#111827', padding: '2px 6px', borderRadius: 6 }}>Declined</span>
         </p>
         {loading ? <p className="muted">Loading...</p> : (
           <table className="table">
@@ -369,16 +372,9 @@ export default function PolicyPayoutsPage() {
                 const split = bonusSplit(r);
                 const visual = rowVisualState(r);
                 const approvalLocked = visual.terminal;
-                const statusLower = String(r.status || '').toLowerCase();
+                const statusLower = String(r.status || '').trim().toLowerCase();
                 return (
-                  <tr
-                    key={r.id}
-                    className={approvalLocked ? 'terminal-row' : ''}
-                    style={{
-                      backgroundColor: visual.background,
-                      boxShadow: `inset 0 0 0 1px ${visual.border}`
-                    }}
-                  >
+                  <tr key={r.id}>
                     <td>{r.applicantName || '—'}</td>
                     <td>{r.referredByName || '—'}</td>
                     <td>
@@ -399,8 +395,34 @@ export default function PolicyPayoutsPage() {
                     <td>{fmtDate(r.submittedAt)}</td>
                     <td>
                       {approvalLocked ? (
-                        <div style={{ textAlign: 'center', fontWeight: 700, color: '#111827' }}>
-                          {statusLower === 'declined' ? 'Declined' : 'Approved'}
+                        <div style={{ textAlign: 'center' }}>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              fontWeight: 700,
+                              padding: '6px 10px',
+                              borderRadius: 999,
+                              color: '#111827',
+                              background:
+                                visual.tone === 'declined'
+                                  ? '#fee2e2'
+                                  : visual.tone === 'approved_paid'
+                                    ? '#dcfce7'
+                                    : '#fef9c3',
+                              border:
+                                visual.tone === 'declined'
+                                  ? '1px solid #fecaca'
+                                  : visual.tone === 'approved_paid'
+                                    ? '1px solid #bbf7d0'
+                                    : '1px solid #fde68a'
+                            }}
+                          >
+                            {statusLower.startsWith('declined')
+                              ? 'Declined'
+                              : statusLower.startsWith('approved') && String(r.payoutStatus || '').trim().toLowerCase() === 'paid'
+                                ? 'Approved • Paid'
+                                : 'Approved • Unpaid'}
+                          </span>
                         </div>
                       ) : (
                         <div style={{ display: 'grid', gap: 6 }}>
@@ -463,20 +485,6 @@ export default function PolicyPayoutsPage() {
         {savingId ? <p className="muted">Saving {savingId}...</p> : null}
       </div>
 
-      <style jsx>{`
-        .terminal-row td,
-        .terminal-row td small,
-        .terminal-row td .muted {
-          color: #111827 !important;
-        }
-
-        .terminal-row select,
-        .terminal-row input {
-          color: #111827 !important;
-          border-color: #475569 !important;
-          background: #ffffff !important;
-        }
-      `}</style>
     </AppShell>
   );
 }
