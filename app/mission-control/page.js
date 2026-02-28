@@ -6,6 +6,8 @@ import { loadRuntimeConfig } from '../../lib/runtimeConfig';
 import { loadSponsorshipBookings, saveSponsorshipBookings } from '../../lib/sponsorshipBookings';
 
 const DEFAULTS = loadRuntimeConfig();
+const PAGE_PASSCODE = 'LegacyLink216';
+const PASSCODE_STORAGE_KEY = 'legacy-mission-control-passcode-ok-v1';
 
 function byScope(obj, scope, aliases = []) {
   const prefix = scope === 'monthly' ? 'month' : scope === 'ytd' ? 'ytd' : 'all_time';
@@ -182,6 +184,9 @@ export default function MissionControl() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastSyncAt, setLastSyncAt] = useState(null);
+  const [passcodeInput, setPasscodeInput] = useState('');
+  const [passError, setPassError] = useState('');
+  const [authed, setAuthed] = useState(false);
   const scopeLabel = 'This Month';
 
   useEffect(() => {
@@ -189,6 +194,13 @@ export default function MissionControl() {
     setConfig(cfg);
     setBookingQueue(loadSponsorshipBookings());
     setClaimBy(cfg.agents?.[0] || '');
+
+    try {
+      const saved = localStorage.getItem(PASSCODE_STORAGE_KEY);
+      if (saved === 'ok') setAuthed(true);
+    } catch {
+      // ignore storage errors
+    }
 
     fetch('/api/contacts-vault', { cache: 'no-store' })
       .then((r) => r.json())
@@ -502,6 +514,44 @@ export default function MissionControl() {
     reader.onerror = () => setContactsCsvMsg('CSV read failed.');
     reader.readAsText(file);
   };
+
+  const unlockMissionControl = () => {
+    if ((passcodeInput || '').trim() === PAGE_PASSCODE) {
+      setAuthed(true);
+      setPassError('');
+      try {
+        localStorage.setItem(PASSCODE_STORAGE_KEY, 'ok');
+      } catch {
+        // ignore storage errors
+      }
+      return;
+    }
+    setPassError('Incorrect passcode.');
+  };
+
+  if (!authed) {
+    return (
+      <AppShell title="Mission Control">
+        <div className="panel" style={{ maxWidth: 420, margin: '40px auto' }}>
+          <h3 style={{ marginTop: 0 }}>Mission Control Access</h3>
+          <p className="muted">Enter passcode to continue.</p>
+          <input
+            type="password"
+            value={passcodeInput}
+            onChange={(e) => setPasscodeInput(e.target.value)}
+            placeholder="Enter passcode"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') unlockMissionControl();
+            }}
+          />
+          <div className="panelRow" style={{ marginTop: 10 }}>
+            <button type="button" onClick={unlockMissionControl}>Unlock</button>
+          </div>
+          {passError ? <p style={{ color: '#dc2626' }}>{passError}</p> : null}
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell title="Mission Control">
