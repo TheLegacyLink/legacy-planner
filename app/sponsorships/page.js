@@ -27,7 +27,7 @@ const ACTIVATION_STAGES = [
   'Lead Distribution Enabled'
 ];
 const AGENCY_OWNERS = ['Kimora', 'Jamal', 'Angelique'];
-const PAGE_PASSCODE = 'blackguard216';
+const PAGE_PASSCODE = 'LegacyLink216';
 const ACCESS_KEY = 'sponsorship_standalone_access_v1';
 
 function normalizeName(value = '') {
