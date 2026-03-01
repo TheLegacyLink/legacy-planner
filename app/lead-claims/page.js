@@ -19,6 +19,27 @@ function fmtDate(iso = '') {
   return d.toLocaleString();
 }
 
+function initials(name = '') {
+  const parts = clean(name).split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'LL';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+}
+
+function priorityCountdown(expiresAt = '', nowTs = Date.now()) {
+  const exp = new Date(expiresAt || 0).getTime();
+  if (!exp || Number.isNaN(exp)) return '—';
+
+  const remaining = exp - nowTs;
+  if (remaining <= 0) return 'Released';
+
+  const totalSeconds = Math.floor(remaining / 1000);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 export default function LeadClaimsPortalPage() {
   const [auth, setAuth] = useState({ name: '', role: '' });
   const [loginName, setLoginName] = useState('');
@@ -33,6 +54,8 @@ export default function LeadClaimsPortalPage() {
   const [tab, setTab] = useState('available');
   const [sliderById, setSliderById] = useState({});
   const [overrideById, setOverrideById] = useState({});
+  const [nowTs, setNowTs] = useState(Date.now());
+  const [draggingId, setDraggingId] = useState('');
 
   const bookingQuery = useMemo(() => {
     if (typeof window === 'undefined') return '';
@@ -67,6 +90,11 @@ export default function LeadClaimsPortalPage() {
     } catch {
       // ignore
     }
+  }, []);
+
+  useEffect(() => {
+    const clock = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(clock);
   }, []);
 
   useEffect(() => {
@@ -202,6 +230,7 @@ export default function LeadClaimsPortalPage() {
         <div className="claimsRosterGrid">
           {roster.map((person) => (
             <div key={person.name} className="claimsRosterCard">
+              <div className="claimsAvatar" aria-hidden>{initials(person.name)}</div>
               <strong>{person.name}</strong>
               <small>{person.role}</small>
               <span>{(person.licensedStates || []).length ? person.licensedStates.join(', ') : 'No states on file'}</span>
@@ -219,20 +248,40 @@ export default function LeadClaimsPortalPage() {
           const sliderValue = Number(sliderById[row.id] || 0);
           const canClaim = Boolean(row.can_claim);
           const highlight = bookingQuery && bookingQuery === row.id;
+          const liveCountdown = priorityCountdown(row.priority_expires_at, nowTs);
+          const inPriority = Boolean(row.is_priority_window_open && !row.claimed_by);
 
           return (
-            <article key={row.id} className={`claimCard ${highlight ? 'highlight' : ''}`}>
+            <article
+              key={row.id}
+              className={`claimCard ${highlight ? 'highlight' : ''} ${!row.claimed_by ? 'canDrag' : ''} ${draggingId === row.id ? 'dragging' : ''}`}
+              draggable={!row.claimed_by}
+              onDragStart={() => setDraggingId(row.id)}
+              onDragEnd={() => setDraggingId('')}
+            >
               <div className="claimTop">
                 <div>
                   <h3>{row.applicant_name || 'Lead'}</h3>
                   <p>{row.applicant_state || '—'} • {row.requested_at_est || '—'}</p>
                 </div>
-                <div>
-                  {row.claimed_by ? <span className="pill onpace">Claimed by {row.claimed_by}</span> : null}
-                  {!row.claimed_by && row.is_priority_window_open ? <span className="pill atrisk">Reserved for {row.priority_agent}</span> : null}
-                  {!row.claimed_by && !row.is_priority_window_open ? <span className="pill onpace">Open to all Inner Circle</span> : null}
+                <div className="claimBadgeCol">
+                  {row.claimed_by ? (
+                    <span className="pill onpace claimWhoPill">
+                      <span className="claimsAvatar tiny" aria-hidden>{initials(row.claimed_by)}</span>
+                      Claimed by {row.claimed_by}
+                    </span>
+                  ) : null}
+                  {inPriority ? (
+                    <span className="pill atrisk claimWhoPill">
+                      <span className="claimsAvatar tiny" aria-hidden>{initials(row.priority_agent)}</span>
+                      Reserved for {row.priority_agent} • {liveCountdown}
+                    </span>
+                  ) : null}
+                  {!row.claimed_by && !inPriority ? <span className="pill onpace">Open to all Inner Circle</span> : null}
                 </div>
               </div>
+
+              {inPriority ? <p className="claimsCountdownLabel">Priority auto-release at {fmtDate(row.priority_expires_at)}</p> : null}
 
               <div className={`claimPrivate ${row.visibility === 'partial' ? 'blurred' : ''}`}>
                 <p><strong>Email:</strong> {row.applicant_email || '—'}</p>
