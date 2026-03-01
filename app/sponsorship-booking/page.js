@@ -112,11 +112,8 @@ export default function SponsorshipBookingPage() {
 
   const referredBy = record?.refCode ? inferredRefName(record.refCode) : (record?.referralName || 'Unknown');
   const applicantState = (form.state || '').toUpperCase().trim();
-  const licensingMap = config.booking?.licensingByState || {};
-  const eligibleClosers = applicantState ? (licensingMap[applicantState] || []) : [];
-  const fngEligibleClosers = eligibleClosers.filter((name) => !String(name).toLowerCase().includes('breanna'));
-
-  const sponsorMatch = fngEligibleClosers.find((name) => cleanName(name) === cleanName(referredBy));
+  const allInnerCircleClosers = Array.isArray(config.agents) ? config.agents : [];
+  const sponsorMatch = allInnerCircleClosers.find((name) => cleanName(name) === cleanName(referredBy));
   const priorityHours = 24;
 
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -150,7 +147,8 @@ export default function SponsorshipBookingPage() {
       return;
     }
 
-    const priority_expires_at = sponsorMatch ? new Date(Date.now() + priorityHours * 60 * 60 * 1000).toISOString() : null;
+    const priorityAgent = sponsorMatch || (cleanName(referredBy) !== 'unknown' ? referredBy : '');
+    const priority_expires_at = priorityAgent ? new Date(Date.now() + priorityHours * 60 * 60 * 1000).toISOString() : null;
 
     const requestedAt12 = `${form.date} ${to12Hour(form.time)}`;
 
@@ -169,12 +167,12 @@ export default function SponsorshipBookingPage() {
       requested_at_est: requestedAt12,
       score: record?.application_score || 0,
       decision_bucket: record?.decision_bucket || '',
-      eligible_closers: fngEligibleClosers,
-      priority_agent: sponsorMatch || '',
+      eligible_closers: allInnerCircleClosers,
+      priority_agent: priorityAgent,
       priority_expires_at,
       priority_released: false,
       claimed_by: '',
-      claim_status: sponsorMatch ? 'Priority Hold' : 'Open',
+      claim_status: priorityAgent ? 'Priority Hold' : 'Open',
       notes: form.notes || '',
       created_at: new Date().toISOString()
     };

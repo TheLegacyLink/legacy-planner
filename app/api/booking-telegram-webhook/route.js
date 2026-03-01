@@ -16,6 +16,40 @@ function normalize(v = '') {
   return clean(v).toLowerCase().replace(/\s+/g, ' ');
 }
 
+function isManager(name = '') {
+  const user = (users || []).find((u) => u?.active && normalize(u.name) === normalize(name));
+  return normalize(user?.role) === 'admin' || normalize(user?.role) === 'manager';
+}
+
+function isWithinPriorityWindow(row = {}) {
+  if (!clean(row?.priority_agent) || row?.priority_released) return false;
+  const exp = new Date(row?.priority_expires_at || 0);
+  if (Number.isNaN(exp.getTime())) return false;
+  return exp.getTime() > Date.now();
+}
+
+function releaseExpiredPriority(rows = []) {
+  const now = Date.now();
+  let changed = false;
+  const out = rows.map((row) => {
+    const claimed = normalize(row?.claim_status).startsWith('claimed') || clean(row?.claimed_by);
+    if (claimed || !clean(row?.priority_agent) || row?.priority_released) return row;
+
+    const exp = new Date(row?.priority_expires_at || 0);
+    if (Number.isNaN(exp.getTime()) || exp.getTime() > now) return row;
+
+    changed = true;
+    return {
+      ...row,
+      priority_released: true,
+      claim_status: 'Open',
+      updated_at: nowIso()
+    };
+  });
+
+  return { out, changed };
+}
+
 function parseRequestedEst(value = '') {
   const m = clean(value).match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
   if (!m) return null;
@@ -129,8 +163,12 @@ export async function POST(req) {
   if (!msg?.text) return Response.json({ ok: true, skipped: 'no_text' });
 
   const text = clean(msg.text);
-  const rows = await loadJsonStore(STORE_PATH, []);
-  const open = rows.filter((r) => normalize(r?.claim_status) !== 'claimed');
+  const loaded = await loadJsonStore(STORE_PATH, []);
+  const released = releaseExpiredPriority(loaded);
+  const rows = released.out;
+  if (released.changed) await saveJsonStore(STORE_PATH, rows);
+
+  const open = rows.filter((r) => !clean(r?.claimed_by));
 
   // Keep group noise low: only process explicit claim messages.
   if (!/^\s*(?:CONFIRM|CLAIM)\b/i.test(text)) {
@@ -181,11 +219,20 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'already_claimed', claimedBy: currentClaimer }, { status: 409 });
   }
 
+  if (isWithinPriorityWindow(rows[idx]) && normalize(rows[idx].priority_agent) !== normalize(claimedBy) && !isManager(claimedBy)) {
+    await tgSend(
+      msg.chat?.id,
+      `⏳ ${bookingId} is in 24h priority hold for ${rows[idx].priority_agent}. Claim in portal after hold expires.`
+    );
+    return Response.json({ ok: false, error: 'priority_window_locked' }, { status: 409 });
+  }
+
   rows[idx] = {
     ...rows[idx],
     claim_status: 'Claimed',
     claimed_by: claimedBy,
     claimed_at: nowIso(),
+    priority_released: true,
     updated_at: nowIso()
   };
 
