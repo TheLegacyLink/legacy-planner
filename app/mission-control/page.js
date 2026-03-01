@@ -379,12 +379,12 @@ export default function MissionControl() {
 
       const sheetApprovals = Number(sponsorshipApprovalsByAgent[agent] || 0);
       const sheetTodayApprovals = Number(sponsorshipTodayApprovalsByAgent[agent] || 0);
-      const pendingRevenueSync = Math.max(sheetApprovals - monthReferrals, 0);
-      const todayPendingSync = Math.max(sheetTodayApprovals - todayReferrals, 0);
 
-      // Today should reflect true same-day sponsorship approvals from Sponsorship Tracker,
-      // not potentially cumulative values from leaderboard "today" fields.
-      const effectiveTodayReferrals = sheetTodayApprovals;
+      // Inner Circle sponsorship referrals are direct-link submissions on this platform,
+      // so no Base44 sync delay applies to referral counting.
+      const pendingRevenueSync = 0;
+      const todayPendingSync = 0;
+      const effectiveTodayReferrals = todayReferrals;
       const roi = monthReferrals ? monthApps / monthReferrals : monthApps > 0 ? monthApps : 0;
 
       return {
@@ -612,11 +612,9 @@ export default function MissionControl() {
           <span className={`pill ${totals.month.active >= 1 ? 'onpace' : 'offpace'}`}>{totals.month.active >= 1 ? 'On Pace' : 'Off Pace'}</span>
         </div>
         <div className="card">
-          <p>Approved Pending Revenue Sync</p>
-          <h2>{totals.month.pendingSync}</h2>
-          <span className={`pill ${totals.month.pendingSync > 0 ? 'atrisk' : 'onpace'}`}>
-            {totals.month.pendingSync > 0 ? 'Needs Sync Follow-up' : 'Fully Synced'}
-          </span>
+          <p>Referral Source</p>
+          <h2>Direct</h2>
+          <span className="pill onpace">Inner Circle personal referral links</span>
         </div>
       </div>
 
@@ -624,8 +622,8 @@ export default function MissionControl() {
         <div className="card">
           <p>Sponsorship Referrals (Today)</p>
           <h2>{totals.today.referrals}</h2>
-          <span className={`pill ${totals.today.pendingSync > 0 ? 'atrisk' : 'onpace'}`}>
-            {totals.today.pendingSync > 0 ? `${totals.today.pendingSync} pending Base44 sync` : 'Daily app submissions'}
+          <span className="pill onpace">
+            Direct-link submissions (real-time)
           </span>
           <div style={{ marginTop: 8 }}>
             <button type="button" className="ghost" onClick={() => setDetailsModal({ open: true, type: 'referrals' })}>
