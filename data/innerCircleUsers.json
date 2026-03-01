@@ -47,5 +47,12 @@
     "role": "submitter",
     "passwordHash": "6ed336cccd7c568dc5701722efe2698dd500202aaf4e365d813a8767cf8e9983",
     "active": true
+  },
+  {
+    "name": "Portal Test",
+    "email": "portaltest@innercirclelink.com",
+    "role": "submitter",
+    "passwordHash": "1c91c7b845a6a48037f7a48dedd4701607be2f167fb6fdc0e649eaa8d8c7cea3",
+    "active": true
   }
 ]

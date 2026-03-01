@@ -892,6 +892,15 @@ textarea { min-height: 180px; margin-top: 8px; }
   pointer-events: none;
 }
 
+.claimPrivateHint {
+  margin-top: 10px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 10px;
+  color: #475569;
+  font-size: 13px;
+}
+
 .claimAction { margin-top: 12px; display: grid; gap: 6px; }
 .claimAction input[type='range'] { width: 100%; }
 

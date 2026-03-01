@@ -378,7 +378,6 @@ export default function LeadClaimsPortalPage() {
                     <small>{submitterLabel(item.referred_by)}</small>
                     {linkedLead ? (
                       <div className="claimsPendingActions">
-                        <button type="button" className="ghost" onClick={() => jumpToLeadCard(linkedLead.id)}>Open Card</button>
                         {canClaimLinkedLead ? (
                           <button
                             type="button"
@@ -396,14 +395,17 @@ export default function LeadClaimsPortalPage() {
                           </button>
                         ) : null}
                         {isManager ? (
-                          <button
-                            type="button"
-                            className="ghost"
-                            disabled={savingId === linkedLead.id}
-                            onClick={() => deleteLead(linkedLead.id)}
-                          >
-                            Delete
-                          </button>
+                          <>
+                            <button type="button" className="ghost" onClick={() => jumpToLeadCard(linkedLead.id)}>Open Card</button>
+                            <button
+                              type="button"
+                              className="ghost"
+                              disabled={savingId === linkedLead.id}
+                              onClick={() => deleteLead(linkedLead.id)}
+                            >
+                              Delete
+                            </button>
+                          </>
                         ) : null}
                       </div>
                     ) : null}
@@ -484,23 +486,29 @@ export default function LeadClaimsPortalPage() {
 
               {inPriority ? <p className="claimsCountdownLabel">Priority auto-release at {fmtDate(row.priority_expires_at)}</p> : null}
 
-              <div className="claimInfoActions">
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={() => setExpandedId((prev) => (prev === row.id ? '' : row.id))}
-                >
-                  {expandedId === row.id ? 'Hide Card Info' : 'Open Card Info'}
-                </button>
-              </div>
+              {row.visibility === 'full' || isManager ? (
+                <>
+                  <div className="claimInfoActions">
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => setExpandedId((prev) => (prev === row.id ? '' : row.id))}
+                    >
+                      {expandedId === row.id ? 'Hide Card Info' : 'Open Card Info'}
+                    </button>
+                  </div>
 
-              {expandedId === row.id ? (
-                <div className={`claimPrivate ${row.visibility === 'partial' ? 'blurred' : ''}`}>
-                  <p><strong>Email:</strong> {row.applicant_email || '—'}</p>
-                  <p><strong>Phone:</strong> {row.applicant_phone || '—'}</p>
-                  <p><strong>Submitter:</strong> {submitterLabel(row.referred_by)}</p>
-                </div>
-              ) : null}
+                  {expandedId === row.id ? (
+                    <div className="claimPrivate">
+                      <p><strong>Email:</strong> {row.applicant_email || '—'}</p>
+                      <p><strong>Phone:</strong> {row.applicant_phone || '—'}</p>
+                      <p><strong>Submitter:</strong> {submitterLabel(row.referred_by)}</p>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="claimPrivateHint">Claim this lead to unlock contact details.</div>
+              )}
 
               {!row.claimed_by ? (
                 <div className="claimAction">
