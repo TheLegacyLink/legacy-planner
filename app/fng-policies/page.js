@@ -582,7 +582,7 @@ export default function FngPoliciesPage() {
           <button type="button" onClick={exportOverrides}>Export Tags</button>
           <button type="button" onClick={() => importRef.current?.click()}>Import Tags</button>
           <button type="button" onClick={() => workbookImportRef.current?.click()} disabled={uploadingWorkbook}>
-            {uploadingWorkbook ? 'Uploading F&G Workbook…' : 'Upload F&G Workbook (.xlsx)'}
+            {uploadingWorkbook ? 'Uploading F&G Report…' : 'Upload F&G Report (.xlsx or .csv)'}
           </button>
           <button type="button" className="ghost" onClick={sendCatchupDocsSentEmails}>Send Catch-up Emails (Docs Sent)</button>
           <input
@@ -595,7 +595,7 @@ export default function FngPoliciesPage() {
           <input
             ref={workbookImportRef}
             type="file"
-            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
             style={{ display: 'none' }}
             onChange={(e) => uploadWorkbook(e.target.files?.[0])}
           />

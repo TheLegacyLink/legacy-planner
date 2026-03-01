@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 import basePolicies from '../../../data/fngPolicies.json';
 
@@ -67,7 +68,7 @@ function pick(row, aliases = []) {
 }
 
 function normalizeRow(row = {}, reportDate = '') {
-  const policyNumber = clean(pick(row, ['policy_number', 'policy number', 'Policy Number', 'policy#', 'Policy #'])).toUpperCase();
+  const policyNumber = clean(pick(row, ['policy_number', 'policy number', 'Policy Number', 'policy#', 'Policy #', 'Policy No', 'Policy No.', 'Contract Number', 'Contract #'])).toUpperCase();
   if (!policyNumber) return null;
 
   const issuedDate = excelDateToIso(pick(row, ['policy_issued_date', 'Policy Issued Date', 'issued date', 'Issued Date']));
@@ -122,7 +123,7 @@ function extractRowsRobust(sheet) {
   const headerRowIdx = grid.findIndex((row) =>
     (row || []).some((cell) => {
       const k = normalizeKey(cell);
-      return k.includes('policynumber') || k === 'policy' || k === 'policyno';
+      return k.includes('policynumber') || k === 'policy' || k === 'policyno' || k.includes('contractnumber');
     })
   );
 
@@ -141,6 +142,19 @@ function extractRowsRobust(sheet) {
   }
 
   return rows;
+}
+
+function parseCsvRows(buffer) {
+  const text = buffer.toString('utf8');
+  const out = Papa.parse(text, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: (h) => clean(h)
+  });
+  if (out.errors?.length && !out.data?.length) {
+    throw new Error(out.errors[0]?.message || 'csv_parse_failed');
+  }
+  return Array.isArray(out.data) ? out.data : [];
 }
 
 function ensurePayload(raw = null) {
@@ -187,12 +201,21 @@ export async function POST(req) {
 
     const reportDate = clean(form.get('reportDate') || '');
     const buffer = Buffer.from(await file.arrayBuffer());
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const firstSheet = workbook.SheetNames[0];
-    if (!firstSheet) return Response.json({ ok: false, error: 'empty_workbook' }, { status: 400 });
 
-    const sheet = workbook.Sheets[firstSheet];
-    const rawRows = extractRowsRobust(sheet);
+    const fileName = clean(file?.name || '').toLowerCase();
+    const mimeType = clean(file?.type || '').toLowerCase();
+    const isCsv = fileName.endsWith('.csv') || mimeType.includes('csv') || mimeType.includes('text/plain');
+
+    let rawRows = [];
+    if (isCsv) {
+      rawRows = parseCsvRows(buffer);
+    } else {
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
+      const firstSheet = workbook.SheetNames[0];
+      if (!firstSheet) return Response.json({ ok: false, error: 'empty_workbook' }, { status: 400 });
+      const sheet = workbook.Sheets[firstSheet];
+      rawRows = extractRowsRobust(sheet);
+    }
 
     const normalized = rawRows
       .map((r) => normalizeRow(r, reportDate))
@@ -202,7 +225,7 @@ export async function POST(req) {
       return Response.json({
         ok: false,
         error: 'no_policy_rows_detected',
-        hint: 'Could not find policy rows in workbook. Make sure Policy Number column exists.'
+        hint: 'Could not find policy rows in file. Make sure a Policy Number (or Contract Number) column exists.'
       }, { status: 400 });
     }
 
