@@ -53,6 +53,24 @@ function formatDate(dateLike) {
   return d.toISOString().slice(0, 10);
 }
 
+function mergePolicies(baseRows = [], uploadedRows = []) {
+  const map = new Map();
+
+  for (const row of uploadedRows || []) {
+    const key = String(row?.policy_number || '').toUpperCase().trim();
+    if (!key) continue;
+    map.set(key, row);
+  }
+
+  for (const row of baseRows || []) {
+    const key = String(row?.policy_number || '').toUpperCase().trim();
+    if (!key) continue;
+    if (!map.has(key)) map.set(key, row);
+  }
+
+  return Array.from(map.values());
+}
+
 export default function FngPoliciesPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -62,7 +80,11 @@ export default function FngPoliciesPage() {
   const [programOverrides, setProgramOverrides] = useState({});
   const [requirementsProgress, setRequirementsProgress] = useState({});
   const [syncStatus, setSyncStatus] = useState('');
+  const [uploadedPolicies, setUploadedPolicies] = useState([]);
+  const [uploadMeta, setUploadMeta] = useState({ sourceFile: '', updatedAt: '', dedupedCount: 0, newCount: 0 });
+  const [uploadingWorkbook, setUploadingWorkbook] = useState(false);
   const importRef = useRef(null);
+  const workbookImportRef = useRef(null);
 
   const requirementsMap = useMemo(() => {
     const map = new Map();
@@ -133,8 +155,26 @@ export default function FngPoliciesPage() {
       }
     }
 
+    async function loadUploadedPolicies() {
+      try {
+        const res = await fetch('/api/fng-policies-upload', { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!mounted || !res.ok || !data?.ok) return;
+        setUploadedPolicies(Array.isArray(data.rows) ? data.rows : []);
+        setUploadMeta({
+          sourceFile: data.sourceFile || '',
+          updatedAt: data.updatedAt || '',
+          dedupedCount: Number(data.dedupedCount || (Array.isArray(data.rows) ? data.rows.length : 0)),
+          newCount: Number(data.newCount || 0)
+        });
+      } catch {
+        // ignore
+      }
+    }
+
     load();
     loadRequirementsProgress();
+    loadUploadedPolicies();
     return () => {
       mounted = false;
     };
@@ -162,6 +202,40 @@ export default function FngPoliciesPage() {
     persistRemote(normalized, programOverrides);
   }
 
+  async function uploadWorkbook(file) {
+    if (!file) return;
+    setUploadingWorkbook(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+
+      const res = await fetch('/api/fng-policies-upload', {
+        method: 'POST',
+        body: fd
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data?.ok) {
+        alert(`Upload failed: ${data?.error || 'unknown_error'}`);
+        return;
+      }
+
+      setUploadedPolicies(Array.isArray(data.rows) ? data.rows : []);
+      setUploadMeta({
+        sourceFile: data.sourceFile || file.name || '',
+        updatedAt: data.updatedAt || '',
+        dedupedCount: Number(data.dedupedCount || 0),
+        newCount: Number(data.newCount || 0)
+      });
+
+      alert(`F&G upload complete: ${Number(data.dedupedCount || 0)} unique policies (${Number(data.newCount || 0)} new).`);
+    } catch {
+      alert('Upload failed. Please try again.');
+    } finally {
+      setUploadingWorkbook(false);
+      if (workbookImportRef.current) workbookImportRef.current.value = '';
+    }
+  }
 
   async function saveRequirementsPatch(policyNumber, patch) {
     const key = String(policyNumber || '').toUpperCase().trim();
@@ -340,8 +414,10 @@ export default function FngPoliciesPage() {
     }
   }
 
+  const sourcePolicies = useMemo(() => mergePolicies(fngPolicies, uploadedPolicies), [uploadedPolicies]);
+
   const enriched = useMemo(() => {
-    return fngPolicies.map((p) => {
+    return sourcePolicies.map((p) => {
       const months = monthsSince(p.policy_effective_date);
       const monthsSinceIssue = monthsSince(p.policy_issued_date);
       const monthsToAnnual = monthsSinceIssue === null ? null : Math.max(12 - monthsSinceIssue, 0);
@@ -404,7 +480,7 @@ export default function FngPoliciesPage() {
         owner_email_clean: String(p.owner_email || req?.email || '').trim()
       };
     });
-  }, [threshold, programOverrides, requirementsMap, requirementsProgress]);
+  }, [sourcePolicies, threshold, programOverrides, requirementsMap, requirementsProgress]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -505,6 +581,9 @@ export default function FngPoliciesPage() {
         <div className="panelRow" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
           <button type="button" onClick={exportOverrides}>Export Tags</button>
           <button type="button" onClick={() => importRef.current?.click()}>Import Tags</button>
+          <button type="button" onClick={() => workbookImportRef.current?.click()} disabled={uploadingWorkbook}>
+            {uploadingWorkbook ? 'Uploading F&G Workbook…' : 'Upload F&G Workbook (.xlsx)'}
+          </button>
           <button type="button" className="ghost" onClick={sendCatchupDocsSentEmails}>Send Catch-up Emails (Docs Sent)</button>
           <input
             ref={importRef}
@@ -513,8 +592,23 @@ export default function FngPoliciesPage() {
             style={{ display: 'none' }}
             onChange={(e) => importOverrides(e.target.files?.[0])}
           />
+          <input
+            ref={workbookImportRef}
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            style={{ display: 'none' }}
+            onChange={(e) => uploadWorkbook(e.target.files?.[0])}
+          />
           <span className="muted">{syncStatus || 'Saving changes…'}</span>
         </div>
+
+        <p className="muted" style={{ marginTop: 0 }}>
+          Source rows: {sourcePolicies.length}
+          {uploadMeta?.sourceFile ? ` • Last XLSX: ${uploadMeta.sourceFile}` : ''}
+          {uploadMeta?.updatedAt ? ` • Uploaded: ${new Date(uploadMeta.updatedAt).toLocaleString()}` : ''}
+          {uploadMeta?.dedupedCount ? ` • Unique in upload: ${uploadMeta.dedupedCount}` : ''}
+          {uploadMeta?.newCount ? ` • New vs prior upload: ${uploadMeta.newCount}` : ''}
+        </p>
 
         <div className="panelRow" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
           <label style={{ display: 'grid', gap: 6 }}>
