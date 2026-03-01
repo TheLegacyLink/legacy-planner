@@ -359,29 +359,17 @@ export default function MissionControl() {
     return config.agents.map((agent) => {
       const match = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(agent));
 
-      const base44MonthlyAppsByAgent = byScope(match, 'monthly', ['app_submitted_count', 'apps_submitted', 'apps']);
-      const base44MonthApps =
-        base44MonthlyAppsByAgent !== null
-          ? base44MonthlyAppsByAgent
-          : Number(match?.app_submitted_count ?? match?.apps_submitted ?? match?.apps ?? (match?.event_type === 'app_submitted' ? 1 : 0) ?? 0) || 0;
-
-      const base44TodayApps = Number(match?.apps_submitted_count_today ?? match?.app_submitted_count_today ?? match?.apps_today ?? 0) || 0;
-      const localMonthApps = Number(sponsorshipAppsByAgent[agent] || 0);
-      const localTodayApps = Number(sponsorshipTodayAppsByAgent[agent] || 0);
-
-      // Referrals = sponsorship referrals (Base44/sheet signals).
-      const monthReferrals = base44MonthApps;
-      const todayReferrals = base44TodayApps;
+      // Referrals = direct sponsorship form submissions (inner-circle links).
+      const monthReferrals = Number(sponsorshipApprovalsByAgent[agent] || 0);
+      const todayReferrals = Number(sponsorshipTodayApprovalsByAgent[agent] || 0);
 
       // Apps Submitted = FNG/internal app submit only.
-      const monthApps = localMonthApps;
-      const todayApps = localTodayApps;
+      const monthApps = Number(sponsorshipAppsByAgent[agent] || 0);
+      const todayApps = Number(sponsorshipTodayAppsByAgent[agent] || 0);
 
-      const sheetApprovals = Number(sponsorshipApprovalsByAgent[agent] || 0);
-      const sheetTodayApprovals = Number(sponsorshipTodayApprovalsByAgent[agent] || 0);
+      const sheetApprovals = monthReferrals;
+      const sheetTodayApprovals = todayReferrals;
 
-      // Inner Circle sponsorship referrals are direct-link submissions on this platform,
-      // so no Base44 sync delay applies to referral counting.
       const pendingRevenueSync = 0;
       const todayPendingSync = 0;
       const effectiveTodayReferrals = todayReferrals;
