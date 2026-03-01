@@ -112,6 +112,7 @@ function normalizeBookingTimezone(row = {}) {
   const tz = clean(row?.booking_timezone || row?.requested_timezone || row?.timezone || '');
   if (tz) {
     const n = normalize(tz);
+    if (n === 'local') return inferTimezoneFromState(row?.applicant_state || row?.state);
     if (n.includes('eastern') || n === 'est' || n === 'edt' || n === 'et') return 'ET';
     if (n.includes('central') || n === 'cst' || n === 'cdt' || n === 'ct') return 'CT';
     if (n.includes('mountain') || n === 'mst' || n === 'mdt' || n === 'mt') return 'MT';
