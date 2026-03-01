@@ -40,6 +40,25 @@ function priorityCountdown(expiresAt = '', nowTs = Date.now()) {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+function stateToneClass(state = '') {
+  const key = clean(state).toUpperCase();
+  if (!key) return 'stateTag stateTagDefault';
+  const seed = key.charCodeAt(0) + (key.charCodeAt(1) || 0);
+  const bucket = seed % 4;
+  if (bucket === 0) return 'stateTag stateTagBlue';
+  if (bucket === 1) return 'stateTag stateTagGreen';
+  if (bucket === 2) return 'stateTag stateTagGold';
+  return 'stateTag stateTagPurple';
+}
+
+function priorityProgress(expiresAt = '', nowTs = Date.now()) {
+  const exp = new Date(expiresAt || 0).getTime();
+  if (!exp || Number.isNaN(exp)) return 0;
+  const maxMs = 24 * 60 * 60 * 1000;
+  const remainingMs = Math.max(0, exp - nowTs);
+  return Math.max(0, Math.min(100, (remainingMs / maxMs) * 100));
+}
+
 export default function LeadClaimsPortalPage() {
   const [auth, setAuth] = useState({ name: '', role: '' });
   const [loginName, setLoginName] = useState('');
@@ -56,6 +75,7 @@ export default function LeadClaimsPortalPage() {
   const [overrideById, setOverrideById] = useState({});
   const [nowTs, setNowTs] = useState(Date.now());
   const [draggingId, setDraggingId] = useState('');
+  const [claimedBurstId, setClaimedBurstId] = useState('');
 
   const bookingQuery = useMemo(() => {
     if (typeof window === 'undefined') return '';
@@ -153,6 +173,8 @@ export default function LeadClaimsPortalPage() {
       }
 
       setMessage('Claim confirmed.');
+      setClaimedBurstId(bookingId);
+      window.setTimeout(() => setClaimedBurstId((prev) => (prev === bookingId ? '' : prev)), 1500);
       await loadRows(true);
     } finally {
       setSavingId('');
@@ -250,6 +272,9 @@ export default function LeadClaimsPortalPage() {
           const highlight = bookingQuery && bookingQuery === row.id;
           const liveCountdown = priorityCountdown(row.priority_expires_at, nowTs);
           const inPriority = Boolean(row.is_priority_window_open && !row.claimed_by);
+          const priorityPct = priorityProgress(row.priority_expires_at, nowTs);
+          const stateClass = stateToneClass(row.applicant_state);
+          const showBurst = claimedBurstId === row.id;
 
           return (
             <article
@@ -259,12 +284,30 @@ export default function LeadClaimsPortalPage() {
               onDragStart={() => setDraggingId(row.id)}
               onDragEnd={() => setDraggingId('')}
             >
+              {showBurst ? (
+                <div className="claimConfetti" aria-hidden>
+                  {Array.from({ length: 14 }).map((_, i) => <span key={`cf-${row.id}-${i}`} className={`confettiPiece c${i % 7}`} />)}
+                </div>
+              ) : null}
+
               <div className="claimTop">
                 <div>
                   <h3>{row.applicant_name || 'Lead'}</h3>
-                  <p>{row.applicant_state || '—'} • {row.requested_at_est || '—'}</p>
+                  <p>
+                    <span className={stateClass}>{row.applicant_state || '—'}</span>
+                    <span> • {row.requested_at_est || '—'}</span>
+                  </p>
                 </div>
                 <div className="claimBadgeCol">
+                  {inPriority ? (
+                    <div
+                      className="slaRing"
+                      title={`Priority hold remaining: ${liveCountdown}`}
+                      style={{ '--pct': `${priorityPct}%` }}
+                    >
+                      <span>{Math.round(priorityPct)}%</span>
+                    </div>
+                  ) : null}
                   {row.claimed_by ? (
                     <span className="pill onpace claimWhoPill">
                       <span className="claimsAvatar tiny" aria-hidden>{initials(row.claimed_by)}</span>

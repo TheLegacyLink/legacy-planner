@@ -657,6 +657,25 @@ textarea { min-height: 180px; margin-top: 8px; }
   font-size: 10px;
 }
 
+.stateTag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  border: 1px solid transparent;
+}
+
+.stateTagBlue { color: #1e40af; background: #dbeafe; border-color: #93c5fd; }
+.stateTagGreen { color: #065f46; background: #d1fae5; border-color: #6ee7b7; }
+.stateTagGold { color: #92400e; background: #fef3c7; border-color: #fcd34d; }
+.stateTagPurple { color: #5b21b6; background: #ede9fe; border-color: #c4b5fd; }
+.stateTagDefault { color: #334155; background: #e2e8f0; border-color: #cbd5e1; }
+
 .claimsCards {
   width: min(1080px, 100%);
   margin: 0 auto;
@@ -665,6 +684,8 @@ textarea { min-height: 180px; margin-top: 8px; }
 }
 
 .claimCard {
+  position: relative;
+  overflow: hidden;
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
@@ -703,6 +724,60 @@ textarea { min-height: 180px; margin-top: 8px; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.slaRing {
+  --pct: 0%;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(#f59e0b var(--pct), #e2e8f0 0);
+  border: 1px solid #fbbf24;
+}
+
+.slaRing span {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.claimConfetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.confettiPiece {
+  position: absolute;
+  top: -14px;
+  width: 9px;
+  height: 12px;
+  border-radius: 2px;
+  animation: confettiDrop 1s ease-out forwards;
+}
+
+.confettiPiece.c0 { left: 8%; background: #3b82f6; animation-delay: 0ms; }
+.confettiPiece.c1 { left: 15%; background: #22c55e; animation-delay: 30ms; }
+.confettiPiece.c2 { left: 24%; background: #eab308; animation-delay: 60ms; }
+.confettiPiece.c3 { left: 34%; background: #ef4444; animation-delay: 90ms; }
+.confettiPiece.c4 { left: 46%; background: #8b5cf6; animation-delay: 120ms; }
+.confettiPiece.c5 { left: 58%; background: #06b6d4; animation-delay: 150ms; }
+.confettiPiece.c6 { left: 72%; background: #f97316; animation-delay: 180ms; }
+
+@keyframes confettiDrop {
+  0% { transform: translateY(-12px) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(130px) rotate(240deg); opacity: 0; }
 }
 
 .claimsCountdownLabel {
