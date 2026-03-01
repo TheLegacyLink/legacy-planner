@@ -6,6 +6,7 @@ const MASTER_PASS = 'LegacyLink216';
 
 const links = [
   { label: 'Mission Control', href: '/mission-control' },
+  { label: 'Kimora Personal Sponsorship Referral Link', href: 'https://innercirclelink.com/sponsorship-signup?ref=kimora_link' },
   { label: 'Sponsorship Ops', href: '/sponsorship-ops' },
   { label: 'Contacts Vault', href: '/contacts-vault' },
   { label: 'Bonus Bookings', href: '/bonus-bookings' },
