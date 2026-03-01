@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import basePolicies from '../../../data/fngPolicies.json';
 
 const STORE_PATH = 'stores/fng-policies-upload.json';
 
@@ -49,9 +50,18 @@ function statusNorm(status = '') {
   return s || 'non_active';
 }
 
+function normalizeKey(v = '') {
+  return clean(v).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 function pick(row, aliases = []) {
+  const entries = Object.entries(row || {});
+  const byNorm = new Map(entries.map(([k, v]) => [normalizeKey(k), v]));
+
   for (const key of aliases) {
     if (row[key] != null && String(row[key]).trim() !== '') return row[key];
+    const hit = byNorm.get(normalizeKey(key));
+    if (hit != null && String(hit).trim() !== '') return hit;
   }
   return '';
 }
@@ -102,8 +112,36 @@ function dedupeByPolicy(rows = []) {
   return Array.from(map.values());
 }
 
+function ensurePayload(raw = null) {
+  if (Array.isArray(raw)) {
+    return {
+      rows: raw,
+      updatedAt: '',
+      sourceFile: '',
+      importedCount: raw.length,
+      dedupedCount: raw.length,
+      newCount: 0
+    };
+  }
+
+  const obj = raw && typeof raw === 'object' ? raw : {};
+  return {
+    rows: Array.isArray(obj.rows) ? obj.rows : [],
+    updatedAt: clean(obj.updatedAt || ''),
+    sourceFile: clean(obj.sourceFile || ''),
+    importedCount: Number(obj.importedCount || 0),
+    dedupedCount: Number(obj.dedupedCount || (Array.isArray(obj.rows) ? obj.rows.length : 0)),
+    newCount: Number(obj.newCount || 0)
+  };
+}
+
+function policySet(rows = []) {
+  return new Set((rows || []).map((r) => clean(r?.policy_number || '').toUpperCase()).filter(Boolean));
+}
+
 export async function GET() {
-  const payload = await loadJsonStore(STORE_PATH, { rows: [], updatedAt: '', sourceFile: '', newCount: 0 });
+  const raw = await loadJsonStore(STORE_PATH, { rows: [], updatedAt: '', sourceFile: '', newCount: 0 });
+  const payload = ensurePayload(raw);
   return Response.json({ ok: true, ...payload });
 }
 
@@ -131,9 +169,15 @@ export async function POST(req) {
 
     const deduped = dedupeByPolicy(normalized);
 
-    const existing = await loadJsonStore(STORE_PATH, { rows: [], updatedAt: '', sourceFile: '', newCount: 0 });
-    const previousSet = new Set((existing?.rows || []).map((r) => clean(r?.policy_number || '').toUpperCase()));
-    const newCount = deduped.filter((r) => !previousSet.has(clean(r?.policy_number || '').toUpperCase())).length;
+    const existingRaw = await loadJsonStore(STORE_PATH, { rows: [], updatedAt: '', sourceFile: '', newCount: 0 });
+    const existing = ensurePayload(existingRaw);
+
+    // New = not present in current baseline book OR prior uploaded workbook.
+    const baselineSet = policySet(basePolicies || []);
+    const previousUploadSet = policySet(existing.rows || []);
+    const seen = new Set([...baselineSet, ...previousUploadSet]);
+
+    const newCount = deduped.filter((r) => !seen.has(clean(r?.policy_number || '').toUpperCase())).length;
 
     const payload = {
       rows: deduped,
