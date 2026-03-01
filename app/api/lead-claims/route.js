@@ -2,7 +2,7 @@ import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 import users from '../../../data/innerCircleUsers.json';
 import licensedAgents from '../../../data/licensedAgents.json';
 
-const STORE_PATH = 'stores/sponsorship-bookings.json';
+const SPONSORSHIP_BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
 const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
 const BONUS_BOOKINGS_PATH = 'stores/bonus-bookings.json';
 
@@ -13,14 +13,6 @@ const LICENSE_OVERRIDES = {
   'dr. breanna': ['CA', 'FL'],
   'breanna james': ['CA', 'FL']
 };
-
-const PINNED_PENDING_LEADS = [
-  { name: 'Remy Davis', source: 'Sponsorship Booking' },
-  { name: 'Devin Book', source: 'Sponsorship Booking' },
-  { name: 'Devin Simon', source: 'Sponsorship Booking' },
-  { name: 'Latitia Washington', source: 'Sponsorship Booking' },
-  { name: 'Jakisha Calloway', source: 'Bonus Booking' }
-];
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -145,6 +137,59 @@ function refreshExpiredPriority(rows = []) {
   return { rows, changed };
 }
 
+function toBonusClaimRow(row = {}) {
+  return {
+    id: clean(row?.id),
+    source_type: 'bonus',
+    applicant_name: clean(row?.name) || 'Unknown',
+    applicant_email: clean(row?.email || ''),
+    applicant_phone: clean(row?.phone || ''),
+    applicant_state: clean(row?.state).toUpperCase(),
+    requested_at_est: clean(row?.requested_at_est),
+    referred_by: clean(row?.referred_by || 'Bonus Booking'),
+    claim_status: clean(row?.claim_status || 'Open') || 'Open',
+    claimed_by: clean(row?.claimed_by || ''),
+    claimed_at: clean(row?.claimed_at || ''),
+    priority_agent: clean(row?.priority_agent || ''),
+    priority_expires_at: clean(row?.priority_expires_at || ''),
+    priority_released: Boolean(row?.priority_released ?? true),
+    created_at: clean(row?.created_at || row?.updated_at || nowIso()),
+    updated_at: clean(row?.updated_at || nowIso())
+  };
+}
+
+function dedupeClaimRows(rows = []) {
+  const map = new Map();
+
+  for (const row of rows) {
+    const key = applicantNameKey(row?.applicant_name || row?.name || row?.applicantName || row?.id || '');
+    if (!key) continue;
+
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, row);
+      continue;
+    }
+
+    const existingTs = new Date(existing?.created_at || existing?.requested_at_est || 0).getTime();
+    const rowTs = new Date(row?.created_at || row?.requested_at_est || 0).getTime();
+
+    const existingClaimed = Boolean(clean(existing?.claimed_by));
+    const rowClaimed = Boolean(clean(row?.claimed_by));
+
+    if (rowClaimed && !existingClaimed) {
+      map.set(key, row);
+      continue;
+    }
+
+    if (!rowClaimed && existingClaimed) continue;
+
+    if ((rowTs || 0) >= (existingTs || 0)) map.set(key, row);
+  }
+
+  return [...map.values()];
+}
+
 function canViewerSeeFull(row = {}, viewerName = '', viewerRole = '') {
   if (isManagerRole(viewerRole)) return true;
   if (!clean(viewerName)) return false;
@@ -170,61 +215,57 @@ function toPortalRow(row = {}, viewerName = '', viewerRole = '') {
   };
 }
 
-function buildPendingPipeline(bookings = [], policyRows = [], bonusRows = []) {
+function buildPendingPipeline(claimRows = [], policyRows = []) {
   const policyByApplicant = new Set(
     (policyRows || [])
       .map((p) => applicantNameKey(p?.applicantName || p?.applicant_name || ''))
       .filter(Boolean)
   );
 
-  const pendingSponsorship = (bookings || [])
-    .filter((b) => {
-      const key = applicantNameKey(b?.applicant_name || '');
+  const pending = (claimRows || [])
+    .filter((row) => {
+      const key = applicantNameKey(row?.applicant_name || '');
       if (!key) return false;
-      if (normalize(b?.claim_status) === 'invalid') return false;
+      if (normalize(row?.claim_status) === 'invalid') return false;
       return !policyByApplicant.has(key);
     })
-    .map((b) => ({
-      id: clean(b?.id),
-      name: clean(b?.applicant_name) || 'Unknown',
-      state: clean(b?.applicant_state).toUpperCase(),
-      requested_at_est: clean(b?.requested_at_est),
-      referred_by: clean(b?.referred_by),
-      source: 'Sponsorship Booking'
+    .map((row) => ({
+      id: clean(row?.id),
+      name: clean(row?.applicant_name) || 'Unknown',
+      state: clean(row?.applicant_state).toUpperCase(),
+      requested_at_est: clean(row?.requested_at_est),
+      referred_by: clean(row?.referred_by),
+      source: row?.source_type === 'bonus' ? 'Bonus Booking' : 'Sponsorship Booking'
     }));
 
-  const pendingBonus = (bonusRows || [])
-    .filter((b) => normalize(b?.status || 'booked') !== 'completed')
-    .map((b) => ({
-      id: clean(b?.id),
-      name: clean(b?.name) || 'Unknown',
-      state: clean(b?.state).toUpperCase(),
-      requested_at_est: clean(b?.requested_at_est),
-      referred_by: 'Bonus Booking',
-      source: 'Bonus Booking'
-    }));
-
-  const merged = [...pendingSponsorship, ...pendingBonus];
-  const seen = new Set(merged.map((x) => applicantNameKey(x?.name)));
-
-  for (const item of PINNED_PENDING_LEADS) {
-    const key = applicantNameKey(item?.name);
-    if (!key || seen.has(key)) continue;
-    merged.unshift({
-      id: `manual_${key}`,
-      name: item.name,
-      state: '',
-      requested_at_est: '',
-      referred_by: item.source === 'Bonus Booking' ? 'Bonus Booking' : 'Link',
-      source: item.source
+  return dedupeClaimRows(
+    pending.map((p) => ({
+      id: p.id,
+      applicant_name: p.name,
+      applicant_state: p.state,
+      requested_at_est: p.requested_at_est,
+      referred_by: p.referred_by,
+      source: p.source,
+      created_at: p.requested_at_est || nowIso()
+    }))
+  )
+    .map((r) => ({
+      id: r.id,
+      name: r.applicant_name,
+      state: r.applicant_state,
+      requested_at_est: r.requested_at_est,
+      referred_by: r.referred_by,
+      source: r.source
+    }))
+    .sort((a, b) => {
+      const aTs = new Date(a.requested_at_est || 0).getTime();
+      const bTs = new Date(b.requested_at_est || 0).getTime();
+      return (bTs || 0) - (aTs || 0);
     });
-  }
+}
 
-  return merged.sort((a, b) => {
-    const aTs = new Date(a.requested_at_est || 0).getTime();
-    const bTs = new Date(b.requested_at_est || 0).getTime();
-    return (bTs || 0) - (aTs || 0);
-  });
+function findById(rows = [], id = '') {
+  return rows.findIndex((r) => clean(r?.id) === clean(id));
 }
 
 export async function GET(req) {
@@ -233,22 +274,29 @@ export async function GET(req) {
   const viewer = findUserByName(viewerName);
   const viewerRole = clean(viewer?.role || 'guest');
 
-  const [store, policyRows, bonusRows] = await Promise.all([
-    loadJsonStore(STORE_PATH, []),
+  const [sponsorStoreRaw, policyRows, bonusRowsRaw] = await Promise.all([
+    loadJsonStore(SPONSORSHIP_BOOKINGS_PATH, []),
     loadJsonStore(POLICY_SUBMISSIONS_PATH, []),
     loadJsonStore(BONUS_BOOKINGS_PATH, [])
   ]);
 
-  const { rows, changed } = refreshExpiredPriority(store);
-  if (changed) await saveJsonStore(STORE_PATH, rows);
+  const sponsorRefreshed = refreshExpiredPriority(sponsorStoreRaw);
+  const sponsorRows = sponsorRefreshed.rows;
+  if (sponsorRefreshed.changed) await saveJsonStore(SPONSORSHIP_BOOKINGS_PATH, sponsorRows);
 
-  const sorted = [...rows].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-  const pendingPipeline = buildPendingPipeline(sorted, policyRows, bonusRows);
+  const bonusClaimRows = (bonusRowsRaw || []).map((r) => toBonusClaimRow(r));
+
+  const mergedClaimRows = dedupeClaimRows([
+    ...sponsorRows.map((r) => ({ ...r, source_type: 'sponsorship' })),
+    ...bonusClaimRows
+  ]).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+  const pendingPipeline = buildPendingPipeline(mergedClaimRows, policyRows);
 
   return Response.json({
     ok: true,
     viewer: viewer ? { name: viewer.name, role: viewer.role } : null,
-    rows: sorted.map((r) => toPortalRow(r, viewer?.name || '', viewerRole)),
+    rows: mergedClaimRows.map((r) => toPortalRow(r, viewer?.name || '', viewerRole)),
     roster: activeUsers().map((u) => ({
       name: u.name,
       role: u.role,
@@ -266,15 +314,37 @@ export async function POST(req) {
 
   if (!actor) return Response.json({ ok: false, error: 'invalid_actor' }, { status: 401 });
 
-  const store = await loadJsonStore(STORE_PATH, []);
-  const refreshed = refreshExpiredPriority(store);
-  const rows = refreshed.rows;
-
   const bookingId = clean(body?.bookingId);
-  const idx = rows.findIndex((r) => clean(r.id) === bookingId);
-  if (idx < 0) return Response.json({ ok: false, error: 'booking_not_found' }, { status: 404 });
+  if (!bookingId) return Response.json({ ok: false, error: 'missing_booking_id' }, { status: 400 });
 
-  const row = rows[idx];
+  const [sponsorRows, bonusRows] = await Promise.all([
+    loadJsonStore(SPONSORSHIP_BOOKINGS_PATH, []),
+    loadJsonStore(BONUS_BOOKINGS_PATH, [])
+  ]);
+
+  const sponsorIdx = findById(sponsorRows, bookingId);
+  const bonusIdx = findById(bonusRows, bookingId);
+
+  if (sponsorIdx < 0 && bonusIdx < 0) {
+    return Response.json({ ok: false, error: 'booking_not_found' }, { status: 404 });
+  }
+
+  const targetStore = sponsorIdx >= 0 ? 'sponsor' : 'bonus';
+  const row = targetStore === 'sponsor' ? sponsorRows[sponsorIdx] : toBonusClaimRow(bonusRows[bonusIdx]);
+
+  if (action === 'delete') {
+    if (!isManagerRole(actor.role)) return Response.json({ ok: false, error: 'manager_only' }, { status: 403 });
+
+    if (targetStore === 'sponsor') {
+      const [removed] = sponsorRows.splice(sponsorIdx, 1);
+      await saveJsonStore(SPONSORSHIP_BOOKINGS_PATH, sponsorRows);
+      return Response.json({ ok: true, removed });
+    }
+
+    const [removed] = bonusRows.splice(bonusIdx, 1);
+    await saveJsonStore(BONUS_BOOKINGS_PATH, bonusRows);
+    return Response.json({ ok: true, removed });
+  }
 
   if (action === 'claim') {
     const alreadyClaimedBy = clean(row?.claimed_by);
@@ -294,7 +364,7 @@ export async function POST(req) {
       );
     }
 
-    rows[idx] = {
+    const next = {
       ...row,
       claim_status: 'Claimed',
       claimed_by: actor.name,
@@ -303,8 +373,22 @@ export async function POST(req) {
       updated_at: nowIso()
     };
 
-    await saveJsonStore(STORE_PATH, rows);
-    return Response.json({ ok: true, row: toPortalRow(rows[idx], actor.name, actor.role) });
+    if (targetStore === 'sponsor') {
+      sponsorRows[sponsorIdx] = next;
+      await saveJsonStore(SPONSORSHIP_BOOKINGS_PATH, sponsorRows);
+    } else {
+      bonusRows[bonusIdx] = {
+        ...bonusRows[bonusIdx],
+        claim_status: next.claim_status,
+        claimed_by: next.claimed_by,
+        claimed_at: next.claimed_at,
+        priority_released: true,
+        updated_at: next.updated_at
+      };
+      await saveJsonStore(BONUS_BOOKINGS_PATH, bonusRows);
+    }
+
+    return Response.json({ ok: true, row: toPortalRow(next, actor.name, actor.role) });
   }
 
   if (action === 'override') {
@@ -316,7 +400,7 @@ export async function POST(req) {
     const target = findUserByName(targetName);
     if (!target) return Response.json({ ok: false, error: 'invalid_target' }, { status: 400 });
 
-    rows[idx] = {
+    const next = {
       ...row,
       claim_status: 'Claimed',
       claimed_by: target.name,
@@ -328,8 +412,25 @@ export async function POST(req) {
       updated_at: nowIso()
     };
 
-    await saveJsonStore(STORE_PATH, rows);
-    return Response.json({ ok: true, row: toPortalRow(rows[idx], actor.name, actor.role) });
+    if (targetStore === 'sponsor') {
+      sponsorRows[sponsorIdx] = next;
+      await saveJsonStore(SPONSORSHIP_BOOKINGS_PATH, sponsorRows);
+    } else {
+      bonusRows[bonusIdx] = {
+        ...bonusRows[bonusIdx],
+        claim_status: next.claim_status,
+        claimed_by: next.claimed_by,
+        claimed_at: next.claimed_at,
+        override_by: next.override_by,
+        override_at: next.override_at,
+        override_note: next.override_note,
+        priority_released: true,
+        updated_at: next.updated_at
+      };
+      await saveJsonStore(BONUS_BOOKINGS_PATH, bonusRows);
+    }
+
+    return Response.json({ ok: true, row: toPortalRow(next, actor.name, actor.role) });
   }
 
   if (action === 'release') {
@@ -337,15 +438,27 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'manager_only' }, { status: 403 });
     }
 
-    rows[idx] = {
+    const next = {
       ...row,
       priority_released: true,
       claim_status: clean(row?.claimed_by) ? row?.claim_status || 'Claimed' : 'Open',
       updated_at: nowIso()
     };
 
-    await saveJsonStore(STORE_PATH, rows);
-    return Response.json({ ok: true, row: toPortalRow(rows[idx], actor.name, actor.role) });
+    if (targetStore === 'sponsor') {
+      sponsorRows[sponsorIdx] = next;
+      await saveJsonStore(SPONSORSHIP_BOOKINGS_PATH, sponsorRows);
+    } else {
+      bonusRows[bonusIdx] = {
+        ...bonusRows[bonusIdx],
+        priority_released: true,
+        claim_status: next.claim_status,
+        updated_at: next.updated_at
+      };
+      await saveJsonStore(BONUS_BOOKINGS_PATH, bonusRows);
+    }
+
+    return Response.json({ ok: true, row: toPortalRow(next, actor.name, actor.role) });
   }
 
   return Response.json({ ok: false, error: 'unsupported_action' }, { status: 400 });

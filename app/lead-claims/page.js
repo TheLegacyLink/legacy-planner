@@ -62,7 +62,7 @@ function submitterLabel(name = '') {
   const raw = clean(name);
   const n = normalize(raw);
   if (!raw) return '—';
-  if (n === 'camorlink' || n === 'kimora link' || n === 'link') return 'Link';
+  if (n === 'camorlink' || n === 'kimora link' || n === 'link') return 'Kimora L.';
   if (n === 'bonus booking') return 'Bonus Booking';
 
   const parts = raw.split(/\s+/).filter(Boolean);
@@ -250,6 +250,31 @@ export default function LeadClaimsPortalPage() {
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
+  const deleteLead = async (bookingId) => {
+    if (!isManager || !bookingId) return;
+    const ok = window.confirm('Delete this lead from claim queue?');
+    if (!ok) return;
+
+    setSavingId(bookingId);
+    setMessage('');
+    try {
+      const res = await fetch('/api/lead-claims', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', bookingId, actorName: auth.name })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setMessage(data?.error || 'Delete failed');
+        return;
+      }
+      setMessage('Lead deleted.');
+      await loadRows(true);
+    } finally {
+      setSavingId('');
+    }
+  };
+
   const byId = useMemo(() => {
     const map = new Map();
     for (const r of rows) map.set(r.id, r);
@@ -357,6 +382,16 @@ export default function LeadClaimsPortalPage() {
                             }}
                           >
                             {linkedLead.can_claim ? 'Claim Now' : isManager ? 'Force Claim' : 'Claim Locked'}
+                          </button>
+                        ) : null}
+                        {isManager ? (
+                          <button
+                            type="button"
+                            className="ghost"
+                            disabled={savingId === linkedLead.id}
+                            onClick={() => deleteLead(linkedLead.id)}
+                          >
+                            Delete
                           </button>
                         ) : null}
                       </div>
@@ -495,6 +530,9 @@ export default function LeadClaimsPortalPage() {
                   </select>
                   <button type="button" className="ghost" disabled={!overrideById[row.id] || savingId === row.id} onClick={() => overrideClaim(row.id)}>
                     Admin Override
+                  </button>
+                  <button type="button" className="ghost" disabled={savingId === row.id} onClick={() => deleteLead(row.id)}>
+                    Delete
                   </button>
                 </div>
               ) : null}

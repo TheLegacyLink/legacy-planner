@@ -901,7 +901,7 @@ textarea { min-height: 180px; margin-top: 8px; }
 .claimOverride {
   margin-top: 10px;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   gap: 8px;
 }
 
