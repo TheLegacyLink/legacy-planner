@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { loadRuntimeConfig } from '../../lib/runtimeConfig';
-import { loadSponsorshipBookings, saveSponsorshipBookings } from '../../lib/sponsorshipBookings';
 
 const DEFAULTS = loadRuntimeConfig();
 const PAGE_PASSCODE = 'LegacyLink216';
@@ -176,7 +175,6 @@ export default function MissionControl() {
   const [sponsorshipSyncIssue, setSponsorshipSyncIssue] = useState('');
   const [manualReviewCount, setManualReviewCount] = useState(0);
   const [bookingQueue, setBookingQueue] = useState([]);
-  const [claimBy, setClaimBy] = useState('');
   const [detailsModal, setDetailsModal] = useState({ open: false, type: '' });
   const [contactsVaultSummary, setContactsVaultSummary] = useState({ total: 0, withEmail: 0, withoutEmail: 0 });
   const [contactsVaultUpdatedAt, setContactsVaultUpdatedAt] = useState('');
@@ -192,8 +190,6 @@ export default function MissionControl() {
   useEffect(() => {
     const cfg = loadRuntimeConfig();
     setConfig(cfg);
-    setBookingQueue(loadSponsorshipBookings());
-    setClaimBy(cfg.agents?.[0] || '');
 
     try {
       const saved = localStorage.getItem(PASSCODE_STORAGE_KEY);
@@ -220,12 +216,13 @@ export default function MissionControl() {
       setLoading(true);
       setError('');
       try {
-        const [leaderboardRes, revenueRes, sponsorshipRes, manualReviewRes, policySubmissionsRes] = await Promise.all([
+        const [leaderboardRes, revenueRes, sponsorshipRes, manualReviewRes, policySubmissionsRes, leadClaimsRes] = await Promise.all([
           fetch(config.leaderboardUrl, { cache: 'no-store' }),
           fetch(config.revenueUrl, { cache: 'no-store' }),
           fetch(config.sponsorshipTrackerUrl, { cache: 'no-store' }),
           fetch('/api/sponsorship-applications', { cache: 'no-store' }),
-          fetch('/api/policy-submissions', { cache: 'no-store' })
+          fetch('/api/policy-submissions', { cache: 'no-store' }),
+          fetch('/api/lead-claims?viewer=Kimora%20Link', { cache: 'no-store' })
         ]);
 
         if (!leaderboardRes.ok) throw new Error(`Leaderboard HTTP ${leaderboardRes.status}`);
@@ -326,6 +323,15 @@ export default function MissionControl() {
           sponsorshipIssue = `Sponsorship tracker HTTP ${sponsorshipRes.status}`;
         }
 
+        let queueRows = [];
+        if (leadClaimsRes.ok) {
+          const claimsJson = await leadClaimsRes.json().catch(() => ({}));
+          const claimRows = Array.isArray(claimsJson?.rows) ? claimsJson.rows : [];
+          queueRows = claimRows
+            .filter((r) => r?.requested_at_est)
+            .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        }
+
         if (!mounted) return;
         setRows(normalizeRows(leaderboardJson));
         setRevenueRows(normalizeRows(revenueJson));
@@ -335,6 +341,7 @@ export default function MissionControl() {
         setSponsorshipTodayAppsByAgent(todayApps);
         setTodaySponsorshipDetails(todayDetails);
         setTodayApplicationDetails(todayAppDetailsRows);
+        setBookingQueue(queueRows);
         setSponsorshipSyncIssue(sponsorshipIssue);
         setManualReviewCount(reviewCount);
         setLastSyncAt(new Date().toISOString());
@@ -438,42 +445,6 @@ export default function MissionControl() {
     const exp = new Date(booking.priority_expires_at);
     if (Number.isNaN(exp.getTime())) return false;
     return exp.getTime() > Date.now();
-  };
-
-  const claimBooking = (bookingId, claimer) => {
-    if (!claimer) return;
-    const now = new Date().toISOString();
-    const next = bookingQueue.map((item) => {
-      if (item.id !== bookingId) return item;
-
-      const withinPriority = isWithinPriorityWindow(item);
-      if (withinPriority && item.priority_agent && cleanName(claimer) !== cleanName(item.priority_agent)) {
-        return item;
-      }
-
-      return {
-        ...item,
-        claim_status: 'Claimed',
-        claimed_by: claimer,
-        claimed_at: now
-      };
-    });
-    setBookingQueue(next);
-    saveSponsorshipBookings(next);
-  };
-
-  const openBookingToOthers = (bookingId) => {
-    const next = bookingQueue.map((item) =>
-      item.id === bookingId
-        ? {
-            ...item,
-            priority_released: true,
-            claim_status: item.claim_status === 'Claimed' ? item.claim_status : 'Open'
-          }
-        : item
-    );
-    setBookingQueue(next);
-    saveSponsorshipBookings(next);
   };
 
   const onContactsCsvUpload = (file) => {
@@ -803,13 +774,7 @@ export default function MissionControl() {
         <div className="panelRow" style={{ gap: '1rem', flexWrap: 'wrap' }}>
           <div>
             <h3>Sponsorship Booking Queue</h3>
-            <span className="muted">Claim this appointment workflow</span>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span className="muted">Claim as</span>
-            <select value={claimBy} onChange={(e) => setClaimBy(e.target.value)}>
-              {config.agents.map((a) => <option key={a} value={a}>{a}</option>)}
-            </select>
+            <span className="muted">At-a-glance: booked applicants and assigned policy writer</span>
           </div>
         </div>
 
@@ -822,52 +787,35 @@ export default function MissionControl() {
                 <th>Referral</th>
                 <th>Applicant</th>
                 <th>State</th>
-                <th>Licensed</th>
-                <th>Requested (EST)</th>
-                <th>Eligible Closers</th>
+                <th>Requested</th>
+                <th>Assigned Policy Writer</th>
                 <th>Status</th>
-                <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              {bookingQueue.map((b) => (
-                <tr key={b.id}>
-                  <td>{b.referred_by || '—'}</td>
-                  <td>{b.applicant_name || '—'}</td>
-                  <td>{b.applicant_state || '—'}</td>
-                  <td>{b.licensed_status || '—'}</td>
-                  <td>{b.requested_at_est || '—'}</td>
-                  <td>{Array.isArray(b.eligible_closers) && b.eligible_closers.length ? b.eligible_closers.join(', ') : 'Not mapped'}</td>
-                  <td>
-                    {(() => {
-                      const withinPriority = isWithinPriorityWindow(b);
-                      if (b.claim_status === 'Claimed') {
-                        return <span className="pill onpace">{`Claimed by ${b.claimed_by}`}</span>;
-                      }
-                      if (withinPriority) {
-                        return <span className="pill atrisk">Reserved for {b.priority_agent} (24h)</span>;
-                      }
-                      return <span className="pill atrisk">Open</span>;
-                    })()}
-                  </td>
-                  <td>
-                    {b.claim_status === 'Claimed' ? '—' : (
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        <button
-                          type="button"
-                          onClick={() => claimBooking(b.id, claimBy)}
-                          disabled={isWithinPriorityWindow(b) && cleanName(claimBy) !== cleanName(b.priority_agent || '')}
-                        >
-                          Claim
-                        </button>
-                        {isWithinPriorityWindow(b) && cleanName(claimBy) === cleanName(b.priority_agent || '') ? (
-                          <button type="button" className="ghost" onClick={() => openBookingToOthers(b.id)}>Open to Others</button>
-                        ) : null}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {bookingQueue.map((b) => {
+                const withinPriority = isWithinPriorityWindow(b);
+                const assignedTo = b.claimed_by || b.priority_agent || 'Unassigned';
+
+                return (
+                  <tr key={b.id}>
+                    <td>{b.referred_by || '—'}</td>
+                    <td>{b.applicant_name || '—'}</td>
+                    <td>{b.applicant_state || '—'}</td>
+                    <td>{b.requested_at_est || '—'}{b.booking_timezone ? ` (${b.booking_timezone})` : ''}</td>
+                    <td>{assignedTo}</td>
+                    <td>
+                      {b.claim_status === 'Claimed' ? (
+                        <span className="pill onpace">Assigned</span>
+                      ) : withinPriority ? (
+                        <span className="pill atrisk">Locked (24h Referrer Priority)</span>
+                      ) : (
+                        <span className="pill atrisk">Open</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
