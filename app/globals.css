@@ -871,6 +871,14 @@ textarea { min-height: 180px; margin-top: 8px; }
   color: #475569;
 }
 
+.claimInfoActions {
+  margin-top: 8px;
+}
+
+.claimInfoActions .ghost {
+  margin-left: 0;
+}
+
 .claimPrivate {
   border: 1px dashed #cbd5e1;
   border-radius: 10px;

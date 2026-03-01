@@ -14,6 +14,14 @@ const LICENSE_OVERRIDES = {
   'breanna james': ['CA', 'FL']
 };
 
+const REFERRED_BY_ALIASES = {
+  link: 'Kimora Link',
+  kimoralink: 'Kimora Link',
+  kimora_link: 'Kimora Link',
+  'kimora link': 'Kimora Link',
+  camorlink: 'Kimora Link'
+};
+
 function clean(v = '') {
   return String(v || '').trim();
 }
@@ -44,6 +52,58 @@ function parseFullName(lastFirst = '') {
 
 function activeUsers() {
   return (users || []).filter((u) => u?.active);
+}
+
+function resolveReferrerName(name = '') {
+  const n = normalize(name);
+  if (!n) return '';
+
+  if (REFERRED_BY_ALIASES[n]) return REFERRED_BY_ALIASES[n];
+
+  const exact = activeUsers().find((u) => normalize(u.name) === n);
+  if (exact) return exact.name;
+
+  return '';
+}
+
+function plus24hIso(fromIso = '') {
+  const base = new Date(fromIso || nowIso());
+  if (Number.isNaN(base.getTime())) return '';
+  return new Date(base.getTime() + 24 * 60 * 60 * 1000).toISOString();
+}
+
+function normalizeBookingTimezone(row = {}) {
+  const tz = clean(row?.booking_timezone || row?.requested_timezone || row?.timezone || '');
+  if (tz) return tz;
+  return row?.source_type === 'bonus' ? 'Local' : 'ET';
+}
+
+function applyPriorityDefaults(row = {}) {
+  const claimed = Boolean(clean(row?.claimed_by));
+  if (claimed) return row;
+
+  if (clean(row?.priority_agent)) {
+    return {
+      ...row,
+      booking_timezone: normalizeBookingTimezone(row)
+    };
+  }
+
+  const referred = resolveReferrerName(row?.referred_by || '');
+  if (!referred) {
+    return {
+      ...row,
+      booking_timezone: normalizeBookingTimezone(row)
+    };
+  }
+
+  return {
+    ...row,
+    priority_agent: referred,
+    priority_expires_at: clean(row?.priority_expires_at) || plus24hIso(row?.created_at || row?.updated_at),
+    priority_released: Boolean(row?.priority_released),
+    booking_timezone: normalizeBookingTimezone(row)
+  };
 }
 
 function findUserByName(name = '') {
@@ -146,13 +206,14 @@ function toBonusClaimRow(row = {}) {
     applicant_phone: clean(row?.phone || ''),
     applicant_state: clean(row?.state).toUpperCase(),
     requested_at_est: clean(row?.requested_at_est),
+    booking_timezone: clean(row?.timezone || row?.requested_timezone || 'Local'),
     referred_by: clean(row?.referred_by || 'Bonus Booking'),
     claim_status: clean(row?.claim_status || 'Open') || 'Open',
     claimed_by: clean(row?.claimed_by || ''),
     claimed_at: clean(row?.claimed_at || ''),
     priority_agent: clean(row?.priority_agent || ''),
     priority_expires_at: clean(row?.priority_expires_at || ''),
-    priority_released: Boolean(row?.priority_released ?? true),
+    priority_released: Boolean(row?.priority_released),
     created_at: clean(row?.created_at || row?.updated_at || nowIso()),
     updated_at: clean(row?.updated_at || nowIso())
   };
@@ -227,6 +288,7 @@ function buildPendingPipeline(claimRows = [], policyRows = []) {
       const key = applicantNameKey(row?.applicant_name || '');
       if (!key) return false;
       if (normalize(row?.claim_status) === 'invalid') return false;
+      if (!clean(row?.requested_at_est)) return false;
       return !policyByApplicant.has(key);
     })
     .map((row) => ({
@@ -234,6 +296,7 @@ function buildPendingPipeline(claimRows = [], policyRows = []) {
       name: clean(row?.applicant_name) || 'Unknown',
       state: clean(row?.applicant_state).toUpperCase(),
       requested_at_est: clean(row?.requested_at_est),
+      booking_timezone: normalizeBookingTimezone(row),
       referred_by: clean(row?.referred_by),
       source: row?.source_type === 'bonus' ? 'Bonus Booking' : 'Sponsorship Booking'
     }));
@@ -244,6 +307,7 @@ function buildPendingPipeline(claimRows = [], policyRows = []) {
       applicant_name: p.name,
       applicant_state: p.state,
       requested_at_est: p.requested_at_est,
+      booking_timezone: p.booking_timezone,
       referred_by: p.referred_by,
       source: p.source,
       created_at: p.requested_at_est || nowIso()
@@ -254,6 +318,7 @@ function buildPendingPipeline(claimRows = [], policyRows = []) {
       name: r.applicant_name,
       state: r.applicant_state,
       requested_at_est: r.requested_at_est,
+      booking_timezone: r.booking_timezone,
       referred_by: r.referred_by,
       source: r.source
     }))
@@ -284,10 +349,10 @@ export async function GET(req) {
   const sponsorRows = sponsorRefreshed.rows;
   if (sponsorRefreshed.changed) await saveJsonStore(SPONSORSHIP_BOOKINGS_PATH, sponsorRows);
 
-  const bonusClaimRows = (bonusRowsRaw || []).map((r) => toBonusClaimRow(r));
+  const bonusClaimRows = (bonusRowsRaw || []).map((r) => applyPriorityDefaults(toBonusClaimRow(r)));
 
   const mergedClaimRows = dedupeClaimRows([
-    ...sponsorRows.map((r) => ({ ...r, source_type: 'sponsorship' })),
+    ...sponsorRows.map((r) => applyPriorityDefaults({ ...r, source_type: 'sponsorship' })),
     ...bonusClaimRows
   ]).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
@@ -330,7 +395,7 @@ export async function POST(req) {
   }
 
   const targetStore = sponsorIdx >= 0 ? 'sponsor' : 'bonus';
-  const row = targetStore === 'sponsor' ? sponsorRows[sponsorIdx] : toBonusClaimRow(bonusRows[bonusIdx]);
+  const row = applyPriorityDefaults(targetStore === 'sponsor' ? { ...sponsorRows[sponsorIdx], source_type: 'sponsorship' } : toBonusClaimRow(bonusRows[bonusIdx]));
 
   if (action === 'delete') {
     if (!isManagerRole(actor.role)) return Response.json({ ok: false, error: 'manager_only' }, { status: 403 });

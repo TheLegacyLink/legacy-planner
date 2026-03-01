@@ -72,6 +72,13 @@ function submitterLabel(name = '') {
   return `${first} ${lastInitial}.`;
 }
 
+function bookedWithTimezone(dateText = '', tz = '') {
+  const d = clean(dateText);
+  if (!d) return '—';
+  const zone = clean(tz || 'ET');
+  return `${d} (${zone})`;
+}
+
 export default function LeadClaimsPortalPage() {
   const [auth, setAuth] = useState({ name: '', role: '' });
   const [loginName, setLoginName] = useState('');
@@ -90,6 +97,7 @@ export default function LeadClaimsPortalPage() {
   const [nowTs, setNowTs] = useState(Date.now());
   const [draggingId, setDraggingId] = useState('');
   const [claimedBurstId, setClaimedBurstId] = useState('');
+  const [expandedId, setExpandedId] = useState('');
 
   const bookingQuery = useMemo(() => {
     if (typeof window === 'undefined') return '';
@@ -189,8 +197,11 @@ export default function LeadClaimsPortalPage() {
 
       setMessage('Claim confirmed.');
       setClaimedBurstId(bookingId);
+      setExpandedId(bookingId);
+      setTab('my');
       window.setTimeout(() => setClaimedBurstId((prev) => (prev === bookingId ? '' : prev)), 1500);
       await loadRows(true);
+      window.setTimeout(() => jumpToLeadCard(bookingId), 180);
     } finally {
       setSavingId('');
       setSliderById((prev) => ({ ...prev, [bookingId]: 0 }));
@@ -360,7 +371,7 @@ export default function LeadClaimsPortalPage() {
                 <div key={`${item.source}-${item.id}-${item.name}`} className="claimsPendingRow">
                   <div>
                     <strong>{item.name}</strong>
-                    <p>{item.state || '—'} • {item.requested_at_est || '—'}</p>
+                    <p>{item.state || '—'} • {bookedWithTimezone(item.requested_at_est, item.booking_timezone)}</p>
                   </div>
                   <div>
                     <span className="pill atrisk">{item.source}</span>
@@ -442,7 +453,7 @@ export default function LeadClaimsPortalPage() {
                   <h3>{row.applicant_name || 'Lead'}</h3>
                   <p>
                     <span className={stateClass}>{row.applicant_state || '—'}</span>
-                    <span> • {row.requested_at_est || '—'}</span>
+                    <span> • {bookedWithTimezone(row.requested_at_est, row.booking_timezone)}</span>
                   </p>
                 </div>
                 <div className="claimBadgeCol">
@@ -473,11 +484,23 @@ export default function LeadClaimsPortalPage() {
 
               {inPriority ? <p className="claimsCountdownLabel">Priority auto-release at {fmtDate(row.priority_expires_at)}</p> : null}
 
-              <div className={`claimPrivate ${row.visibility === 'partial' ? 'blurred' : ''}`}>
-                <p><strong>Email:</strong> {row.applicant_email || '—'}</p>
-                <p><strong>Phone:</strong> {row.applicant_phone || '—'}</p>
-                <p><strong>Submitter:</strong> {submitterLabel(row.referred_by)}</p>
+              <div className="claimInfoActions">
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => setExpandedId((prev) => (prev === row.id ? '' : row.id))}
+                >
+                  {expandedId === row.id ? 'Hide Card Info' : 'Open Card Info'}
+                </button>
               </div>
+
+              {expandedId === row.id ? (
+                <div className={`claimPrivate ${row.visibility === 'partial' ? 'blurred' : ''}`}>
+                  <p><strong>Email:</strong> {row.applicant_email || '—'}</p>
+                  <p><strong>Phone:</strong> {row.applicant_phone || '—'}</p>
+                  <p><strong>Submitter:</strong> {submitterLabel(row.referred_by)}</p>
+                </div>
+              ) : null}
 
               {!row.claimed_by ? (
                 <div className="claimAction">
