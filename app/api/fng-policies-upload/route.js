@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
-import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import { loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 import basePolicies from '../../../data/fngPolicies.json';
 
 const STORE_PATH = 'stores/fng-policies-upload.json';
@@ -211,7 +211,7 @@ function policySet(rows = []) {
 }
 
 export async function GET() {
-  const raw = await loadJsonStore(STORE_PATH, { rows: [], updatedAt: '', sourceFile: '', newCount: 0 });
+  const raw = await loadJsonFile(STORE_PATH, { rows: [], updatedAt: '', sourceFile: '', newCount: 0 });
   const payload = ensurePayload(raw);
   return Response.json({ ok: true, ...payload });
 }
@@ -257,7 +257,7 @@ export async function POST(req) {
 
     const deduped = dedupeByPolicy(normalized);
 
-    const existingRaw = await loadJsonStore(STORE_PATH, { rows: [], updatedAt: '', sourceFile: '', newCount: 0 });
+    const existingRaw = await loadJsonFile(STORE_PATH, { rows: [], updatedAt: '', sourceFile: '', newCount: 0 });
     const existing = ensurePayload(existingRaw);
 
     // New = not present in current baseline book OR prior uploaded workbook.
@@ -276,7 +276,7 @@ export async function POST(req) {
       newCount
     };
 
-    await saveJsonStore(STORE_PATH, payload);
+    await saveJsonFile(STORE_PATH, payload);
     return Response.json({ ok: true, ...payload });
   } catch (error) {
     return Response.json({ ok: false, error: error?.message || 'upload_failed' }, { status: 500 });
