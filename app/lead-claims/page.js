@@ -58,6 +58,20 @@ function priorityProgress(expiresAt = '', nowTs = Date.now()) {
   return Math.max(0, Math.min(100, (remainingMs / maxMs) * 100));
 }
 
+function submitterLabel(name = '') {
+  const raw = clean(name);
+  const n = normalize(raw);
+  if (!raw) return '—';
+  if (n === 'camorlink' || n === 'kimora link' || n === 'link') return 'Link';
+  if (n === 'bonus booking') return 'Bonus Booking';
+
+  const parts = raw.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0];
+  const first = parts[0];
+  const lastInitial = (parts[parts.length - 1][0] || '').toUpperCase();
+  return `${first} ${lastInitial}.`;
+}
+
 export default function LeadClaimsPortalPage() {
   const [auth, setAuth] = useState({ name: '', role: '' });
   const [loginName, setLoginName] = useState('');
@@ -207,6 +221,29 @@ export default function LeadClaimsPortalPage() {
     }
   };
 
+  const forceClaimAsAdmin = async (bookingId) => {
+    if (!isManager) return;
+    setOverrideById((prev) => ({ ...prev, [bookingId]: auth.name }));
+    setSavingId(bookingId);
+    setMessage('');
+    try {
+      const res = await fetch('/api/lead-claims', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'override', bookingId, actorName: auth.name, targetName: auth.name })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setMessage(data?.error || 'Admin force claim failed');
+        return;
+      }
+      setMessage('Admin test claim complete.');
+      await loadRows(true);
+    } finally {
+      setSavingId('');
+    }
+  };
+
   const filtered = useMemo(() => {
     const mine = normalize(auth.name);
     if (tab === 'my') return rows.filter((r) => normalize(r.claimed_by) === mine);
@@ -276,7 +313,7 @@ export default function LeadClaimsPortalPage() {
                 </div>
                 <div>
                   <span className="pill atrisk">{item.source}</span>
-                  <small>{item.referred_by || '—'}</small>
+                  <small>{submitterLabel(item.referred_by)}</small>
                 </div>
               </div>
             ))}
@@ -352,7 +389,7 @@ export default function LeadClaimsPortalPage() {
               <div className={`claimPrivate ${row.visibility === 'partial' ? 'blurred' : ''}`}>
                 <p><strong>Email:</strong> {row.applicant_email || '—'}</p>
                 <p><strong>Phone:</strong> {row.applicant_phone || '—'}</p>
-                <p><strong>Referred By:</strong> {row.referred_by || 'Unknown'}</p>
+                <p><strong>Submitter:</strong> {submitterLabel(row.referred_by)}</p>
               </div>
 
               {!row.claimed_by ? (
@@ -370,6 +407,26 @@ export default function LeadClaimsPortalPage() {
                       if (val >= 100) claimLead(row.id);
                     }}
                   />
+                  <div className="claimButtonsRow">
+                    <button
+                      type="button"
+                      className="publicPrimaryBtn"
+                      disabled={!canClaim || savingId === row.id}
+                      onClick={() => claimLead(row.id)}
+                    >
+                      Claim Lead
+                    </button>
+                    {isManager && !canClaim ? (
+                      <button
+                        type="button"
+                        className="ghost"
+                        disabled={savingId === row.id}
+                        onClick={() => forceClaimAsAdmin(row.id)}
+                      >
+                        Force Claim (Admin)
+                      </button>
+                    ) : null}
+                  </div>
                   {!canClaim ? <small className="muted">Locked during referral priority window.</small> : null}
                 </div>
               ) : (

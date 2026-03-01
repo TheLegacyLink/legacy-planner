@@ -870,6 +870,17 @@ textarea { min-height: 180px; margin-top: 8px; }
 .claimAction { margin-top: 12px; display: grid; gap: 6px; }
 .claimAction input[type='range'] { width: 100%; }
 
+.claimButtonsRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.claimButtonsRow .publicPrimaryBtn,
+.claimButtonsRow .ghost {
+  padding: 8px 12px;
+}
+
 .claimOverride {
   margin-top: 10px;
   display: grid;
@@ -967,6 +978,11 @@ textarea { min-height: 180px; margin-top: 8px; }
   }
 
   .claimOverride {
+    grid-template-columns: 1fr;
+  }
+
+  .claimButtonsRow {
+    display: grid;
     grid-template-columns: 1fr;
   }
 }

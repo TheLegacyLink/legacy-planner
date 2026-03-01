@@ -215,7 +215,7 @@ function buildPendingPipeline(bookings = [], policyRows = [], bonusRows = []) {
       name: item.name,
       state: '',
       requested_at_est: '',
-      referred_by: item.source === 'Bonus Booking' ? 'Bonus Booking' : 'Camorlink',
+      referred_by: item.source === 'Bonus Booking' ? 'Bonus Booking' : 'Link',
       source: item.source
     });
   }
