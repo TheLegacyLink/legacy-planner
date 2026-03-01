@@ -72,10 +72,55 @@ function plus24hIso(fromIso = '') {
   return new Date(base.getTime() + 24 * 60 * 60 * 1000).toISOString();
 }
 
+function inferTimezoneFromState(state = '') {
+  const raw = clean(state).toUpperCase();
+  if (!raw) return 'ET';
+
+  const nameToCode = {
+    ALABAMA: 'AL', ALASKA: 'AK', ARIZONA: 'AZ', ARKANSAS: 'AR', CALIFORNIA: 'CA',
+    COLORADO: 'CO', CONNECTICUT: 'CT', DELAWARE: 'DE', FLORIDA: 'FL', GEORGIA: 'GA',
+    HAWAII: 'HI', IDAHO: 'ID', ILLINOIS: 'IL', INDIANA: 'IN', IOWA: 'IA', KANSAS: 'KS',
+    KENTUCKY: 'KY', LOUISIANA: 'LA', MAINE: 'ME', MARYLAND: 'MD', MASSACHUSETTS: 'MA',
+    MICHIGAN: 'MI', MINNESOTA: 'MN', MISSISSIPPI: 'MS', MISSOURI: 'MO', MONTANA: 'MT',
+    NEBRASKA: 'NE', NEVADA: 'NV', 'NEW HAMPSHIRE': 'NH', 'NEW JERSEY': 'NJ', 'NEW MEXICO': 'NM',
+    'NEW YORK': 'NY', 'NORTH CAROLINA': 'NC', 'NORTH DAKOTA': 'ND', OHIO: 'OH', OKLAHOMA: 'OK',
+    OREGON: 'OR', PENNSYLVANIA: 'PA', RHODE: 'RI', ISLAND: 'RI', 'RHODE ISLAND': 'RI',
+    'SOUTH CAROLINA': 'SC', 'SOUTH DAKOTA': 'SD', TENNESSEE: 'TN', TEXAS: 'TX', UTAH: 'UT',
+    VERMONT: 'VT', VIRGINIA: 'VA', WASHINGTON: 'WA', 'WEST VIRGINIA': 'WV', WISCONSIN: 'WI', WYOMING: 'WY',
+    DISTRICT: 'DC', COLUMBIA: 'DC', 'DISTRICT OF COLUMBIA': 'DC', PUERTO: 'PR', RICO: 'PR', 'PUERTO RICO': 'PR'
+  };
+
+  const s = raw.length > 2 ? (nameToCode[raw] || raw) : raw;
+
+  const PT = new Set(['CA', 'NV', 'OR', 'WA']);
+  const MT = new Set(['AZ', 'CO', 'ID', 'MT', 'NM', 'UT', 'WY']);
+  const CT = new Set(['AL', 'AR', 'IA', 'IL', 'KS', 'LA', 'MN', 'MO', 'MS', 'ND', 'NE', 'OK', 'SD', 'TN', 'TX', 'WI']);
+  const AT = new Set(['PR', 'VI']);
+  const HT = new Set(['HI']);
+  const AKT = new Set(['AK']);
+
+  if (PT.has(s)) return 'PT';
+  if (MT.has(s)) return 'MT';
+  if (CT.has(s)) return 'CT';
+  if (AT.has(s)) return 'AT';
+  if (HT.has(s)) return 'HT';
+  if (AKT.has(s)) return 'AKT';
+  return 'ET';
+}
+
 function normalizeBookingTimezone(row = {}) {
   const tz = clean(row?.booking_timezone || row?.requested_timezone || row?.timezone || '');
-  if (tz) return tz;
-  return row?.source_type === 'bonus' ? 'Local' : 'ET';
+  if (tz) {
+    const n = normalize(tz);
+    if (n.includes('eastern') || n === 'est' || n === 'edt' || n === 'et') return 'ET';
+    if (n.includes('central') || n === 'cst' || n === 'cdt' || n === 'ct') return 'CT';
+    if (n.includes('mountain') || n === 'mst' || n === 'mdt' || n === 'mt') return 'MT';
+    if (n.includes('pacific') || n === 'pst' || n === 'pdt' || n === 'pt') return 'PT';
+    if (n.includes('alaska') || n === 'akt') return 'AKT';
+    if (n.includes('hawaii') || n === 'ht') return 'HT';
+    return tz.toUpperCase();
+  }
+  return inferTimezoneFromState(row?.applicant_state || row?.state);
 }
 
 function applyPriorityDefaults(row = {}) {
