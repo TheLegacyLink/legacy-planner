@@ -571,7 +571,10 @@ textarea { min-height: 180px; margin-top: 8px; }
 .claimsPortal {
   min-height: 100vh;
   padding: 20px 16px 28px;
-  background: linear-gradient(180deg, #f6f9ff, #edf3ff);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(29, 78, 216, 0.12), transparent 34%),
+    radial-gradient(circle at 92% 8%, rgba(14, 116, 144, 0.14), transparent 28%),
+    linear-gradient(180deg, #f8fbff, #edf3ff);
   color: #0f172a;
 }
 
@@ -581,10 +584,12 @@ textarea { min-height: 180px; margin-top: 8px; }
 .claimCard {
   width: min(1080px, 100%);
   margin: 0 auto 14px;
-  background: #fff;
-  border: 1px solid #dbe5f5;
-  border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(191, 219, 254, 0.72);
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.10);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   padding: 14px;
 }
 
@@ -608,12 +613,21 @@ textarea { min-height: 180px; margin-top: 8px; }
 .claimsTabs { display: flex; gap: 8px; flex-wrap: wrap; }
 .claimsTabs button {
   border: 1px solid #c7d2e5;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.8);
   color: #1e293b;
   padding: 8px 12px;
   border-radius: 999px;
+  transition: all 180ms ease;
 }
-.claimsTabs button.active { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+.claimsTabs button:hover {
+  transform: translateY(-1px);
+  border-color: #93c5fd;
+}
+.claimsTabs button.active {
+  background: linear-gradient(160deg, #1d4ed8, #0e7490);
+  color: #fff;
+  border-color: #1d4ed8;
+}
 
 .claimsMessage {
   width: min(1080px, 100%);
@@ -689,6 +703,14 @@ textarea { min-height: 180px; margin-top: 8px; }
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
+.claimCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(255,255,255,0.20), rgba(255,255,255,0.02) 32%, rgba(255,255,255,0.12));
+  pointer-events: none;
+}
+
 .claimCard.canDrag {
   cursor: grab;
 }
@@ -735,6 +757,8 @@ textarea { min-height: 180px; margin-top: 8px; }
   place-items: center;
   background: conic-gradient(#f59e0b var(--pct), #e2e8f0 0);
   border: 1px solid #fbbf24;
+  transition: background 320ms linear, transform 220ms ease;
+  animation: ringBreath 2.8s ease-in-out infinite;
 }
 
 .slaRing span {
@@ -780,6 +804,11 @@ textarea { min-height: 180px; margin-top: 8px; }
   100% { transform: translateY(130px) rotate(240deg); opacity: 0; }
 }
 
+@keyframes ringBreath {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
 .claimsCountdownLabel {
   margin: 8px 0 0;
   font-size: 12px;
@@ -816,4 +845,84 @@ textarea { min-height: 180px; margin-top: 8px; }
   border-radius: 10px;
   padding: 10px;
   background: #fff;
+}
+
+.claimAction input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #dbeafe, #bfdbfe);
+  border: 1px solid #93c5fd;
+}
+
+.claimAction input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #1d4ed8;
+  background: #ffffff;
+  box-shadow: 0 5px 14px rgba(29, 78, 216, 0.35);
+}
+
+.claimAction input[type='range']::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #1d4ed8;
+  background: #ffffff;
+  box-shadow: 0 5px 14px rgba(29, 78, 216, 0.35);
+}
+
+@media (max-width: 760px) {
+  .claimsPortal {
+    padding: 12px 10px 22px;
+  }
+
+  .claimsAuthCard,
+  .claimsHeader,
+  .claimsRoster,
+  .claimCard,
+  .claimsMessage,
+  .claimsCards {
+    width: min(1080px, 100%);
+    border-radius: 12px;
+    padding: 12px;
+  }
+
+  .claimsHeader {
+    display: grid;
+    gap: 10px;
+  }
+
+  .claimsTabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .claimsTabs button {
+    width: 100%;
+  }
+
+  .claimsRosterGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .claimTop {
+    display: grid;
+    gap: 8px;
+  }
+
+  .claimBadgeCol {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .claimOverride {
+    grid-template-columns: 1fr;
+  }
 }
