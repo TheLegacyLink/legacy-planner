@@ -287,37 +287,42 @@ export default function MissionControl() {
           const reviewJson = await manualReviewRes.json().catch(() => ({}));
           const reviewRows = Array.isArray(reviewJson?.rows) ? reviewJson.rows : [];
           reviewCount = reviewRows.filter((r) => String(r?.decision_bucket || '').toLowerCase() === 'manual_review').length;
-        }
 
-        if (sponsorshipRes.ok) {
-          const sponsorshipText = await sponsorshipRes.text();
-          const payload = parseGvizPayload(sponsorshipText);
-          const cols = (payload?.table?.cols || []).map((c) => (c?.label || '').trim());
-          const cName = cols.indexOf('Name');
-          const cRef = cols.indexOf('Referred By');
-          const cApproved = cols.indexOf('Approved Date');
+          const monthReferralSeen = new Set();
+          const todayReferralSeen = new Set();
 
-          for (const row of payload?.table?.rows || []) {
-            const cells = row.c || [];
-            const approved = parseGvizDate(cells[cApproved]?.v || '');
-            if (!sameMonthYear(approved)) continue;
+          for (const r of reviewRows) {
+            const submitted = new Date(r?.submitted_at || r?.createdAt || r?.updatedAt || 0);
+            if (Number.isNaN(submitted.getTime())) continue;
 
-            const ref = cells[cRef]?.v ? String(cells[cRef].v) : '';
-            const name = cells[cName]?.v ? String(cells[cName].v) : 'Unknown';
-            const mapped = matchAgentFromReferrer(ref, config.agents);
+            const mapped = mapApplicationToAgent(r, config.agents);
             if (!mapped) continue;
-            monthlyApprovals[mapped] = Number(monthlyApprovals[mapped] || 0) + 1;
-            if (sameDay(approved)) {
+
+            const key = applicantKey(r);
+            const name = applicantNameFromRow(r);
+            const ref = r?.referralName || r?.referred_by || r?.referredBy || r?.referredByName || r?.refCode || '—';
+
+            if (sameMonthYear(submitted) && !monthReferralSeen.has(key)) {
+              monthReferralSeen.add(key);
+              monthlyApprovals[mapped] = Number(monthlyApprovals[mapped] || 0) + 1;
+            }
+
+            if (sameDay(submitted) && !todayReferralSeen.has(key)) {
+              todayReferralSeen.add(key);
               todayApprovals[mapped] = Number(todayApprovals[mapped] || 0) + 1;
               todayDetails.push({
                 name,
                 referredBy: ref || '—',
                 mappedAgent: mapped,
-                approvedDate: approved
+                approvedDate: submitted
               });
             }
           }
-        } else {
+        }
+
+        // Keep sponsorship tracker endpoint health check, but referral counts are based on
+        // sponsorship form submissions (not tracker approval dates).
+        if (!sponsorshipRes.ok) {
           sponsorshipIssue = `Sponsorship tracker HTTP ${sponsorshipRes.status}`;
         }
 
@@ -740,7 +745,7 @@ export default function MissionControl() {
                       <th>Sponsor Name</th>
                       <th>Referred By</th>
                       <th>Credited To</th>
-                      <th>Approved</th>
+                      <th>Submitted</th>
                     </tr>
                   </thead>
                   <tbody>
