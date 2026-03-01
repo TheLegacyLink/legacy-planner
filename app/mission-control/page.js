@@ -281,17 +281,12 @@ export default function MissionControl() {
           }
         }
 
-        // Priority 2: Base44 / sponsorship app feed (deduped by applicant key)
+        // Sponsorship application feed is used for referral quality/manual review counts only.
+        // It should NOT count as "App Submitted" (FNG).
         if (manualReviewRes.ok) {
           const reviewJson = await manualReviewRes.json().catch(() => ({}));
           const reviewRows = Array.isArray(reviewJson?.rows) ? reviewJson.rows : [];
           reviewCount = reviewRows.filter((r) => String(r?.decision_bucket || '').toLowerCase() === 'manual_review').length;
-
-          for (const r of reviewRows) {
-            const submitted = new Date(r?.submitted_at || r?.createdAt || r?.updatedAt || 0);
-            const mapped = mapApplicationToAgent(r, config.agents);
-            registerApp({ row: r, mapped, submitted, source: 'Base44 / Sponsorship App' });
-          }
         }
 
         if (sponsorshipRes.ok) {
@@ -369,11 +364,13 @@ export default function MissionControl() {
       const localMonthApps = Number(sponsorshipAppsByAgent[agent] || 0);
       const localTodayApps = Number(sponsorshipTodayAppsByAgent[agent] || 0);
 
-      // Sponsorship referrals are counted as completed sponsorship applications (Base44 + local app form).
-      const monthReferrals = base44MonthApps + localMonthApps;
-      const monthApps = monthReferrals;
-      const todayReferrals = base44TodayApps + localTodayApps;
-      const todayApps = todayReferrals;
+      // Referrals = sponsorship referrals (Base44/sheet signals).
+      const monthReferrals = base44MonthApps;
+      const todayReferrals = base44TodayApps;
+
+      // Apps Submitted = FNG/internal app submit only.
+      const monthApps = localMonthApps;
+      const todayApps = localTodayApps;
 
       const sheetApprovals = Number(sponsorshipApprovalsByAgent[agent] || 0);
       const sheetTodayApprovals = Number(sponsorshipTodayApprovalsByAgent[agent] || 0);
@@ -597,12 +594,12 @@ export default function MissionControl() {
         <div className="card">
           <p>Sponsorship Referrals ({scopeLabel})</p>
           <h2>{totals.month.referrals}</h2>
-          <span className="pill onpace">Source: Sponsorship app submissions (Base44 + local)</span>
+          <span className="pill onpace">Source: Sponsorship form submissions (referrals)</span>
         </div>
         <div className="card">
-          <p>Apps Submitted ({scopeLabel})</p>
+          <p>FNG Apps Submitted ({scopeLabel})</p>
           <h2>{totals.month.apps}</h2>
-          <span className="pill onpace">Source: Base44 leaderboard</span>
+          <span className="pill onpace">Source: Inner Circle App Submit (policy entry)</span>
         </div>
         <div className="card">
           <p>Agents Active ({scopeLabel})</p>
@@ -632,9 +629,9 @@ export default function MissionControl() {
           </div>
         </div>
         <div className="card">
-          <p>Apps Submitted (Today)</p>
+          <p>FNG Apps Submitted (Today)</p>
           <h2>{totals.today.apps}</h2>
-          <span className="pill onpace">Daily app submissions</span>
+          <span className="pill onpace">Inner Circle App Submit entries</span>
           <div style={{ marginTop: 8 }}>
             <button type="button" className="ghost" onClick={() => setDetailsModal({ open: true, type: 'apps' })}>
               View details below
@@ -677,7 +674,7 @@ export default function MissionControl() {
               <th>Referrals</th>
               <th>Approved (Sheet)</th>
               <th>Pending Sync</th>
-              <th>Apps Submitted</th>
+              <th>FNG Apps Submitted</th>
               <th>ROI</th>
               <th>Status</th>
             </tr>
@@ -730,7 +727,7 @@ export default function MissionControl() {
           >
             <div className="panelRow">
               <h3 style={{ margin: 0 }}>
-                {detailsModal.type === 'referrals' ? 'Today Sponsorship Referrals' : 'Today Applications Submitted'}
+                {detailsModal.type === 'referrals' ? 'Today Sponsorship Referrals' : 'Today FNG Apps Submitted'}
               </h3>
               <button type="button" onClick={() => setDetailsModal({ open: false, type: '' })}>Close</button>
             </div>
@@ -801,11 +798,11 @@ export default function MissionControl() {
                 </table>
 
                 <p className="muted" style={{ marginTop: 10 }}>
-                  Duplicate submissions are deduped by applicant (email/phone/name). Internal Policy Submission entries are prioritized over Base44 duplicates.
+                  Duplicate submissions are deduped by applicant (email/phone/name). This list only counts Inner Circle App Submit / policy-entry records.
                 </p>
               </>
             ) : (
-              <p className="muted">No applications submitted today yet.</p>
+              <p className="muted">No FNG apps submitted today yet.</p>
             )}
           </div>
         </div>
