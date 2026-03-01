@@ -76,6 +76,7 @@ export default function FngPoliciesPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [programFilter, setProgramFilter] = useState('all');
   const [queueFilter, setQueueFilter] = useState('all');
+  const [reportDateFilter, setReportDateFilter] = useState('latest');
   const [threshold, setThreshold] = useState(THRESHOLD_DEFAULT);
   const [programOverrides, setProgramOverrides] = useState({});
   const [requirementsProgress, setRequirementsProgress] = useState({});
@@ -482,12 +483,27 @@ export default function FngPoliciesPage() {
     });
   }, [sourcePolicies, threshold, programOverrides, requirementsMap, requirementsProgress]);
 
+  const reportDateOptions = useMemo(() => {
+    const uniq = new Set(
+      enriched
+        .map((p) => String(p.report_date || '').trim())
+        .filter(Boolean)
+    );
+
+    return Array.from(uniq).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  }, [enriched]);
+
+  const latestReportDate = reportDateOptions[0] || '';
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const activeReportDate = reportDateFilter === 'latest' ? latestReportDate : reportDateFilter;
+
     return enriched
       .filter((p) => (statusFilter === 'all' ? true : p.status_bucket === statusFilter))
       .filter((p) => (programFilter === 'all' ? true : p.program_type === programFilter))
       .filter((p) => (queueFilter === 'all' ? true : p.requirements_pending))
+      .filter((p) => (activeReportDate === 'all' || !activeReportDate ? true : String(p.report_date || '').trim() === activeReportDate))
       .filter((p) => {
         if (!q) return true;
         return [
@@ -502,8 +518,13 @@ export default function FngPoliciesPage() {
           .join(' ')
           .toLowerCase()
           .includes(q);
+      })
+      .sort((a, b) => {
+        const byIssued = new Date(b.policy_issued_date || 0).getTime() - new Date(a.policy_issued_date || 0).getTime();
+        if (byIssued !== 0) return byIssued;
+        return new Date(b.report_date || 0).getTime() - new Date(a.report_date || 0).getTime();
       });
-  }, [enriched, statusFilter, programFilter, queueFilter, search]);
+  }, [enriched, statusFilter, programFilter, queueFilter, reportDateFilter, latestReportDate, search]);
 
   async function sendCatchupDocsSentEmails() {
     const candidates = enriched.filter((r) => r.req_docs_sent && !r.req_followup_sent && r.owner_email_clean);
@@ -639,6 +660,17 @@ export default function FngPoliciesPage() {
             </select>
           </label>
 
+          <label style={{ display: 'grid', gap: 6, minWidth: 220 }}>
+            <span className="muted">Report Date</span>
+            <select value={reportDateFilter} onChange={(e) => setReportDateFilter(e.target.value)}>
+              <option value="latest">Latest report date ({latestReportDate || 'N/A'})</option>
+              <option value="all">All dates</option>
+              {reportDateOptions.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </label>
+
           <label style={{ display: 'grid', gap: 6 }}>
             <span className="muted">Sponsorship premium &gt;</span>
             <input
@@ -664,6 +696,7 @@ export default function FngPoliciesPage() {
             <tr>
               <th>Agent</th>
               <th>Policy #</th>
+              <th>Report Date</th>
               <th>Status</th>
               <th>Issued/Eff Date + 12-Mo Annual</th>
               <th>Modal Premium</th>
@@ -682,6 +715,7 @@ export default function FngPoliciesPage() {
                   <div className="muted">{p.writing_agent_number || ''}</div>
                 </td>
                 <td>{p.policy_number}</td>
+                <td>{p.report_date || '—'}</td>
                 <td>
                   <span className={`pill ${p.status_bucket === 'active' ? 'onpace' : 'atrisk'}`}>{p.policy_status}</span>
                 </td>
