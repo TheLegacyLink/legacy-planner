@@ -60,8 +60,21 @@ function resolveReferrerName(name = '') {
 
   if (REFERRED_BY_ALIASES[n]) return REFERRED_BY_ALIASES[n];
 
-  const exact = activeUsers().find((u) => normalize(u.name) === n);
+  const usersList = activeUsers();
+
+  const exact = usersList.find((u) => normalize(u.name) === n);
   if (exact) return exact.name;
+
+  // Accept first-name references like "Kelin" / "Jamal" from booking flows.
+  const firstNameMatches = usersList.filter((u) => {
+    const first = normalize(clean(u.name).split(/\s+/)[0]);
+    return first && first === n;
+  });
+  if (firstNameMatches.length === 1) return firstNameMatches[0].name;
+
+  // Accept "First Last" partials where input appears inside canonical name.
+  const fuzzy = usersList.find((u) => normalize(u.name).includes(n));
+  if (fuzzy) return fuzzy.name;
 
   return '';
 }
@@ -126,11 +139,19 @@ function normalizeBookingTimezone(row = {}) {
 
 function applyPriorityDefaults(row = {}) {
   const claimed = Boolean(clean(row?.claimed_by));
-  if (claimed) return row;
-
-  if (clean(row?.priority_agent)) {
+  if (claimed) {
     return {
       ...row,
+      priority_agent: resolveReferrerName(row?.priority_agent || '') || clean(row?.priority_agent || ''),
+      booking_timezone: normalizeBookingTimezone(row)
+    };
+  }
+
+  const canonicalPriority = resolveReferrerName(row?.priority_agent || '');
+  if (canonicalPriority) {
+    return {
+      ...row,
+      priority_agent: canonicalPriority,
       booking_timezone: normalizeBookingTimezone(row)
     };
   }
