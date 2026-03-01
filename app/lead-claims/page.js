@@ -244,6 +244,27 @@ export default function LeadClaimsPortalPage() {
     }
   };
 
+  const jumpToLeadCard = (bookingId) => {
+    const el = document.getElementById(`claim-${bookingId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const byId = useMemo(() => {
+    const map = new Map();
+    for (const r of rows) map.set(r.id, r);
+    return map;
+  }, [rows]);
+
+  const counts = useMemo(() => {
+    const mine = normalize(auth.name);
+    return {
+      available: rows.filter((r) => !r.claimed_by).length,
+      my: rows.filter((r) => normalize(r.claimed_by) === mine).length,
+      locked: rows.filter((r) => r.is_priority_window_open && !r.claimed_by).length
+    };
+  }, [rows, auth.name]);
+
   const filtered = useMemo(() => {
     const mine = normalize(auth.name);
     if (tab === 'my') return rows.filter((r) => normalize(r.claimed_by) === mine);
@@ -276,9 +297,9 @@ export default function LeadClaimsPortalPage() {
           <p>{auth.name} • {auth.role}</p>
         </div>
         <div className="claimsTabs">
-          <button type="button" className={tab === 'available' ? 'active' : ''} onClick={() => setTab('available')}>Available</button>
-          <button type="button" className={tab === 'my' ? 'active' : ''} onClick={() => setTab('my')}>My Claims</button>
-          <button type="button" className={tab === 'locked' ? 'active' : ''} onClick={() => setTab('locked')}>Priority Locked</button>
+          <button type="button" className={tab === 'available' ? 'active' : ''} onClick={() => setTab('available')}>Available ({counts.available})</button>
+          <button type="button" className={tab === 'my' ? 'active' : ''} onClick={() => setTab('my')}>My Claims ({counts.my})</button>
+          <button type="button" className={tab === 'locked' ? 'active' : ''} onClick={() => setTab('locked')}>Priority Locked ({counts.locked})</button>
           <button type="button" onClick={() => loadRows()}>Refresh</button>
         </div>
       </section>
@@ -305,23 +326,53 @@ export default function LeadClaimsPortalPage() {
           <p className="muted">No pending booked leads right now.</p>
         ) : (
           <div className="claimsPendingList">
-            {pendingPipeline.map((item) => (
-              <div key={`${item.source}-${item.id}-${item.name}`} className="claimsPendingRow">
-                <div>
-                  <strong>{item.name}</strong>
-                  <p>{item.state || '—'} • {item.requested_at_est || '—'}</p>
+            {pendingPipeline.map((item) => {
+              const linkedLead = byId.get(item.id);
+              const canClaimLinkedLead = Boolean(linkedLead && !linkedLead.claimed_by);
+              const linkedLeadLocked = Boolean(linkedLead && linkedLead.is_priority_window_open && !linkedLead.can_claim && !isManager);
+
+              return (
+                <div key={`${item.source}-${item.id}-${item.name}`} className="claimsPendingRow">
+                  <div>
+                    <strong>{item.name}</strong>
+                    <p>{item.state || '—'} • {item.requested_at_est || '—'}</p>
+                  </div>
+                  <div>
+                    <span className="pill atrisk">{item.source}</span>
+                    <small>{submitterLabel(item.referred_by)}</small>
+                    {linkedLead ? (
+                      <div className="claimsPendingActions">
+                        <button type="button" className="ghost" onClick={() => jumpToLeadCard(linkedLead.id)}>Open Card</button>
+                        {canClaimLinkedLead ? (
+                          <button
+                            type="button"
+                            className="publicPrimaryBtn"
+                            disabled={savingId === linkedLead.id || linkedLeadLocked}
+                            onClick={() => {
+                              if (!linkedLead.can_claim && isManager) {
+                                forceClaimAsAdmin(linkedLead.id);
+                              } else {
+                                claimLead(linkedLead.id);
+                              }
+                            }}
+                          >
+                            {linkedLead.can_claim ? 'Claim Now' : isManager ? 'Force Claim' : 'Claim Locked'}
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-                <div>
-                  <span className="pill atrisk">{item.source}</span>
-                  <small>{submitterLabel(item.referred_by)}</small>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
 
       <section className="claimsCards">
+        <h3 className="claimsSectionTitle">
+          {tab === 'my' ? 'My Claimed Leads' : tab === 'locked' ? 'Priority Locked Leads' : 'Available Leads to Claim'}
+        </h3>
         {loading ? <p>Loading...</p> : null}
         {!filtered.length && !loading ? <p>No leads in this view.</p> : null}
 
@@ -339,6 +390,7 @@ export default function LeadClaimsPortalPage() {
           return (
             <article
               key={row.id}
+              id={`claim-${row.id}`}
               className={`claimCard ${highlight ? 'highlight' : ''} ${!row.claimed_by ? 'canDrag' : ''} ${draggingId === row.id ? 'dragging' : ''}`}
               draggable={!row.claimed_by}
               onDragStart={() => setDraggingId(row.id)}

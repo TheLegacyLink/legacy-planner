@@ -684,6 +684,23 @@ textarea { min-height: 180px; margin-top: 8px; }
   margin-top: 6px;
 }
 
+.claimsPendingActions {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.claimsPendingActions .publicPrimaryBtn,
+.claimsPendingActions .ghost {
+  padding: 7px 10px;
+}
+
+.claimsSectionTitle {
+  margin: 2px 0 8px;
+  font-size: 18px;
+}
+
 .claimsRosterCard {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -968,6 +985,11 @@ textarea { min-height: 180px; margin-top: 8px; }
   .claimsPendingRow {
     display: grid;
     gap: 6px;
+  }
+
+  .claimsPendingActions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .claimBadgeCol {
