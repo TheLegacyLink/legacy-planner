@@ -600,6 +600,19 @@ textarea { min-height: 180px; margin-top: 8px; }
   margin-top: 80px;
 }
 
+.claimsWordmark {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: 0.3px;
+  color: #0f172a;
+}
+
+.claimsQuote {
+  margin: 0;
+  font-style: italic;
+  color: #334155;
+}
+
 .claimsHeader {
   display: flex;
   justify-content: space-between;

@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const SESSION_KEY = 'legacy_lead_claim_portal_user_v1';
@@ -217,9 +216,9 @@ export default function LeadClaimsPortalPage() {
     return (
       <main className="claimsPortal">
         <section className="claimsAuthCard">
-          <Image src="/legacy-link-logo-official.png" alt="Legacy Link" width={160} height={42} />
-          <h2>Inner Circle Lead Claim Portal</h2>
-          <p>Isolated access. This page does not expose Mission Control.</p>
+          <h2 className="claimsWordmark">The Legacy Link</h2>
+          <p className="claimsQuote">“Discipline today creates generational freedom tomorrow.”</p>
+          <p>Inner Circle Lead Claim Portal</p>
           <input placeholder="Full name" value={loginName} onChange={(e) => setLoginName(e.target.value)} />
           <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && login()} />
           <button type="button" className="publicPrimaryBtn" onClick={login}>Enter Portal</button>
@@ -233,7 +232,7 @@ export default function LeadClaimsPortalPage() {
     <main className="claimsPortal">
       <section className="claimsHeader">
         <div>
-          <Image src="/legacy-link-logo-official.png" alt="Legacy Link" width={170} height={44} />
+          <h2 className="claimsWordmark">The Legacy Link</h2>
           <h1>Lead Claim Portal</h1>
           <p>{auth.name} • {auth.role}</p>
         </div>
