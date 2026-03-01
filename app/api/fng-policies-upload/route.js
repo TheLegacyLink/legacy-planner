@@ -146,15 +146,41 @@ function extractRowsRobust(sheet) {
 
 function parseCsvRows(buffer) {
   const text = buffer.toString('utf8');
-  const out = Papa.parse(text, {
-    header: true,
-    skipEmptyLines: true,
-    transformHeader: (h) => clean(h)
+
+  // Parse as matrix first so we can locate real header row (many carrier exports include preamble rows).
+  const gridParsed = Papa.parse(text, {
+    header: false,
+    skipEmptyLines: true
   });
-  if (out.errors?.length && !out.data?.length) {
-    throw new Error(out.errors[0]?.message || 'csv_parse_failed');
+
+  if (gridParsed.errors?.length && !gridParsed.data?.length) {
+    throw new Error(gridParsed.errors[0]?.message || 'csv_parse_failed');
   }
-  return Array.isArray(out.data) ? out.data : [];
+
+  const grid = Array.isArray(gridParsed.data) ? gridParsed.data : [];
+  if (!grid.length) return [];
+
+  const headerRowIdx = grid.findIndex((row) =>
+    (row || []).some((cell) => {
+      const k = normalizeKey(cell);
+      return k.includes('policynumber') || k === 'policy' || k === 'policyno' || k.includes('contractnumber');
+    })
+  );
+
+  if (headerRowIdx < 0) return [];
+
+  const headers = (grid[headerRowIdx] || []).map((h) => clean(h));
+  const rows = [];
+  for (const arr of grid.slice(headerRowIdx + 1)) {
+    const obj = {};
+    headers.forEach((h, i) => {
+      if (!h) return;
+      obj[h] = arr[i] ?? '';
+    });
+    rows.push(obj);
+  }
+
+  return rows;
 }
 
 function ensurePayload(raw = null) {
