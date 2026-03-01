@@ -112,6 +112,37 @@ function dedupeByPolicy(rows = []) {
   return Array.from(map.values());
 }
 
+function extractRowsRobust(sheet) {
+  const rowsDefault = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: true });
+  if (Array.isArray(rowsDefault) && rowsDefault.length) return rowsDefault;
+
+  const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: true });
+  if (!Array.isArray(grid) || !grid.length) return [];
+
+  const headerRowIdx = grid.findIndex((row) =>
+    (row || []).some((cell) => {
+      const k = normalizeKey(cell);
+      return k.includes('policynumber') || k === 'policy' || k === 'policyno';
+    })
+  );
+
+  if (headerRowIdx < 0) return [];
+
+  const headers = (grid[headerRowIdx] || []).map((h) => clean(h));
+  const rows = [];
+
+  for (const arr of grid.slice(headerRowIdx + 1)) {
+    const obj = {};
+    headers.forEach((h, i) => {
+      if (!h) return;
+      obj[h] = arr[i] ?? '';
+    });
+    rows.push(obj);
+  }
+
+  return rows;
+}
+
 function ensurePayload(raw = null) {
   if (Array.isArray(raw)) {
     return {
@@ -161,11 +192,19 @@ export async function POST(req) {
     if (!firstSheet) return Response.json({ ok: false, error: 'empty_workbook' }, { status: 400 });
 
     const sheet = workbook.Sheets[firstSheet];
-    const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: true });
+    const rawRows = extractRowsRobust(sheet);
 
     const normalized = rawRows
       .map((r) => normalizeRow(r, reportDate))
       .filter(Boolean);
+
+    if (!normalized.length) {
+      return Response.json({
+        ok: false,
+        error: 'no_policy_rows_detected',
+        hint: 'Could not find policy rows in workbook. Make sure Policy Number column exists.'
+      }, { status: 400 });
+    }
 
     const deduped = dedupeByPolicy(normalized);
 
