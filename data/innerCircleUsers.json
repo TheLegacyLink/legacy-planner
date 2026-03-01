@@ -47,12 +47,5 @@
     "role": "submitter",
     "passwordHash": "6ed336cccd7c568dc5701722efe2698dd500202aaf4e365d813a8767cf8e9983",
     "active": true
-  },
-  {
-    "name": "Emani Lee",
-    "email": "emani.daniellelee@gmail.com",
-    "role": "submitter",
-    "passwordHash": "c553b97f721c4181f9f2157dc1a4fcdb01904129eec9d9a41c855d3e1e531129",
-    "active": true
   }
 ]

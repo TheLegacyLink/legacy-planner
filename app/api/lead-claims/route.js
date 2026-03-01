@@ -3,6 +3,24 @@ import users from '../../../data/innerCircleUsers.json';
 import licensedAgents from '../../../data/licensedAgents.json';
 
 const STORE_PATH = 'stores/sponsorship-bookings.json';
+const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
+const BONUS_BOOKINGS_PATH = 'stores/bonus-bookings.json';
+
+const LICENSE_OVERRIDES = {
+  'kelin brown': ['AZ', 'CA', 'CO', 'FL', 'MI', 'NE', 'NV', 'OH', 'OK', 'RI', 'TX', 'VA'],
+  'jamal holmes': ['NJ', 'MD', 'FL', 'TX', 'PA'],
+  'leticia wright': ['CO', 'FL', 'MO', 'NV', 'NC', 'TX'],
+  'dr. breanna': ['CA', 'FL'],
+  'breanna james': ['CA', 'FL']
+};
+
+const PINNED_PENDING_LEADS = [
+  { name: 'Remy Davis', source: 'Sponsorship Booking' },
+  { name: 'Devin Book', source: 'Sponsorship Booking' },
+  { name: 'Devin Simon', source: 'Sponsorship Booking' },
+  { name: 'Latitia Washington', source: 'Sponsorship Booking' },
+  { name: 'Jakisha Calloway', source: 'Bonus Booking' }
+];
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -14,6 +32,10 @@ function normalize(v = '') {
 
 function normalizeKey(v = '') {
   return clean(v).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function applicantNameKey(v = '') {
+  return normalizeKey(v);
 }
 
 function nowIso() {
@@ -44,6 +66,10 @@ function isManagerRole(role = '') {
 }
 
 function licensedStatesFor(name = '') {
+  const n = normalize(name);
+  const override = LICENSE_OVERRIDES[n];
+  if (Array.isArray(override) && override.length) return [...new Set(override)].sort();
+
   const key = normalizeKey(name);
   if (!key) return [];
 
@@ -144,17 +170,80 @@ function toPortalRow(row = {}, viewerName = '', viewerRole = '') {
   };
 }
 
+function buildPendingPipeline(bookings = [], policyRows = [], bonusRows = []) {
+  const policyByApplicant = new Set(
+    (policyRows || [])
+      .map((p) => applicantNameKey(p?.applicantName || p?.applicant_name || ''))
+      .filter(Boolean)
+  );
+
+  const pendingSponsorship = (bookings || [])
+    .filter((b) => {
+      const key = applicantNameKey(b?.applicant_name || '');
+      if (!key) return false;
+      if (normalize(b?.claim_status) === 'invalid') return false;
+      return !policyByApplicant.has(key);
+    })
+    .map((b) => ({
+      id: clean(b?.id),
+      name: clean(b?.applicant_name) || 'Unknown',
+      state: clean(b?.applicant_state).toUpperCase(),
+      requested_at_est: clean(b?.requested_at_est),
+      referred_by: clean(b?.referred_by),
+      source: 'Sponsorship Booking'
+    }));
+
+  const pendingBonus = (bonusRows || [])
+    .filter((b) => normalize(b?.status || 'booked') !== 'completed')
+    .map((b) => ({
+      id: clean(b?.id),
+      name: clean(b?.name) || 'Unknown',
+      state: clean(b?.state).toUpperCase(),
+      requested_at_est: clean(b?.requested_at_est),
+      referred_by: 'Bonus Booking',
+      source: 'Bonus Booking'
+    }));
+
+  const merged = [...pendingSponsorship, ...pendingBonus];
+  const seen = new Set(merged.map((x) => applicantNameKey(x?.name)));
+
+  for (const item of PINNED_PENDING_LEADS) {
+    const key = applicantNameKey(item?.name);
+    if (!key || seen.has(key)) continue;
+    merged.unshift({
+      id: `manual_${key}`,
+      name: item.name,
+      state: '',
+      requested_at_est: '',
+      referred_by: item.source === 'Bonus Booking' ? 'Bonus Booking' : 'Camorlink',
+      source: item.source
+    });
+  }
+
+  return merged.sort((a, b) => {
+    const aTs = new Date(a.requested_at_est || 0).getTime();
+    const bTs = new Date(b.requested_at_est || 0).getTime();
+    return (bTs || 0) - (aTs || 0);
+  });
+}
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const viewerName = clean(searchParams.get('viewer'));
   const viewer = findUserByName(viewerName);
   const viewerRole = clean(viewer?.role || 'guest');
 
-  const store = await loadJsonStore(STORE_PATH, []);
+  const [store, policyRows, bonusRows] = await Promise.all([
+    loadJsonStore(STORE_PATH, []),
+    loadJsonStore(POLICY_SUBMISSIONS_PATH, []),
+    loadJsonStore(BONUS_BOOKINGS_PATH, [])
+  ]);
+
   const { rows, changed } = refreshExpiredPriority(store);
   if (changed) await saveJsonStore(STORE_PATH, rows);
 
   const sorted = [...rows].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  const pendingPipeline = buildPendingPipeline(sorted, policyRows, bonusRows);
 
   return Response.json({
     ok: true,
@@ -164,7 +253,8 @@ export async function GET(req) {
       name: u.name,
       role: u.role,
       licensedStates: licensedStatesFor(u.name)
-    }))
+    })),
+    pendingPipeline
   });
 }
 

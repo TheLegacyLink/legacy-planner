@@ -658,6 +658,32 @@ textarea { min-height: 180px; margin-top: 8px; }
   gap: 8px;
 }
 
+.claimsPendingList {
+  display: grid;
+  gap: 8px;
+}
+
+.claimsPendingRow {
+  border: 1px solid #dbe5f5;
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.claimsPendingRow p {
+  margin: 4px 0 0;
+  color: #475569;
+}
+
+.claimsPendingRow small {
+  display: block;
+  color: #475569;
+  margin-top: 6px;
+}
+
 .claimsRosterCard {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -926,6 +952,11 @@ textarea { min-height: 180px; margin-top: 8px; }
   .claimTop {
     display: grid;
     gap: 8px;
+  }
+
+  .claimsPendingRow {
+    display: grid;
+    gap: 6px;
   }
 
   .claimBadgeCol {

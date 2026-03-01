@@ -66,6 +66,7 @@ export default function LeadClaimsPortalPage() {
 
   const [rows, setRows] = useState([]);
   const [roster, setRoster] = useState([]);
+  const [pendingPipeline, setPendingPipeline] = useState([]);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState('');
   const [message, setMessage] = useState('');
@@ -92,6 +93,7 @@ export default function LeadClaimsPortalPage() {
       if (!res.ok || !data?.ok) throw new Error(data?.error || 'Failed to load claims');
       setRows(Array.isArray(data.rows) ? data.rows : []);
       setRoster(Array.isArray(data.roster) ? data.roster : []);
+      setPendingPipeline(Array.isArray(data.pendingPipeline) ? data.pendingPipeline : []);
       if (data?.viewer?.name && data?.viewer?.role) {
         setAuth({ name: data.viewer.name, role: data.viewer.role });
       }
@@ -258,6 +260,28 @@ export default function LeadClaimsPortalPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="claimsRoster">
+        <h3>Booked, Not Yet Submitted (F&G)</h3>
+        {!pendingPipeline.length ? (
+          <p className="muted">No pending booked leads right now.</p>
+        ) : (
+          <div className="claimsPendingList">
+            {pendingPipeline.map((item) => (
+              <div key={`${item.source}-${item.id}-${item.name}`} className="claimsPendingRow">
+                <div>
+                  <strong>{item.name}</strong>
+                  <p>{item.state || '—'} • {item.requested_at_est || '—'}</p>
+                </div>
+                <div>
+                  <span className="pill atrisk">{item.source}</span>
+                  <small>{item.referred_by || '—'}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="claimsCards">
