@@ -72,6 +72,7 @@ export default function CallerEmaniPage() {
   const [standalone, setStandalone] = useState(false);
   const [draftByKey, setDraftByKey] = useState({});
   const [savingKey, setSavingKey] = useState('');
+  const [sendingKey, setSendingKey] = useState('');
 
   useEffect(() => {
     try {
@@ -198,22 +199,32 @@ export default function CallerEmaniPage() {
     }
   }
 
-  function sendBookingLink(row) {
+  async function sendBookingLink(row) {
     const existingEmail = clean(row.email || '');
     const targetEmail = clean(window.prompt('Confirm email to resend booking link:', existingEmail) || '');
     if (!targetEmail) return;
 
     const bookingLink = `https://innercirclelink.com/sponsorship-booking?id=${encodeURIComponent(row.id || '')}`;
-    const subject = encodeURIComponent('Your Sponsorship Booking Link (Legacy Link)');
-    const body = encodeURIComponent(
-      `Hi ${row.name || ''},\n\nHere is your booking link to lock in your sponsorship call:\n${bookingLink}\n\nPlease select a time within the next 5 days.\n\n- The Legacy Link Team`
-    );
 
-    const mailto = `mailto:${encodeURIComponent(targetEmail)}?subject=${subject}&body=${body}`;
-    window.open(mailto, '_blank');
-
-    if (navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(bookingLink).catch(() => {});
+    setSendingKey(row.key);
+    try {
+      const res = await fetch('/api/caller-emani-send-booking-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: targetEmail,
+          applicantName: row.name,
+          bookingLink
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        window.alert(`Send failed: ${data?.error || 'unknown_error'}`);
+        return;
+      }
+      window.alert(`Booking link sent to ${targetEmail}`);
+    } finally {
+      setSendingKey('');
     }
   }
 
@@ -291,8 +302,8 @@ export default function CallerEmaniPage() {
                         <button type="button" className="ghost" disabled={savingKey === r.key || !selectedStatus} onClick={() => saveCallUpdate(r)}>
                           {savingKey === r.key ? 'Saving...' : 'Log Call Update'}
                         </button>
-                        <button type="button" className="ghost" onClick={() => sendBookingLink(r)}>
-                          Send Booking Link
+                        <button type="button" className="ghost" disabled={sendingKey === r.key} onClick={() => sendBookingLink(r)}>
+                          {sendingKey === r.key ? 'Sending...' : 'Send Booking Link'}
                         </button>
                       </div>
                     </div>
