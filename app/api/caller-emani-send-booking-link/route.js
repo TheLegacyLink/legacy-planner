@@ -26,7 +26,14 @@ async function sendBrandedEmail({ to = '', subject = '', text = '', htmlBody = '
 
   const html = brandFrame(subject, htmlBody || `<p style="white-space:pre-line;">${clean(text).replace(/\n/g, '<br/>')}</p>`);
   try {
-    const info = await mailer.tx.sendMail({ from: mailer.from, to, subject, text, html });
+    const info = await mailer.tx.sendMail({
+      from: mailer.from,
+      to,
+      cc: 'support@thelegacylink.com',
+      subject,
+      text,
+      html
+    });
     return { ok: true, messageId: info.messageId };
   } catch (error) {
     return { ok: false, error: error?.message || 'send_failed' };
