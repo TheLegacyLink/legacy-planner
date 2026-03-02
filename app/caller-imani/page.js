@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 
-const ACCESS_KEY = 'caller_imani_access_v1';
-const PASSCODE = 'ImaniCalls!2026';
+const ACCESS_KEY = 'caller_emani_access_v2';
+const PASSCODE = 'EmaniCalls!2026';
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -50,7 +50,7 @@ function bookingKey(row = {}) {
   return `n:${name}`;
 }
 
-export default function CallerImaniPage() {
+export default function CallerEmaniFollowupPage() {
   const [unlocked, setUnlocked] = useState(false);
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState('');
@@ -138,9 +138,9 @@ export default function CallerImaniPage() {
 
   if (!unlocked) {
     return (
-      <AppShell title="Caller - Imani">
+      <AppShell title="Caller - Emani">
         <div className="panel" style={{ maxWidth: 420, margin: '40px auto' }}>
-          <h3 style={{ marginTop: 0 }}>Caller - Imani Access</h3>
+          <h3 style={{ marginTop: 0 }}>Caller - Emani Access</h3>
           <p className="muted">Enter passcode to continue.</p>
           <input
             type="password"
@@ -159,7 +159,7 @@ export default function CallerImaniPage() {
   }
 
   return (
-    <AppShell title="Caller - Imani">
+    <AppShell title="Caller - Emani">
       <div className="panelRow" style={{ marginBottom: 10 }}>
         <span className="pill onpace">Approved Total: {summary.total}</span>
         <span className="pill atrisk">Not Booked: {summary.notBooked}</span>
@@ -169,7 +169,7 @@ export default function CallerImaniPage() {
       <div className="panel">
         <div className="panelRow">
           <h3 style={{ margin: 0 }}>Approved But Not Booked Follow-Up Queue</h3>
-          <small className="muted">Booked rows are highlighted so Imani can stop calling.</small>
+          <small className="muted">Booked rows are highlighted so Emani can stop calling.</small>
         </div>
 
         {loading ? <p className="muted">Loading...</p> : null}
