@@ -15,6 +15,78 @@ import {
 const DEFAULTS = loadRuntimeConfig();
 const POINTS = { referral: 1, app: 4 };
 
+function sameMonthYear(dateValue) {
+  if (!dateValue) return false;
+  const d = new Date(dateValue);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+}
+
+function sameYear(dateValue) {
+  if (!dateValue) return false;
+  const d = new Date(dateValue);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear();
+}
+
+function cleanApplicantName(row = {}) {
+  const first = String(row?.firstName || row?.first_name || '').trim();
+  const last = String(row?.lastName || row?.last_name || '').trim();
+  const full = String(row?.applicantName || row?.name || `${first} ${last}`).trim();
+  return full || 'Unknown';
+}
+
+function applicantKey(row = {}) {
+  const email = String(row?.email || row?.applicant_email || '').trim().toLowerCase();
+  const phone = String(row?.phone || row?.applicant_phone || '').replace(/\D/g, '');
+  const name = cleanName(cleanApplicantName(row)).replace(/\s+/g, '');
+
+  if (email) return `e:${email}`;
+  if (phone) return `p:${phone}`;
+  if (name) return `n:${name}`;
+  return `id:${String(row?.id || row?.applicantName || '').trim().toLowerCase()}`;
+}
+
+function matchAgentFromReferrer(referrer, agents) {
+  const ref = cleanName(referrer || '');
+  if (!ref) return null;
+
+  let best = null;
+  let bestScore = 0;
+  for (const agent of agents || []) {
+    const a = cleanName(agent);
+    if (!a) continue;
+    if (ref.includes(a)) return agent;
+    const parts = a.split(' ').filter((p) => p.length >= 3);
+    const score = parts.reduce((acc, p) => (ref.includes(p) ? acc + 1 : acc), 0);
+    if (score > bestScore) {
+      bestScore = score;
+      best = agent;
+    }
+  }
+  return bestScore > 0 ? best : null;
+}
+
+function mapApplicationToAgent(row, agents) {
+  const direct = row?.referralName || row?.referred_by || row?.referredBy || row?.referredByName || '';
+  let mapped = matchAgentFromReferrer(direct, agents);
+  if (mapped) return mapped;
+
+  const refCode = String(row?.refCode || row?.referral_code || '').replace(/[_-]+/g, ' ');
+  mapped = matchAgentFromReferrer(refCode, agents);
+  if (mapped) return mapped;
+
+  mapped = matchAgentFromReferrer(row?.submittedBy || row?.policyWriterName || '', agents);
+  return mapped || null;
+}
+
+function inScope(dateValue, scope) {
+  if (!dateValue) return false;
+  if (scope === 'monthly') return sameMonthYear(dateValue);
+  if (scope === 'ytd') return sameYear(dateValue);
+  return true;
+}
+
 function cleanName(value = '') {
   return String(value).toLowerCase().replace('dr. ', '').trim();
 }
@@ -49,6 +121,8 @@ export default function ScoreboardPage() {
   const [config, setConfig] = useState(DEFAULTS);
   const [rows, setRows] = useState([]);
   const [revenueRows, setRevenueRows] = useState([]);
+  const [sponsorshipRows, setSponsorshipRows] = useState([]);
+  const [policyRows, setPolicyRows] = useState([]);
   const [corrections, setCorrections] = useState([]);
   const [scope, setScope] = useState('monthly');
   const [view, setView] = useState('leaderboard');
@@ -69,9 +143,11 @@ export default function ScoreboardPage() {
 
     async function load() {
       try {
-        const [leaderboardRes, revenueRes] = await Promise.all([
+        const [leaderboardRes, revenueRes, sponsorshipRes, policyRes] = await Promise.all([
           fetch(config.leaderboardUrl, { cache: 'no-store' }),
-          fetch(config.revenueUrl, { cache: 'no-store' })
+          fetch(config.revenueUrl, { cache: 'no-store' }),
+          fetch('/api/sponsorship-applications', { cache: 'no-store' }),
+          fetch('/api/policy-submissions', { cache: 'no-store' })
         ]);
 
         if (leaderboardRes.ok) {
@@ -82,6 +158,16 @@ export default function ScoreboardPage() {
         if (revenueRes.ok) {
           const data = await revenueRes.json();
           if (mounted) setRevenueRows(normalizeRows(data));
+        }
+
+        if (sponsorshipRes.ok) {
+          const data = await sponsorshipRes.json().catch(() => ({}));
+          if (mounted) setSponsorshipRows(Array.isArray(data?.rows) ? data.rows : []);
+        }
+
+        if (policyRes.ok) {
+          const data = await policyRes.json().catch(() => ({}));
+          if (mounted) setPolicyRows(Array.isArray(data?.rows) ? data.rows : []);
         }
       } catch {
         // silent fail
@@ -97,7 +183,8 @@ export default function ScoreboardPage() {
   }, [config.leaderboardUrl, config.revenueUrl, config.refreshIntervalSec]);
 
   const ranked = useMemo(() => {
-    const baseReferralsByAgent = {};
+    const leaderboardReferralsByAgent = {};
+    const leaderboardAppsByAgent = {};
 
     config.agents.forEach((name) => {
       const match = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
@@ -107,23 +194,76 @@ export default function ScoreboardPage() {
       const defaultReferrals = Number(match?.referral_count ?? match?.referrals ?? 0) || 0;
       const referralsFromLeaderboard = scopedReferrals ?? defaultReferrals;
       const referralsFromApprovals = Number(revenueMatch?.activity_bonus ?? 0) || 0;
-      baseReferralsByAgent[name] = Math.max(referralsFromLeaderboard, referralsFromApprovals);
-    });
+      leaderboardReferralsByAgent[name] = Math.max(referralsFromLeaderboard, referralsFromApprovals);
 
-    const adjustedReferralsByAgent = applyReferralCorrections(baseReferralsByAgent, corrections);
-
-    const list = config.agents.map((name) => {
-      const match = rows.find((r) => cleanName(r.agent_name ?? r.agentName ?? r.name) === cleanName(name));
-      const referrals = Number(adjustedReferralsByAgent[name] || 0);
       const scopedApps = byScope(match, scope, ['app_submitted_count', 'apps_submitted', 'apps']);
       const baseApps = Number(match?.app_submitted_count ?? match?.apps_submitted ?? match?.apps ?? 0) || 0;
-      const apps = scopedApps ?? baseApps;
+      leaderboardAppsByAgent[name] = scopedApps ?? baseApps;
+    });
+
+    const directReferralsByAgent = {};
+    const refSeenByAgent = {};
+    for (const name of config.agents) {
+      directReferralsByAgent[name] = 0;
+      refSeenByAgent[name] = new Set();
+    }
+
+    for (const row of sponsorshipRows || []) {
+      const submittedAt = row?.submitted_at || row?.createdAt || row?.updatedAt;
+      if (!inScope(submittedAt, scope)) continue;
+      const mapped = mapApplicationToAgent(row, config.agents);
+      if (!mapped) continue;
+
+      const key = applicantKey(row);
+      if (refSeenByAgent[mapped].has(key)) continue;
+      refSeenByAgent[mapped].add(key);
+      directReferralsByAgent[mapped] = Number(directReferralsByAgent[mapped] || 0) + 1;
+    }
+
+    const directAppsByAgent = {};
+    const appSeenByAgent = {};
+    for (const name of config.agents) {
+      directAppsByAgent[name] = 0;
+      appSeenByAgent[name] = new Set();
+    }
+
+    for (const row of policyRows || []) {
+      const submittedAt = row?.submittedAt || row?.createdAt || row?.updatedAt;
+      if (!inScope(submittedAt, scope)) continue;
+      const mapped = mapApplicationToAgent(row, config.agents);
+      if (!mapped) continue;
+
+      const key = applicantKey(row);
+      if (appSeenByAgent[mapped].has(key)) continue;
+      appSeenByAgent[mapped].add(key);
+      directAppsByAgent[mapped] = Number(directAppsByAgent[mapped] || 0) + 1;
+    }
+
+    const referralBaseByAgent = {};
+    for (const name of config.agents) {
+      if (scope === 'monthly') {
+        referralBaseByAgent[name] = Number(directReferralsByAgent[name] || 0);
+      } else {
+        referralBaseByAgent[name] = Math.max(
+          Number(directReferralsByAgent[name] || 0),
+          Number(leaderboardReferralsByAgent[name] || 0)
+        );
+      }
+    }
+
+    const adjustedReferralsByAgent = applyReferralCorrections(referralBaseByAgent, corrections);
+
+    const list = config.agents.map((name) => {
+      const referrals = Number(adjustedReferralsByAgent[name] || 0);
+      const apps = scope === 'monthly'
+        ? Number(directAppsByAgent[name] || 0)
+        : Math.max(Number(directAppsByAgent[name] || 0), Number(leaderboardAppsByAgent[name] || 0));
       const score = referrals * POINTS.referral + apps * POINTS.app;
       return { name, referrals, apps, score };
     });
 
     return list.sort((a, b) => b.score - a.score || b.apps - a.apps || b.referrals - a.referrals);
-  }, [rows, revenueRows, config.agents, corrections, scope]);
+  }, [rows, revenueRows, sponsorshipRows, policyRows, config.agents, corrections, scope]);
 
   const leader = ranked[0];
 
@@ -260,6 +400,9 @@ export default function ScoreboardPage() {
           <h3>Inner Circle Score System</h3>
           <span className="muted">Points: Referral = 1 • App Submitted = 4</span>
         </div>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Monthly scoring uses direct Inner Circle submissions (Sponsorship forms + Inner Circle App Submit).
+        </p>
 
         <div className="leaderboardTabs">
           <button className={view === 'leaderboard' ? 'active' : ''} onClick={() => setView('leaderboard')}>Leaderboard</button>
