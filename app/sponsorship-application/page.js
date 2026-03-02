@@ -11,7 +11,7 @@ function normalizeRef(ref = '') {
   return cleaned;
 }
 
-function getFieldErrors(form, termsViewed) {
+function getFieldErrors(form, termsViewed, referralLocked = false) {
   const phone = String(form.phone || '').replace(/\D/g, '');
   const age = Number(form.age || 0);
   const fieldErrors = {};
@@ -23,8 +23,15 @@ function getFieldErrors(form, termsViewed) {
   if (!phone || phone.length < 10) fieldErrors.phone = true;
   if (!form.age || age < 18 || age > 100) fieldErrors.age = true;
 
+  if (!String(form.healthStatus || '').trim()) fieldErrors.healthStatus = true;
+  if (!String(form.motivation || '').trim()) fieldErrors.motivation = true;
+  if (!String(form.hoursPerWeek || '').trim()) fieldErrors.hoursPerWeek = true;
+  if (!String(form.heardFrom || '').trim()) fieldErrors.heardFrom = true;
+
   if (form.hasIncome === 'yes' && !form.incomeSource.trim()) fieldErrors.incomeSource = true;
   if (form.isLicensed === 'yes' && !form.licenseDetails.trim()) fieldErrors.licenseDetails = true;
+
+  if (!referralLocked && !String(form.referralName || '').trim()) fieldErrors.referralName = true;
 
   if (String(form.whyJoin || '').trim().length < 50) fieldErrors.whyJoin = true;
   if (String(form.goal12Month || '').trim().length < 20) fieldErrors.goal12Month = true;
@@ -162,7 +169,7 @@ export default function SponsorshipApplicationPage() {
     e.preventDefault();
     const phone = String(form.phone || '').replace(/\D/g, '');
     const age = Number(form.age || 0);
-    const fieldErrors = getFieldErrors(form, termsViewed);
+    const fieldErrors = getFieldErrors(form, termsViewed, Boolean(ref || signupSeed?.refCode));
 
     if (Object.keys(fieldErrors).length > 0) {
       setValidationErrors(fieldErrors);
@@ -222,7 +229,7 @@ export default function SponsorshipApplicationPage() {
 
   const liveScore = scoreApplication(form);
   const liveDecision = determineDecision(liveScore.score);
-  const pendingErrors = getFieldErrors(form, termsViewed);
+  const pendingErrors = getFieldErrors(form, termsViewed, Boolean(ref || signupSeed?.refCode));
   const missingCount = Object.keys(pendingErrors).length;
 
   const phoneDigits = String(form.phone || '').replace(/\D/g, '');
@@ -338,14 +345,14 @@ export default function SponsorshipApplicationPage() {
 
           <label>
             Health Status
-            <select value={form.healthStatus} onChange={(e) => update('healthStatus', e.target.value)}>
+            <select className={validationErrors.healthStatus ? 'errorInput' : ''} value={form.healthStatus} onChange={(e) => update('healthStatus', e.target.value)}>
               <option value="">Select</option>
               {['Excellent', 'Good', 'Fair', 'Poor'].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </label>
           <label>
             Motivation Level
-            <select value={form.motivation} onChange={(e) => update('motivation', e.target.value)}>
+            <select className={validationErrors.motivation ? 'errorInput' : ''} value={form.motivation} onChange={(e) => update('motivation', e.target.value)}>
               <option value="">Select</option>
               {['Slightly Motivated', 'Moderately Motivated', 'Very Motivated', 'Extremely Motivated'].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -353,7 +360,7 @@ export default function SponsorshipApplicationPage() {
 
           <label>
             Hours per week available
-            <select value={form.hoursPerWeek} onChange={(e) => update('hoursPerWeek', e.target.value)}>
+            <select className={validationErrors.hoursPerWeek ? 'errorInput' : ''} value={form.hoursPerWeek} onChange={(e) => update('hoursPerWeek', e.target.value)}>
               <option value="">Select</option>
               {['0-10 hours', '10-20 hours', '20-30 hours', '30+ hours'].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -362,6 +369,7 @@ export default function SponsorshipApplicationPage() {
           <label>
             How did you hear about us?
             <select
+              className={validationErrors.heardFrom ? 'errorInput' : ''}
               value={form.heardFrom}
               onChange={(e) => update('heardFrom', e.target.value)}
               disabled={Boolean(ref)}
@@ -374,6 +382,7 @@ export default function SponsorshipApplicationPage() {
           <label style={{ gridColumn: '1 / -1' }}>
             Referral / Source details
             <input
+              className={validationErrors.referralName ? 'errorInput' : ''}
               value={form.referralName}
               onChange={(e) => update('referralName', e.target.value)}
               placeholder={ref ? 'Attribution secured via personal link' : 'Agent name or source detail'}

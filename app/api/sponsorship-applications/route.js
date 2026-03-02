@@ -34,6 +34,40 @@ function canonicalKey(row = {}) {
   return `${name}|${email || '-'}|${phone || '-'}`;
 }
 
+function validateRequiredSubmissionFields(record = {}) {
+  const missing = [];
+  const age = Number(record.age || 0);
+  const phone = normalizePhone(record.phone);
+
+  if (!clean(record.firstName)) missing.push('firstName');
+  if (!clean(record.lastName)) missing.push('lastName');
+  if (!clean(record.state)) missing.push('state');
+  if (!clean(record.email)) missing.push('email');
+  if (!phone || phone.length < 10) missing.push('phone');
+  if (!record.age || age < 18 || age > 100) missing.push('age');
+
+  if (!clean(record.healthStatus)) missing.push('healthStatus');
+  if (!clean(record.motivation)) missing.push('motivation');
+  if (!clean(record.hoursPerWeek)) missing.push('hoursPerWeek');
+  if (!clean(record.heardFrom)) missing.push('heardFrom');
+
+  if (clean(record.hasIncome).toLowerCase() === 'yes' && !clean(record.incomeSource)) missing.push('incomeSource');
+  if (clean(record.isLicensed).toLowerCase() === 'yes' && !clean(record.licenseDetails)) missing.push('licenseDetails');
+
+  const referralLocked = Boolean(clean(record.refCode || record.referral_code));
+  if (!referralLocked && !clean(record.referralName)) missing.push('referralName');
+
+  if (clean(record.whyJoin).length < 50) missing.push('whyJoin');
+  if (clean(record.goal12Month).length < 20) missing.push('goal12Month');
+
+  if (!record.agreeTraining) missing.push('agreeTraining');
+  if (!record.agreeWeekly) missing.push('agreeWeekly');
+  if (!record.agreeService) missing.push('agreeService');
+  if (!record.agreeTerms) missing.push('agreeTerms');
+
+  return missing;
+}
+
 function mostRecentIso(a, b) {
   const da = new Date(a || 0).getTime();
   const db = new Date(b || 0).getTime();
@@ -108,6 +142,11 @@ export async function POST(req) {
 
     if (!record.firstName || !record.lastName) {
       return Response.json({ ok: false, error: 'missing_name' }, { status: 400 });
+    }
+
+    const missing = validateRequiredSubmissionFields(record);
+    if (missing.length) {
+      return Response.json({ ok: false, error: 'missing_required_fields', missing }, { status: 400 });
     }
 
     const recordEmail = clean(record.email).toLowerCase();
