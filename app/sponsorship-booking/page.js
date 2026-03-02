@@ -108,7 +108,7 @@ export default function SponsorshipBookingPage() {
     if (bookingId) loadFromServer();
   }, []);
 
-  const dates = useMemo(() => nextBookingDates(config.booking?.leadTimeHours || 48, 21), [config.booking?.leadTimeHours]);
+  const dates = useMemo(() => nextBookingDates(config.booking?.leadTimeHours || 48, 5), [config.booking?.leadTimeHours]);
   const slots = useMemo(() => buildSlots(config.booking?.startHour || 9, config.booking?.endHour || 21), [config.booking?.startHour, config.booking?.endHour]);
 
   const referredBy = record?.refCode ? inferredRefName(record.refCode) : (record?.referralName || 'Unknown');
@@ -145,6 +145,11 @@ export default function SponsorshipBookingPage() {
 
     if (!form.date || !form.time || !form.state) {
       setError('Please select date, time, and state.');
+      return;
+    }
+
+    if (!dates.includes(form.date)) {
+      setError('Please choose a booking date within the next 5 days.');
       return;
     }
 
@@ -210,7 +215,7 @@ export default function SponsorshipBookingPage() {
     <main className="publicPage">
       <div className="panel" style={{ maxWidth: 860 }}>
         <h2 style={{ marginTop: 0 }}>Book Your Sponsorship Strategy Call</h2>
-        <p className="muted">Monday–Saturday • 9:00 AM–9:00 PM EST • Minimum {config.booking?.leadTimeHours || 48} hours notice</p>
+        <p className="muted">Monday–Saturday • 9:00 AM–9:00 PM EST • Minimum {config.booking?.leadTimeHours || 48} hours notice • Book within next 5 days</p>
 
         <div style={{ border: '1px solid #bfdbfe', borderRadius: 12, background: '#eff6ff', padding: 12, marginBottom: 12 }}>
           <strong>Approved Benefits</strong>

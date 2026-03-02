@@ -161,8 +161,13 @@ export default function CallerEmaniPage() {
 
   async function saveCallUpdate(row) {
     const draft = draftByKey[row.key] || {};
-    const status = clean(draft.status || row.lastCallStatus || 'Called - Spoke');
+    const status = clean(draft.status || '');
     const notes = clean(draft.notes || '');
+
+    if (!status) {
+      window.alert('Choose a call status, then click Log Call Update.');
+      return;
+    }
 
     setSavingKey(row.key);
     try {
@@ -187,9 +192,28 @@ export default function CallerEmaniPage() {
         return;
       }
       await load();
-      setDraftByKey((prev) => ({ ...prev, [row.key]: { status, notes: '' } }));
+      setDraftByKey((prev) => ({ ...prev, [row.key]: { status: '', notes: '' } }));
     } finally {
       setSavingKey('');
+    }
+  }
+
+  function sendBookingLink(row) {
+    const existingEmail = clean(row.email || '');
+    const targetEmail = clean(window.prompt('Confirm email to resend booking link:', existingEmail) || '');
+    if (!targetEmail) return;
+
+    const bookingLink = `https://innercirclelink.com/sponsorship-booking?id=${encodeURIComponent(row.id || '')}`;
+    const subject = encodeURIComponent('Your Sponsorship Booking Link (Legacy Link)');
+    const body = encodeURIComponent(
+      `Hi ${row.name || ''},\n\nHere is your booking link to lock in your sponsorship call:\n${bookingLink}\n\nPlease select a time within the next 5 days.\n\n- The Legacy Link Team`
+    );
+
+    const mailto = `mailto:${encodeURIComponent(targetEmail)}?subject=${subject}&body=${body}`;
+    window.open(mailto, '_blank');
+
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(bookingLink).catch(() => {});
     }
   }
 
@@ -237,7 +261,7 @@ export default function CallerEmaniPage() {
           <tbody>
             {rows.map((r) => {
               const draft = draftByKey[r.key] || {};
-              const selectedStatus = draft.status || r.lastCallStatus || CALL_STATUS_OPTIONS[0];
+              const selectedStatus = draft.status || '';
               const notes = draft.notes || '';
 
               return (
@@ -255,6 +279,7 @@ export default function CallerEmaniPage() {
                         value={selectedStatus}
                         onChange={(e) => setDraftByKey((prev) => ({ ...prev, [r.key]: { ...(prev[r.key] || {}), status: e.target.value } }))}
                       >
+                        <option value="">Choose call status...</option>
                         {CALL_STATUS_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
                       <input
@@ -262,9 +287,14 @@ export default function CallerEmaniPage() {
                         value={notes}
                         onChange={(e) => setDraftByKey((prev) => ({ ...prev, [r.key]: { ...(prev[r.key] || {}), notes: e.target.value } }))}
                       />
-                      <button type="button" className="ghost" disabled={savingKey === r.key} onClick={() => saveCallUpdate(r)}>
-                        {savingKey === r.key ? 'Saving...' : 'Log Call Update'}
-                      </button>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button type="button" className="ghost" disabled={savingKey === r.key || !selectedStatus} onClick={() => saveCallUpdate(r)}>
+                          {savingKey === r.key ? 'Saving...' : 'Log Call Update'}
+                        </button>
+                        <button type="button" className="ghost" onClick={() => sendBookingLink(r)}>
+                          Send Booking Link
+                        </button>
+                      </div>
                     </div>
                   </td>
                   <td>
