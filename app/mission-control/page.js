@@ -216,13 +216,13 @@ export default function MissionControl() {
       setLoading(true);
       setError('');
       try {
-        const [leaderboardRes, revenueRes, sponsorshipRes, manualReviewRes, policySubmissionsRes, leadClaimsRes] = await Promise.all([
+        const [leaderboardRes, revenueRes, sponsorshipRes, manualReviewRes, policySubmissionsRes, sponsorshipBookingsRes] = await Promise.all([
           fetch(config.leaderboardUrl, { cache: 'no-store' }),
           fetch(config.revenueUrl, { cache: 'no-store' }),
           fetch(config.sponsorshipTrackerUrl, { cache: 'no-store' }),
           fetch('/api/sponsorship-applications', { cache: 'no-store' }),
           fetch('/api/policy-submissions', { cache: 'no-store' }),
-          fetch('/api/lead-claims?viewer=Kimora%20Link', { cache: 'no-store' })
+          fetch('/api/sponsorship-bookings', { cache: 'no-store' })
         ]);
 
         if (!leaderboardRes.ok) throw new Error(`Leaderboard HTTP ${leaderboardRes.status}`);
@@ -324,10 +324,10 @@ export default function MissionControl() {
         }
 
         let queueRows = [];
-        if (leadClaimsRes.ok) {
-          const claimsJson = await leadClaimsRes.json().catch(() => ({}));
-          const claimRows = Array.isArray(claimsJson?.rows) ? claimsJson.rows : [];
-          queueRows = claimRows
+        if (sponsorshipBookingsRes.ok) {
+          const bookingsJson = await sponsorshipBookingsRes.json().catch(() => ({}));
+          const bookingRows = Array.isArray(bookingsJson?.rows) ? bookingsJson.rows : [];
+          queueRows = bookingRows
             .filter((r) => r?.requested_at_est)
             .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
         }
@@ -787,7 +787,7 @@ export default function MissionControl() {
                 <th>Referral</th>
                 <th>Applicant</th>
                 <th>State</th>
-                <th>Requested</th>
+                <th>Booked At</th>
                 <th>Assigned Policy Writer</th>
                 <th>Status</th>
               </tr>
@@ -806,11 +806,11 @@ export default function MissionControl() {
                     <td>{assignedTo}</td>
                     <td>
                       {b.claim_status === 'Claimed' ? (
-                        <span className="pill onpace">Assigned</span>
+                        <span className="pill onpace">✅ Booked + Assigned</span>
                       ) : withinPriority ? (
-                        <span className="pill atrisk">Locked (24h Referrer Priority)</span>
+                        <span className="pill atrisk">✅ Booked • Locked (24h Referrer Priority)</span>
                       ) : (
-                        <span className="pill atrisk">Open</span>
+                        <span className="pill atrisk">✅ Booked • Unassigned</span>
                       )}
                     </td>
                   </tr>

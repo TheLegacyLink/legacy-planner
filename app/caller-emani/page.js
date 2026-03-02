@@ -40,15 +40,26 @@ function appKey(row = {}) {
   return `n:${name}`;
 }
 
-function bookingKey(row = {}) {
-  const src = clean(row.source_application_id);
-  if (src) return `id:${src}`;
-  const email = clean(row.applicant_email).toLowerCase();
-  const phone = normalizePhone(row.applicant_phone);
-  const name = normalizeName(row.applicant_name || '');
-  if (email) return `e:${email}`;
-  if (phone) return `p:${phone}`;
-  return `n:${name}`;
+function samePersonByName(a = '', b = '') {
+  const an = normalizeName(a);
+  const bn = normalizeName(b);
+  if (!an || !bn) return false;
+  if (an === bn) return true;
+  return an.includes(bn) || bn.includes(an);
+}
+
+function findBookingForApp(app = {}, bookings = []) {
+  const id = clean(app.id);
+  const email = clean(app.email).toLowerCase();
+  const phone = normalizePhone(app.phone);
+  const name = clean(`${app.firstName || ''} ${app.lastName || ''}`);
+
+  return (bookings || []).find((b) => {
+    if (id && clean(b.source_application_id) === id) return true;
+    if (email && clean(b.applicant_email).toLowerCase() === email) return true;
+    if (phone && normalizePhone(b.applicant_phone) === phone) return true;
+    return samePersonByName(name, b.applicant_name || '');
+  }) || null;
 }
 
 function updateKey(row = {}) {
@@ -118,13 +129,11 @@ export default function CallerEmaniPage() {
   }, [updates]);
 
   const rows = useMemo(() => {
-    const bookingMap = new Map((bookings || []).map((b) => [bookingKey(b), b]));
-
     const approved = (apps || [])
       .filter((r) => normalizeName(String(r.status || '')).includes('APPROVED'))
       .map((r) => {
         const key = appKey(r);
-        const booking = bookingMap.get(key);
+        const booking = findBookingForApp(r, bookings);
         const update = updatesMap.get(key);
         return {
           key,
