@@ -5,29 +5,24 @@ import { useRouter } from 'next/navigation';
 
 const TESTIMONIALS = [
   {
-    name: 'Shadae',
-    src: 'https://assets.cdn.filesafe.space/I7bXOorPHk415nKgsFfa/media/66f7021848d430003d85d623.mov',
-    result: 'From uncertainty to momentum with the sponsorship system.'
+    name: 'Kristi J.',
+    src: 'https://www.loom.com/share/c9cc33569a4c4877ad996d3dc0734639',
+    result: 'Clear path and confidence to move forward quickly.'
   },
   {
-    name: 'TEE',
-    src: 'https://assets.cdn.filesafe.space/I7bXOorPHk415nKgsFfa/media/66f70218e162821726d74091.mp4',
-    result: 'Real proof that disciplined execution creates results.'
+    name: 'Shadae W.',
+    src: 'https://www.loom.com/share/9306913479e842ae997c2492a1383859',
+    result: 'Momentum and support from day one of sponsorship.'
   },
   {
-    name: 'Angelic',
-    src: 'https://assets.cdn.filesafe.space/I7bXOorPHk415nKgsFfa/media/66f70218f6cf75925f3efbb4.mov',
-    result: 'Clear guidance, strong support, and fast action.'
+    name: 'Jen P.',
+    src: 'https://www.loom.com/share/d17e071c6bd341c29b3315ff5908f709',
+    result: 'Consistency and execution through the Legacy Link system.'
   },
   {
-    name: 'KJ',
-    src: 'https://assets.cdn.filesafe.space/I7bXOorPHk415nKgsFfa/media/66f70218e1628261a3d74090.mov',
-    result: 'Structured steps that made onboarding simple.'
-  },
-  {
-    name: 'Jen',
-    src: 'https://assets.cdn.filesafe.space/I7bXOorPHk415nKgsFfa/media/66f70218eaa19908049fd722.mp4',
-    result: 'Consistency and confidence through the Legacy Link process.'
+    name: 'Tee B.',
+    src: 'https://www.loom.com/share/a31533ced62d4bb4bed9c2f6db8e2b14',
+    result: 'Proof that structure and follow-up creates production.'
   }
 ];
 
@@ -37,8 +32,8 @@ function normalizeRef(ref = '') {
   return cleaned;
 }
 
-function mimeFor(src = '') {
-  return String(src).toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4';
+function loomEmbedUrl(url = '') {
+  return String(url || '').replace('/share/', '/embed/');
 }
 
 export default function SponsorshipSignupPage() {
@@ -137,7 +132,7 @@ export default function SponsorshipSignupPage() {
           <div className="luxCard" style={{ display: 'grid', gap: 10 }}>
             <div className="panelRow">
               <h3 style={{ margin: 0 }}>Success Stories</h3>
-              <span className="pill onpace">5 Testimonials</span>
+              <span className="pill onpace">4 Testimonials</span>
             </div>
             <p className="muted" style={{ margin: 0 }}>Quick watch links — lighter, cleaner, and fast loading.</p>
 
@@ -240,11 +235,17 @@ export default function SponsorshipSignupPage() {
               <h3 style={{ margin: 0 }}>{activeTestimonial.name} Testimony</h3>
               <button type="button" className="ghost" onClick={() => setActiveTestimonial(null)}>Close</button>
             </div>
-            <video controls playsInline autoPlay preload="metadata" style={{ width: '100%', borderRadius: 10, background: '#0f172a', marginTop: 10 }}>
-              <source src={activeTestimonial.src} type={mimeFor(activeTestimonial.src)} />
-            </video>
+            <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 10, overflow: 'hidden', background: '#0f172a', marginTop: 10 }}>
+              <iframe
+                src={loomEmbedUrl(activeTestimonial.src)}
+                title={`${activeTestimonial.name} Testimonial`}
+                frameBorder="0"
+                allowFullScreen
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+              />
+            </div>
             <p className="muted" style={{ margin: '8px 0 0 0' }}>
-              If this file doesn’t preview on your device, we’ll convert this testimony to MP4 for universal playback.
+              {activeTestimonial.result}
             </p>
           </div>
         </div>
