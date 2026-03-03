@@ -3,6 +3,38 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+const TESTIMONIALS = [
+  {
+    name: 'Shadae',
+    src: 'https://assets.cdn.filesafe.space/I7bXOorPHk415nKgsFfa/media/66f7021848d430003d85d623.mov',
+    result: 'From uncertainty to momentum with the sponsorship system.'
+  },
+  {
+    name: 'T',
+    src: 'https://assets.cdn.filesafe.space/I7bXOorPHk415nKgsFfa/media/66f70218e162821726d74091.mp4',
+    result: 'Real proof that disciplined execution creates results.'
+  },
+  {
+    name: 'Angelic',
+    src: 'https://assets.cdn.filesafe.space/I7bXOorPHk415nKgsFfa/media/66f70218f6cf75925f3efbb4.mov',
+    result: 'Clear guidance, strong support, and fast action.'
+  },
+  {
+    name: 'KJ',
+    src: 'https://assets.cdn.filesafe.space/I7bXOorPHk415nKgsFfa/media/66f70218e1628261a3d74090.mov',
+    result: 'Structured steps that made onboarding simple.'
+  },
+  {
+    name: 'Jen',
+    src: 'https://assets.cdn.filesafe.space/I7bXOorPHk415nKgsFfa/media/66f70218eaa19908049fd722.mp4',
+    result: 'Consistency and confidence through the Legacy Link process.'
+  }
+];
+
+function mimeFor(src = '') {
+  return String(src).toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4';
+}
+
 function normalizeRef(ref = '') {
   const cleaned = String(ref).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
   if (cleaned === 'latricia_wright') return 'leticia_wright';
@@ -99,6 +131,45 @@ export default function SponsorshipSignupPage() {
             <p className="muted" style={{ margin: 0 }}>
               $0 → $2,500 → $5,000 → $10,000/month → Leadership
             </p>
+          </div>
+
+          <div className="luxCard" style={{ display: 'grid', gap: 12 }}>
+            <div className="panelRow">
+              <h3 style={{ marginTop: 0, marginBottom: 0 }}>Real Legacy Link Testimonies</h3>
+              <span className="pill onpace">Proof Over Promises</span>
+            </div>
+            <p className="muted" style={{ margin: 0 }}>Watch these stories from agents who moved forward through the sponsorship system.</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px,1fr))', gap: 12 }}>
+              {TESTIMONIALS.slice(0, 2).map((t) => (
+                <div key={t.name} style={{ border: '1px solid #dbe5f5', borderRadius: 12, padding: 10, background: '#fff' }}>
+                  <video controls playsInline preload="metadata" style={{ width: '100%', borderRadius: 10, background: '#0f172a' }}>
+                    <source src={t.src} type={mimeFor(t.src)} />
+                  </video>
+                  <div style={{ marginTop: 8 }}>
+                    <strong>{t.name}</strong>
+                    <p className="muted" style={{ margin: '4px 0 0 0' }}>{t.result}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="luxCard" style={{ display: 'grid', gap: 12 }}>
+            <h3 style={{ marginTop: 0, marginBottom: 0 }}>More Success Stories</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px,1fr))', gap: 10 }}>
+              {TESTIMONIALS.slice(2).map((t) => (
+                <div key={t.name} style={{ border: '1px solid #dbe5f5', borderRadius: 12, padding: 10, background: '#fff' }}>
+                  <video controls playsInline preload="metadata" style={{ width: '100%', borderRadius: 10, background: '#0f172a' }}>
+                    <source src={t.src} type={mimeFor(t.src)} />
+                  </video>
+                  <div style={{ marginTop: 8 }}>
+                    <strong>{t.name}</strong>
+                    <p className="muted" style={{ margin: '4px 0 0 0' }}>{t.result}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 10 }}>
