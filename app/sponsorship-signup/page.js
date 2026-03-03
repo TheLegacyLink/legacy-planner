@@ -29,19 +29,19 @@ const TESTIMONIALS = [
 const GOOGLE_REVIEWS = [
   {
     name: 'Leggerd Gray',
-    text: 'My experience with Legacy Link has been nothing but amazing!! I really appreciate all the support, hard work and dedication I have been receiving throughout my journey here. The team is great and I love it here!!!!'
+    text: 'Amazing support, real dedication, and a team that truly helps you win.'
   },
   {
     name: 'Jahaira Miranda',
-    text: 'Motivated you to make a change! Put things in motion, in action! Even if one of us make it, we all make it!'
+    text: 'Motivates you to move fast, take action, and level up with the team.'
   },
   {
     name: 'Renae Cole',
-    text: 'A place that is about your well being spiritual, mental, physically and financially. The outpouring of getting you together to help and impact others. Giving back to the community is a requirement — giving back is important.'
+    text: 'Legacy Link supports spiritual, mental, physical, and financial growth — with real community impact.'
   },
   {
     name: 'Donna Canty',
-    text: '10/10'
+    text: '10/10 experience.'
   }
 ];
 
