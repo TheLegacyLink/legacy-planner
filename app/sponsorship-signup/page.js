@@ -10,7 +10,7 @@ const TESTIMONIALS = [
     result: 'From uncertainty to momentum with the sponsorship system.'
   },
   {
-    name: 'T',
+    name: 'TEE',
     src: 'https://assets.cdn.filesafe.space/I7bXOorPHk415nKgsFfa/media/66f70218e162821726d74091.mp4',
     result: 'Real proof that disciplined execution creates results.'
   },
@@ -37,11 +37,16 @@ function normalizeRef(ref = '') {
   return cleaned;
 }
 
+function mimeFor(src = '') {
+  return String(src).toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4';
+}
+
 export default function SponsorshipSignupPage() {
   const router = useRouter();
   const [ref, setRef] = useState('');
   const [form, setForm] = useState({ firstName: '', lastName: '', phone: '' });
   const [error, setError] = useState('');
+  const [activeTestimonial, setActiveTestimonial] = useState(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -141,9 +146,9 @@ export default function SponsorshipSignupPage() {
                 <div key={t.name} style={{ border: '1px solid #dbe5f5', borderRadius: 12, padding: 12, background: '#fff', display: 'grid', gap: 8 }}>
                   <strong>{t.name}</strong>
                   <p className="muted" style={{ margin: 0 }}>{t.result}</p>
-                  <a href={t.src} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-                    <button type="button" className="ghost" style={{ width: '100%' }}>Watch Testimony</button>
-                  </a>
+                  <button type="button" className="ghost" style={{ width: '100%' }} onClick={() => setActiveTestimonial(t)}>
+                    Watch Testimony
+                  </button>
                 </div>
               ))}
             </div>
@@ -214,6 +219,36 @@ export default function SponsorshipSignupPage() {
           {error ? <p className="red" style={{ gridColumn: '1 / -1', marginTop: 0 }}>{error}</p> : null}
         </form>
       </div>
+
+      {activeTestimonial ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setActiveTestimonial(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 60,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'grid',
+            placeItems: 'center',
+            padding: 14
+          }}
+        >
+          <div className="panel" onClick={(e) => e.stopPropagation()} style={{ width: 'min(880px, 96vw)' }}>
+            <div className="panelRow">
+              <h3 style={{ margin: 0 }}>{activeTestimonial.name} Testimony</h3>
+              <button type="button" className="ghost" onClick={() => setActiveTestimonial(null)}>Close</button>
+            </div>
+            <video controls playsInline autoPlay preload="metadata" style={{ width: '100%', borderRadius: 10, background: '#0f172a', marginTop: 10 }}>
+              <source src={activeTestimonial.src} type={mimeFor(activeTestimonial.src)} />
+            </video>
+            <p className="muted" style={{ margin: '8px 0 0 0' }}>
+              If this file doesn’t preview on your device, we’ll convert this testimony to MP4 for universal playback.
+            </p>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
