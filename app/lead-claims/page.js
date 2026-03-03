@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const SESSION_KEY = 'legacy_lead_claim_portal_user_v1';
-const WEEKLY_LIMIT_DEFAULT = 15;
-const MONTHLY_LIMIT_DEFAULT = 30;
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -37,6 +35,13 @@ function isThisMonth(iso = '') {
   if (Number.isNaN(d.getTime())) return false;
   const now = new Date();
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+}
+
+function isToday(iso = '') {
+  const d = new Date(iso || 0);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
 }
 
 function sourceLabel(row = {}) {
@@ -185,7 +190,7 @@ export default function LeadClaimsPortalPage() {
 
   const myClaims = useMemo(() => rows.filter((r) => normalize(r.claimed_by) === normalize(auth.name)), [rows, auth.name]);
   const weeklyClaims = useMemo(() => myClaims.filter((r) => isThisWeek(r.claimed_at)).length, [myClaims]);
-  const monthlyClaims = useMemo(() => myClaims.filter((r) => isThisMonth(r.claimed_at)).length, [myClaims]);
+  const monthlyClaims = useMemo(() => myClaims.filter((r) => isToday(r.claimed_at)).length, [myClaims]);
   const lifetimeClaims = myClaims.length;
 
   const displayedRows = view === 'claimed' ? myClaims : filteredRows;
@@ -209,8 +214,8 @@ export default function LeadClaimsPortalPage() {
     <main className="claimsPortal claimsPortalMarketplace">
       <section className="claimsHeader marketplaceHeader">
         <div>
-          <h1>Booked Application Queue</h1>
-          <p>These are booked sponsorship appointments waiting for application completion. {auth.name} • {auth.role}</p>
+          <h1>Booked Appointment Queue</h1>
+          <p>These are booked appointments waiting for an agent to complete the sponsorship application through F&G. {auth.name} • {auth.role}</p>
         </div>
         <button type="button" className="ghost" onClick={() => loadRows()}>Refresh</button>
       </section>
@@ -223,13 +228,7 @@ export default function LeadClaimsPortalPage() {
 
       {message ? <section className="claimsMessage">{message}</section> : null}
 
-      <section className="claimsRoster marketplaceStats">
-        <div className="claimsTopStats">
-          <div className="claimsStatBox"><strong>{weeklyClaims}</strong><span>Weekly Claims / {WEEKLY_LIMIT_DEFAULT}</span></div>
-          <div className="claimsStatBox"><strong>{monthlyClaims}</strong><span>Monthly Claims / {MONTHLY_LIMIT_DEFAULT}</span></div>
-          <div className="claimsStatBox"><strong>{lifetimeClaims}</strong><span>Lifetime Claims / ∞</span></div>
-        </div>
-      </section>
+      
 
       <section className="claimsRoster">
         <div className="claimsQuickTools" style={{ display: 'grid', gap: 8 }}>
@@ -241,6 +240,11 @@ export default function LeadClaimsPortalPage() {
               My Claimed Leads ({myClaims.length})
             </button>
           </div>
+          {myClaims.length ? (
+            <div className="claimsMiniClaimed">
+              <strong>Claimed by you today:</strong> {myClaims.filter((r) => isToday(r.claimed_at)).slice(0, 3).map((r) => clean(r.applicant_name)).filter(Boolean).join(' • ')}
+            </div>
+          ) : null}
           <input placeholder="Search leads..." value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
       </section>
@@ -283,7 +287,6 @@ export default function LeadClaimsPortalPage() {
                   <p><strong>Email:</strong> {maskedEmail}</p>
                 </div>
 
-                {clean(row.notes) ? <p className="muted" style={{ margin: '8px 0 0', borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>{row.notes}</p> : null}
 
                 {!isClaimedView ? <p className="claimPrivateHint">Full contact details revealed after claiming.</p> : null}
 
@@ -294,7 +297,7 @@ export default function LeadClaimsPortalPage() {
                     disabled={!canClaim || savingId === row.id}
                     onClick={() => claimLead(row.id)}
                   >
-                    {savingId === row.id ? 'Claiming...' : canClaim ? 'Claim Lead' : inPriority ? 'Claim Locked' : 'Unavailable'}
+                    {savingId === row.id ? 'Claiming...' : canClaim ? 'Claim Appointment' : inPriority ? 'Claim Locked' : 'Unavailable'}
                   </button>
                 ) : (
                   <button type="button" className="ghost publicBtnBlock" onClick={() => (typeof window !== 'undefined' ? window.location.assign('/pipeline') : null)}>
