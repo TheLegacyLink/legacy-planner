@@ -68,6 +68,7 @@ export default function SponsorshipSignupPage() {
   const [ref, setRef] = useState('');
   const [form, setForm] = useState({ firstName: '', lastName: '', phone: '' });
   const [error, setError] = useState('');
+  const [activeOverview, setActiveOverview] = useState(false);
   const [activeTestimonial, setActiveTestimonial] = useState(null);
 
   useEffect(() => {
@@ -128,9 +129,7 @@ export default function SponsorshipSignupPage() {
             <a href="#apply" style={{ textDecoration: 'none' }}>
               <button type="button" className="publicPrimaryBtn publicPrimaryBtnXL">Start My Sponsored Application</button>
             </a>
-            <a href="https://www.loom.com/share/71356efcc71c4959a71106a1147d0b7d" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-              <button type="button" className="ghost">Watch 2-Minute Overview</button>
-            </a>
+            <button type="button" className="ghost" onClick={() => setActiveOverview(true)}>Watch 2-Minute Overview</button>
             <a href="#success-stories" style={{ textDecoration: 'none' }}>
               <button type="button" className="ghost">Success Stories</button>
             </a>
@@ -267,6 +266,39 @@ export default function SponsorshipSignupPage() {
           {error ? <p className="red" style={{ gridColumn: '1 / -1', marginTop: 0 }}>{error}</p> : null}
         </form>
       </div>
+
+      {activeOverview ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setActiveOverview(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 60,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'grid',
+            placeItems: 'center',
+            padding: 14
+          }}
+        >
+          <div className="panel" onClick={(e) => e.stopPropagation()} style={{ width: 'min(960px, 96vw)' }}>
+            <div className="panelRow">
+              <h3 style={{ margin: 0 }}>2-Minute Overview</h3>
+              <button type="button" className="ghost" onClick={() => setActiveOverview(false)}>Close</button>
+            </div>
+            <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 10, overflow: 'hidden', background: '#0f172a', marginTop: 10 }}>
+              <iframe
+                src="https://www.loom.com/embed/71356efcc71c4959a71106a1147d0b7d"
+                title="Legacy Link Sponsorship Video"
+                frameBorder="0"
+                allowFullScreen
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {activeTestimonial ? (
         <div
