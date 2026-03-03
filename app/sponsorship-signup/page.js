@@ -42,6 +42,14 @@ const GOOGLE_REVIEWS = [
   {
     name: 'Donna Canty',
     text: '10/10 experience.'
+  },
+  {
+    name: 'Getta Jones',
+    text: 'Mentorship and weekly trainings made this feel like the right home from day one.'
+  },
+  {
+    name: 'Big Mike St Louis',
+    text: 'Switched from other IMOs, found real training and integrity here, and now seeing positive cash flow as an agency owner.'
   }
 ];
 
