@@ -26,6 +26,25 @@ const TESTIMONIALS = [
   }
 ];
 
+const GOOGLE_REVIEWS = [
+  {
+    name: 'Leggerd Gray',
+    text: 'My experience with Legacy Link has been nothing but amazing!! I really appreciate all the support, hard work and dedication I have been receiving throughout my journey here. The team is great and I love it here!!!!'
+  },
+  {
+    name: 'Jahaira Miranda',
+    text: 'Motivated you to make a change! Put things in motion, in action! Even if one of us make it, we all make it!'
+  },
+  {
+    name: 'Renae Cole',
+    text: 'A place that is about your well being spiritual, mental, physically and financially. The outpouring of getting you together to help and impact others. Giving back to the community is a requirement — giving back is important.'
+  },
+  {
+    name: 'Donna Canty',
+    text: '10/10'
+  }
+];
+
 function normalizeRef(ref = '') {
   const cleaned = String(ref).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
   if (cleaned === 'latricia_wright') return 'leticia_wright';
@@ -144,6 +163,24 @@ export default function SponsorshipSignupPage() {
                   <button type="button" className="ghost" style={{ width: '100%' }} onClick={() => setActiveTestimonial(t)}>
                     Watch Testimony
                   </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="luxCard" style={{ display: 'grid', gap: 10 }}>
+            <div className="panelRow">
+              <h3 style={{ margin: 0 }}>Google 5-Star Reviews</h3>
+              <span className="pill onpace">⭐⭐⭐⭐⭐</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px,1fr))', gap: 10 }}>
+              {GOOGLE_REVIEWS.map((r) => (
+                <div key={r.name} style={{ border: '1px solid #dbe5f5', borderRadius: 12, padding: 12, background: '#fff' }}>
+                  <div style={{ color: '#f59e0b', marginBottom: 6 }}>★★★★★</div>
+                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
+                    “{r.text}”
+                  </p>
+                  <small className="muted" style={{ display: 'block', marginTop: 8 }}>{r.name}</small>
                 </div>
               ))}
             </div>
