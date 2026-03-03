@@ -1129,6 +1129,17 @@ textarea { min-height: 180px; margin-top: 8px; }
   padding: 16px;
 }
 
+.claimsPortalMarketplace .marketplaceCard.myReferral {
+  border-top-color: #f59e0b;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.22), 0 10px 24px rgba(245, 158, 11, 0.12);
+}
+
+.claimsPortalMarketplace .myReferralPill {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
 .claimsPortalMarketplace .marketplaceCard h3 {
   color: #1e293b;
   font-size: 18px;

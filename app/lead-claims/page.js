@@ -268,18 +268,33 @@ export default function LeadClaimsPortalPage() {
             const maskedPhone = isClaimedView ? clean(row.applicant_phone || '—') : maskPhone(row.applicant_phone);
             const maskedEmail = isClaimedView ? clean(row.applicant_email || '—') : maskEmail(row.applicant_email);
             const isVip = Boolean(row.is_vip);
+            const referredBy = clean(row.referred_by || '—');
+            const myName = normalize(auth.name);
+            const refNorm = normalize(referredBy);
+            const isMyReferral = Boolean(
+              referredBy && (
+                refNorm === myName ||
+                (myName && refNorm.includes(myName)) ||
+                (myName && myName.includes(refNorm)) ||
+                (myName.includes('kimora') && (refNorm === 'link' || refNorm.includes('kimora link') || refNorm.includes('kimora_link')))
+              )
+            );
 
             return (
-              <article key={row.id} className="claimCard claimCardV2 marketplaceCard">
+              <article key={row.id} className={`claimCard claimCardV2 marketplaceCard ${isMyReferral ? 'myReferral' : ''}`}>
                 <div className="claimTop">
                   <div>
                     <h3>{row.applicant_name || 'Lead'}</h3>
-                    <p className="muted">{sourceLabel(row)}</p>
+                    <p className="muted">{sourceLabel(row)} — Referred by {referredBy}</p>
                   </div>
-                  {isVip ? <span className="pill" style={{ background: '#f59e0b', color: '#fff' }}>VIP</span> : null}
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {isMyReferral ? <span className="pill myReferralPill">⭐ Your Referral</span> : null}
+                    {isVip ? <span className="pill" style={{ background: '#f59e0b', color: '#fff' }}>VIP</span> : null}
+                  </div>
                 </div>
 
                 <p className="muted" style={{ margin: '6px 0 0' }}>{row.applicant_state || '—'} • {clean(row.requested_at_est) || 'No booking time yet'}</p>
+                {inPriority && isMyReferral ? <p className="muted" style={{ margin: '4px 0 0', color: '#92400e' }}>24h priority lock is active for your referral.</p> : null}
                 {isClaimedView ? <p className="muted" style={{ margin: '4px 0 0' }}>Claimed at: {fmtDate(row.claimed_at)}</p> : null}
 
                 <div className="claimPrivate" style={{ marginTop: 10 }}>
