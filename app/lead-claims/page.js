@@ -46,6 +46,22 @@ function sourceLabel(row = {}) {
   return 'CSV Import';
 }
 
+function maskPhone(v = '') {
+  const digits = clean(v).replace(/\D/g, '');
+  if (!digits) return '123-***-****';
+  return `${digits.slice(0, 3).padEnd(3, '*')}-***-****`;
+}
+
+function maskEmail(v = '') {
+  const email = clean(v).toLowerCase();
+  if (!email.includes('@')) return 'j***@***.com';
+  const [left, right] = email.split('@');
+  const first = left?.[0] || 'j';
+  const domainParts = String(right || '***.com').split('.');
+  const tld = domainParts.length > 1 ? domainParts[domainParts.length - 1] : 'com';
+  return `${first}***@***.${tld}`;
+}
+
 export default function LeadClaimsPortalPage() {
   const [auth, setAuth] = useState({ name: '', role: '' });
   const [loginName, setLoginName] = useState('');
@@ -57,6 +73,7 @@ export default function LeadClaimsPortalPage() {
   const [savingId, setSavingId] = useState('');
   const [message, setMessage] = useState('');
   const [query, setQuery] = useState('');
+  const [view, setView] = useState('available');
 
   const isManager = useMemo(() => ['admin', 'manager'].includes(normalize(auth.role)), [auth.role]);
 
@@ -171,12 +188,14 @@ export default function LeadClaimsPortalPage() {
   const monthlyClaims = useMemo(() => myClaims.filter((r) => isThisMonth(r.claimed_at)).length, [myClaims]);
   const lifetimeClaims = myClaims.length;
 
+  const displayedRows = view === 'claimed' ? myClaims : filteredRows;
+
   if (!auth.name) {
     return (
       <main className="claimsPortal claimsPortalMarketplace">
         <section className="claimsAuthCard">
           <h2 className="claimsWordmark">The Legacy Link</h2>
-          <p className="claimsQuote">Lead Marketplace Access</p>
+          <p className="claimsQuote">Booked Application Claim Queue</p>
           <input placeholder="Full name" value={loginName} onChange={(e) => setLoginName(e.target.value)} />
           <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && login()} />
           <button type="button" className="publicPrimaryBtn" onClick={login}>Enter Marketplace</button>
@@ -190,8 +209,8 @@ export default function LeadClaimsPortalPage() {
     <main className="claimsPortal claimsPortalMarketplace">
       <section className="claimsHeader marketplaceHeader">
         <div>
-          <h1>Lead Marketplace</h1>
-          <p>Claim qualified leads fast. {auth.name} • {auth.role}</p>
+          <h1>Booked Application Queue</h1>
+          <p>These are booked sponsorship appointments waiting for application completion. {auth.name} • {auth.role}</p>
         </div>
         <button type="button" className="ghost" onClick={() => loadRows()}>Refresh</button>
       </section>
@@ -213,7 +232,15 @@ export default function LeadClaimsPortalPage() {
       </section>
 
       <section className="claimsRoster">
-        <div className="claimsQuickTools">
+        <div className="claimsQuickTools" style={{ display: 'grid', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className={view === 'available' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setView('available')}>
+              Available to Claim ({filteredRows.length})
+            </button>
+            <button type="button" className={view === 'claimed' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setView('claimed')}>
+              My Claimed Leads ({myClaims.length})
+            </button>
+          </div>
           <input placeholder="Search leads..." value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
       </section>
@@ -221,20 +248,21 @@ export default function LeadClaimsPortalPage() {
       <section className="claimsCards">
         {loading ? <p>Loading...</p> : null}
 
-        {!filteredRows.length && !loading ? (
+        {!displayedRows.length && !loading ? (
           <div className="claimsEmptyState">
             <div className="icon">🛍️</div>
-            <h3>No available leads</h3>
-            <p className="muted">{isManager ? 'Add new leads in admin tools to populate the marketplace.' : 'Check back soon for fresh leads.'}</p>
+            <h3>{view === 'claimed' ? 'No claimed leads yet' : 'No available leads'}</h3>
+            <p className="muted">{view === 'claimed' ? 'Once you claim leads, they will show here.' : (isManager ? 'Add new leads in admin tools to populate the queue.' : 'Check back soon for fresh booked appointments.')}</p>
           </div>
         ) : null}
 
         <div className="claimsLeadGrid marketplaceGrid">
-          {filteredRows.map((row) => {
+          {displayedRows.map((row) => {
             const inPriority = Boolean(row.is_priority_window_open && !row.claimed_by);
             const canClaim = Boolean(row.can_claim);
-            const maskedPhone = clean(row.applicant_phone || '123-***-****');
-            const maskedEmail = clean(row.applicant_email || 'j***@***.com');
+            const isClaimedView = view === 'claimed';
+            const maskedPhone = isClaimedView ? clean(row.applicant_phone || '—') : maskPhone(row.applicant_phone);
+            const maskedEmail = isClaimedView ? clean(row.applicant_email || '—') : maskEmail(row.applicant_email);
             const isVip = Boolean(row.is_vip);
 
             return (
@@ -248,6 +276,7 @@ export default function LeadClaimsPortalPage() {
                 </div>
 
                 <p className="muted" style={{ margin: '6px 0 0' }}>{row.applicant_state || '—'} • {clean(row.requested_at_est) || 'No booking time yet'}</p>
+                {isClaimedView ? <p className="muted" style={{ margin: '4px 0 0' }}>Claimed at: {fmtDate(row.claimed_at)}</p> : null}
 
                 <div className="claimPrivate" style={{ marginTop: 10 }}>
                   <p><strong>Phone:</strong> {maskedPhone}</p>
@@ -256,16 +285,22 @@ export default function LeadClaimsPortalPage() {
 
                 {clean(row.notes) ? <p className="muted" style={{ margin: '8px 0 0', borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>{row.notes}</p> : null}
 
-                <p className="claimPrivateHint">Full contact details revealed after claiming.</p>
+                {!isClaimedView ? <p className="claimPrivateHint">Full contact details revealed after claiming.</p> : null}
 
-                <button
-                  type="button"
-                  className="publicPrimaryBtn publicBtnBlock"
-                  disabled={!canClaim || savingId === row.id}
-                  onClick={() => claimLead(row.id)}
-                >
-                  {savingId === row.id ? 'Claiming...' : canClaim ? 'Claim Lead' : inPriority ? 'Claim Locked' : 'Unavailable'}
-                </button>
+                {!isClaimedView ? (
+                  <button
+                    type="button"
+                    className="publicPrimaryBtn publicBtnBlock"
+                    disabled={!canClaim || savingId === row.id}
+                    onClick={() => claimLead(row.id)}
+                  >
+                    {savingId === row.id ? 'Claiming...' : canClaim ? 'Claim Lead' : inPriority ? 'Claim Locked' : 'Unavailable'}
+                  </button>
+                ) : (
+                  <button type="button" className="ghost publicBtnBlock" onClick={() => (typeof window !== 'undefined' ? window.location.assign('/pipeline') : null)}>
+                    Open in Pipeline
+                  </button>
+                )}
               </article>
             );
           })}
