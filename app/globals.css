@@ -709,25 +709,36 @@ textarea { min-height: 180px; margin-top: 8px; }
 
 .claimsPortalV2 .claimsStatBox {
   border: 1px solid #dbe5f5;
-  border-radius: 12px;
-  padding: 10px;
-  background: rgba(255,255,255,0.9);
+  border-radius: 14px;
+  padding: 12px;
+  background: #ffffff;
   display: grid;
-  gap: 2px;
+  gap: 3px;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
 }
 
 .claimsPortalV2 .claimsStatBox strong {
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1;
+  color: #0f172a;
 }
 
 .claimsPortalV2 .claimsStatBox span {
   font-size: 12px;
   color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
 .claimsPortalV2 .claimsQuickTools {
   margin-top: 10px;
+}
+
+.claimsPortalV2 .claimsQuickTools input {
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .claimsPortalV2 .claimsAgentStrip {
@@ -740,7 +751,7 @@ textarea { min-height: 180px; margin-top: 8px; }
   border: 1px solid #dbe5f5;
   border-radius: 12px;
   padding: 10px;
-  background: rgba(255,255,255,0.92);
+  background: rgba(255,255,255,0.96);
   display: flex;
   gap: 10px;
   align-items: center;
@@ -804,8 +815,8 @@ textarea { min-height: 180px; margin-top: 8px; }
 
 .claimsLeadGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
 }
 
 .claimCard {
@@ -847,9 +858,15 @@ textarea { min-height: 180px; margin-top: 8px; }
 .claimCardV2 {
   background: #fff;
   border: 1px solid #dbe5f5;
+  border-top: 4px solid #1d4ed8;
   border-radius: 14px;
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
   padding: 12px;
+}
+
+.claimCardV2:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
 }
 
 .claimCardV2::before {
@@ -860,6 +877,7 @@ textarea { min-height: 180px; margin-top: 8px; }
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  margin-top: 6px;
 }
 
 .claimTop { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -985,7 +1003,12 @@ textarea { min-height: 180px; margin-top: 8px; }
 
 .claimButtonsRow .publicPrimaryBtn,
 .claimButtonsRow .ghost {
-  padding: 8px 12px;
+  padding: 9px 12px;
+  min-height: 38px;
+}
+
+.claimCardV2 .claimButtonsRow .publicPrimaryBtn {
+  flex: 1;
 }
 
 .claimOverride {
