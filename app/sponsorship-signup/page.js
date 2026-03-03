@@ -131,15 +131,14 @@ export default function SponsorshipSignupPage() {
 
           <div className="luxCard" style={{ display: 'grid', gap: 10 }}>
             <div className="panelRow">
-              <h3 style={{ margin: 0 }}>Real Legacy Link Testimonies</h3>
-              <span className="pill onpace">Simple + Fast View</span>
+              <h3 style={{ margin: 0 }}>Success Stories</h3>
+              <span className="pill onpace">5 Testimonials</span>
             </div>
-            <p className="muted" style={{ margin: 0 }}>
-              Tap any testimony to watch. (Some videos are .mov and open best in native browser/video player.)
-            </p>
+            <p className="muted" style={{ margin: 0 }}>Quick watch links — lighter, cleaner, and fast loading.</p>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px,1fr))', gap: 10 }}>
               {TESTIMONIALS.map((t) => (
-                <div key={t.name} style={{ border: '1px solid #dbe5f5', borderRadius: 12, padding: 10, background: '#fff', display: 'grid', gap: 8 }}>
+                <div key={t.name} style={{ border: '1px solid #dbe5f5', borderRadius: 12, padding: 12, background: '#fff', display: 'grid', gap: 8 }}>
                   <strong>{t.name}</strong>
                   <p className="muted" style={{ margin: 0 }}>{t.result}</p>
                   <a href={t.src} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
