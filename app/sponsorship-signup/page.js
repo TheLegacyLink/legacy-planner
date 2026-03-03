@@ -131,12 +131,20 @@ export default function SponsorshipSignupPage() {
             <a href="https://www.loom.com/share/71356efcc71c4959a71106a1147d0b7d" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
               <button type="button" className="ghost">Watch 2-Minute Overview</button>
             </a>
+            <a href="#success-stories" style={{ textDecoration: 'none' }}>
+              <button type="button" className="ghost">Success Stories</button>
+            </a>
           </div>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <span className="pill" style={{ background: '#eef3ff', color: '#1e3a8a', borderColor: '#c7d2fe' }}>No Upfront Cost</span>
             <span className="pill" style={{ background: '#ecfeff', color: '#0f766e', borderColor: '#99f6e4' }}>Live + On-Demand Training</span>
             <span className="pill" style={{ background: '#f0fdf4', color: '#166534', borderColor: '#bbf7d0' }}>CRM + Lead Access</span>
+          </div>
+
+          <div className="luxCard" style={{ padding: 12 }}>
+            <strong style={{ display: 'block', marginBottom: 4 }}>★★★★★ Trusted by Legacy Link clients</strong>
+            <p className="muted" style={{ margin: 0 }}>Real success stories + verified 5-star Google reviews.</p>
           </div>
 
           <div className="luxCard luxBlue">
@@ -156,7 +164,7 @@ export default function SponsorshipSignupPage() {
             </p>
           </div>
 
-          <div className="luxCard" style={{ display: 'grid', gap: 10 }}>
+          <div className="luxCard" id="success-stories" style={{ display: 'grid', gap: 10 }}>
             <div className="panelRow">
               <h3 style={{ margin: 0 }}>Success Stories</h3>
               <span className="pill onpace">4 Testimonials</span>
