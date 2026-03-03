@@ -92,12 +92,10 @@ export default function LeadClaimsPortalPage() {
   const [savingId, setSavingId] = useState('');
   const [message, setMessage] = useState('');
   const [tab, setTab] = useState('available');
-  const [sliderById, setSliderById] = useState({});
   const [overrideById, setOverrideById] = useState({});
   const [nowTs, setNowTs] = useState(Date.now());
-  const [draggingId, setDraggingId] = useState('');
-  const [claimedBurstId, setClaimedBurstId] = useState('');
   const [expandedId, setExpandedId] = useState('');
+  const [query, setQuery] = useState('');
 
   const bookingQuery = useMemo(() => {
     if (typeof window === 'undefined') return '';
@@ -196,15 +194,12 @@ export default function LeadClaimsPortalPage() {
       }
 
       setMessage('Claim confirmed.');
-      setClaimedBurstId(bookingId);
       setExpandedId(bookingId);
       setTab('my');
-      window.setTimeout(() => setClaimedBurstId((prev) => (prev === bookingId ? '' : prev)), 1500);
       await loadRows(true);
       window.setTimeout(() => jumpToLeadCard(bookingId), 180);
     } finally {
       setSavingId('');
-      setSliderById((prev) => ({ ...prev, [bookingId]: 0 }));
     }
   };
 
@@ -303,10 +298,18 @@ export default function LeadClaimsPortalPage() {
 
   const filtered = useMemo(() => {
     const mine = normalize(auth.name);
-    if (tab === 'my') return rows.filter((r) => normalize(r.claimed_by) === mine);
-    if (tab === 'locked') return rows.filter((r) => r.is_priority_window_open && !r.claimed_by);
-    return rows.filter((r) => !r.claimed_by);
-  }, [rows, tab, auth.name]);
+    let base = rows;
+    if (tab === 'my') base = rows.filter((r) => normalize(r.claimed_by) === mine);
+    else if (tab === 'locked') base = rows.filter((r) => r.is_priority_window_open && !r.claimed_by);
+    else base = rows.filter((r) => !r.claimed_by);
+
+    const q = normalize(query);
+    if (!q) return base;
+    return base.filter((r) => {
+      const blob = [r.applicant_name, r.applicant_state, r.referred_by, r.claimed_by].map((x) => normalize(x)).join(' ');
+      return blob.includes(q);
+    });
+  }, [rows, tab, auth.name, query]);
 
   const viewerLicensedStates = useMemo(() => {
     const me = roster.find((p) => normalize(p?.name) === normalize(auth.name));
@@ -330,7 +333,7 @@ export default function LeadClaimsPortalPage() {
   }
 
   return (
-    <main className="claimsPortal">
+    <main className="claimsPortal claimsPortalV2">
       <section className="claimsHeader">
         <div>
           <h2 className="claimsWordmark">The Legacy Link</h2>
@@ -340,7 +343,7 @@ export default function LeadClaimsPortalPage() {
         <div className="claimsTabs">
           <button type="button" className={tab === 'available' ? 'active' : ''} onClick={() => setTab('available')}>Available ({counts.available})</button>
           <button type="button" className={tab === 'my' ? 'active' : ''} onClick={() => setTab('my')}>My Claims ({counts.my})</button>
-          <button type="button" className={tab === 'locked' ? 'active' : ''} onClick={() => setTab('locked')}>Priority Locked ({counts.locked})</button>
+          <button type="button" className={tab === 'locked' ? 'active' : ''} onClick={() => setTab('locked')}>Locked ({counts.locked})</button>
           <button type="button" onClick={() => loadRows()}>Refresh</button>
         </div>
       </section>
@@ -348,241 +351,122 @@ export default function LeadClaimsPortalPage() {
       {message ? <div className="claimsMessage">{message}</div> : null}
 
       <section className="claimsRoster">
-        <h3>Inner Circle Licensing Snapshot</h3>
-        <div className="claimsRosterGrid">
-          {roster.map((person) => (
-            <div key={person.name} className="claimsRosterCard">
-              <div className="claimsAvatar" aria-hidden>{initials(person.name)}</div>
-              <strong>{person.name}</strong>
-              <small>{person.role}</small>
-              <span>{(person.licensedStates || []).length ? person.licensedStates.join(', ') : 'No states on file'}</span>
-            </div>
-          ))}
+        <div className="claimsTopStats">
+          <div className="claimsStatBox"><strong>{counts.available}</strong><span>Available</span></div>
+          <div className="claimsStatBox"><strong>{counts.my}</strong><span>My Claimed</span></div>
+          <div className="claimsStatBox"><strong>{counts.locked}</strong><span>24h Locked</span></div>
+          <div className="claimsStatBox"><strong>{pendingPipeline.length}</strong><span>Booked Pending F&G</span></div>
+        </div>
+        <div className="claimsQuickTools">
+          <input placeholder="Search lead name, state, submitter..." value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
       </section>
 
       <section className="claimsRoster">
-        <h3>Booked, Not Yet Submitted (F&G)</h3>
-        {!pendingPipeline.length ? (
-          <p className="muted">No pending booked leads right now.</p>
-        ) : (
-          <div className="claimsPendingList">
-            {pendingPipeline.map((item) => {
-              const linkedLead = byId.get(item.id);
-              const canClaimLinkedLead = Boolean(linkedLead && !linkedLead.claimed_by);
-              const linkedLeadLocked = Boolean(linkedLead && linkedLead.is_priority_window_open && !linkedLead.can_claim && !isManager);
-
-              return (
-                <div key={`${item.source}-${item.id}-${item.name}`} className="claimsPendingRow">
-                  <div>
-                    <strong>{item.name}</strong>
-                    <p>{item.state || '—'} • {bookedWithTimezone(item.requested_at_est, item.booking_timezone)}</p>
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                      <span className="pill atrisk">{item.source}</span>
-                      <span className="pill onpace">✅ Booked</span>
-                      {viewerLicensedStates.has(clean(item.state).toUpperCase()) ? <span className="pill onpace">⭐ Licensed Match</span> : null}
-                    </div>
-                    <small>{submitterLabel(item.referred_by)}</small>
-                    {linkedLead ? (
-                      <div className="claimsPendingActions">
-                        {canClaimLinkedLead ? (
-                          <button
-                            type="button"
-                            className="publicPrimaryBtn"
-                            disabled={savingId === linkedLead.id || linkedLeadLocked}
-                            onClick={() => {
-                              if (!linkedLead.can_claim && isManager) {
-                                forceClaimAsAdmin(linkedLead.id);
-                              } else {
-                                claimLead(linkedLead.id);
-                              }
-                            }}
-                          >
-                            {linkedLead.can_claim ? 'Claim Now' : isManager ? 'Force Claim' : 'Claim Locked'}
-                          </button>
-                        ) : null}
-                        {isManager ? (
-                          <>
-                            <button type="button" className="ghost" onClick={() => jumpToLeadCard(linkedLead.id)}>Open Card</button>
-                            <button
-                              type="button"
-                              className="ghost"
-                              disabled={savingId === linkedLead.id}
-                              onClick={() => deleteLead(linkedLead.id)}
-                            >
-                              Delete
-                            </button>
-                          </>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <h3>Inner Circle Team</h3>
+        <div className="claimsAgentStrip">
+          {roster.map((person) => (
+            <div key={person.name} className="claimsAgentTile">
+              <div className="claimsAvatar" aria-hidden>{initials(person.name)}</div>
+              <div>
+                <strong>{person.name}</strong>
+                <small>{(person.licensedStates || []).length} states licensed</small>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="claimsCards">
         <h3 className="claimsSectionTitle">
           {tab === 'my' ? 'My Claimed Leads' : tab === 'locked' ? 'Priority Locked Leads' : 'Available Leads to Claim'}
         </h3>
+
         {loading ? <p>Loading...</p> : null}
         {!filtered.length && !loading ? <p>No leads in this view.</p> : null}
 
-        {filtered.map((row) => {
-          const isMine = normalize(row.claimed_by) === normalize(auth.name);
-          const sliderValue = Number(sliderById[row.id] || 0);
-          const canClaim = Boolean(row.can_claim);
-          const highlight = bookingQuery && bookingQuery === row.id;
-          const liveCountdown = priorityCountdown(row.priority_expires_at, nowTs);
-          const inPriority = Boolean(row.is_priority_window_open && !row.claimed_by);
-          const priorityPct = priorityProgress(row.priority_expires_at, nowTs);
-          const stateClass = stateToneClass(row.applicant_state);
-          const showBurst = claimedBurstId === row.id;
-          const isBooked = Boolean(clean(row.requested_at_est));
-          const isLicensedMatch = viewerLicensedStates.has(clean(row.applicant_state).toUpperCase());
+        <div className="claimsLeadGrid">
+          {filtered.map((row) => {
+            const isMine = normalize(row.claimed_by) === normalize(auth.name);
+            const canClaim = Boolean(row.can_claim);
+            const highlight = bookingQuery && bookingQuery === row.id;
+            const liveCountdown = priorityCountdown(row.priority_expires_at, nowTs);
+            const inPriority = Boolean(row.is_priority_window_open && !row.claimed_by);
+            const stateClass = stateToneClass(row.applicant_state);
+            const isBooked = Boolean(clean(row.requested_at_est));
+            const isLicensedMatch = viewerLicensedStates.has(clean(row.applicant_state).toUpperCase());
 
-          return (
-            <article
-              key={row.id}
-              id={`claim-${row.id}`}
-              className={`claimCard ${highlight ? 'highlight' : ''} ${!row.claimed_by ? 'canDrag' : ''} ${draggingId === row.id ? 'dragging' : ''}`}
-              draggable={!row.claimed_by}
-              onDragStart={() => setDraggingId(row.id)}
-              onDragEnd={() => setDraggingId('')}
-            >
-              {showBurst ? (
-                <div className="claimConfetti" aria-hidden>
-                  {Array.from({ length: 14 }).map((_, i) => <span key={`cf-${row.id}-${i}`} className={`confettiPiece c${i % 7}`} />)}
+            return (
+              <article key={row.id} id={`claim-${row.id}`} className={`claimCard claimCardV2 ${highlight ? 'highlight' : ''}`}>
+                <div className="claimTop">
+                  <div>
+                    <h3>{row.applicant_name || 'Lead'}</h3>
+                    <p>
+                      <span className={stateClass}>{row.applicant_state || '—'}</span>
+                      <span> • {bookedWithTimezone(row.requested_at_est, row.booking_timezone)}</span>
+                    </p>
+                  </div>
                 </div>
-              ) : null}
 
-              <div className="claimTop">
-                <div>
-                  <h3>{row.applicant_name || 'Lead'}</h3>
-                  <p>
-                    <span className={stateClass}>{row.applicant_state || '—'}</span>
-                    <span> • {bookedWithTimezone(row.requested_at_est, row.booking_timezone)}</span>
-                  </p>
-                </div>
-                <div className="claimBadgeCol">
-                  {inPriority ? (
-                    <div
-                      className="slaRing"
-                      title={`Priority hold remaining: ${liveCountdown}`}
-                      style={{ '--pct': `${priorityPct}%` }}
-                    >
-                      <span>{Math.round(priorityPct)}%</span>
-                    </div>
-                  ) : null}
-                  {row.claimed_by ? (
-                    <span className="pill onpace claimWhoPill">
-                      <span className="claimsAvatar tiny" aria-hidden>{initials(row.claimed_by)}</span>
-                      👤 Claimed by {row.claimed_by}
-                    </span>
-                  ) : null}
+                <div className="claimBadgeCol claimBadgeRow">
                   {isBooked ? <span className="pill onpace">✅ Booked</span> : null}
                   {isLicensedMatch ? <span className="pill onpace">⭐ Licensed Match</span> : null}
-                  {inPriority ? (
-                    <span className="pill atrisk claimWhoPill">
-                      <span className="claimsAvatar tiny" aria-hidden>{initials(row.priority_agent)}</span>
-                      🔒 Reserved for {row.priority_agent} • {liveCountdown}
-                    </span>
-                  ) : null}
+                  {row.claimed_by ? <span className="pill onpace">👤 Claimed by {row.claimed_by}</span> : null}
+                  {inPriority ? <span className="pill atrisk">🔒 Reserved for {row.priority_agent} • {liveCountdown}</span> : null}
                   {!row.claimed_by && !inPriority ? <span className="pill onpace">Open to all Inner Circle</span> : null}
                 </div>
-              </div>
 
-              {inPriority ? <p className="claimsCountdownLabel">Priority auto-release at {fmtDate(row.priority_expires_at)}</p> : null}
+                <p className="muted" style={{ margin: '8px 0 0' }}><strong>Submitter:</strong> {submitterLabel(row.referred_by)}</p>
 
-              {row.visibility === 'full' || isManager ? (
-                <>
-                  <div className="claimInfoActions">
-                    <button
-                      type="button"
-                      className="ghost"
-                      onClick={() => setExpandedId((prev) => (prev === row.id ? '' : row.id))}
-                    >
-                      {expandedId === row.id ? 'Hide Card Info' : 'Open Card Info'}
-                    </button>
-                  </div>
-
-                  {expandedId === row.id ? (
-                    <div className="claimPrivate">
-                      <p><strong>Email:</strong> {row.applicant_email || '—'}</p>
-                      <p><strong>Phone:</strong> {row.applicant_phone || '—'}</p>
-                      <p><strong>Submitter:</strong> {submitterLabel(row.referred_by)}</p>
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <div className="claimPrivateHint">Claim this lead to unlock contact details.</div>
-              )}
-
-              {!row.claimed_by ? (
-                <div className="claimAction">
-                  <small>Slide to claim</small>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={sliderValue}
-                    disabled={!canClaim || savingId === row.id}
-                    onChange={(e) => {
-                      const val = Number(e.target.value || 0);
-                      setSliderById((prev) => ({ ...prev, [row.id]: val }));
-                      if (val >= 100) claimLead(row.id);
-                    }}
-                  />
-                  <div className="claimButtonsRow">
-                    <button
-                      type="button"
-                      className="publicPrimaryBtn"
-                      disabled={!canClaim || savingId === row.id}
-                      onClick={() => claimLead(row.id)}
-                    >
-                      Claim Lead
-                    </button>
-                    {isManager && !canClaim ? (
-                      <button
-                        type="button"
-                        className="ghost"
-                        disabled={savingId === row.id}
-                        onClick={() => forceClaimAsAdmin(row.id)}
-                      >
-                        Force Claim (Admin)
+                {row.visibility === 'full' || isManager ? (
+                  <>
+                    <div className="claimInfoActions">
+                      <button type="button" className="ghost" onClick={() => setExpandedId((prev) => (prev === row.id ? '' : row.id))}>
+                        {expandedId === row.id ? 'Hide Details' : 'Open Details'}
                       </button>
+                    </div>
+                    {expandedId === row.id ? (
+                      <div className="claimPrivate">
+                        <p><strong>Email:</strong> {row.applicant_email || '—'}</p>
+                        <p><strong>Phone:</strong> {row.applicant_phone || '—'}</p>
+                      </div>
                     ) : null}
-                  </div>
-                  {!canClaim ? <small className="muted">Locked during referral priority window.</small> : null}
-                </div>
-              ) : (
-                <div className="claimAction">
-                  <small>{isMine ? 'You own this lead.' : 'Already claimed.'}</small>
-                </div>
-              )}
+                  </>
+                ) : (
+                  <div className="claimPrivateHint">Claim this lead to unlock contact details.</div>
+                )}
 
-              {isManager ? (
-                <div className="claimOverride">
-                  <select value={overrideById[row.id] || ''} onChange={(e) => setOverrideById((prev) => ({ ...prev, [row.id]: e.target.value }))}>
-                    <option value="">Override assignee...</option>
-                    {roster.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
-                  </select>
-                  <button type="button" className="ghost" disabled={!overrideById[row.id] || savingId === row.id} onClick={() => overrideClaim(row.id)}>
-                    Admin Override
-                  </button>
-                  <button type="button" className="ghost" disabled={savingId === row.id} onClick={() => deleteLead(row.id)}>
-                    Delete
-                  </button>
-                </div>
-              ) : null}
-            </article>
-          );
-        })}
+                {!row.claimed_by ? (
+                  <div className="claimAction">
+                    <div className="claimButtonsRow">
+                      <button type="button" className="publicPrimaryBtn" disabled={!canClaim || savingId === row.id} onClick={() => claimLead(row.id)}>
+                        {canClaim ? 'Claim Lead' : 'Claim Locked'}
+                      </button>
+                      {isManager && !canClaim ? (
+                        <button type="button" className="ghost" disabled={savingId === row.id} onClick={() => forceClaimAsAdmin(row.id)}>
+                          Force Claim
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="claimAction"><small>{isMine ? 'You own this lead.' : 'Already claimed.'}</small></div>
+                )}
+
+                {isManager ? (
+                  <div className="claimOverride">
+                    <select value={overrideById[row.id] || ''} onChange={(e) => setOverrideById((prev) => ({ ...prev, [row.id]: e.target.value }))}>
+                      <option value="">Override assignee...</option>
+                      {roster.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                    </select>
+                    <button type="button" className="ghost" disabled={!overrideById[row.id] || savingId === row.id} onClick={() => overrideClaim(row.id)}>Assign</button>
+                    <button type="button" className="ghost" disabled={savingId === row.id} onClick={() => deleteLead(row.id)}>Delete</button>
+                  </div>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
       </section>
     </main>
   );
