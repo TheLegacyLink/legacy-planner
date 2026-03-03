@@ -31,10 +31,6 @@ const TESTIMONIALS = [
   }
 ];
 
-function mimeFor(src = '') {
-  return String(src).toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4';
-}
-
 function normalizeRef(ref = '') {
   const cleaned = String(ref).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
   if (cleaned === 'latricia_wright') return 'leticia_wright';
@@ -133,40 +129,22 @@ export default function SponsorshipSignupPage() {
             </p>
           </div>
 
-          <div className="luxCard" style={{ display: 'grid', gap: 12 }}>
+          <div className="luxCard" style={{ display: 'grid', gap: 10 }}>
             <div className="panelRow">
-              <h3 style={{ marginTop: 0, marginBottom: 0 }}>Real Legacy Link Testimonies</h3>
-              <span className="pill onpace">Proof Over Promises</span>
+              <h3 style={{ margin: 0 }}>Real Legacy Link Testimonies</h3>
+              <span className="pill onpace">Simple + Fast View</span>
             </div>
-            <p className="muted" style={{ margin: 0 }}>Watch these stories from agents who moved forward through the sponsorship system.</p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px,1fr))', gap: 12 }}>
-              {TESTIMONIALS.slice(0, 2).map((t) => (
-                <div key={t.name} style={{ border: '1px solid #dbe5f5', borderRadius: 12, padding: 10, background: '#fff' }}>
-                  <video controls playsInline preload="metadata" style={{ width: '100%', borderRadius: 10, background: '#0f172a' }}>
-                    <source src={t.src} type={mimeFor(t.src)} />
-                  </video>
-                  <div style={{ marginTop: 8 }}>
-                    <strong>{t.name}</strong>
-                    <p className="muted" style={{ margin: '4px 0 0 0' }}>{t.result}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="luxCard" style={{ display: 'grid', gap: 12 }}>
-            <h3 style={{ marginTop: 0, marginBottom: 0 }}>More Success Stories</h3>
+            <p className="muted" style={{ margin: 0 }}>
+              Tap any testimony to watch. (Some videos are .mov and open best in native browser/video player.)
+            </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px,1fr))', gap: 10 }}>
-              {TESTIMONIALS.slice(2).map((t) => (
-                <div key={t.name} style={{ border: '1px solid #dbe5f5', borderRadius: 12, padding: 10, background: '#fff' }}>
-                  <video controls playsInline preload="metadata" style={{ width: '100%', borderRadius: 10, background: '#0f172a' }}>
-                    <source src={t.src} type={mimeFor(t.src)} />
-                  </video>
-                  <div style={{ marginTop: 8 }}>
-                    <strong>{t.name}</strong>
-                    <p className="muted" style={{ margin: '4px 0 0 0' }}>{t.result}</p>
-                  </div>
+              {TESTIMONIALS.map((t) => (
+                <div key={t.name} style={{ border: '1px solid #dbe5f5', borderRadius: 12, padding: 10, background: '#fff', display: 'grid', gap: 8 }}>
+                  <strong>{t.name}</strong>
+                  <p className="muted" style={{ margin: 0 }}>{t.result}</p>
+                  <a href={t.src} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                    <button type="button" className="ghost" style={{ width: '100%' }}>Watch Testimony</button>
+                  </a>
                 </div>
               ))}
             </div>
