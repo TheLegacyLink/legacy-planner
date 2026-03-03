@@ -308,6 +308,11 @@ export default function LeadClaimsPortalPage() {
     return rows.filter((r) => !r.claimed_by);
   }, [rows, tab, auth.name]);
 
+  const viewerLicensedStates = useMemo(() => {
+    const me = roster.find((p) => normalize(p?.name) === normalize(auth.name));
+    return new Set((me?.licensedStates || []).map((s) => clean(s).toUpperCase()));
+  }, [roster, auth.name]);
+
   if (!auth.name) {
     return (
       <main className="claimsPortal">
@@ -374,7 +379,11 @@ export default function LeadClaimsPortalPage() {
                     <p>{item.state || '—'} • {bookedWithTimezone(item.requested_at_est, item.booking_timezone)}</p>
                   </div>
                   <div>
-                    <span className="pill atrisk">{item.source}</span>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <span className="pill atrisk">{item.source}</span>
+                      <span className="pill onpace">✅ Booked</span>
+                      {viewerLicensedStates.has(clean(item.state).toUpperCase()) ? <span className="pill onpace">⭐ Licensed Match</span> : null}
+                    </div>
                     <small>{submitterLabel(item.referred_by)}</small>
                     {linkedLead ? (
                       <div className="claimsPendingActions">
@@ -434,6 +443,8 @@ export default function LeadClaimsPortalPage() {
           const priorityPct = priorityProgress(row.priority_expires_at, nowTs);
           const stateClass = stateToneClass(row.applicant_state);
           const showBurst = claimedBurstId === row.id;
+          const isBooked = Boolean(clean(row.requested_at_est));
+          const isLicensedMatch = viewerLicensedStates.has(clean(row.applicant_state).toUpperCase());
 
           return (
             <article
@@ -471,13 +482,15 @@ export default function LeadClaimsPortalPage() {
                   {row.claimed_by ? (
                     <span className="pill onpace claimWhoPill">
                       <span className="claimsAvatar tiny" aria-hidden>{initials(row.claimed_by)}</span>
-                      Claimed by {row.claimed_by}
+                      👤 Claimed by {row.claimed_by}
                     </span>
                   ) : null}
+                  {isBooked ? <span className="pill onpace">✅ Booked</span> : null}
+                  {isLicensedMatch ? <span className="pill onpace">⭐ Licensed Match</span> : null}
                   {inPriority ? (
                     <span className="pill atrisk claimWhoPill">
                       <span className="claimsAvatar tiny" aria-hidden>{initials(row.priority_agent)}</span>
-                      Reserved for {row.priority_agent} • {liveCountdown}
+                      🔒 Reserved for {row.priority_agent} • {liveCountdown}
                     </span>
                   ) : null}
                   {!row.claimed_by && !inPriority ? <span className="pill onpace">Open to all Inner Circle</span> : null}
