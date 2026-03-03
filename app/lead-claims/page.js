@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const SESSION_KEY = 'legacy_lead_claim_portal_user_v1';
+const WEEKLY_LIMIT_DEFAULT = 15;
+const MONTHLY_LIMIT_DEFAULT = 30;
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -13,70 +15,35 @@ function normalize(v = '') {
 }
 
 function fmtDate(iso = '') {
-  const d = new Date(iso);
+  const d = new Date(iso || 0);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleString();
 }
 
-function initials(name = '') {
-  const parts = clean(name).split(/\s+/).filter(Boolean);
-  if (!parts.length) return 'LL';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+function isThisWeek(iso = '') {
+  const d = new Date(iso || 0);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  const day = now.getDay();
+  const diffToMonday = (day + 6) % 7;
+  const monday = new Date(now);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(now.getDate() - diffToMonday);
+  return d >= monday;
 }
 
-function priorityCountdown(expiresAt = '', nowTs = Date.now()) {
-  const exp = new Date(expiresAt || 0).getTime();
-  if (!exp || Number.isNaN(exp)) return '—';
-
-  const remaining = exp - nowTs;
-  if (remaining <= 0) return 'Released';
-
-  const totalSeconds = Math.floor(remaining / 1000);
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+function isThisMonth(iso = '') {
+  const d = new Date(iso || 0);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
-function stateToneClass(state = '') {
-  const key = clean(state).toUpperCase();
-  if (!key) return 'stateTag stateTagDefault';
-  const seed = key.charCodeAt(0) + (key.charCodeAt(1) || 0);
-  const bucket = seed % 4;
-  if (bucket === 0) return 'stateTag stateTagBlue';
-  if (bucket === 1) return 'stateTag stateTagGreen';
-  if (bucket === 2) return 'stateTag stateTagGold';
-  return 'stateTag stateTagPurple';
-}
-
-function priorityProgress(expiresAt = '', nowTs = Date.now()) {
-  const exp = new Date(expiresAt || 0).getTime();
-  if (!exp || Number.isNaN(exp)) return 0;
-  const maxMs = 24 * 60 * 60 * 1000;
-  const remainingMs = Math.max(0, exp - nowTs);
-  return Math.max(0, Math.min(100, (remainingMs / maxMs) * 100));
-}
-
-function submitterLabel(name = '') {
-  const raw = clean(name);
-  const n = normalize(raw);
-  if (!raw) return '—';
-  if (n === 'camorlink' || n === 'kimora link' || n === 'link') return 'Kimora L.';
-  if (n === 'bonus booking') return 'Bonus Booking';
-
-  const parts = raw.split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0];
-  const first = parts[0];
-  const lastInitial = (parts[parts.length - 1][0] || '').toUpperCase();
-  return `${first} ${lastInitial}.`;
-}
-
-function bookedWithTimezone(dateText = '', tz = '') {
-  const d = clean(dateText);
-  if (!d) return '—';
-  const zone = clean(tz || 'ET');
-  return `${d} (${zone})`;
+function sourceLabel(row = {}) {
+  if (clean(row.source)) return clean(row.source);
+  if (clean(row.source_type) === 'bonus') return 'Bonus Booking';
+  if (clean(row.source_type) === 'sponsorship') return 'Sponsorship';
+  return 'CSV Import';
 }
 
 export default function LeadClaimsPortalPage() {
@@ -86,21 +53,10 @@ export default function LeadClaimsPortalPage() {
   const [loginError, setLoginError] = useState('');
 
   const [rows, setRows] = useState([]);
-  const [roster, setRoster] = useState([]);
-  const [pendingPipeline, setPendingPipeline] = useState([]);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState('');
   const [message, setMessage] = useState('');
-  const [tab, setTab] = useState('available');
-  const [overrideById, setOverrideById] = useState({});
-  const [nowTs, setNowTs] = useState(Date.now());
-  const [expandedId, setExpandedId] = useState('');
   const [query, setQuery] = useState('');
-
-  const bookingQuery = useMemo(() => {
-    if (typeof window === 'undefined') return '';
-    return new URLSearchParams(window.location.search).get('booking') || '';
-  }, []);
 
   const isManager = useMemo(() => ['admin', 'manager'].includes(normalize(auth.role)), [auth.role]);
 
@@ -110,10 +66,8 @@ export default function LeadClaimsPortalPage() {
     try {
       const res = await fetch(`/api/lead-claims?viewer=${encodeURIComponent(auth.name)}`, { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Failed to load claims');
+      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Failed to load leads');
       setRows(Array.isArray(data.rows) ? data.rows : []);
-      setRoster(Array.isArray(data.roster) ? data.roster : []);
-      setPendingPipeline(Array.isArray(data.pendingPipeline) ? data.pendingPipeline : []);
       if (data?.viewer?.name && data?.viewer?.role) {
         setAuth({ name: data.viewer.name, role: data.viewer.role });
       }
@@ -131,11 +85,6 @@ export default function LeadClaimsPortalPage() {
     } catch {
       // ignore
     }
-  }, []);
-
-  useEffect(() => {
-    const clock = setInterval(() => setNowTs(Date.now()), 1000);
-    return () => clearInterval(clock);
   }, []);
 
   useEffect(() => {
@@ -172,160 +121,65 @@ export default function LeadClaimsPortalPage() {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(next));
   };
 
-  const claimLead = async (bookingId) => {
-    if (!auth.name || !bookingId) return;
-    setSavingId(bookingId);
+  const claimLead = async (leadId) => {
+    if (!auth.name || !leadId) return;
+    setSavingId(leadId);
     setMessage('');
+
+    const prior = rows;
+    setRows((prev) => prev.filter((r) => clean(r.id) !== clean(leadId)));
 
     try {
       const res = await fetch('/api/lead-claims', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'claim', bookingId, actorName: auth.name })
+        body: JSON.stringify({ action: 'claim', bookingId: leadId, actorName: auth.name })
       });
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data?.ok) {
+        setRows(prior);
         const text = data?.error === 'priority_window_locked'
-          ? `Priority locked for ${data?.priorityAgent || 'referrer'} until ${fmtDate(data?.priorityExpiresAt)}`
+          ? `Claim locked by ${data?.priorityAgent || 'referrer'} until ${fmtDate(data?.priorityExpiresAt)}`
           : data?.error || 'Claim failed';
         setMessage(text);
         return;
       }
 
-      setMessage('Claim confirmed.');
-      setExpandedId(bookingId);
-      setTab('my');
-      await loadRows(true);
-      window.setTimeout(() => jumpToLeadCard(bookingId), 180);
+      setMessage('Lead claimed successfully. Open your CRM pipeline to continue follow-up.');
+      setTimeout(() => {
+        if (typeof window !== 'undefined') window.location.assign('/pipeline');
+      }, 2000);
     } finally {
       setSavingId('');
     }
   };
 
-  const overrideClaim = async (bookingId) => {
-    const targetName = clean(overrideById[bookingId]);
-    if (!isManager || !targetName) return;
+  const availableRows = useMemo(() => rows.filter((r) => !clean(r.claimed_by)), [rows]);
 
-    setSavingId(bookingId);
-    setMessage('');
-    try {
-      const res = await fetch('/api/lead-claims', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'override', bookingId, actorName: auth.name, targetName })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.ok) {
-        setMessage(data?.error || 'Override failed');
-        return;
-      }
-      setMessage(`Override complete: assigned to ${targetName}`);
-      await loadRows(true);
-    } finally {
-      setSavingId('');
-    }
-  };
-
-  const forceClaimAsAdmin = async (bookingId) => {
-    if (!isManager) return;
-    setOverrideById((prev) => ({ ...prev, [bookingId]: auth.name }));
-    setSavingId(bookingId);
-    setMessage('');
-    try {
-      const res = await fetch('/api/lead-claims', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'override', bookingId, actorName: auth.name, targetName: auth.name })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.ok) {
-        setMessage(data?.error || 'Admin force claim failed');
-        return;
-      }
-      setMessage('Admin test claim complete.');
-      await loadRows(true);
-    } finally {
-      setSavingId('');
-    }
-  };
-
-  const jumpToLeadCard = (bookingId) => {
-    const el = document.getElementById(`claim-${bookingId}`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  };
-
-  const deleteLead = async (bookingId) => {
-    if (!isManager || !bookingId) return;
-    const ok = window.confirm('Delete this lead from claim queue?');
-    if (!ok) return;
-
-    setSavingId(bookingId);
-    setMessage('');
-    try {
-      const res = await fetch('/api/lead-claims', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete', bookingId, actorName: auth.name })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.ok) {
-        setMessage(data?.error || 'Delete failed');
-        return;
-      }
-      setMessage('Lead deleted.');
-      await loadRows(true);
-    } finally {
-      setSavingId('');
-    }
-  };
-
-  const byId = useMemo(() => {
-    const map = new Map();
-    for (const r of rows) map.set(r.id, r);
-    return map;
-  }, [rows]);
-
-  const counts = useMemo(() => {
-    const mine = normalize(auth.name);
-    return {
-      available: rows.filter((r) => !r.claimed_by).length,
-      my: rows.filter((r) => normalize(r.claimed_by) === mine).length,
-      locked: rows.filter((r) => r.is_priority_window_open && !r.claimed_by).length
-    };
-  }, [rows, auth.name]);
-
-  const filtered = useMemo(() => {
-    const mine = normalize(auth.name);
-    let base = rows;
-    if (tab === 'my') base = rows.filter((r) => normalize(r.claimed_by) === mine);
-    else if (tab === 'locked') base = rows.filter((r) => r.is_priority_window_open && !r.claimed_by);
-    else base = rows.filter((r) => !r.claimed_by);
-
+  const filteredRows = useMemo(() => {
     const q = normalize(query);
-    if (!q) return base;
-    return base.filter((r) => {
-      const blob = [r.applicant_name, r.applicant_state, r.referred_by, r.claimed_by].map((x) => normalize(x)).join(' ');
+    if (!q) return availableRows;
+    return availableRows.filter((r) => {
+      const blob = [r.applicant_name, r.applicant_state, r.referred_by, sourceLabel(r)].map((x) => normalize(x)).join(' ');
       return blob.includes(q);
     });
-  }, [rows, tab, auth.name, query]);
+  }, [availableRows, query]);
 
-  const viewerLicensedStates = useMemo(() => {
-    const me = roster.find((p) => normalize(p?.name) === normalize(auth.name));
-    return new Set((me?.licensedStates || []).map((s) => clean(s).toUpperCase()));
-  }, [roster, auth.name]);
+  const myClaims = useMemo(() => rows.filter((r) => normalize(r.claimed_by) === normalize(auth.name)), [rows, auth.name]);
+  const weeklyClaims = useMemo(() => myClaims.filter((r) => isThisWeek(r.claimed_at)).length, [myClaims]);
+  const monthlyClaims = useMemo(() => myClaims.filter((r) => isThisMonth(r.claimed_at)).length, [myClaims]);
+  const lifetimeClaims = myClaims.length;
 
   if (!auth.name) {
     return (
-      <main className="claimsPortal">
+      <main className="claimsPortal claimsPortalMarketplace">
         <section className="claimsAuthCard">
           <h2 className="claimsWordmark">The Legacy Link</h2>
-          <p className="claimsQuote">“Discipline today creates generational freedom tomorrow.”</p>
-          <p>Inner Circle Lead Claim Portal</p>
+          <p className="claimsQuote">Lead Marketplace Access</p>
           <input placeholder="Full name" value={loginName} onChange={(e) => setLoginName(e.target.value)} />
           <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && login()} />
-          <button type="button" className="publicPrimaryBtn" onClick={login}>Enter Portal</button>
+          <button type="button" className="publicPrimaryBtn" onClick={login}>Enter Marketplace</button>
           {loginError ? <small className="errorCheck">{loginError}</small> : null}
         </section>
       </main>
@@ -333,136 +187,85 @@ export default function LeadClaimsPortalPage() {
   }
 
   return (
-    <main className="claimsPortal claimsPortalV2">
-      <section className="claimsHeader">
+    <main className="claimsPortal claimsPortalMarketplace">
+      <section className="claimsHeader marketplaceHeader">
         <div>
-          <h2 className="claimsWordmark">The Legacy Link</h2>
-          <h1>Lead Claim Portal</h1>
-          <p>{auth.name} • {auth.role}</p>
+          <h1>Lead Marketplace</h1>
+          <p>Claim qualified leads fast. {auth.name} • {auth.role}</p>
         </div>
-        <div className="claimsTabs">
-          <button type="button" className={tab === 'available' ? 'active' : ''} onClick={() => setTab('available')}>Available ({counts.available})</button>
-          <button type="button" className={tab === 'my' ? 'active' : ''} onClick={() => setTab('my')}>My Claims ({counts.my})</button>
-          <button type="button" className={tab === 'locked' ? 'active' : ''} onClick={() => setTab('locked')}>Locked ({counts.locked})</button>
-          <button type="button" onClick={() => loadRows()}>Refresh</button>
-        </div>
+        <button type="button" className="ghost" onClick={() => loadRows()}>Refresh</button>
       </section>
 
-      {message ? <div className="claimsMessage">{message}</div> : null}
+      {isManager ? (
+        <section className="claimsMessage" style={{ background: '#fff8e1', borderColor: '#fde68a', color: '#854d0e' }}>
+          Debug: total={rows.length} • available={availableRows.length}
+        </section>
+      ) : null}
 
-      <section className="claimsRoster">
+      {message ? <section className="claimsMessage">{message}</section> : null}
+
+      <section className="claimsRoster marketplaceStats">
         <div className="claimsTopStats">
-          <div className="claimsStatBox"><strong>{counts.available}</strong><span>Available</span></div>
-          <div className="claimsStatBox"><strong>{counts.my}</strong><span>My Claimed</span></div>
-          <div className="claimsStatBox"><strong>{counts.locked}</strong><span>24h Locked</span></div>
-          <div className="claimsStatBox"><strong>{pendingPipeline.length}</strong><span>Booked Pending F&G</span></div>
-        </div>
-        <div className="claimsQuickTools">
-          <input placeholder="Search lead name, state, submitter..." value={query} onChange={(e) => setQuery(e.target.value)} />
+          <div className="claimsStatBox"><strong>{weeklyClaims}</strong><span>Weekly Claims / {WEEKLY_LIMIT_DEFAULT}</span></div>
+          <div className="claimsStatBox"><strong>{monthlyClaims}</strong><span>Monthly Claims / {MONTHLY_LIMIT_DEFAULT}</span></div>
+          <div className="claimsStatBox"><strong>{lifetimeClaims}</strong><span>Lifetime Claims / ∞</span></div>
         </div>
       </section>
 
       <section className="claimsRoster">
-        <h3>Inner Circle Team</h3>
-        <div className="claimsAgentStrip">
-          {roster.map((person) => (
-            <div key={person.name} className="claimsAgentTile">
-              <div className="claimsAvatar" aria-hidden>{initials(person.name)}</div>
-              <div>
-                <strong>{person.name}</strong>
-                <small>{(person.licensedStates || []).length} states licensed</small>
-              </div>
-            </div>
-          ))}
+        <div className="claimsQuickTools">
+          <input placeholder="Search leads..." value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
       </section>
 
       <section className="claimsCards">
-        <h3 className="claimsSectionTitle">
-          {tab === 'my' ? 'My Claimed Leads' : tab === 'locked' ? 'Priority Locked Leads' : 'Available Leads to Claim'}
-        </h3>
-
         {loading ? <p>Loading...</p> : null}
-        {!filtered.length && !loading ? <p>No leads in this view.</p> : null}
 
-        <div className="claimsLeadGrid">
-          {filtered.map((row) => {
-            const isMine = normalize(row.claimed_by) === normalize(auth.name);
-            const canClaim = Boolean(row.can_claim);
-            const highlight = bookingQuery && bookingQuery === row.id;
-            const liveCountdown = priorityCountdown(row.priority_expires_at, nowTs);
+        {!filteredRows.length && !loading ? (
+          <div className="claimsEmptyState">
+            <div className="icon">🛍️</div>
+            <h3>No available leads</h3>
+            <p className="muted">{isManager ? 'Add new leads in admin tools to populate the marketplace.' : 'Check back soon for fresh leads.'}</p>
+          </div>
+        ) : null}
+
+        <div className="claimsLeadGrid marketplaceGrid">
+          {filteredRows.map((row) => {
             const inPriority = Boolean(row.is_priority_window_open && !row.claimed_by);
-            const stateClass = stateToneClass(row.applicant_state);
-            const isBooked = Boolean(clean(row.requested_at_est));
-            const isLicensedMatch = viewerLicensedStates.has(clean(row.applicant_state).toUpperCase());
+            const canClaim = Boolean(row.can_claim);
+            const maskedPhone = clean(row.applicant_phone || '123-***-****');
+            const maskedEmail = clean(row.applicant_email || 'j***@***.com');
+            const isVip = Boolean(row.is_vip);
 
             return (
-              <article key={row.id} id={`claim-${row.id}`} className={`claimCard claimCardV2 ${highlight ? 'highlight' : ''}`}>
+              <article key={row.id} className="claimCard claimCardV2 marketplaceCard">
                 <div className="claimTop">
                   <div>
                     <h3>{row.applicant_name || 'Lead'}</h3>
-                    <p>
-                      <span className={stateClass}>{row.applicant_state || '—'}</span>
-                      <span> • {bookedWithTimezone(row.requested_at_est, row.booking_timezone)}</span>
-                    </p>
+                    <p className="muted">{sourceLabel(row)}</p>
                   </div>
+                  {isVip ? <span className="pill" style={{ background: '#f59e0b', color: '#fff' }}>VIP</span> : null}
                 </div>
 
-                <div className="claimBadgeCol claimBadgeRow">
-                  {isBooked ? <span className="pill onpace">✅ Booked</span> : null}
-                  {isLicensedMatch ? <span className="pill onpace">⭐ Licensed Match</span> : null}
-                  {row.claimed_by ? <span className="pill onpace">👤 Claimed by {row.claimed_by}</span> : null}
-                  {inPriority ? <span className="pill atrisk">🔒 Reserved for {row.priority_agent} • {liveCountdown}</span> : null}
-                  {!row.claimed_by && !inPriority ? <span className="pill onpace">Open to all Inner Circle</span> : null}
+                <p className="muted" style={{ margin: '6px 0 0' }}>{row.applicant_state || '—'} • {clean(row.requested_at_est) || 'No booking time yet'}</p>
+
+                <div className="claimPrivate" style={{ marginTop: 10 }}>
+                  <p><strong>Phone:</strong> {maskedPhone}</p>
+                  <p><strong>Email:</strong> {maskedEmail}</p>
                 </div>
 
-                <p className="muted" style={{ margin: '8px 0 0' }}><strong>Submitter:</strong> {submitterLabel(row.referred_by)}</p>
+                {clean(row.notes) ? <p className="muted" style={{ margin: '8px 0 0', borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>{row.notes}</p> : null}
 
-                {row.visibility === 'full' || isManager ? (
-                  <>
-                    <div className="claimInfoActions">
-                      <button type="button" className="ghost" onClick={() => setExpandedId((prev) => (prev === row.id ? '' : row.id))}>
-                        {expandedId === row.id ? 'Hide Details' : 'Open Details'}
-                      </button>
-                    </div>
-                    {expandedId === row.id ? (
-                      <div className="claimPrivate">
-                        <p><strong>Email:</strong> {row.applicant_email || '—'}</p>
-                        <p><strong>Phone:</strong> {row.applicant_phone || '—'}</p>
-                      </div>
-                    ) : null}
-                  </>
-                ) : (
-                  <div className="claimPrivateHint">Claim this lead to unlock contact details.</div>
-                )}
+                <p className="claimPrivateHint">Full contact details revealed after claiming.</p>
 
-                {!row.claimed_by ? (
-                  <div className="claimAction">
-                    <div className="claimButtonsRow">
-                      <button type="button" className="publicPrimaryBtn" disabled={!canClaim || savingId === row.id} onClick={() => claimLead(row.id)}>
-                        {canClaim ? 'Claim Lead' : 'Claim Locked'}
-                      </button>
-                      {isManager && !canClaim ? (
-                        <button type="button" className="ghost" disabled={savingId === row.id} onClick={() => forceClaimAsAdmin(row.id)}>
-                          Force Claim
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="claimAction"><small>{isMine ? 'You own this lead.' : 'Already claimed.'}</small></div>
-                )}
-
-                {isManager ? (
-                  <div className="claimOverride">
-                    <select value={overrideById[row.id] || ''} onChange={(e) => setOverrideById((prev) => ({ ...prev, [row.id]: e.target.value }))}>
-                      <option value="">Override assignee...</option>
-                      {roster.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
-                    </select>
-                    <button type="button" className="ghost" disabled={!overrideById[row.id] || savingId === row.id} onClick={() => overrideClaim(row.id)}>Assign</button>
-                    <button type="button" className="ghost" disabled={savingId === row.id} onClick={() => deleteLead(row.id)}>Delete</button>
-                  </div>
-                ) : null}
+                <button
+                  type="button"
+                  className="publicPrimaryBtn publicBtnBlock"
+                  disabled={!canClaim || savingId === row.id}
+                  onClick={() => claimLead(row.id)}
+                >
+                  {savingId === row.id ? 'Claiming...' : canClaim ? 'Claim Lead' : inPriority ? 'Claim Locked' : 'Unavailable'}
+                </button>
               </article>
             );
           })}
