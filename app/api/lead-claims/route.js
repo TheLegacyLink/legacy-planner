@@ -118,7 +118,7 @@ function timezoneForAgent(name = '') {
   return AGENT_TIMEZONE_BY_NAME[normalize(name)] || 'ET';
 }
 
-async function sendAssignmentEmail({ assignedTo = '', assignedBy = '', row = {} }) {
+async function sendAssignmentEmail({ assignedTo = '', assignedBy = '', row = {}, note = '' }) {
   const to = findUserEmailByName(assignedTo);
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
@@ -151,8 +151,9 @@ async function sendAssignmentEmail({ assignedTo = '', assignedBy = '', row = {} 
     'Please confirm you can complete this sponsorship application.',
     'Also reach out to the client 24 hours before their appointment.',
     '',
+    note ? `Note from ${assignedBy || 'Link'}: ${note}` : '',
     'Thank you.'
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 
   const html = emailFrame(
     'New Sponsorship Application Assignment',
@@ -168,7 +169,8 @@ async function sendAssignmentEmail({ assignedTo = '', assignedBy = '', row = {} 
        <li><strong>Booked Time (Your Timezone):</strong> ${agentTime}</li>
      </ul>
      <p>Please confirm you can complete this sponsorship application.</p>
-     <p>Also reach out to the client <strong>24 hours before</strong> their appointment.</p>`
+     <p>Also reach out to the client <strong>24 hours before</strong> their appointment.</p>
+     ${note ? `<p><strong>Note from ${assignedBy || 'Link'}:</strong> ${note}</p>` : ''}`
   );
 
   try {
@@ -723,7 +725,7 @@ export async function POST(req) {
       await saveJsonStore(BONUS_BOOKINGS_PATH, bonusRows);
     }
 
-    const emailResult = await sendAssignmentEmail({ assignedTo: target.name, assignedBy: actor.name, row: next });
+    const emailResult = await sendAssignmentEmail({ assignedTo: target.name, assignedBy: actor.name, row: next, note: clean(body?.note || '') });
 
     return Response.json({
       ok: true,
