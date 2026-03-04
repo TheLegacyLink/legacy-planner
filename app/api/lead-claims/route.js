@@ -23,6 +23,19 @@ const REFERRED_BY_ALIASES = {
   camorlink: 'Kimora Link'
 };
 
+const AGENT_TIMEZONE_BY_NAME = {
+  'kimora link': 'CT',
+  'kelin brown': 'PT',
+  'jamal holmes': 'ET',
+  'leticia wright': 'MT',
+  'breanna james': 'PT',
+  'dr. breanna': 'PT',
+  'mahogany burns': 'ET',
+  'madalyn adams': 'CT'
+};
+
+const ZONE_OFFSET = { ET: -5, CT: -6, MT: -7, PT: -8, AKT: -9, HT: -10, AT: -4 };
+
 function clean(v = '') {
   return String(v || '').trim();
 }
@@ -65,6 +78,46 @@ function emailFrame(title = '', bodyHtml = '') {
   return `<div style="font-family:Inter,Arial,sans-serif;background:#f8fafc;padding:20px;color:#0f172a;"><div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:#0047AB;color:#fff;padding:16px 20px;text-align:center;font-weight:800;font-size:28px;line-height:1;">THE LEGACY LINK</div><div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;">${title}</h2>${bodyHtml}<p style="margin:16px 0 0;color:#475569;">Please confirm you can complete this sponsorship application.</p><p style="margin:8px 0 0;color:#334155;"><strong>The Legacy Link Support Team</strong></p></div></div></div>`;
 }
 
+function parseDateTime12(raw = '') {
+  const m = String(raw || '').trim().match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return null;
+  const [_, date, h, min, ampm] = m;
+  let hour = Number(h);
+  if (ampm.toUpperCase() === 'PM' && hour < 12) hour += 12;
+  if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+  return { date, hour, minute: Number(min) };
+}
+
+function formatHourMinute(hour24 = 0, minute = 0) {
+  const suffix = hour24 >= 12 ? 'PM' : 'AM';
+  let h = hour24 % 12;
+  if (h === 0) h = 12;
+  return `${h}:${String(minute).padStart(2, '0')} ${suffix}`;
+}
+
+function convertBetweenZones(raw = '', fromZone = 'ET', toZone = 'ET') {
+  const parsed = parseDateTime12(raw);
+  if (!parsed) return '';
+  const from = ZONE_OFFSET[fromZone] ?? -5;
+  const to = ZONE_OFFSET[toZone] ?? -5;
+  const delta = to - from;
+
+  const base = new Date(`${parsed.date}T00:00:00Z`);
+  const minutes = parsed.hour * 60 + parsed.minute + delta * 60;
+  const shifted = new Date(base.getTime() + minutes * 60 * 1000);
+
+  const y = shifted.getUTCFullYear();
+  const mo = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(shifted.getUTCDate()).padStart(2, '0');
+  const hh = shifted.getUTCHours();
+  const mm = shifted.getUTCMinutes();
+  return `${y}-${mo}-${d} ${formatHourMinute(hh, mm)}`;
+}
+
+function timezoneForAgent(name = '') {
+  return AGENT_TIMEZONE_BY_NAME[normalize(name)] || 'ET';
+}
+
 async function sendAssignmentEmail({ assignedTo = '', assignedBy = '', row = {} }) {
   const to = findUserEmailByName(assignedTo);
   const user = clean(process.env.GMAIL_APP_USER);
@@ -75,7 +128,13 @@ async function sendAssignmentEmail({ assignedTo = '', assignedBy = '', row = {} 
   const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
   const subject = `Sponsorship Application Assignment: ${clean(row?.applicant_name) || 'Booked Appointment'}`;
 
-  const timeLine = [clean(row?.requested_at_est), clean(row?.booking_timezone)].filter(Boolean).join(' ');
+  const clientZone = clean(row?.booking_timezone || inferTimezoneFromState(row?.applicant_state) || 'ET');
+  const agentZone = timezoneForAgent(assignedTo);
+  const rawAppointment = clean(row?.requested_at_est || '');
+  const clientTime = rawAppointment ? `${rawAppointment} (${clientZone})` : '—';
+  const agentTimeConverted = rawAppointment ? convertBetweenZones(rawAppointment, clientZone, agentZone) : '';
+  const agentTime = agentTimeConverted ? `${agentTimeConverted} (${agentZone})` : '—';
+
   const text = [
     `Hi ${assignedTo},`,
     '',
@@ -86,9 +145,11 @@ async function sendAssignmentEmail({ assignedTo = '', assignedBy = '', row = {} 
     `Email: ${clean(row?.applicant_email) || '—'}`,
     `State: ${clean(row?.applicant_state) || '—'}`,
     `Referred By: ${clean(row?.referred_by) || '—'}`,
-    `Booked Time: ${timeLine || '—'}`,
+    `Booked Time (Client): ${clientTime}`,
+    `Booked Time (Your Timezone): ${agentTime}`,
     '',
     'Please confirm you can complete this sponsorship application.',
+    'Also reach out to the client 24 hours before their appointment.',
     '',
     'Thank you.'
   ].join('\n');
@@ -103,8 +164,11 @@ async function sendAssignmentEmail({ assignedTo = '', assignedBy = '', row = {} 
        <li><strong>Email:</strong> ${clean(row?.applicant_email) || '—'}</li>
        <li><strong>State:</strong> ${clean(row?.applicant_state) || '—'}</li>
        <li><strong>Referred By:</strong> ${clean(row?.referred_by) || '—'}</li>
-       <li><strong>Booked Time:</strong> ${timeLine || '—'}</li>
-     </ul>`
+       <li><strong>Booked Time (Client):</strong> ${clientTime}</li>
+       <li><strong>Booked Time (Your Timezone):</strong> ${agentTime}</li>
+     </ul>
+     <p>Please confirm you can complete this sponsorship application.</p>
+     <p>Also reach out to the client <strong>24 hours before</strong> their appointment.</p>`
   );
 
   try {
@@ -591,6 +655,8 @@ export async function POST(req) {
       claimed_by: actor.name,
       claimed_at: nowIso(),
       priority_released: true,
+      assignment_status: 'confirmed',
+      assignment_confirmed_at: nowIso(),
       updated_at: nowIso()
     };
 
@@ -630,6 +696,9 @@ export async function POST(req) {
       override_by: actor.name,
       override_at: nowIso(),
       override_note: clean(body?.note || ''),
+      assignment_status: 'pending_confirmation',
+      assignment_requested_at: nowIso(),
+      assignment_confirmed_at: '',
       updated_at: nowIso()
     };
 
@@ -645,6 +714,9 @@ export async function POST(req) {
         override_by: next.override_by,
         override_at: next.override_at,
         override_note: next.override_note,
+        assignment_status: next.assignment_status,
+        assignment_requested_at: next.assignment_requested_at,
+        assignment_confirmed_at: next.assignment_confirmed_at,
         priority_released: true,
         updated_at: next.updated_at
       };
@@ -659,6 +731,70 @@ export async function POST(req) {
       assignmentEmail: emailResult.ok ? 'sent' : 'failed',
       assignmentEmailError: emailResult.ok ? '' : emailResult.error
     });
+  }
+
+
+  if (action === 'confirm_assignment') {
+    const isOwner = normalize(row?.claimed_by) === normalize(actor.name);
+    if (!isOwner && !isManagerRole(actor.role)) {
+      return Response.json({ ok: false, error: 'not_allowed' }, { status: 403 });
+    }
+
+    const next = {
+      ...row,
+      assignment_status: 'confirmed',
+      assignment_confirmed_at: nowIso(),
+      updated_at: nowIso()
+    };
+
+    if (targetStore === 'sponsor') {
+      sponsorRows[sponsorIdx] = next;
+      await saveJsonStore(SPONSORSHIP_BOOKINGS_PATH, sponsorRows);
+    } else {
+      bonusRows[bonusIdx] = {
+        ...bonusRows[bonusIdx],
+        assignment_status: next.assignment_status,
+        assignment_confirmed_at: next.assignment_confirmed_at,
+        updated_at: next.updated_at
+      };
+      await saveJsonStore(BONUS_BOOKINGS_PATH, bonusRows);
+    }
+
+    return Response.json({ ok: true, row: toPortalRow(next, actor.name, actor.role) });
+  }
+
+  if (action === 'reopen_assignment') {
+    if (!isManagerRole(actor.role)) {
+      return Response.json({ ok: false, error: 'manager_only' }, { status: 403 });
+    }
+
+    const next = {
+      ...row,
+      claim_status: 'Open',
+      claimed_by: '',
+      claimed_at: '',
+      assignment_status: 'open',
+      assignment_confirmed_at: '',
+      updated_at: nowIso()
+    };
+
+    if (targetStore === 'sponsor') {
+      sponsorRows[sponsorIdx] = next;
+      await saveJsonStore(SPONSORSHIP_BOOKINGS_PATH, sponsorRows);
+    } else {
+      bonusRows[bonusIdx] = {
+        ...bonusRows[bonusIdx],
+        claim_status: next.claim_status,
+        claimed_by: next.claimed_by,
+        claimed_at: next.claimed_at,
+        assignment_status: next.assignment_status,
+        assignment_confirmed_at: next.assignment_confirmed_at,
+        updated_at: next.updated_at
+      };
+      await saveJsonStore(BONUS_BOOKINGS_PATH, bonusRows);
+    }
+
+    return Response.json({ ok: true, row: toPortalRow(next, actor.name, actor.role) });
   }
 
   if (action === 'release') {

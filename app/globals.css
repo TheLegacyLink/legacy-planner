@@ -1279,3 +1279,10 @@ textarea { min-height: 180px; margin-top: 8px; }
     grid-template-columns: 1fr;
   }
 }
+
+.pendingAssignBox {
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  padding: 8px;
+  border-radius: 10px;
+}

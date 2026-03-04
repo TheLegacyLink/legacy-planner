@@ -207,7 +207,52 @@ export default function LeadClaimsPortalPage() {
     }
   };
 
-  const availableRows = useMemo(() => rows.filter((r) => !clean(r.claimed_by)), [rows]);
+
+  const confirmAssignment = async (leadId) => {
+    if (!leadId) return;
+    setSavingId(leadId);
+    setMessage('');
+    try {
+      const res = await fetch('/api/lead-claims', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'confirm_assignment', bookingId: leadId, actorName: auth.name })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setMessage(data?.error || 'Confirmation failed');
+        return;
+      }
+      setMessage('Assignment confirmed. Removed from pending queue.');
+      await loadRows(true);
+    } finally {
+      setSavingId('');
+    }
+  };
+
+  const reopenAssignment = async (leadId) => {
+    if (!isManager || !leadId) return;
+    setSavingId(leadId);
+    setMessage('');
+    try {
+      const res = await fetch('/api/lead-claims', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reopen_assignment', bookingId: leadId, actorName: auth.name })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setMessage(data?.error || 'Re-open failed');
+        return;
+      }
+      setMessage('Appointment moved back to available queue.');
+      await loadRows(true);
+    } finally {
+      setSavingId('');
+    }
+  };
+
+  const availableRows = useMemo(() => rows.filter((r) => !clean(r.claimed_by) || clean(r.assignment_status) === 'pending_confirmation'), [rows]);
 
   const filteredRows = useMemo(() => {
     const q = normalize(query);
@@ -295,6 +340,8 @@ export default function LeadClaimsPortalPage() {
             const inPriority = Boolean(row.is_priority_window_open && !row.claimed_by);
             const canClaim = Boolean(row.can_claim);
             const isClaimedView = view === 'claimed';
+            const isPendingConfirmation = clean(row.assignment_status) === 'pending_confirmation';
+            const isClaimOwner = normalize(row.claimed_by) === normalize(auth.name);
             const maskedPhone = isClaimedView ? clean(row.applicant_phone || '—') : maskPhone(row.applicant_phone);
             const maskedEmail = isClaimedView ? clean(row.applicant_email || '—') : maskEmail(row.applicant_email);
             const isVip = Boolean(row.is_vip);
@@ -325,6 +372,7 @@ export default function LeadClaimsPortalPage() {
 
                 <p className="muted" style={{ margin: '6px 0 0' }}>{row.applicant_state || '—'} • {clean(row.requested_at_est) || 'No booking time yet'}</p>
                 {inPriority && isMyReferral ? <p className="muted" style={{ margin: '4px 0 0', color: '#92400e' }}>24h priority lock is active for your referral.</p> : null}
+                {isPendingConfirmation ? <p className="muted" style={{ margin: '4px 0 0', color: '#92400e' }}>🟨 Waiting for confirmation from {row.claimed_by || 'assigned agent'}.</p> : null}
                 {isClaimedView ? <p className="muted" style={{ margin: '4px 0 0' }}>Claimed at: {fmtDate(row.claimed_at)}</p> : null}
 
                 <div className="claimPrivate" style={{ marginTop: 10 }}>
@@ -340,14 +388,14 @@ export default function LeadClaimsPortalPage() {
                     <button
                       type="button"
                       className="publicPrimaryBtn publicBtnBlock"
-                      disabled={!canClaim || savingId === row.id}
+                      disabled={!canClaim || isPendingConfirmation || savingId === row.id}
                       onClick={() => claimLead(row.id)}
                     >
-                      {savingId === row.id ? 'Claiming...' : canClaim ? 'Claim Appointment' : inPriority ? 'Claim Locked' : 'Unavailable'}
+                      {savingId === row.id ? 'Claiming...' : isPendingConfirmation ? 'Awaiting Confirmation' : canClaim ? 'Claim Appointment' : inPriority ? 'Claim Locked' : 'Unavailable'}
                     </button>
 
                     {isManager ? (
-                      <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+                      <div style={{ display: 'grid', gap: 6, marginTop: 8 }} className={isPendingConfirmation ? 'pendingAssignBox' : ''}>
                         <select value={overrideById[row.id] || ''} onChange={(e) => setOverrideById((prev) => ({ ...prev, [row.id]: e.target.value }))}>
                           <option value="">Admin assign to...</option>
                           {roster.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
@@ -360,13 +408,25 @@ export default function LeadClaimsPortalPage() {
                         >
                           Assign Appointment (Admin)
                         </button>
+                        {isPendingConfirmation ? (
+                          <button type="button" className="ghost publicBtnBlock" disabled={savingId === row.id} onClick={() => reopenAssignment(row.id)}>
+                            Re-Open Queue (No Confirm)
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                   </>
                 ) : (
-                  <button type="button" className="ghost publicBtnBlock" onClick={() => (typeof window !== 'undefined' ? window.location.assign('/pipeline') : null)}>
-                    Open in Pipeline
-                  </button>
+                  <>
+                    <button type="button" className="ghost publicBtnBlock" onClick={() => (typeof window !== 'undefined' ? window.location.assign('/pipeline') : null)}>
+                      Open in Pipeline
+                    </button>
+                    {isPendingConfirmation && isClaimOwner ? (
+                      <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled={savingId === row.id} onClick={() => confirmAssignment(row.id)} style={{ marginTop: 8 }}>
+                        Confirm I Can Complete This
+                      </button>
+                    ) : null}
+                  </>
                 )}
               </article>
             );
