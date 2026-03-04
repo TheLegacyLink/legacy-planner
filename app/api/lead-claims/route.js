@@ -429,7 +429,16 @@ export async function GET(req) {
       .filter(Boolean)
   );
 
+  const policyBySourceId = new Set(
+    (policyRows || [])
+      .map((p) => clean(p?.source_application_id || p?.sourceApplicationId || p?.applicationId || p?.sponsorshipApplicationId || ''))
+      .filter(Boolean)
+  );
+
   const openQueueRows = mergedClaimRows.filter((row) => {
+    const rowSourceId = clean(row?.source_application_id || row?.id || '');
+    if (rowSourceId && policyBySourceId.has(rowSourceId)) return false;
+
     const key = applicantNameKey(row?.applicant_name || '');
     if (!key) return true;
     return !policyByApplicant.has(key);
