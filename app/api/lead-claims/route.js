@@ -423,12 +423,24 @@ export async function GET(req) {
     ...bonusClaimRows
   ]).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
-  const pendingPipeline = buildPendingPipeline(mergedClaimRows, policyRows);
+  const policyByApplicant = new Set(
+    (policyRows || [])
+      .map((p) => applicantNameKey(p?.applicantName || p?.applicant_name || ''))
+      .filter(Boolean)
+  );
+
+  const openQueueRows = mergedClaimRows.filter((row) => {
+    const key = applicantNameKey(row?.applicant_name || '');
+    if (!key) return true;
+    return !policyByApplicant.has(key);
+  });
+
+  const pendingPipeline = buildPendingPipeline(openQueueRows, policyRows);
 
   return Response.json({
     ok: true,
     viewer: viewer ? { name: viewer.name, role: viewer.role } : null,
-    rows: mergedClaimRows.map((r) => toPortalRow(r, viewer?.name || '', viewerRole)),
+    rows: openQueueRows.map((r) => toPortalRow(r, viewer?.name || '', viewerRole)),
     roster: activeUsers().map((u) => ({
       name: u.name,
       role: u.role,
