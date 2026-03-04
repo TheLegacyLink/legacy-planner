@@ -32,8 +32,11 @@ export async function POST(req) {
   const next = {
     id,
     name: clean(booking?.name),
+    email: clean(booking?.email),
+    phone: clean(booking?.phone),
     state: clean(booking?.state).toUpperCase(),
     requested_at_est: clean(booking?.requested_at_est),
+    requested_timezone: clean(booking?.requested_timezone || booking?.timezone || ''),
     notes: clean(booking?.notes),
     status: clean(booking?.status || 'Booked') || 'Booked',
     created_at: clean(booking?.created_at || nowIso())
