@@ -1,4 +1,5 @@
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import nodemailer from 'nodemailer';
 import users from '../../../data/innerCircleUsers.json';
 import licensedAgents from '../../../data/licensedAgents.json';
 
@@ -52,6 +53,73 @@ function parseFullName(lastFirst = '') {
 
 function activeUsers() {
   return (users || []).filter((u) => u?.active);
+}
+
+function findUserEmailByName(name = '') {
+  const n = normalize(name);
+  const hit = (users || []).find((u) => normalize(u.name) === n);
+  return clean(hit?.email);
+}
+
+function emailFrame(title = '', bodyHtml = '') {
+  return `<div style="font-family:Inter,Arial,sans-serif;background:#f8fafc;padding:20px;color:#0f172a;"><div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:#0047AB;color:#fff;padding:16px 20px;text-align:center;font-weight:800;font-size:28px;line-height:1;">THE LEGACY LINK</div><div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;">${title}</h2>${bodyHtml}<p style="margin:16px 0 0;color:#475569;">Please confirm you can complete this sponsorship application.</p><p style="margin:8px 0 0;color:#334155;"><strong>The Legacy Link Support Team</strong></p></div></div></div>`;
+}
+
+async function sendAssignmentEmail({ assignedTo = '', assignedBy = '', row = {} }) {
+  const to = findUserEmailByName(assignedTo);
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  if (!to || !user || !pass) return { ok: false, error: 'email_not_configured' };
+
+  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+  const subject = `Sponsorship Application Assignment: ${clean(row?.applicant_name) || 'Booked Appointment'}`;
+
+  const timeLine = [clean(row?.requested_at_est), clean(row?.booking_timezone)].filter(Boolean).join(' ');
+  const text = [
+    `Hi ${assignedTo},`,
+    '',
+    `${assignedBy || 'Admin'} assigned a booked sponsorship appointment to you.`,
+    '',
+    `Applicant: ${clean(row?.applicant_name) || '—'}`,
+    `Phone: ${clean(row?.applicant_phone) || '—'}`,
+    `Email: ${clean(row?.applicant_email) || '—'}`,
+    `State: ${clean(row?.applicant_state) || '—'}`,
+    `Referred By: ${clean(row?.referred_by) || '—'}`,
+    `Booked Time: ${timeLine || '—'}`,
+    '',
+    'Please confirm you can complete this sponsorship application.',
+    '',
+    'Thank you.'
+  ].join('\n');
+
+  const html = emailFrame(
+    'New Sponsorship Application Assignment',
+    `<p>Hi <strong>${assignedTo}</strong>,</p>
+     <p><strong>${assignedBy || 'Admin'}</strong> assigned a booked sponsorship appointment to you.</p>
+     <ul style="padding-left:18px;line-height:1.6;">
+       <li><strong>Applicant:</strong> ${clean(row?.applicant_name) || '—'}</li>
+       <li><strong>Phone:</strong> ${clean(row?.applicant_phone) || '—'}</li>
+       <li><strong>Email:</strong> ${clean(row?.applicant_email) || '—'}</li>
+       <li><strong>State:</strong> ${clean(row?.applicant_state) || '—'}</li>
+       <li><strong>Referred By:</strong> ${clean(row?.referred_by) || '—'}</li>
+       <li><strong>Booked Time:</strong> ${timeLine || '—'}</li>
+     </ul>`
+  );
+
+  try {
+    const info = await tx.sendMail({
+      from,
+      to,
+      cc: 'support@thelegacylink.com',
+      subject,
+      text,
+      html
+    });
+    return { ok: true, messageId: info.messageId };
+  } catch (error) {
+    return { ok: false, error: error?.message || 'send_failed' };
+  }
 }
 
 function resolveReferrerName(name = '') {
@@ -583,7 +651,14 @@ export async function POST(req) {
       await saveJsonStore(BONUS_BOOKINGS_PATH, bonusRows);
     }
 
-    return Response.json({ ok: true, row: toPortalRow(next, actor.name, actor.role) });
+    const emailResult = await sendAssignmentEmail({ assignedTo: target.name, assignedBy: actor.name, row: next });
+
+    return Response.json({
+      ok: true,
+      row: toPortalRow(next, actor.name, actor.role),
+      assignmentEmail: emailResult.ok ? 'sent' : 'failed',
+      assignmentEmailError: emailResult.ok ? '' : emailResult.error
+    });
   }
 
   if (action === 'release') {

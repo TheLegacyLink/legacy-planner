@@ -74,11 +74,13 @@ export default function LeadClaimsPortalPage() {
   const [loginError, setLoginError] = useState('');
 
   const [rows, setRows] = useState([]);
+  const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState('');
   const [message, setMessage] = useState('');
   const [query, setQuery] = useState('');
   const [view, setView] = useState('available');
+  const [overrideById, setOverrideById] = useState({});
 
   const isManager = useMemo(() => ['admin', 'manager'].includes(normalize(auth.role)), [auth.role]);
 
@@ -90,6 +92,7 @@ export default function LeadClaimsPortalPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) throw new Error(data?.error || 'Failed to load leads');
       setRows(Array.isArray(data.rows) ? data.rows : []);
+      setRoster(Array.isArray(data.roster) ? data.roster : []);
       if (data?.viewer?.name && data?.viewer?.role) {
         setAuth({ name: data.viewer.name, role: data.viewer.role });
       }
@@ -168,10 +171,37 @@ export default function LeadClaimsPortalPage() {
         return;
       }
 
-      setMessage('Lead claimed successfully. Open your CRM pipeline to continue follow-up.');
+      setMessage('Appointment claimed successfully. Open your CRM pipeline to continue follow-up.');
       setTimeout(() => {
         if (typeof window !== 'undefined') window.location.assign('/pipeline');
       }, 2000);
+    } finally {
+      setSavingId('');
+    }
+  };
+
+  const assignAppointment = async (leadId) => {
+    const targetName = clean(overrideById[leadId]);
+    if (!isManager || !leadId || !targetName) return;
+
+    setSavingId(leadId);
+    setMessage('');
+    try {
+      const res = await fetch('/api/lead-claims', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'override', bookingId: leadId, actorName: auth.name, targetName })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setMessage(data?.error || 'Assign failed');
+        return;
+      }
+      const emailStatus = data?.assignmentEmail === 'sent'
+        ? 'Email sent for confirmation.'
+        : `Assigned, but email failed${data?.assignmentEmailError ? `: ${data.assignmentEmailError}` : '.'}`;
+      setMessage(`Assigned to ${targetName}. ${emailStatus}`);
+      await loadRows(true);
     } finally {
       setSavingId('');
     }
@@ -306,14 +336,33 @@ export default function LeadClaimsPortalPage() {
                 {!isClaimedView ? <p className="claimPrivateHint">Full contact details revealed after claiming.</p> : null}
 
                 {!isClaimedView ? (
-                  <button
-                    type="button"
-                    className="publicPrimaryBtn publicBtnBlock"
-                    disabled={!canClaim || savingId === row.id}
-                    onClick={() => claimLead(row.id)}
-                  >
-                    {savingId === row.id ? 'Claiming...' : canClaim ? 'Claim Appointment' : inPriority ? 'Claim Locked' : 'Unavailable'}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="publicPrimaryBtn publicBtnBlock"
+                      disabled={!canClaim || savingId === row.id}
+                      onClick={() => claimLead(row.id)}
+                    >
+                      {savingId === row.id ? 'Claiming...' : canClaim ? 'Claim Appointment' : inPriority ? 'Claim Locked' : 'Unavailable'}
+                    </button>
+
+                    {isManager ? (
+                      <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+                        <select value={overrideById[row.id] || ''} onChange={(e) => setOverrideById((prev) => ({ ...prev, [row.id]: e.target.value }))}>
+                          <option value="">Admin assign to...</option>
+                          {roster.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                        </select>
+                        <button
+                          type="button"
+                          className="ghost publicBtnBlock"
+                          disabled={!overrideById[row.id] || savingId === row.id}
+                          onClick={() => assignAppointment(row.id)}
+                        >
+                          Assign Appointment (Admin)
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
                 ) : (
                   <button type="button" className="ghost publicBtnBlock" onClick={() => (typeof window !== 'undefined' ? window.location.assign('/pipeline') : null)}>
                     Open in Pipeline
