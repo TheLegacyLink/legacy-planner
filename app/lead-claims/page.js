@@ -18,32 +18,6 @@ function fmtDate(iso = '') {
   return d.toLocaleString();
 }
 
-function isThisWeek(iso = '') {
-  const d = new Date(iso || 0);
-  if (Number.isNaN(d.getTime())) return false;
-  const now = new Date();
-  const day = now.getDay();
-  const diffToMonday = (day + 6) % 7;
-  const monday = new Date(now);
-  monday.setHours(0, 0, 0, 0);
-  monday.setDate(now.getDate() - diffToMonday);
-  return d >= monday;
-}
-
-function isThisMonth(iso = '') {
-  const d = new Date(iso || 0);
-  if (Number.isNaN(d.getTime())) return false;
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-}
-
-function isToday(iso = '') {
-  const d = new Date(iso || 0);
-  if (Number.isNaN(d.getTime())) return false;
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-}
-
 function sourceLabel(row = {}) {
   if (clean(row.source)) return clean(row.source);
   if (clean(row.source_type) === 'bonus') return 'Bonus Booking';
@@ -264,11 +238,14 @@ export default function LeadClaimsPortalPage() {
   }, [availableRows, query]);
 
   const myClaims = useMemo(() => rows.filter((r) => normalize(r.claimed_by) === normalize(auth.name)), [rows, auth.name]);
-  const weeklyClaims = useMemo(() => myClaims.filter((r) => isThisWeek(r.claimed_at)).length, [myClaims]);
-  const monthlyClaims = useMemo(() => myClaims.filter((r) => isToday(r.claimed_at)).length, [myClaims]);
-  const lifetimeClaims = myClaims.length;
+  const pendingConfirmRows = useMemo(() => rows.filter((r) => clean(r.assignment_status) === 'pending_confirmation'), [rows]);
+  const availableToClaimRows = useMemo(() => filteredRows.filter((r) => clean(r.assignment_status) !== 'pending_confirmation'), [filteredRows]);
 
-  const displayedRows = view === 'claimed' ? myClaims : filteredRows;
+  const displayedRows = view === 'claimed'
+    ? myClaims
+    : view === 'pending'
+      ? pendingConfirmRows
+      : availableToClaimRows;
 
   if (!auth.name) {
     return (
@@ -309,7 +286,10 @@ export default function LeadClaimsPortalPage() {
         <div className="claimsQuickTools" style={{ display: 'grid', gap: 8 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button type="button" className={view === 'available' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setView('available')}>
-              Available to Claim ({filteredRows.length})
+              Available to Claim ({availableToClaimRows.length})
+            </button>
+            <button type="button" className={view === 'pending' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setView('pending')}>
+              Awaiting Confirmation ({pendingConfirmRows.length})
             </button>
             <button type="button" className={view === 'claimed' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setView('claimed')}>
               My Claimed Leads ({myClaims.length})
@@ -317,7 +297,12 @@ export default function LeadClaimsPortalPage() {
           </div>
           {myClaims.length ? (
             <div className="claimsMiniClaimed">
-              <strong>Claimed by you today:</strong> {myClaims.filter((r) => isToday(r.claimed_at)).slice(0, 3).map((r) => clean(r.applicant_name)).filter(Boolean).join(' • ')}
+              <strong>Claimed by you today:</strong> {myClaims.slice(0, 3).map((r) => clean(r.applicant_name)).filter(Boolean).join(' • ')}
+            </div>
+          ) : null}
+          {pendingConfirmRows.length ? (
+            <div className="claimsMiniClaimed" style={{ borderColor: '#fcd34d', background: '#fffbeb' }}>
+              <strong>Awaiting confirmation:</strong> {pendingConfirmRows.length} appointment{pendingConfirmRows.length > 1 ? 's' : ''}.
             </div>
           ) : null}
           <input placeholder="Search leads..." value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -330,8 +315,8 @@ export default function LeadClaimsPortalPage() {
         {!displayedRows.length && !loading ? (
           <div className="claimsEmptyState">
             <div className="icon">🛍️</div>
-            <h3>{view === 'claimed' ? 'No claimed leads yet' : 'No available leads'}</h3>
-            <p className="muted">{view === 'claimed' ? 'Once you claim leads, they will show here.' : (isManager ? 'Add new leads in admin tools to populate the queue.' : 'Check back soon for fresh booked appointments.')}</p>
+            <h3>{view === 'claimed' ? 'No claimed leads yet' : view === 'pending' ? 'No pending confirmations' : 'No available leads'}</h3>
+            <p className="muted">{view === 'claimed' ? 'Once you claim leads, they will show here.' : view === 'pending' ? 'Assignments waiting for agent confirmation will appear here.' : (isManager ? 'Add new leads in admin tools to populate the queue.' : 'Check back soon for fresh booked appointments.')}</p>
           </div>
         ) : null}
 
