@@ -49,7 +49,6 @@ function validateRequiredSubmissionFields(record = {}) {
   if (!clean(record.healthStatus)) missing.push('healthStatus');
   if (!clean(record.motivation)) missing.push('motivation');
   if (!clean(record.hoursPerWeek)) missing.push('hoursPerWeek');
-  if (!clean(record.heardFrom)) missing.push('heardFrom');
 
   if (clean(record.hasIncome).toLowerCase() === 'yes' && !clean(record.incomeSource)) missing.push('incomeSource');
   if (clean(record.isLicensed).toLowerCase() === 'yes' && !clean(record.licenseDetails)) missing.push('licenseDetails');

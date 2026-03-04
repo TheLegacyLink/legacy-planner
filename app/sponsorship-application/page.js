@@ -26,7 +26,6 @@ function getFieldErrors(form, termsViewed, referralLocked = false) {
   if (!String(form.healthStatus || '').trim()) fieldErrors.healthStatus = true;
   if (!String(form.motivation || '').trim()) fieldErrors.motivation = true;
   if (!String(form.hoursPerWeek || '').trim()) fieldErrors.hoursPerWeek = true;
-  if (!String(form.heardFrom || '').trim()) fieldErrors.heardFrom = true;
 
   if (form.hasIncome === 'yes' && !form.incomeSource.trim()) fieldErrors.incomeSource = true;
   if (form.isLicensed === 'yes' && !form.licenseDetails.trim()) fieldErrors.licenseDetails = true;
@@ -363,19 +362,6 @@ export default function SponsorshipApplicationPage() {
             <select className={validationErrors.hoursPerWeek ? 'errorInput' : ''} value={form.hoursPerWeek} onChange={(e) => update('hoursPerWeek', e.target.value)}>
               <option value="">Select</option>
               {['0-10 hours', '10-20 hours', '20-30 hours', '30+ hours'].map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </label>
-
-          <label>
-            How did you hear about us?
-            <select
-              className={validationErrors.heardFrom ? 'errorInput' : ''}
-              value={form.heardFrom}
-              onChange={(e) => update('heardFrom', e.target.value)}
-              disabled={Boolean(ref)}
-            >
-              <option value="">Select</option>
-              {['Agent Referral', 'Social Media', 'Friend/Family', 'Event', 'Other'].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </label>
 
