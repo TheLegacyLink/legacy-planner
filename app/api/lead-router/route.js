@@ -877,6 +877,9 @@ async function runDelayedReleasePass({ settings, leads, events, submittedBlockLo
       monthKey: keys.monthKey,
       leadId: row.id,
       externalId: row.externalId || '',
+      name: row.name || '',
+      email: row.email || '',
+      phone: row.phone || '',
       assignedTo: picked.name,
       ok: Boolean(ghlSync?.ok),
       reason: clean(ghlSync?.reason || ''),
@@ -971,6 +974,20 @@ export async function GET(req) {
     total: ghlSyncEvents.length,
     success: ghlSyncEvents.filter((e) => Boolean(e?.ok)).length,
     failed: ghlSyncEvents.filter((e) => !Boolean(e?.ok)).length,
+    recentAttempts: ghlSyncEvents
+      .slice(0, 30)
+      .map((e) => ({
+        timestamp: e.timestamp || '',
+        leadId: e.leadId || '',
+        externalId: e.externalId || '',
+        leadName: e.name || '',
+        leadEmail: e.email || '',
+        leadPhone: e.phone || '',
+        assignedTo: e.assignedTo || '',
+        ok: Boolean(e?.ok),
+        reason: e.reason || '',
+        detail: e.detail || ''
+      })),
     recentFailures: ghlSyncEvents
       .filter((e) => !Boolean(e?.ok))
       .slice(0, 20)
@@ -978,6 +995,7 @@ export async function GET(req) {
         timestamp: e.timestamp || '',
         leadId: e.leadId || '',
         externalId: e.externalId || '',
+        leadName: e.name || '',
         assignedTo: e.assignedTo || '',
         reason: e.reason || '',
         detail: e.detail || ''
@@ -1129,6 +1147,9 @@ export async function PATCH(req) {
         monthKey: keys.monthKey,
         leadId: row.id,
         externalId: row.externalId || '',
+        name: row.name || '',
+        email: row.email || '',
+        phone: row.phone || '',
         assignedTo: pickedName,
         ok: Boolean(ghlSync?.ok),
         reason: clean(ghlSync?.reason || ''),

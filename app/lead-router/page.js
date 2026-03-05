@@ -49,7 +49,7 @@ export default function LeadRouterPage() {
   const [weekUnsubmittedLeads, setWeekUnsubmittedLeads] = useState([]);
   const [bulkTargetAgent, setBulkTargetAgent] = useState('');
   const [selectedWeekLeadIds, setSelectedWeekLeadIds] = useState([]);
-  const [ghlSyncSummary, setGhlSyncSummary] = useState({ total: 0, success: 0, failed: 0, recentFailures: [] });
+  const [ghlSyncSummary, setGhlSyncSummary] = useState({ total: 0, success: 0, failed: 0, recentAttempts: [], recentFailures: [] });
 
   async function load() {
     const res = await fetch('/api/lead-router?runRelease=1', { cache: 'no-store' });
@@ -69,7 +69,7 @@ export default function LeadRouterPage() {
         const valid = new Set(weekRows.map((r) => r.id));
         return prev.filter((id) => valid.has(id));
       });
-      setGhlSyncSummary(data.ghlSyncSummary || { total: 0, success: 0, failed: 0, recentFailures: [] });
+      setGhlSyncSummary(data.ghlSyncSummary || { total: 0, success: 0, failed: 0, recentAttempts: [], recentFailures: [] });
       if (!bulkTargetAgent) setBulkTargetAgent((data.settings?.overflowAgent || data.settings?.agents?.[0]?.name || ''));
     }
     setLoading(false);
@@ -364,21 +364,26 @@ export default function LeadRouterPage() {
               <th>Time</th>
               <th>Lead</th>
               <th>Assigned To</th>
+              <th>Status</th>
               <th>Reason</th>
               <th>Detail</th>
             </tr>
           </thead>
           <tbody>
-            {(ghlSyncSummary?.recentFailures || []).map((f, idx) => (
+            {(ghlSyncSummary?.recentAttempts || []).map((f, idx) => (
               <tr key={`${f.timestamp}-${f.externalId || f.leadId || idx}`}>
                 <td>{fmt(f.timestamp)}</td>
-                <td>{f.externalId || f.leadId || '—'}</td>
+                <td>
+                  <div>{f.leadName || f.externalId || f.leadId || '—'}</div>
+                  <small className="muted">{f.leadEmail || f.leadPhone || '—'}</small>
+                </td>
                 <td>{f.assignedTo || '—'}</td>
-                <td>{f.reason || 'sync_failed'}</td>
+                <td>{f.ok ? 'Success' : 'Failed'}</td>
+                <td>{f.reason || (f.ok ? 'ok' : 'sync_failed')}</td>
                 <td style={{ maxWidth: 420, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.detail || '—'}</td>
               </tr>
             ))}
-            {!(ghlSyncSummary?.recentFailures || []).length ? <tr><td colSpan={5} className="muted">No recent GHL owner sync failures.</td></tr> : null}
+            {!(ghlSyncSummary?.recentAttempts || []).length ? <tr><td colSpan={6} className="muted">No recent GHL owner sync attempts yet.</td></tr> : null}
           </tbody>
         </table>
       </div>
