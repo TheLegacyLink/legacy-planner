@@ -1051,6 +1051,8 @@ export async function PATCH(req) {
 
     const strategy = clean(body?.strategy || 'auto').toLowerCase(); // auto | agent
     const targetAgent = clean(body?.targetAgent || '');
+    const leadIds = Array.isArray(body?.leadIds) ? body.leadIds.map((x) => clean(x)).filter(Boolean) : [];
+    const leadIdSet = new Set(leadIds);
 
     const keys = {
       dateKey: cstDateKey(now),
@@ -1064,6 +1066,7 @@ export async function PATCH(req) {
       .filter((r) => !hasSponsorshipFormSubmitted(r))
       .filter((r) => !isBlockedBySubmittedCrossCheck(r, submittedBlockLookup))
       .filter((r) => !Boolean(r?.manualHold))
+      .filter((r) => leadIdSet.size ? leadIdSet.has(clean(r?.id)) : true)
       .sort((a, b) => new Date(a?.createdAt || 0).getTime() - new Date(b?.createdAt || 0).getTime());
 
     let updated = 0;
@@ -1152,7 +1155,7 @@ export async function PATCH(req) {
       await saveJsonStore(EVENTS_PATH, trimmed);
     }
 
-    return Response.json({ ok: true, mode: 'bulk-release-week-unsubmitted', strategy, targetAgent: targetAgent || null, updated });
+    return Response.json({ ok: true, mode: 'bulk-release-week-unsubmitted', strategy, targetAgent: targetAgent || null, requestedLeadIds: leadIds.length, updated });
   }
 
   const current = withDefaults(await loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS));

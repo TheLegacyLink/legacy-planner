@@ -48,6 +48,7 @@ export default function LeadRouterPage() {
   const [delayedQueue, setDelayedQueue] = useState([]);
   const [weekUnsubmittedLeads, setWeekUnsubmittedLeads] = useState([]);
   const [bulkTargetAgent, setBulkTargetAgent] = useState('');
+  const [selectedWeekLeadIds, setSelectedWeekLeadIds] = useState([]);
   const [ghlSyncSummary, setGhlSyncSummary] = useState({ total: 0, success: 0, failed: 0, recentFailures: [] });
 
   async function load() {
@@ -62,7 +63,12 @@ export default function LeadRouterPage() {
       setCalledLeadRows(data.calledLeadRows || []);
       setReleaseRun(data.releaseRun || {});
       setDelayedQueue(data.delayedQueue || []);
-      setWeekUnsubmittedLeads(data.weekUnsubmittedLeads || []);
+      const weekRows = data.weekUnsubmittedLeads || [];
+      setWeekUnsubmittedLeads(weekRows);
+      setSelectedWeekLeadIds((prev) => {
+        const valid = new Set(weekRows.map((r) => r.id));
+        return prev.filter((id) => valid.has(id));
+      });
       setGhlSyncSummary(data.ghlSyncSummary || { total: 0, success: 0, failed: 0, recentFailures: [] });
       if (!bulkTargetAgent) setBulkTargetAgent((data.settings?.overflowAgent || data.settings?.agents?.[0]?.name || ''));
     }
@@ -139,12 +145,13 @@ export default function LeadRouterPage() {
     await load();
   }
 
-  async function bulkReleaseWeekUnsubmitted(strategy = 'auto') {
+  async function bulkReleaseWeekUnsubmitted(strategy = 'auto', onlySelected = false) {
     const payload = {
       mode: 'bulk-release-week-unsubmitted',
       strategy
     };
     if (strategy === 'agent') payload.targetAgent = bulkTargetAgent;
+    if (onlySelected) payload.leadIds = selectedWeekLeadIds;
 
     const res = await fetch('/api/lead-router', {
       method: 'PATCH',
@@ -158,7 +165,21 @@ export default function LeadRouterPage() {
     }
 
     alert(`Bulk release complete. Updated leads: ${data?.updated ?? 0}`);
+    setSelectedWeekLeadIds([]);
     await load();
+  }
+
+  function toggleWeekLeadSelection(id) {
+    setSelectedWeekLeadIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  }
+
+  function selectAllWeekLeads() {
+    const ids = (weekUnsubmittedLeads || []).slice(0, 250).map((r) => r.id).filter(Boolean);
+    setSelectedWeekLeadIds(ids);
+  }
+
+  function clearWeekLeadSelection() {
+    setSelectedWeekLeadIds([]);
   }
 
   const summary = useMemo(() => {
@@ -388,9 +409,13 @@ export default function LeadRouterPage() {
         <h3 style={{ marginTop: 0 }}>This Week: Unsubmitted Leads</h3>
         <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
           <span className="pill">Unsubmitted this week: {weekUnsubmittedLeads.length}</span>
-          <button type="button" onClick={() => bulkReleaseWeekUnsubmitted('auto')} disabled={!weekUnsubmittedLeads.length}>Auto-Assign Release (Balanced)</button>
+          <span className="pill">Selected: {selectedWeekLeadIds.length}</span>
+          <button type="button" className="ghost" onClick={selectAllWeekLeads} disabled={!weekUnsubmittedLeads.length}>Select Visible</button>
+          <button type="button" className="ghost" onClick={clearWeekLeadSelection} disabled={!selectedWeekLeadIds.length}>Clear Selection</button>
+          <button type="button" onClick={() => bulkReleaseWeekUnsubmitted('auto')} disabled={!weekUnsubmittedLeads.length}>Auto-Assign ALL (Balanced)</button>
+          <button type="button" onClick={() => bulkReleaseWeekUnsubmitted('auto', true)} disabled={!selectedWeekLeadIds.length}>Auto-Assign SELECTED (Balanced)</button>
           <label>
-            Assign All To
+            Target Agent
             <select
               value={bulkTargetAgent}
               onChange={(e) => setBulkTargetAgent(e.target.value)}
@@ -399,12 +424,14 @@ export default function LeadRouterPage() {
               {(settings?.agents || []).map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
             </select>
           </label>
-          <button type="button" className="ghost" onClick={() => bulkReleaseWeekUnsubmitted('agent')} disabled={!weekUnsubmittedLeads.length || !bulkTargetAgent}>Assign All To Selected Agent</button>
+          <button type="button" className="ghost" onClick={() => bulkReleaseWeekUnsubmitted('agent')} disabled={!weekUnsubmittedLeads.length || !bulkTargetAgent}>Assign ALL To Agent</button>
+          <button type="button" className="ghost" onClick={() => bulkReleaseWeekUnsubmitted('agent', true)} disabled={!selectedWeekLeadIds.length || !bulkTargetAgent}>Assign SELECTED To Agent</button>
         </div>
 
         <table>
           <thead>
             <tr>
+              <th>Select</th>
               <th>Lead</th>
               <th>Current Owner</th>
               <th>Created</th>
@@ -416,6 +443,13 @@ export default function LeadRouterPage() {
           <tbody>
             {(weekUnsubmittedLeads || []).slice(0, 250).map((r) => (
               <tr key={r.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedWeekLeadIds.includes(r.id)}
+                    onChange={() => toggleWeekLeadSelection(r.id)}
+                  />
+                </td>
                 <td>
                   <div>{displayLeadName(r)}</div>
                   <small className="muted">{r.email || r.phone || '—'}</small>
@@ -433,7 +467,7 @@ export default function LeadRouterPage() {
                 </td>
               </tr>
             ))}
-            {!(weekUnsubmittedLeads || []).length ? <tr><td colSpan={6} className="muted">No unsubmitted leads found this week.</td></tr> : null}
+            {!(weekUnsubmittedLeads || []).length ? <tr><td colSpan={7} className="muted">No unsubmitted leads found this week.</td></tr> : null}
           </tbody>
         </table>
       </div>
