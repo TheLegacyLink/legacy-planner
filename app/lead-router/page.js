@@ -470,7 +470,6 @@ export default function LeadRouterPage() {
               <th>Current Owner</th>
               <th>Created</th>
               <th>Stage</th>
-              <th>Release Plan</th>
               <th>Release Status</th>
               <th>Manual Hold</th>
             </tr>
@@ -492,15 +491,6 @@ export default function LeadRouterPage() {
                 <td>{r.owner || '—'}</td>
                 <td>{fmt(r.createdAt)}</td>
                 <td>{r.stage || 'New'}</td>
-                <td>
-                  <select
-                    value={r.releaseMode || 'live'}
-                    onChange={(e) => setLeadReleaseMode(r.id, e.target.value)}
-                  >
-                    <option value="live">Immediate</option>
-                    <option value="delayed24h">Delay 24h</option>
-                  </select>
-                </td>
                 <td>{r.releaseStatus || '—'}</td>
                 <td>
                   <input
@@ -511,7 +501,7 @@ export default function LeadRouterPage() {
                 </td>
               </tr>
             ))}
-            {!(weekUnsubmittedLeads || []).length ? <tr><td colSpan={8} className="muted">No unsubmitted leads found this week.</td></tr> : null}
+            {!(weekUnsubmittedLeads || []).length ? <tr><td colSpan={7} className="muted">No unsubmitted leads found this week.</td></tr> : null}
           </tbody>
         </table>
       </div>
@@ -617,6 +607,7 @@ export default function LeadRouterPage() {
           <h3 style={{ marginTop: 0, marginBottom: 0 }}>Agent Limits & Windows (CST)</h3>
           <button type="button" onClick={saveAgentLimits} disabled={saving}>Save Limits</button>
         </div>
+        <small className="muted" style={{ display: 'block', marginBottom: 8 }}>Paused controls immediate/live assignment. 24h Auto controls which agents can receive delayed auto-release leads.</small>
         <table>
           <thead>
             <tr>
@@ -624,7 +615,8 @@ export default function LeadRouterPage() {
               <th>Today</th>
               <th>Week</th>
               <th>Month</th>
-              <th>Paused</th>
+              <th>Paused (Instant)</th>
+              <th>24h Auto</th>
               <th>Start</th>
               <th>End</th>
               <th>Day Cap</th>
@@ -650,6 +642,18 @@ export default function LeadRouterPage() {
                         setSettings((s) => ({ ...s, agents }));
                         setIsDirty(true);
                         // Persist pause/unpause immediately so refresh cannot revert it.
+                        savePatch({ agents });
+                      }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(a.delayedReleaseEnabled)}
+                      onChange={(e) => {
+                        const agents = agentRows.map((x) => x.name === a.name ? { ...x, delayedReleaseEnabled: e.target.checked } : x);
+                        setSettings((s) => ({ ...s, agents }));
+                        setIsDirty(true);
                         savePatch({ agents });
                       }}
                     />

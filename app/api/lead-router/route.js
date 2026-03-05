@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS = {
     name,
     active: true,
     paused: false,
+    delayedReleaseEnabled: false,
     windowStart: '09:00',
     windowEnd: '21:00',
     capPerDay: null,
@@ -244,23 +245,35 @@ function computeYesterdayCounts(settings, events, now = new Date()) {
   return out;
 }
 
+function agentWithinCapsAndWindow(agent, settings, counts, minute) {
+  const startMin = parseTimeToMin(agent.windowStart || '00:00');
+  const endMin = parseTimeToMin(agent.windowEnd || '23:59');
+  const inWindow = minute >= startMin && minute <= endMin;
+  if (!inWindow) return false;
+
+  const capDay = agent.capPerDay == null ? Number(settings.maxPerDay || 0) : Number(agent.capPerDay || 0);
+  const capWeek = agent.capPerWeek == null ? Number(settings.maxPerWeek || 0) : Number(agent.capPerWeek || 0);
+  const capMonth = agent.capPerMonth == null ? Number(settings.maxPerMonth || 0) : Number(agent.capPerMonth || 0);
+
+  const count = counts[agent.name] || { today: 0, week: 0, month: 0 };
+  if (capDay > 0 && count.today >= capDay) return false;
+  if (capWeek > 0 && count.week >= capWeek) return false;
+  if (capMonth > 0 && count.month >= capMonth) return false;
+  return true;
+}
+
 function getEligibleAgents(settings, counts, minute) {
   return settings.agents.filter((a) => {
     if (!a.active || a.paused) return false;
-    const startMin = parseTimeToMin(a.windowStart || '00:00');
-    const endMin = parseTimeToMin(a.windowEnd || '23:59');
-    const inWindow = minute >= startMin && minute <= endMin;
-    if (!inWindow) return false;
+    return agentWithinCapsAndWindow(a, settings, counts, minute);
+  });
+}
 
-    const capDay = a.capPerDay == null ? Number(settings.maxPerDay || 0) : Number(a.capPerDay || 0);
-    const capWeek = a.capPerWeek == null ? Number(settings.maxPerWeek || 0) : Number(a.capPerWeek || 0);
-    const capMonth = a.capPerMonth == null ? Number(settings.maxPerMonth || 0) : Number(a.capPerMonth || 0);
-
-    const count = counts[a.name] || { today: 0, week: 0, month: 0 };
-    if (capDay > 0 && count.today >= capDay) return false;
-    if (capWeek > 0 && count.week >= capWeek) return false;
-    if (capMonth > 0 && count.month >= capMonth) return false;
-    return true;
+function getDelayedEligibleAgents(settings, counts, minute) {
+  return settings.agents.filter((a) => {
+    if (!a.active) return false;
+    if (!Boolean(a.delayedReleaseEnabled)) return false;
+    return agentWithinCapsAndWindow(a, settings, counts, minute);
   });
 }
 
@@ -273,6 +286,7 @@ function withDefaults(raw = {}) {
       name,
       active: current?.active ?? true,
       paused: current?.paused ?? false,
+      delayedReleaseEnabled: current?.delayedReleaseEnabled ?? false,
       windowStart: clean(current?.windowStart || '09:00') || '09:00',
       windowEnd: clean(current?.windowEnd || '21:00') || '21:00',
       capPerDay: current?.capPerDay == null || current?.capPerDay === '' ? null : Number(current.capPerDay),
@@ -802,7 +816,7 @@ async function runDelayedReleasePass({ settings, leads, events, submittedBlockLo
       continue;
     }
 
-    const eligible = getEligibleAgents(settings, counts, minute)
+    const eligible = getDelayedEligibleAgents(settings, counts, minute)
       .filter((a) => a.name !== clean(settings?.overflowAgent || ''));
 
     if (!eligible.length) {
@@ -919,11 +933,11 @@ function buildWeekUnsubmittedLeads(leads = [], submittedBlockLookup = new Set(),
 
 function pickAutoBulkAgent(settings = {}, counts = {}, events = [], now = new Date()) {
   const minute = cstMinuteOfDay(now);
-  const eligibleNow = getEligibleAgents(settings, counts, minute);
+  const eligibleNow = getDelayedEligibleAgents(settings, counts, minute);
   if (eligibleNow.length) return pickBalancedEligible(eligibleNow, counts, events, computeYesterdayCounts(settings, events, now));
 
-  const active = (settings?.agents || []).filter((a) => a.active && !a.paused);
-  if (active.length) return active[0];
+  const delayedActive = (settings?.agents || []).filter((a) => a.active && Boolean(a.delayedReleaseEnabled));
+  if (delayedActive.length) return delayedActive[0];
 
   return (settings?.agents || [])[0] || null;
 }
