@@ -970,36 +970,65 @@ export async function GET(req) {
     .filter((e) => clean(e?.type || '') === 'ghl_owner_sync')
     .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
 
+  const leadById = new Map();
+  const leadByExternalId = new Map();
+  const leadByEmail = new Map();
+  const leadByPhone = new Map();
+  for (const row of leads || []) {
+    if (clean(row?.id)) leadById.set(clean(row.id), row);
+    if (clean(row?.externalId)) leadByExternalId.set(clean(row.externalId), row);
+    if (clean(row?.email)) leadByEmail.set(clean(row.email).toLowerCase(), row);
+    if (clean(row?.phone)) leadByPhone.set(normalizePhone(row.phone), row);
+  }
+
+  const resolveLeadForSyncEvent = (e = {}) => {
+    const byId = leadById.get(clean(e?.leadId || ''));
+    if (byId) return byId;
+    const byExt = leadByExternalId.get(clean(e?.externalId || ''));
+    if (byExt) return byExt;
+    const byEmail = leadByEmail.get(clean(e?.email || '').toLowerCase());
+    if (byEmail) return byEmail;
+    const byPhone = leadByPhone.get(normalizePhone(e?.phone || ''));
+    if (byPhone) return byPhone;
+    return null;
+  };
+
   const ghlSyncSummary = {
     total: ghlSyncEvents.length,
     success: ghlSyncEvents.filter((e) => Boolean(e?.ok)).length,
     failed: ghlSyncEvents.filter((e) => !Boolean(e?.ok)).length,
     recentAttempts: ghlSyncEvents
       .slice(0, 30)
-      .map((e) => ({
-        timestamp: e.timestamp || '',
-        leadId: e.leadId || '',
-        externalId: e.externalId || '',
-        leadName: e.name || '',
-        leadEmail: e.email || '',
-        leadPhone: e.phone || '',
-        assignedTo: e.assignedTo || '',
-        ok: Boolean(e?.ok),
-        reason: e.reason || '',
-        detail: e.detail || ''
-      })),
+      .map((e) => {
+        const row = resolveLeadForSyncEvent(e);
+        return {
+          timestamp: e.timestamp || '',
+          leadId: e.leadId || '',
+          externalId: e.externalId || '',
+          leadName: e.name || clean(row?.name || ''),
+          leadEmail: e.email || clean(row?.email || ''),
+          leadPhone: e.phone || clean(row?.phone || ''),
+          assignedTo: e.assignedTo || '',
+          ok: Boolean(e?.ok),
+          reason: e.reason || '',
+          detail: e.detail || ''
+        };
+      }),
     recentFailures: ghlSyncEvents
       .filter((e) => !Boolean(e?.ok))
       .slice(0, 20)
-      .map((e) => ({
-        timestamp: e.timestamp || '',
-        leadId: e.leadId || '',
-        externalId: e.externalId || '',
-        leadName: e.name || '',
-        assignedTo: e.assignedTo || '',
-        reason: e.reason || '',
-        detail: e.detail || ''
-      }))
+      .map((e) => {
+        const row = resolveLeadForSyncEvent(e);
+        return {
+          timestamp: e.timestamp || '',
+          leadId: e.leadId || '',
+          externalId: e.externalId || '',
+          leadName: e.name || clean(row?.name || ''),
+          assignedTo: e.assignedTo || '',
+          reason: e.reason || '',
+          detail: e.detail || ''
+        };
+      })
   };
   const delayedQueue = (leads || [])
     .filter((r) => clean(r?.releaseMode || '').toLowerCase() === 'delayed24h' && clean(r?.releaseStatus || '') !== 'released_to_agent')
