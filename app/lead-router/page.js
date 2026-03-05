@@ -44,9 +44,14 @@ export default function LeadRouterPage() {
   const [callMetrics, setCallMetrics] = useState({ totals: {}, byOwner: [] });
   const [calledLeadRows, setCalledLeadRows] = useState([]);
   const [callDrilldown, setCallDrilldown] = useState(null);
+  const [releaseRun, setReleaseRun] = useState({});
+  const [delayedQueue, setDelayedQueue] = useState([]);
+  const [weekUnsubmittedLeads, setWeekUnsubmittedLeads] = useState([]);
+  const [bulkTargetAgent, setBulkTargetAgent] = useState('');
+  const [ghlSyncSummary, setGhlSyncSummary] = useState({ total: 0, success: 0, failed: 0, recentFailures: [] });
 
   async function load() {
-    const res = await fetch('/api/lead-router', { cache: 'no-store' });
+    const res = await fetch('/api/lead-router?runRelease=1', { cache: 'no-store' });
     const data = await res.json().catch(() => ({}));
     if (res.ok && data?.ok) {
       if (!isDirty) setSettings(data.settings);
@@ -55,6 +60,11 @@ export default function LeadRouterPage() {
       setTomorrowStartOrder(data.tomorrowStartOrder || []);
       setCallMetrics(data.callMetrics || { totals: {}, byOwner: [] });
       setCalledLeadRows(data.calledLeadRows || []);
+      setReleaseRun(data.releaseRun || {});
+      setDelayedQueue(data.delayedQueue || []);
+      setWeekUnsubmittedLeads(data.weekUnsubmittedLeads || []);
+      setGhlSyncSummary(data.ghlSyncSummary || { total: 0, success: 0, failed: 0, recentFailures: [] });
+      if (!bulkTargetAgent) setBulkTargetAgent((data.settings?.overflowAgent || data.settings?.agents?.[0]?.name || ''));
     }
     setLoading(false);
   }
@@ -103,8 +113,52 @@ export default function LeadRouterPage() {
     });
   }
 
+  async function saveRoutingSettings() {
+    await savePatch({
+      enabled: Boolean(settings?.enabled),
+      routingMode: settings?.routingMode || 'live',
+      delayedReleaseHours: Number(settings?.delayedReleaseHours || 24)
+    });
+  }
+
   async function saveAgentLimits() {
     await savePatch({ agents: settings?.agents || [] });
+  }
+
+  async function setManualHold(leadId, hold) {
+    const res = await fetch('/api/lead-router', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'set-manual-hold', leadId, hold })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) {
+      alert(`Manual hold update failed: ${data?.error || 'unknown_error'}`);
+      return;
+    }
+    await load();
+  }
+
+  async function bulkReleaseWeekUnsubmitted(strategy = 'auto') {
+    const payload = {
+      mode: 'bulk-release-week-unsubmitted',
+      strategy
+    };
+    if (strategy === 'agent') payload.targetAgent = bulkTargetAgent;
+
+    const res = await fetch('/api/lead-router', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) {
+      alert(`Bulk release failed: ${data?.error || 'unknown_error'}`);
+      return;
+    }
+
+    alert(`Bulk release complete. Updated leads: ${data?.updated ?? 0}`);
+    await load();
   }
 
   const summary = useMemo(() => {
@@ -147,6 +201,41 @@ export default function LeadRouterPage() {
           disabled={saving}
         >
           Router: {settings.enabled ? 'ON' : 'OFF'}
+        </button>
+
+        <label>
+          Agent Routing
+          <select
+            value={settings.routingMode || 'live'}
+            onChange={(e) => {
+              setSettings((s) => ({ ...s, routingMode: e.target.value }));
+              setIsDirty(true);
+            }}
+            style={{ marginLeft: 6 }}
+          >
+            <option value="live">Live (instant)</option>
+            <option value="delayed24h">Delayed (hold before release)</option>
+          </select>
+        </label>
+
+        {settings.routingMode === 'delayed24h' ? (
+          <label>
+            Hold Hours
+            <input
+              type="number"
+              min={1}
+              value={settings.delayedReleaseHours ?? 24}
+              onChange={(e) => {
+                setSettings((s) => ({ ...s, delayedReleaseHours: Number(e.target.value || 24) }));
+                setIsDirty(true);
+              }}
+              style={{ marginLeft: 6, width: 80 }}
+            />
+          </label>
+        ) : null}
+
+        <button type="button" className="ghost" onClick={saveRoutingSettings} disabled={saving}>
+          Save Routing
         </button>
 
         <label>
@@ -213,6 +302,140 @@ export default function LeadRouterPage() {
         <button type="button" className="ghost" onClick={() => savePatch(settings)} disabled={saving}>
           Save All
         </button>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 10 }}>
+        <h3 style={{ marginTop: 0 }}>Delayed Release Monitor</h3>
+        <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <span className="pill">Released now: {releaseRun?.released ?? 0}</span>
+          <span className="pill">Waiting window: {releaseRun?.waitingWindow ?? 0}</span>
+          <span className="pill">Waiting eligible agent: {releaseRun?.waitingEligibleAgent ?? 0}</span>
+          <span className="pill">Manual hold: {releaseRun?.blockedManualHold ?? 0}</span>
+          <span className="pill">Submitted/blocked: {releaseRun?.blockedSubmitted ?? 0}</span>
+        </div>
+        <small className="muted">Delayed mode rule: lead stays owner-only until hold window expires. At/after the hold time, if no form submission and not manual hold, it routes to the next eligible active agent.</small>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 10 }}>
+        <h3 style={{ marginTop: 0 }}>GHL Owner Sync Health</h3>
+        <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <span className="pill">Total sync attempts: {ghlSyncSummary?.total ?? 0}</span>
+          <span className="pill onpace">Success: {ghlSyncSummary?.success ?? 0}</span>
+          <span className="pill atrisk">Failed: {ghlSyncSummary?.failed ?? 0}</span>
+        </div>
+        <table style={{ marginTop: 8 }}>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Lead</th>
+              <th>Assigned To</th>
+              <th>Reason</th>
+              <th>Detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(ghlSyncSummary?.recentFailures || []).map((f, idx) => (
+              <tr key={`${f.timestamp}-${f.externalId || f.leadId || idx}`}>
+                <td>{fmt(f.timestamp)}</td>
+                <td>{f.externalId || f.leadId || '—'}</td>
+                <td>{f.assignedTo || '—'}</td>
+                <td>{f.reason || 'sync_failed'}</td>
+                <td style={{ maxWidth: 420, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.detail || '—'}</td>
+              </tr>
+            ))}
+            {!(ghlSyncSummary?.recentFailures || []).length ? <tr><td colSpan={5} className="muted">No recent GHL owner sync failures.</td></tr> : null}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 10 }}>
+        <h3 style={{ marginTop: 0 }}>Delayed Queue (Pre-Release Leads)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Lead</th>
+              <th>Owner</th>
+              <th>Release At</th>
+              <th>Status</th>
+              <th>Manual Hold</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(delayedQueue || []).map((r) => (
+              <tr key={r.id}>
+                <td>
+                  <div>{displayLeadName(r)}</div>
+                  <small className="muted">{r.email || r.phone || '—'}</small>
+                </td>
+                <td>{r.owner || '—'}</td>
+                <td>{fmt(r.releaseEligibleAt)}</td>
+                <td>{r.releaseStatus || 'owner_window'}</td>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(r.manualHold)}
+                    onChange={(e) => setManualHold(r.id, e.target.checked)}
+                  />
+                </td>
+              </tr>
+            ))}
+            {!(delayedQueue || []).length ? <tr><td colSpan={5} className="muted">No delayed leads waiting right now.</td></tr> : null}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 10 }}>
+        <h3 style={{ marginTop: 0 }}>This Week: Unsubmitted Leads</h3>
+        <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+          <span className="pill">Unsubmitted this week: {weekUnsubmittedLeads.length}</span>
+          <button type="button" onClick={() => bulkReleaseWeekUnsubmitted('auto')} disabled={!weekUnsubmittedLeads.length}>Auto-Assign Release (Balanced)</button>
+          <label>
+            Assign All To
+            <select
+              value={bulkTargetAgent}
+              onChange={(e) => setBulkTargetAgent(e.target.value)}
+              style={{ marginLeft: 6 }}
+            >
+              {(settings?.agents || []).map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
+            </select>
+          </label>
+          <button type="button" className="ghost" onClick={() => bulkReleaseWeekUnsubmitted('agent')} disabled={!weekUnsubmittedLeads.length || !bulkTargetAgent}>Assign All To Selected Agent</button>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Lead</th>
+              <th>Current Owner</th>
+              <th>Created</th>
+              <th>Stage</th>
+              <th>Release Status</th>
+              <th>Manual Hold</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(weekUnsubmittedLeads || []).slice(0, 250).map((r) => (
+              <tr key={r.id}>
+                <td>
+                  <div>{displayLeadName(r)}</div>
+                  <small className="muted">{r.email || r.phone || '—'}</small>
+                </td>
+                <td>{r.owner || '—'}</td>
+                <td>{fmt(r.createdAt)}</td>
+                <td>{r.stage || 'New'}</td>
+                <td>{r.releaseStatus || '—'}</td>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(r.manualHold)}
+                    onChange={(e) => setManualHold(r.id, e.target.checked)}
+                  />
+                </td>
+              </tr>
+            ))}
+            {!(weekUnsubmittedLeads || []).length ? <tr><td colSpan={6} className="muted">No unsubmitted leads found this week.</td></tr> : null}
+          </tbody>
+        </table>
       </div>
 
       <div className="panel" style={{ marginBottom: 10 }}>

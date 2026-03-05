@@ -10,6 +10,8 @@ const SPONSORSHIP_PATH = 'stores/sponsorship-applications.json';
 const DEFAULT_SETTINGS = {
   enabled: true,
   mode: 'random',
+  routingMode: 'live', // live | delayed24h
+  delayedReleaseHours: 24,
   maxPerDay: 2,
   maxPerWeek: 14,
   maxPerMonth: 60,
@@ -35,6 +37,82 @@ const DEFAULT_SETTINGS = {
 
 function clean(v = '') {
   return String(v || '').trim();
+}
+
+function safeJsonParse(raw, fallback = {}) {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function resolveOwnerUserId(assignedToName = '') {
+  const map = safeJsonParse(process.env.GHL_USER_ID_MAP_JSON || '{}', {});
+  const direct = map?.[assignedToName];
+  if (direct) return String(direct);
+
+  const fallback = clean(process.env.GHL_FALLBACK_USER_ID || '');
+  return fallback || '';
+}
+
+async function updateGhlContactOwner({ contactId, assignedUserId }) {
+  const token = clean(process.env.GHL_API_TOKEN || '');
+  if (!token || !contactId || !assignedUserId) {
+    return { ok: false, reason: 'missing_ghl_config_or_ids' };
+  }
+
+  const body = JSON.stringify({ assignedTo: assignedUserId });
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+    Version: '2021-07-28'
+  };
+
+  const bases = [
+    clean(process.env.GHL_API_BASE_URL || ''),
+    'https://services.leadconnectorhq.com',
+    'https://rest.gohighlevel.com'
+  ].filter(Boolean);
+
+  const paths = [
+    `/contacts/${encodeURIComponent(contactId)}`,
+    `/v1/contacts/${encodeURIComponent(contactId)}`
+  ];
+
+  let lastError = 'unknown';
+
+  for (const base of bases) {
+    for (const path of paths) {
+      const url = `${base.replace(/\/$/, '')}${path}`;
+      try {
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers,
+          body,
+          cache: 'no-store'
+        });
+
+        if (res.ok) {
+          return { ok: true, url, status: res.status };
+        }
+
+        const text = await res.text().catch(() => '');
+        lastError = `${url} -> ${res.status} ${text.slice(0, 200)}`;
+      } catch (err) {
+        lastError = `${url} -> ${String(err?.message || err)}`;
+      }
+    }
+  }
+
+  return { ok: false, reason: 'ghl_update_failed', detail: lastError };
+}
+
+async function syncGhlOwnerForRelease({ row = {}, assignedTo = '' } = {}) {
+  const contactId = clean(row?.externalId || row?.contactId || row?.id || '');
+  const assignedUserId = resolveOwnerUserId(assignedTo);
+  if (!contactId || !assignedUserId) return { ok: false, reason: 'missing_contact_or_user' };
+  return await updateGhlContactOwner({ contactId, assignedUserId });
 }
 
 function normalizeName(v = '') {
@@ -90,6 +168,13 @@ function cstDateKeyFromIso(iso = '') {
   return cstDateKey(d);
 }
 
+function cstWeekKeyFromIso(iso = '') {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return cstWeekKey(d);
+}
+
 function isoWeekKeyFromParts(year, month, day) {
   const d = new Date(Date.UTC(year, month - 1, day));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
@@ -120,6 +205,22 @@ function parseTimeToMin(v = '00:00') {
   return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
 }
 
+function plusHoursIso(iso = '', hours = 24) {
+  const ts = new Date(iso || Date.now()).getTime();
+  if (!Number.isFinite(ts) || ts <= 0) return '';
+  return new Date(ts + (Number(hours || 24) * 60 * 60 * 1000)).toISOString();
+}
+
+function hasSponsorshipFormSubmitted(row = {}) {
+  if (clean(row?.formCompletedAt)) return true;
+  const stage = clean(row?.stage || '').toLowerCase();
+  return ['form completed', 'policy started', 'approved', 'onboarding started', 'moved forward'].includes(stage);
+}
+
+function shouldRunDelayedRelease(settings = {}) {
+  // Process delayed-release rows even if mode later switches back to live.
+  return Boolean(settings?.enabled);
+}
 
 function minutesSince(iso = '') {
   if (!iso) return 0;
@@ -177,6 +278,10 @@ function withDefaults(raw = {}) {
       capPerMonth: current?.capPerMonth == null || current?.capPerMonth === '' ? null : Number(current.capPerMonth)
     };
   });
+
+  const routingMode = clean(merged.routingMode || 'live').toLowerCase();
+  merged.routingMode = routingMode === 'delayed24h' ? 'delayed24h' : 'live';
+  merged.delayedReleaseHours = Math.max(1, Number(merged.delayedReleaseHours || 24));
   return merged;
 }
 
@@ -395,12 +500,14 @@ function enrichEvents(events = [], sponsorshipMap = new Map()) {
   });
 }
 
+const ASSIGNMENT_EVENT_TYPES = new Set(['assigned', 'delayed_release_assigned', 'reassigned_sla', 'manual_bulk_release_assigned']);
+
 function buildAgentCounts(settings, events, keys) {
   const counts = {};
   for (const a of settings.agents) counts[a.name] = { today: 0, week: 0, month: 0 };
 
   for (const e of events) {
-    if (e?.type !== 'assigned') continue;
+    if (!ASSIGNMENT_EVENT_TYPES.has(clean(e?.type || ''))) continue;
     const owner = clean(e?.assignedTo || '');
     if (!counts[owner]) counts[owner] = { today: 0, week: 0, month: 0 };
     if (e?.dateKey === keys.dateKey) counts[owner].today += 1;
@@ -596,11 +703,201 @@ function buildCallMetrics(settings, leads = [], sponsorshipMap = new Map(), owne
   };
 }
 
-export async function GET() {
+async function runDelayedReleasePass({ settings, leads, events, now = new Date() }) {
+  if (!shouldRunDelayedRelease(settings)) {
+    return { released: 0, blockedSubmitted: 0, blockedManualHold: 0, waitingWindow: 0, waitingEligibleAgent: 0 };
+  }
+
+  const keys = {
+    dateKey: cstDateKey(now),
+    weekKey: cstWeekKey(now),
+    monthKey: cstMonthKey(now)
+  };
+  const minute = cstMinuteOfDay(now);
+  const yesterdayCounts = computeYesterdayCounts(settings, events, now);
+  const counts = buildAgentCounts(settings, events, keys);
+
+  const out = {
+    released: 0,
+    blockedSubmitted: 0,
+    blockedManualHold: 0,
+    waitingWindow: 0,
+    waitingEligibleAgent: 0
+  };
+
+  const releaseCandidates = [...(leads || [])]
+    .filter((r) => clean(r?.releaseMode || '').toLowerCase() === 'delayed24h')
+    .sort((a, b) => new Date(a?.createdAt || 0).getTime() - new Date(b?.createdAt || 0).getTime());
+
+  for (const row of releaseCandidates) {
+    if (clean(row?.releaseStatus || '') === 'released_to_agent') continue;
+
+    if (hasSponsorshipFormSubmitted(row)) {
+      if (clean(row?.releaseStatus || '') !== 'blocked_submitted') {
+        row.releaseStatus = 'blocked_submitted';
+        row.updatedAt = nowIso();
+      }
+      out.blockedSubmitted += 1;
+      continue;
+    }
+
+    if (Boolean(row?.manualHold)) {
+      if (clean(row?.releaseStatus || '') !== 'manual_hold') {
+        row.releaseStatus = 'manual_hold';
+        row.updatedAt = nowIso();
+      }
+      out.blockedManualHold += 1;
+      continue;
+    }
+
+    const releaseAt = new Date(row?.releaseEligibleAt || 0).getTime();
+    if (!Number.isFinite(releaseAt) || releaseAt <= 0 || now.getTime() < releaseAt) {
+      out.waitingWindow += 1;
+      continue;
+    }
+
+    const eligible = getEligibleAgents(settings, counts, minute)
+      .filter((a) => a.name !== clean(settings?.overflowAgent || ''));
+
+    if (!eligible.length) {
+      row.releaseStatus = 'ready_waiting_agent';
+      row.updatedAt = nowIso();
+      out.waitingEligibleAgent += 1;
+      continue;
+    }
+
+    const picked = pickBalancedEligible(eligible, counts, events, yesterdayCounts);
+    if (!picked?.name) {
+      row.releaseStatus = 'ready_waiting_agent';
+      row.updatedAt = nowIso();
+      out.waitingEligibleAgent += 1;
+      continue;
+    }
+
+    const previousOwner = clean(row?.owner || settings?.overflowAgent || 'Kimora Link');
+    row.owner = picked.name;
+    row.releaseStatus = 'released_to_agent';
+    row.releasedAt = nowIso();
+    row.releaseReason = '24h_no_sponsorship_submit';
+    row.updatedAt = nowIso();
+
+    const toCount = counts[picked.name] || { today: 0, week: 0, month: 0 };
+    toCount.today += 1;
+    toCount.week += 1;
+    toCount.month += 1;
+    counts[picked.name] = toCount;
+
+    events.push({
+      id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: 'delayed_release_assigned',
+      timestamp: nowIso(),
+      dateKey: keys.dateKey,
+      weekKey: keys.weekKey,
+      monthKey: keys.monthKey,
+      leadId: row.id,
+      externalId: row.externalId || '',
+      name: row.name || '',
+      email: row.email || '',
+      phone: row.phone || '',
+      assignedTo: picked.name,
+      previousOwner,
+      reason: '24h_no_sponsorship_submit',
+      mode: settings.mode,
+      routingMode: settings.routingMode || 'live'
+    });
+
+    await postOutboundAssignment(settings, {
+      event: 'lead_delayed_release_assigned',
+      assignedTo: picked.name,
+      previousOwner,
+      reason: '24h_no_sponsorship_submit',
+      timestamp: nowIso(),
+      message: `Delayed-release lead assigned to ${picked.name}: ${row.name} (${row.phone || row.email || 'no contact'})`,
+      lead: {
+        id: row.externalId || row.id,
+        name: row.name,
+        email: row.email,
+        phone: row.phone
+      }
+    });
+
+    const ghlSync = await syncGhlOwnerForRelease({ row, assignedTo: picked.name });
+    events.push({
+      id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: 'ghl_owner_sync',
+      timestamp: nowIso(),
+      dateKey: keys.dateKey,
+      weekKey: keys.weekKey,
+      monthKey: keys.monthKey,
+      leadId: row.id,
+      externalId: row.externalId || '',
+      assignedTo: picked.name,
+      ok: Boolean(ghlSync?.ok),
+      reason: clean(ghlSync?.reason || ''),
+      detail: clean(ghlSync?.detail || ''),
+      status: ghlSync?.status || null
+    });
+
+    out.released += 1;
+  }
+
+  return out;
+}
+
+function buildWeekUnsubmittedLeads(leads = [], now = new Date()) {
+  const currentWeek = cstWeekKey(now);
+  return (leads || [])
+    .filter((r) => cstWeekKeyFromIso(r?.createdAt || r?.updatedAt || '') === currentWeek)
+    .filter((r) => !hasSponsorshipFormSubmitted(r))
+    .sort((a, b) => new Date(b?.createdAt || b?.updatedAt || 0).getTime() - new Date(a?.createdAt || a?.updatedAt || 0).getTime())
+    .slice(0, 500)
+    .map((r) => ({
+      id: r.id,
+      externalId: r.externalId || '',
+      name: r.name || '',
+      email: r.email || '',
+      phone: r.phone || '',
+      owner: r.owner || '',
+      stage: r.stage || '',
+      createdAt: r.createdAt || '',
+      releaseMode: r.releaseMode || 'live',
+      releaseStatus: r.releaseStatus || '',
+      manualHold: Boolean(r.manualHold),
+      releaseEligibleAt: r.releaseEligibleAt || ''
+    }));
+}
+
+function pickAutoBulkAgent(settings = {}, counts = {}, events = [], now = new Date()) {
+  const minute = cstMinuteOfDay(now);
+  const eligibleNow = getEligibleAgents(settings, counts, minute);
+  if (eligibleNow.length) return pickBalancedEligible(eligibleNow, counts, events, computeYesterdayCounts(settings, events, now));
+
+  const active = (settings?.agents || []).filter((a) => a.active && !a.paused);
+  if (active.length) return active[0];
+
+  return (settings?.agents || [])[0] || null;
+}
+
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const runRelease = clean(searchParams.get('runRelease')).toLowerCase() === '1';
+
   const settings = withDefaults(await loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS));
   const events = await loadJsonStore(EVENTS_PATH, []);
   const leads = await loadJsonStore(CALLER_PATH, []);
   const sponsorship = await loadJsonStore(SPONSORSHIP_PATH, []);
+
+  let releaseRun = { released: 0, blockedSubmitted: 0, blockedManualHold: 0, waitingWindow: 0, waitingEligibleAgent: 0 };
+  if (runRelease) {
+    releaseRun = await runDelayedReleasePass({ settings, leads, events, now: new Date() });
+    if (releaseRun.released || releaseRun.blockedSubmitted || releaseRun.blockedManualHold || releaseRun.waitingEligibleAgent) {
+      await saveJsonStore(CALLER_PATH, leads);
+      const trimmedReleaseEvents = events
+        .sort((a, b) => new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime())
+        .slice(-5000);
+      await saveJsonStore(EVENTS_PATH, trimmedReleaseEvents);
+    }
+  }
 
   const keys = {
     dateKey: cstDateKey(),
@@ -616,6 +913,44 @@ export async function GET() {
   const callMetrics = buildCallMetrics(settings, leads, sponsorshipMap, ownerLookup);
   const calledLeadRows = buildCalledLeadRows(leads, sponsorshipMap, ownerLookup, settings);
   const recent = enrichEvents(events, sponsorshipMap).sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()).slice(0, 300);
+
+  const ghlSyncEvents = [...(events || [])]
+    .filter((e) => clean(e?.type || '') === 'ghl_owner_sync')
+    .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+
+  const ghlSyncSummary = {
+    total: ghlSyncEvents.length,
+    success: ghlSyncEvents.filter((e) => Boolean(e?.ok)).length,
+    failed: ghlSyncEvents.filter((e) => !Boolean(e?.ok)).length,
+    recentFailures: ghlSyncEvents
+      .filter((e) => !Boolean(e?.ok))
+      .slice(0, 20)
+      .map((e) => ({
+        timestamp: e.timestamp || '',
+        leadId: e.leadId || '',
+        externalId: e.externalId || '',
+        assignedTo: e.assignedTo || '',
+        reason: e.reason || '',
+        detail: e.detail || ''
+      }))
+  };
+  const delayedQueue = (leads || [])
+    .filter((r) => clean(r?.releaseMode || '').toLowerCase() === 'delayed24h' && clean(r?.releaseStatus || '') !== 'released_to_agent')
+    .sort((a, b) => new Date(a?.releaseEligibleAt || a?.createdAt || 0).getTime() - new Date(b?.releaseEligibleAt || b?.createdAt || 0).getTime())
+    .slice(0, 200)
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      email: r.email,
+      phone: r.phone,
+      owner: r.owner,
+      createdAt: r.createdAt,
+      releaseEligibleAt: r.releaseEligibleAt,
+      releaseStatus: r.releaseStatus,
+      manualHold: Boolean(r.manualHold),
+      formCompletedAt: r.formCompletedAt || ''
+    }));
+  const weekUnsubmittedLeads = buildWeekUnsubmittedLeads(leads, new Date());
 
   const tomorrowStartOrder = [...(settings.agents || [])]
     .filter((a) => a.active && !a.paused)
@@ -634,11 +969,144 @@ export async function GET() {
       yesterday: Number(yesterdayCounts[a.name] || 0)
     }));
 
-  return Response.json({ ok: true, settings, counts, recent, keys, tomorrowStartOrder, callMetrics, calledLeadRows });
+  return Response.json({ ok: true, settings, counts, recent, keys, tomorrowStartOrder, callMetrics, calledLeadRows, delayedQueue, weekUnsubmittedLeads, releaseRun, ghlSyncSummary });
 }
 
 export async function PATCH(req) {
   const body = await req.json().catch(() => ({}));
+
+  const mode = clean(body?.mode || '').toLowerCase();
+  if (mode === 'set-manual-hold') {
+    const leadId = clean(body?.leadId || body?.id);
+    if (!leadId) return Response.json({ ok: false, error: 'missing_lead_id' }, { status: 400 });
+
+    const leads = await loadJsonStore(CALLER_PATH, []);
+    const idx = leads.findIndex((r) => clean(r?.id) === leadId);
+    if (idx < 0) return Response.json({ ok: false, error: 'lead_not_found' }, { status: 404 });
+
+    const hold = Boolean(body?.hold);
+    leads[idx] = {
+      ...leads[idx],
+      manualHold: hold,
+      releaseStatus: hold ? 'manual_hold' : (clean(leads[idx]?.releaseStatus || '') === 'manual_hold' ? 'owner_window' : leads[idx]?.releaseStatus || ''),
+      updatedAt: nowIso()
+    };
+
+    await saveJsonStore(CALLER_PATH, leads);
+    return Response.json({ ok: true, row: leads[idx] });
+  }
+
+  if (mode === 'bulk-release-week-unsubmitted') {
+    const settings = withDefaults(await loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS));
+    const leads = await loadJsonStore(CALLER_PATH, []);
+    const events = await loadJsonStore(EVENTS_PATH, []);
+    const now = new Date();
+
+    const strategy = clean(body?.strategy || 'auto').toLowerCase(); // auto | agent
+    const targetAgent = clean(body?.targetAgent || '');
+
+    const keys = {
+      dateKey: cstDateKey(now),
+      weekKey: cstWeekKey(now),
+      monthKey: cstMonthKey(now)
+    };
+    const counts = buildAgentCounts(settings, events, keys);
+
+    const candidates = (leads || [])
+      .filter((r) => cstWeekKeyFromIso(r?.createdAt || r?.updatedAt || '') === keys.weekKey)
+      .filter((r) => !hasSponsorshipFormSubmitted(r))
+      .filter((r) => !Boolean(r?.manualHold))
+      .sort((a, b) => new Date(a?.createdAt || 0).getTime() - new Date(b?.createdAt || 0).getTime());
+
+    let updated = 0;
+    for (const row of candidates) {
+      let pickedName = '';
+      if (strategy === 'agent') {
+        pickedName = targetAgent;
+      } else {
+        const picked = pickAutoBulkAgent(settings, counts, events, now);
+        pickedName = clean(picked?.name || '');
+      }
+
+      if (!pickedName) continue;
+
+      const previousOwner = clean(row?.owner || settings?.overflowAgent || 'Kimora Link');
+      row.owner = pickedName;
+      row.releaseStatus = 'released_to_agent';
+      row.releaseReason = strategy === 'agent' ? 'manual_bulk_release_target_agent' : 'manual_bulk_release_auto';
+      row.releasedAt = nowIso();
+      row.releaseMode = row.releaseMode || settings.routingMode || 'live';
+      row.updatedAt = nowIso();
+
+      const toCount = counts[pickedName] || { today: 0, week: 0, month: 0 };
+      toCount.today += 1;
+      toCount.week += 1;
+      toCount.month += 1;
+      counts[pickedName] = toCount;
+
+      events.push({
+        id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        type: 'manual_bulk_release_assigned',
+        timestamp: nowIso(),
+        dateKey: keys.dateKey,
+        weekKey: keys.weekKey,
+        monthKey: keys.monthKey,
+        leadId: row.id,
+        externalId: row.externalId || '',
+        name: row.name || '',
+        email: row.email || '',
+        phone: row.phone || '',
+        assignedTo: pickedName,
+        previousOwner,
+        reason: row.releaseReason,
+        mode: settings.mode,
+        routingMode: settings.routingMode || 'live'
+      });
+
+      const ghlSync = await syncGhlOwnerForRelease({ row, assignedTo: pickedName });
+      events.push({
+        id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        type: 'ghl_owner_sync',
+        timestamp: nowIso(),
+        dateKey: keys.dateKey,
+        weekKey: keys.weekKey,
+        monthKey: keys.monthKey,
+        leadId: row.id,
+        externalId: row.externalId || '',
+        assignedTo: pickedName,
+        ok: Boolean(ghlSync?.ok),
+        reason: clean(ghlSync?.reason || ''),
+        detail: clean(ghlSync?.detail || ''),
+        status: ghlSync?.status || null
+      });
+
+      await postOutboundAssignment(settings, {
+        event: 'lead_manual_bulk_release_assigned',
+        assignedTo: pickedName,
+        previousOwner,
+        reason: row.releaseReason,
+        timestamp: nowIso(),
+        message: `Bulk-release lead assigned to ${pickedName}: ${row.name} (${row.phone || row.email || 'no contact'})`,
+        lead: {
+          id: row.externalId || row.id,
+          name: row.name,
+          email: row.email,
+          phone: row.phone
+        }
+      });
+
+      updated += 1;
+    }
+
+    if (updated > 0) {
+      await saveJsonStore(CALLER_PATH, leads);
+      const trimmed = events.sort((a, b) => new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime()).slice(-5000);
+      await saveJsonStore(EVENTS_PATH, trimmed);
+    }
+
+    return Response.json({ ok: true, mode: 'bulk-release-week-unsubmitted', strategy, targetAgent: targetAgent || null, updated });
+  }
+
   const current = withDefaults(await loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS));
 
   const next = withDefaults({
@@ -659,9 +1127,22 @@ export async function POST(req) {
   const settings = withDefaults(await loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS));
   const events = await loadJsonStore(EVENTS_PATH, []);
   const leads = await loadJsonStore(CALLER_PATH, []);
+  const now = new Date();
+
+  const mode = clean(body?.mode || '').toLowerCase();
+  if (mode === 'run-delayed-release' || mode === 'process-delayed-release') {
+    const releaseRun = await runDelayedReleasePass({ settings, leads, events, now });
+    if (releaseRun.released || releaseRun.blockedSubmitted || releaseRun.blockedManualHold || releaseRun.waitingEligibleAgent) {
+      await saveJsonStore(CALLER_PATH, leads);
+      const trimmed = events.sort((a, b) => new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime()).slice(-5000);
+      await saveJsonStore(EVENTS_PATH, trimmed);
+    }
+    return Response.json({ ok: true, mode: 'process-delayed-release', releaseRun });
+  }
+
+  const releaseRun = await runDelayedReleasePass({ settings, leads, events, now });
 
   const incoming = parseLeadPayload(body);
-  const now = new Date();
   const keys = {
     dateKey: cstDateKey(now),
     weekKey: cstWeekKey(now),
@@ -671,18 +1152,29 @@ export async function POST(req) {
 
   const counts = buildAgentCounts(settings, events, keys);
   const yesterdayCounts = computeYesterdayCounts(settings, events, now);
+  const existingIdx = leads.findIndex((r) => r.externalId && r.externalId === incoming.externalId);
 
   let assignedTo = settings.overflowAgent || 'Kimora Link';
   let reason = 'overflow';
 
   if (settings.enabled) {
-    const eligible = getEligibleAgents(settings, counts, minute);
-
-    if (eligible.length) {
-      const picked = pickBalancedEligible(eligible, counts, events, yesterdayCounts);
-      if (picked?.name) {
-        assignedTo = picked.name;
-        reason = 'eligible_balanced_carryover';
+    if (settings.routingMode === 'delayed24h') {
+      const existing = existingIdx >= 0 ? leads[existingIdx] : null;
+      if (clean(existing?.releaseStatus || '') === 'released_to_agent' && clean(existing?.owner || '') && clean(existing?.owner || '') !== clean(settings.overflowAgent || '')) {
+        assignedTo = existing.owner;
+        reason = 'delayed_existing_released_preserved';
+      } else {
+        assignedTo = settings.overflowAgent || 'Kimora Link';
+        reason = 'delayed_owner_window';
+      }
+    } else {
+      const eligible = getEligibleAgents(settings, counts, minute);
+      if (eligible.length) {
+        const picked = pickBalancedEligible(eligible, counts, events, yesterdayCounts);
+        if (picked?.name) {
+          assignedTo = picked.name;
+          reason = 'eligible_balanced_carryover';
+        }
       }
     }
   } else {
@@ -766,7 +1258,6 @@ export async function POST(req) {
     }
   }
 
-  const existingIdx = leads.findIndex((r) => r.externalId && r.externalId === incoming.externalId);
   const row = {
     id: existingIdx >= 0 ? leads[existingIdx].id : `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     externalId: incoming.externalId,
@@ -778,6 +1269,20 @@ export async function POST(req) {
     notes: incoming.notes,
     stage: existingIdx >= 0 ? leads[existingIdx].stage : 'New',
     owner: assignedTo,
+    releaseMode: settings.routingMode || 'live',
+    manualHold: existingIdx >= 0 ? Boolean(leads[existingIdx].manualHold) : false,
+    releaseEligibleAt: settings.routingMode === 'delayed24h'
+      ? (existingIdx >= 0
+        ? (leads[existingIdx].releaseEligibleAt || plusHoursIso(leads[existingIdx].createdAt || nowIso(), settings.delayedReleaseHours || 24))
+        : plusHoursIso(nowIso(), settings.delayedReleaseHours || 24))
+      : '',
+    releaseStatus: settings.routingMode === 'delayed24h'
+      ? (existingIdx >= 0
+        ? (clean(leads[existingIdx].releaseStatus || '') || 'owner_window')
+        : 'owner_window')
+      : '',
+    releasedAt: settings.routingMode === 'delayed24h' && existingIdx >= 0 ? (leads[existingIdx].releasedAt || '') : '',
+    releaseReason: settings.routingMode === 'delayed24h' && existingIdx >= 0 ? (leads[existingIdx].releaseReason || '') : '',
     calledAt: existingIdx >= 0 ? leads[existingIdx].calledAt : '',
     connectedAt: existingIdx >= 0 ? leads[existingIdx].connectedAt : '',
     qualifiedAt: existingIdx >= 0 ? leads[existingIdx].qualifiedAt : '',
@@ -791,6 +1296,10 @@ export async function POST(req) {
     createdAt: existingIdx >= 0 ? leads[existingIdx].createdAt : nowIso(),
     updatedAt: nowIso()
   };
+
+  if (settings.routingMode === 'delayed24h' && hasSponsorshipFormSubmitted(row)) {
+    row.releaseStatus = 'blocked_submitted';
+  }
 
   if (existingIdx >= 0) leads[existingIdx] = row;
   else leads.push(row);
@@ -810,7 +1319,8 @@ export async function POST(req) {
     phone: incoming.phone,
     assignedTo,
     reason,
-    mode: settings.mode
+    mode: settings.mode,
+    routingMode: settings.routingMode || 'live'
   });
   const trimmed = events.sort((a, b) => new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime()).slice(-5000);
   await saveJsonStore(EVENTS_PATH, trimmed);
@@ -829,5 +1339,5 @@ export async function POST(req) {
     }
   });
 
-  return Response.json({ ok: true, assignedTo, reason, row, slaReassigned });
+  return Response.json({ ok: true, assignedTo, reason, row, slaReassigned, routingMode: settings.routingMode || 'live', releaseRun });
 }
