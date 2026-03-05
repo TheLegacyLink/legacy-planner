@@ -55,6 +55,8 @@ export default function LeadClaimsPortalPage() {
   const [query, setQuery] = useState('');
   const [view, setView] = useState('available');
   const [overrideById, setOverrideById] = useState({});
+  const [weeklyClaimCap, setWeeklyClaimCap] = useState(2);
+  const [viewerClaimedThisWeek, setViewerClaimedThisWeek] = useState(0);
 
   const isManager = useMemo(() => ['admin', 'manager'].includes(normalize(auth.role)), [auth.role]);
 
@@ -67,6 +69,8 @@ export default function LeadClaimsPortalPage() {
       if (!res.ok || !data?.ok) throw new Error(data?.error || 'Failed to load leads');
       setRows(Array.isArray(data.rows) ? data.rows : []);
       setRoster(Array.isArray(data.roster) ? data.roster : []);
+      setWeeklyClaimCap(Number(data?.settings?.weeklyClaimCap || 2));
+      setViewerClaimedThisWeek(Number(data?.viewerClaimedThisWeek || 0));
       if (data?.viewer?.name && data?.viewer?.role) {
         setAuth({ name: data.viewer.name, role: data.viewer.role });
       }
@@ -92,6 +96,24 @@ export default function LeadClaimsPortalPage() {
     const timer = setInterval(() => loadRows(true), 15000);
     return () => clearInterval(timer);
   }, [auth.name, loadRows]);
+
+  const saveWeeklyCap = async () => {
+    if (!isManager) return;
+    const cap = Math.max(1, Number(weeklyClaimCap || 2));
+    const res = await fetch('/api/lead-claims', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set_weekly_claim_cap', actorName: auth.name, weeklyClaimCap: cap })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) {
+      setMessage(data?.error || 'Could not save weekly cap');
+      return;
+    }
+    setWeeklyClaimCap(Number(data?.settings?.weeklyClaimCap || cap));
+    setMessage(`Weekly fairness cap saved: ${Number(data?.settings?.weeklyClaimCap || cap)}`);
+    await loadRows(true);
+  };
 
   const login = async () => {
     setLoginError('');
@@ -286,6 +308,24 @@ export default function LeadClaimsPortalPage() {
 
       <section className="claimsRoster">
         <div className="claimsQuickTools" style={{ display: 'grid', gap: 8 }}>
+          <div className="claimsMiniClaimed" style={{ borderColor: '#d1fae5', background: '#ecfdf5' }}>
+            <strong>Fairness:</strong> Weekly claim cap is {weeklyClaimCap}. You claimed {viewerClaimedThisWeek}/{weeklyClaimCap} this week.
+          </div>
+          {isManager ? (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <label>
+                Weekly cap
+                <input
+                  type="number"
+                  min={1}
+                  value={weeklyClaimCap}
+                  onChange={(e) => setWeeklyClaimCap(Number(e.target.value || 1))}
+                  style={{ marginLeft: 6, width: 70 }}
+                />
+              </label>
+              <button type="button" className="ghost" onClick={saveWeeklyCap}>Save Fairness Cap</button>
+            </div>
+          ) : null}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button type="button" className={view === 'available' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setView('available')}>
               Available to Claim ({availableToClaimRows.length})

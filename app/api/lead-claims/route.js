@@ -6,6 +6,7 @@ import licensedAgents from '../../../data/licensedAgents.json';
 const SPONSORSHIP_BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
 const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
 const BONUS_BOOKINGS_PATH = 'stores/bonus-bookings.json';
+const SETTINGS_PATH = 'stores/lead-claims-settings.json';
 
 const LICENSE_OVERRIDES = {
   'kelin brown': ['AZ', 'CA', 'CO', 'FL', 'MI', 'NE', 'NV', 'OH', 'OK', 'RI', 'TX', 'VA'],
@@ -56,7 +57,19 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-const WEEKLY_CLAIM_CAP = Math.max(1, Number(process.env.LEAD_CLAIMS_WEEKLY_CAP || 2));
+const DEFAULT_WEEKLY_CLAIM_CAP = Math.max(1, Number(process.env.LEAD_CLAIMS_WEEKLY_CAP || 2));
+
+async function getClaimSettings() {
+  const raw = await loadJsonStore(SETTINGS_PATH, { weeklyClaimCap: DEFAULT_WEEKLY_CLAIM_CAP });
+  const weeklyClaimCap = Math.max(1, Number(raw?.weeklyClaimCap || DEFAULT_WEEKLY_CLAIM_CAP));
+  return { weeklyClaimCap };
+}
+
+async function saveClaimSettings(next = {}) {
+  const weeklyClaimCap = Math.max(1, Number(next?.weeklyClaimCap || DEFAULT_WEEKLY_CLAIM_CAP));
+  await saveJsonStore(SETTINGS_PATH, { weeklyClaimCap });
+  return { weeklyClaimCap };
+}
 
 function isoWeekKey(date = new Date()) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -601,6 +614,8 @@ export async function GET(req) {
   });
 
   const pendingPipeline = buildPendingPipeline(openQueueRows, policyRows);
+  const settings = await getClaimSettings();
+  const viewerClaimedThisWeek = viewer?.name ? claimedThisWeek(mergedClaimRows, viewer.name) : 0;
 
   return Response.json({
     ok: true,
@@ -611,7 +626,9 @@ export async function GET(req) {
       role: u.role,
       licensedStates: licensedStatesFor(u.name)
     })),
-    pendingPipeline
+    pendingPipeline,
+    settings,
+    viewerClaimedThisWeek
   });
 }
 
@@ -623,13 +640,23 @@ export async function POST(req) {
 
   if (!actor) return Response.json({ ok: false, error: 'invalid_actor' }, { status: 401 });
 
+  const [sponsorRows, bonusRows, settings] = await Promise.all([
+    loadJsonStore(SPONSORSHIP_BOOKINGS_PATH, []),
+    loadJsonStore(BONUS_BOOKINGS_PATH, []),
+    getClaimSettings()
+  ]);
+
+  if (action === 'set_weekly_claim_cap') {
+    if (!isManagerRole(actor.role)) {
+      return Response.json({ ok: false, error: 'manager_only' }, { status: 403 });
+    }
+    const cap = Math.max(1, Number(body?.weeklyClaimCap || settings?.weeklyClaimCap || DEFAULT_WEEKLY_CLAIM_CAP));
+    const nextSettings = await saveClaimSettings({ weeklyClaimCap: cap });
+    return Response.json({ ok: true, settings: nextSettings });
+  }
+
   const bookingId = clean(body?.bookingId);
   if (!bookingId) return Response.json({ ok: false, error: 'missing_booking_id' }, { status: 400 });
-
-  const [sponsorRows, bonusRows] = await Promise.all([
-    loadJsonStore(SPONSORSHIP_BOOKINGS_PATH, []),
-    loadJsonStore(BONUS_BOOKINGS_PATH, [])
-  ]);
 
   const mergedClaimRows = dedupeClaimRows([
     ...sponsorRows.map((r) => applyPriorityDefaults({ ...r, source_type: 'sponsorship' })),
@@ -668,11 +695,11 @@ export async function POST(req) {
 
     if (!isManagerRole(actor.role)) {
       const claimedCount = claimedThisWeek(mergedClaimRows, actor.name);
-      if (claimedCount >= WEEKLY_CLAIM_CAP) {
+      if (claimedCount >= Number(settings?.weeklyClaimCap || DEFAULT_WEEKLY_CLAIM_CAP)) {
         return Response.json({
           ok: false,
           error: 'weekly_claim_cap_reached',
-          cap: WEEKLY_CLAIM_CAP,
+          cap: Number(settings?.weeklyClaimCap || DEFAULT_WEEKLY_CLAIM_CAP),
           claimedThisWeek: claimedCount
         }, { status: 409 });
       }
