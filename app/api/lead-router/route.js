@@ -1047,6 +1047,9 @@ export async function PATCH(req) {
     const settings = withDefaults(await loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS));
     const leads = await loadJsonStore(CALLER_PATH, []);
     const events = await loadJsonStore(EVENTS_PATH, []);
+    const sponsorship = await loadJsonStore(SPONSORSHIP_PATH, []);
+    const policySubmissions = await loadJsonStore(POLICY_SUBMISSIONS_PATH, []);
+    const submittedBlockLookup = buildSubmittedBlockLookup(sponsorship, policySubmissions);
     const now = new Date();
 
     const strategy = clean(body?.strategy || 'auto').toLowerCase(); // auto | agent
