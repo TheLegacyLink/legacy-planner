@@ -19,6 +19,11 @@ export async function POST(req) {
     const body = await req.json();
     const booking = body?.booking || {};
 
+    const enabled = clean(process.env.ENABLE_BOOKING_TELEGRAM || '').toLowerCase() === 'true';
+    if (!enabled) {
+      return Response.json({ ok: true, skipped: true, reason: 'booking_telegram_disabled' });
+    }
+
     const token = clean(process.env.TELEGRAM_BOT_TOKEN);
     const chatId = clean(process.env.TELEGRAM_CHAT_ID);
 
