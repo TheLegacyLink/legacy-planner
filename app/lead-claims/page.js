@@ -102,7 +102,7 @@ export default function LeadClaimsPortalPage() {
       return;
     }
 
-    const res = await fetch('/api/inner-circle-auth', {
+    const res = await fetch('/api/lead-claims-auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, password })
@@ -140,7 +140,9 @@ export default function LeadClaimsPortalPage() {
         setRows(prior);
         const text = data?.error === 'priority_window_locked'
           ? `Claim locked by ${data?.priorityAgent || 'referrer'} until ${fmtDate(data?.priorityExpiresAt)}`
-          : data?.error || 'Claim failed';
+          : data?.error === 'weekly_claim_cap_reached'
+            ? `Weekly fairness limit reached: ${data?.claimedThisWeek || 0}/${data?.cap || 2} claimed this week.`
+            : data?.error || 'Claim failed';
         setMessage(text);
         return;
       }

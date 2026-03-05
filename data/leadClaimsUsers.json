@@ -1,0 +1,58 @@
+[
+  {
+    "name": "Kimora Link",
+    "email": "investalinkinsurance@gmail.com",
+    "role": "admin",
+    "active": true,
+    "passwordHash": "25ab5747f2be628812220bdbf24e8b245a07578d4da45d8c347f4120010990aa"
+  },
+  {
+    "name": "Jamal Holmes",
+    "email": "support@Jdholmesagencyllc.com",
+    "role": "submitter",
+    "active": true,
+    "passwordHash": "ab4bd21d5b46531bb21a68defbcd21159be78ad2ee1a94806a6d63e0a39b25ce"
+  },
+  {
+    "name": "Mahogany Burns",
+    "email": "divinedynasty1@icloud.com",
+    "role": "submitter",
+    "active": true,
+    "passwordHash": "5ff115e346c982843888236f1571d53177ebb9cab8e575b0eeb5e2489f613a62"
+  },
+  {
+    "name": "Leticia Wright",
+    "email": "leticiawright05@gmail.com",
+    "role": "submitter",
+    "active": true,
+    "passwordHash": "fc4a85aa79f7afdf5ab191d4c3e283d4b900c5231415d1c64fc3c285d3dbfc2b"
+  },
+  {
+    "name": "Kelin Brown",
+    "email": "kelinb63@gmail.com",
+    "role": "submitter",
+    "active": true,
+    "passwordHash": "70f2d994bcfb6bc30c071dead9190cb4e4f1c731c3998fc80523bd54bad03ad8"
+  },
+  {
+    "name": "Madalyn Adams",
+    "email": "madalynm13@gmail.com",
+    "role": "submitter",
+    "active": true,
+    "passwordHash": "6b0ff2762e7a76b0a6c4fa43a7bcce12a93ed51b40d002ade6a64ff835251c19"
+  },
+  {
+    "name": "Breanna James",
+    "email": "drboss637@gmail.com",
+    "role": "submitter",
+    "active": true,
+    "passwordHash": "98508df09a432278e997948eb4fa99d1416c3e64d85f6a4354a71d012b5bdea3"
+  },
+  {
+    "name": "Portal Test",
+    "email": "portaltest@innercirclelink.com",
+    "role": "submitter",
+    "active": true,
+    "passwordHash": "fa8759c28c8341f873db80100bcf64d8dfc67cc7c3b1c731ca868b17260f4670"
+  }
+]

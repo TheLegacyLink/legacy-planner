@@ -56,6 +56,28 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+const WEEKLY_CLAIM_CAP = Math.max(1, Number(process.env.LEAD_CLAIMS_WEEKLY_CAP || 2));
+
+function isoWeekKey(date = new Date()) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+}
+
+function claimedThisWeek(rows = [], actorName = '') {
+  const actor = normalize(actorName);
+  if (!actor) return 0;
+  const currentWeek = isoWeekKey(new Date());
+  return (rows || []).filter((r) => normalize(r?.claimed_by) === actor)
+    .filter((r) => {
+      const ts = new Date(r?.claimed_at || 0);
+      if (Number.isNaN(ts.getTime())) return false;
+      return isoWeekKey(ts) === currentWeek;
+    }).length;
+}
+
 function parseFullName(lastFirst = '') {
   const raw = clean(lastFirst);
   if (!raw) return '';
@@ -609,6 +631,11 @@ export async function POST(req) {
     loadJsonStore(BONUS_BOOKINGS_PATH, [])
   ]);
 
+  const mergedClaimRows = dedupeClaimRows([
+    ...sponsorRows.map((r) => applyPriorityDefaults({ ...r, source_type: 'sponsorship' })),
+    ...(bonusRows || []).map((r) => applyPriorityDefaults(toBonusClaimRow(r)))
+  ]);
+
   const sponsorIdx = findById(sponsorRows, bookingId);
   const bonusIdx = findById(bonusRows, bookingId);
 
@@ -637,6 +664,18 @@ export async function POST(req) {
     const alreadyClaimedBy = clean(row?.claimed_by);
     if (alreadyClaimedBy && normalize(alreadyClaimedBy) !== normalize(actor.name)) {
       return Response.json({ ok: false, error: 'already_claimed', claimedBy: alreadyClaimedBy }, { status: 409 });
+    }
+
+    if (!isManagerRole(actor.role)) {
+      const claimedCount = claimedThisWeek(mergedClaimRows, actor.name);
+      if (claimedCount >= WEEKLY_CLAIM_CAP) {
+        return Response.json({
+          ok: false,
+          error: 'weekly_claim_cap_reached',
+          cap: WEEKLY_CLAIM_CAP,
+          claimedThisWeek: claimedCount
+        }, { status: 409 });
+      }
     }
 
     if (isWithinPriorityWindow(row) && normalize(row?.priority_agent) !== normalize(actor.name) && !isManagerRole(actor.role)) {
