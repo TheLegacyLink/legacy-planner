@@ -6,6 +6,7 @@ const SETTINGS_PATH = 'stores/lead-router-settings.json';
 const EVENTS_PATH = 'stores/lead-router-events.json';
 const CALLER_PATH = 'stores/caller-leads.json';
 const SPONSORSHIP_PATH = 'stores/sponsorship-applications.json';
+const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
 
 const DEFAULT_SETTINGS = {
   enabled: true,
@@ -381,13 +382,56 @@ function sponsorshipLookup(rows = []) {
   for (const row of rows || []) {
     const status = clean(row?.status || 'Pending');
     const n = normalizeName(`${row?.firstName || ''} ${row?.lastName || ''}`);
-    const e = clean(row?.email || '').toLowerCase();
-    const p = normalizePhone(row?.phone || '');
+    const e = clean(row?.email || row?.applicant_email || '').toLowerCase();
+    const p = normalizePhone(row?.phone || row?.applicant_phone || '');
     if (n) map.set(`n:${n}`, status);
     if (e) map.set(`e:${e}`, status);
     if (p) map.set(`p:${p}`, status);
   }
   return map;
+}
+
+function buildSubmittedBlockLookup(sponsorshipRows = [], policyRows = []) {
+  const set = new Set();
+
+  const push = ({ name = '', email = '', phone = '' } = {}) => {
+    const n = normalizeName(name);
+    const e = clean(email).toLowerCase();
+    const p = normalizePhone(phone);
+    if (n) set.add(`n:${n}`);
+    if (e) set.add(`e:${e}`);
+    if (p) set.add(`p:${p}`);
+  };
+
+  for (const row of sponsorshipRows || []) {
+    // Any submitted sponsorship application should block auto release.
+    push({
+      name: clean(row?.name || `${row?.firstName || ''} ${row?.lastName || ''}`),
+      email: clean(row?.email || row?.applicant_email || ''),
+      phone: clean(row?.phone || row?.applicant_phone || '')
+    });
+  }
+
+  for (const row of policyRows || []) {
+    // Any submitted/approved policy should block auto release.
+    push({
+      name: clean(row?.applicantName || row?.applicant_name || row?.name || ''),
+      email: clean(row?.email || row?.applicant_email || ''),
+      phone: clean(row?.phone || row?.applicant_phone || '')
+    });
+  }
+
+  return set;
+}
+
+function isBlockedBySubmittedCrossCheck(lead = {}, blockLookup = new Set()) {
+  const keys = [
+    `n:${normalizeName(lead?.name || '')}`,
+    `e:${clean(lead?.email || '').toLowerCase()}`,
+    `p:${normalizePhone(lead?.phone || '')}`
+  ].filter((k) => !k.endsWith(':'));
+
+  return keys.some((k) => blockLookup.has(k));
 }
 
 function resolveSponsorshipStatus({ name = '', email = '', phone = '' } = {}, sponsorshipMap = new Map()) {
@@ -703,7 +747,7 @@ function buildCallMetrics(settings, leads = [], sponsorshipMap = new Map(), owne
   };
 }
 
-async function runDelayedReleasePass({ settings, leads, events, now = new Date() }) {
+async function runDelayedReleasePass({ settings, leads, events, submittedBlockLookup = new Set(), now = new Date() }) {
   if (!shouldRunDelayedRelease(settings)) {
     return { released: 0, blockedSubmitted: 0, blockedManualHold: 0, waitingWindow: 0, waitingEligibleAgent: 0 };
   }
@@ -732,7 +776,7 @@ async function runDelayedReleasePass({ settings, leads, events, now = new Date()
   for (const row of releaseCandidates) {
     if (clean(row?.releaseStatus || '') === 'released_to_agent') continue;
 
-    if (hasSponsorshipFormSubmitted(row)) {
+    if (hasSponsorshipFormSubmitted(row) || isBlockedBySubmittedCrossCheck(row, submittedBlockLookup)) {
       if (clean(row?.releaseStatus || '') !== 'blocked_submitted') {
         row.releaseStatus = 'blocked_submitted';
         row.updatedAt = nowIso();
@@ -844,11 +888,12 @@ async function runDelayedReleasePass({ settings, leads, events, now = new Date()
   return out;
 }
 
-function buildWeekUnsubmittedLeads(leads = [], now = new Date()) {
+function buildWeekUnsubmittedLeads(leads = [], submittedBlockLookup = new Set(), now = new Date()) {
   const currentWeek = cstWeekKey(now);
   return (leads || [])
     .filter((r) => cstWeekKeyFromIso(r?.createdAt || r?.updatedAt || '') === currentWeek)
     .filter((r) => !hasSponsorshipFormSubmitted(r))
+    .filter((r) => !isBlockedBySubmittedCrossCheck(r, submittedBlockLookup))
     .sort((a, b) => new Date(b?.createdAt || b?.updatedAt || 0).getTime() - new Date(a?.createdAt || a?.updatedAt || 0).getTime())
     .slice(0, 500)
     .map((r) => ({
@@ -886,10 +931,12 @@ export async function GET(req) {
   const events = await loadJsonStore(EVENTS_PATH, []);
   const leads = await loadJsonStore(CALLER_PATH, []);
   const sponsorship = await loadJsonStore(SPONSORSHIP_PATH, []);
+  const policySubmissions = await loadJsonStore(POLICY_SUBMISSIONS_PATH, []);
+  const submittedBlockLookup = buildSubmittedBlockLookup(sponsorship, policySubmissions);
 
   let releaseRun = { released: 0, blockedSubmitted: 0, blockedManualHold: 0, waitingWindow: 0, waitingEligibleAgent: 0 };
   if (runRelease) {
-    releaseRun = await runDelayedReleasePass({ settings, leads, events, now: new Date() });
+    releaseRun = await runDelayedReleasePass({ settings, leads, events, submittedBlockLookup, now: new Date() });
     if (releaseRun.released || releaseRun.blockedSubmitted || releaseRun.blockedManualHold || releaseRun.waitingEligibleAgent) {
       await saveJsonStore(CALLER_PATH, leads);
       const trimmedReleaseEvents = events
@@ -950,7 +997,7 @@ export async function GET(req) {
       manualHold: Boolean(r.manualHold),
       formCompletedAt: r.formCompletedAt || ''
     }));
-  const weekUnsubmittedLeads = buildWeekUnsubmittedLeads(leads, new Date());
+  const weekUnsubmittedLeads = buildWeekUnsubmittedLeads(leads, submittedBlockLookup, new Date());
 
   const tomorrowStartOrder = [...(settings.agents || [])]
     .filter((a) => a.active && !a.paused)
@@ -1015,6 +1062,7 @@ export async function PATCH(req) {
     const candidates = (leads || [])
       .filter((r) => cstWeekKeyFromIso(r?.createdAt || r?.updatedAt || '') === keys.weekKey)
       .filter((r) => !hasSponsorshipFormSubmitted(r))
+      .filter((r) => !isBlockedBySubmittedCrossCheck(r, submittedBlockLookup))
       .filter((r) => !Boolean(r?.manualHold))
       .sort((a, b) => new Date(a?.createdAt || 0).getTime() - new Date(b?.createdAt || 0).getTime());
 
@@ -1127,11 +1175,14 @@ export async function POST(req) {
   const settings = withDefaults(await loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS));
   const events = await loadJsonStore(EVENTS_PATH, []);
   const leads = await loadJsonStore(CALLER_PATH, []);
+  const sponsorship = await loadJsonStore(SPONSORSHIP_PATH, []);
+  const policySubmissions = await loadJsonStore(POLICY_SUBMISSIONS_PATH, []);
+  const submittedBlockLookup = buildSubmittedBlockLookup(sponsorship, policySubmissions);
   const now = new Date();
 
   const mode = clean(body?.mode || '').toLowerCase();
   if (mode === 'run-delayed-release' || mode === 'process-delayed-release') {
-    const releaseRun = await runDelayedReleasePass({ settings, leads, events, now });
+    const releaseRun = await runDelayedReleasePass({ settings, leads, events, submittedBlockLookup, now });
     if (releaseRun.released || releaseRun.blockedSubmitted || releaseRun.blockedManualHold || releaseRun.waitingEligibleAgent) {
       await saveJsonStore(CALLER_PATH, leads);
       const trimmed = events.sort((a, b) => new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime()).slice(-5000);
@@ -1140,7 +1191,7 @@ export async function POST(req) {
     return Response.json({ ok: true, mode: 'process-delayed-release', releaseRun });
   }
 
-  const releaseRun = await runDelayedReleasePass({ settings, leads, events, now });
+  const releaseRun = await runDelayedReleasePass({ settings, leads, events, submittedBlockLookup, now });
 
   const incoming = parseLeadPayload(body);
   const keys = {
@@ -1297,7 +1348,7 @@ export async function POST(req) {
     updatedAt: nowIso()
   };
 
-  if (settings.routingMode === 'delayed24h' && hasSponsorshipFormSubmitted(row)) {
+  if (settings.routingMode === 'delayed24h' && (hasSponsorshipFormSubmitted(row) || isBlockedBySubmittedCrossCheck(row, submittedBlockLookup))) {
     row.releaseStatus = 'blocked_submitted';
   }
 
