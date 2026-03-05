@@ -1,6 +1,8 @@
 import { DEFAULT_CONFIG } from '../../../lib/runtimeConfig';
 import { loadJsonFile, saveJsonFile, loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 import ownerOverrides from '../../../data/callerOwnerOverrides.json';
+import users from '../../../data/innerCircleUsers.json';
+import nodemailer from 'nodemailer';
 
 const SETTINGS_PATH = 'stores/lead-router-settings.json';
 const EVENTS_PATH = 'stores/lead-router-events.json';
@@ -40,6 +42,73 @@ const DEFAULT_SETTINGS = {
 
 function clean(v = '') {
   return String(v || '').trim();
+}
+
+function normalize(v = '') {
+  return clean(v).toLowerCase().replace(/\s+/g, ' ');
+}
+
+function findUserEmailByName(name = '') {
+  const n = normalize(name);
+  const hit = (users || []).find((u) => normalize(u?.name || '') === n);
+  return clean(hit?.email || '');
+}
+
+async function sendLeadAssignedEmail({ assignedTo = '', previousOwner = '', row = {}, reason = '' } = {}) {
+  const to = findUserEmailByName(assignedTo);
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  if (!to || !user || !pass) return { ok: false, error: 'email_not_configured' };
+
+  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+  const leadName = clean(row?.name || 'Unknown Lead');
+  const leadPhone = clean(row?.phone || '—');
+  const leadEmail = clean(row?.email || '—');
+
+  const subject = `New Lead Assigned: ${leadName}`;
+  const text = [
+    `Hi ${assignedTo},`,
+    '',
+    'You have a new lead assignment.',
+    '',
+    `Lead: ${leadName}`,
+    `Phone: ${leadPhone}`,
+    `Email: ${leadEmail}`,
+    `Previous Owner: ${previousOwner || '—'}`,
+    `Assignment Type: ${reason || 'router_assignment'}`,
+    '',
+    'Please reach out as soon as possible.',
+    '',
+    '— The Legacy Link Support Team'
+  ].join('\n');
+
+  try {
+    const info = await tx.sendMail({
+      from,
+      to,
+      cc: 'support@thelegacylink.com',
+      subject,
+      text,
+      html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;">
+        <h2 style="margin:0 0 12px;">New Lead Assignment</h2>
+        <p>Hi <strong>${assignedTo}</strong>,</p>
+        <p>You have a new lead assignment.</p>
+        <ul>
+          <li><strong>Lead:</strong> ${leadName}</li>
+          <li><strong>Phone:</strong> ${leadPhone}</li>
+          <li><strong>Email:</strong> ${leadEmail}</li>
+          <li><strong>Previous Owner:</strong> ${previousOwner || '—'}</li>
+          <li><strong>Assignment Type:</strong> ${reason || 'router_assignment'}</li>
+        </ul>
+        <p>Please reach out as soon as possible.</p>
+        <p>— The Legacy Link Support Team</p>
+      </div>`
+    });
+    return { ok: true, messageId: info?.messageId || '' };
+  } catch (error) {
+    return { ok: false, error: clean(error?.message || 'send_failed') || 'send_failed' };
+  }
 }
 
 function safeJsonParse(raw, fallback = {}) {
@@ -901,6 +970,30 @@ async function runDelayedReleasePass({ settings, leads, events, submittedBlockLo
       status: ghlSync?.status || null
     });
 
+    const emailNotify = await sendLeadAssignedEmail({
+      assignedTo: picked.name,
+      previousOwner,
+      row,
+      reason: '24h_no_sponsorship_submit'
+    });
+    events.push({
+      id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: 'agent_email_notify',
+      timestamp: nowIso(),
+      dateKey: keys.dateKey,
+      weekKey: keys.weekKey,
+      monthKey: keys.monthKey,
+      leadId: row.id,
+      externalId: row.externalId || '',
+      name: row.name || '',
+      email: row.email || '',
+      phone: row.phone || '',
+      assignedTo: picked.name,
+      ok: Boolean(emailNotify?.ok),
+      reason: clean(emailNotify?.error || ''),
+      detail: clean(emailNotify?.messageId || '')
+    });
+
     out.released += 1;
   }
 
@@ -1251,6 +1344,30 @@ export async function PATCH(req) {
           email: row.email,
           phone: row.phone
         }
+      });
+
+      const emailNotify = await sendLeadAssignedEmail({
+        assignedTo: pickedName,
+        previousOwner,
+        row,
+        reason: row.releaseReason
+      });
+      events.push({
+        id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        type: 'agent_email_notify',
+        timestamp: nowIso(),
+        dateKey: keys.dateKey,
+        weekKey: keys.weekKey,
+        monthKey: keys.monthKey,
+        leadId: row.id,
+        externalId: row.externalId || '',
+        name: row.name || '',
+        email: row.email || '',
+        phone: row.phone || '',
+        assignedTo: pickedName,
+        ok: Boolean(emailNotify?.ok),
+        reason: clean(emailNotify?.error || ''),
+        detail: clean(emailNotify?.messageId || '')
       });
 
       updated += 1;
