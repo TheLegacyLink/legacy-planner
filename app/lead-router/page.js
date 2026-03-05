@@ -146,6 +146,20 @@ export default function LeadRouterPage() {
     await load();
   }
 
+  async function setLeadReleaseMode(leadId, releaseMode) {
+    const res = await fetch('/api/lead-router', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'set-lead-release-mode', leadId, releaseMode, holdHours: Number(settings?.delayedReleaseHours || 24) })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) {
+      alert(`Release mode update failed: ${data?.error || 'unknown_error'}`);
+      return;
+    }
+    await load();
+  }
+
   async function bulkReleaseWeekUnsubmitted(strategy = 'auto', onlySelected = false) {
     const payload = {
       mode: 'bulk-release-week-unsubmitted',
@@ -426,6 +440,7 @@ export default function LeadRouterPage() {
 
       <div className="panel" style={{ marginBottom: 10 }}>
         <h3 style={{ marginTop: 0 }}>This Week: Unsubmitted Leads</h3>
+        <small className="muted" style={{ display: 'block', marginBottom: 8 }}>Per-lead control: switch each lead between Immediate or Delay 24h in the Release Plan column.</small>
         <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
           <span className="pill">Unsubmitted this week: {weekUnsubmittedLeads.length}</span>
           <span className="pill">Selected: {selectedWeekLeadIds.length}</span>
@@ -455,6 +470,7 @@ export default function LeadRouterPage() {
               <th>Current Owner</th>
               <th>Created</th>
               <th>Stage</th>
+              <th>Release Plan</th>
               <th>Release Status</th>
               <th>Manual Hold</th>
             </tr>
@@ -476,6 +492,15 @@ export default function LeadRouterPage() {
                 <td>{r.owner || '—'}</td>
                 <td>{fmt(r.createdAt)}</td>
                 <td>{r.stage || 'New'}</td>
+                <td>
+                  <select
+                    value={r.releaseMode || 'live'}
+                    onChange={(e) => setLeadReleaseMode(r.id, e.target.value)}
+                  >
+                    <option value="live">Immediate</option>
+                    <option value="delayed24h">Delay 24h</option>
+                  </select>
+                </td>
                 <td>{r.releaseStatus || '—'}</td>
                 <td>
                   <input
@@ -486,7 +511,7 @@ export default function LeadRouterPage() {
                 </td>
               </tr>
             ))}
-            {!(weekUnsubmittedLeads || []).length ? <tr><td colSpan={7} className="muted">No unsubmitted leads found this week.</td></tr> : null}
+            {!(weekUnsubmittedLeads || []).length ? <tr><td colSpan={8} className="muted">No unsubmitted leads found this week.</td></tr> : null}
           </tbody>
         </table>
       </div>

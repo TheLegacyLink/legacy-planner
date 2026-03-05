@@ -1092,6 +1092,44 @@ export async function PATCH(req) {
     return Response.json({ ok: true, row: leads[idx] });
   }
 
+  if (mode === 'set-lead-release-mode') {
+    const leadId = clean(body?.leadId || body?.id);
+    if (!leadId) return Response.json({ ok: false, error: 'missing_lead_id' }, { status: 400 });
+
+    const releaseMode = clean(body?.releaseMode || '').toLowerCase();
+    if (!['live', 'delayed24h'].includes(releaseMode)) {
+      return Response.json({ ok: false, error: 'invalid_release_mode' }, { status: 400 });
+    }
+
+    const holdHours = Math.max(1, Number(body?.holdHours || 24));
+    const leads = await loadJsonStore(CALLER_PATH, []);
+    const idx = leads.findIndex((r) => clean(r?.id) === leadId);
+    if (idx < 0) return Response.json({ ok: false, error: 'lead_not_found' }, { status: 404 });
+
+    const current = leads[idx] || {};
+    const next = {
+      ...current,
+      releaseMode,
+      updatedAt: nowIso()
+    };
+
+    if (releaseMode === 'delayed24h') {
+      next.releaseEligibleAt = plusHoursIso(nowIso(), holdHours);
+      next.releaseStatus = 'owner_window';
+      next.releasedAt = '';
+      next.releaseReason = '';
+    } else {
+      next.releaseEligibleAt = '';
+      next.releaseStatus = '';
+      next.releasedAt = '';
+      next.releaseReason = '';
+    }
+
+    leads[idx] = next;
+    await saveJsonStore(CALLER_PATH, leads);
+    return Response.json({ ok: true, row: next });
+  }
+
   if (mode === 'bulk-release-week-unsubmitted') {
     const settings = withDefaults(await loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS));
     const leads = await loadJsonStore(CALLER_PATH, []);
