@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS = {
   enabled: true,
   mode: 'random',
   routingMode: 'live', // live | delayed24h
+  delayedReleaseEnabled: true,
   delayedReleaseHours: 24,
   maxPerDay: 2,
   maxPerWeek: 14,
@@ -219,8 +220,8 @@ function hasSponsorshipFormSubmitted(row = {}) {
 }
 
 function shouldRunDelayedRelease(settings = {}) {
-  // Process delayed-release rows even if mode later switches back to live.
-  return Boolean(settings?.enabled);
+  // Delayed release is independent from instant router pause.
+  return Boolean(settings?.delayedReleaseEnabled);
 }
 
 function minutesSince(iso = '') {
@@ -282,6 +283,7 @@ function withDefaults(raw = {}) {
 
   const routingMode = clean(merged.routingMode || 'live').toLowerCase();
   merged.routingMode = routingMode === 'delayed24h' ? 'delayed24h' : 'live';
+  merged.delayedReleaseEnabled = merged.delayedReleaseEnabled !== false;
   merged.delayedReleaseHours = Math.max(1, Number(merged.delayedReleaseHours || 24));
   return merged;
 }

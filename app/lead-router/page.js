@@ -123,6 +123,7 @@ export default function LeadRouterPage() {
     await savePatch({
       enabled: Boolean(settings?.enabled),
       routingMode: settings?.routingMode || 'live',
+      delayedReleaseEnabled: Boolean(settings?.delayedReleaseEnabled),
       delayedReleaseHours: Number(settings?.delayedReleaseHours || 24)
     });
   }
@@ -221,7 +222,7 @@ export default function LeadRouterPage() {
           onClick={() => savePatch({ enabled: !settings.enabled })}
           disabled={saving}
         >
-          Router: {settings.enabled ? 'ON' : 'OFF'}
+          Instant Routing: {settings.enabled ? 'ON' : 'OFF'}
         </button>
 
         <label>
@@ -240,19 +241,32 @@ export default function LeadRouterPage() {
         </label>
 
         {settings.routingMode === 'delayed24h' ? (
-          <label>
-            Hold Hours
-            <input
-              type="number"
-              min={1}
-              value={settings.delayedReleaseHours ?? 24}
-              onChange={(e) => {
-                setSettings((s) => ({ ...s, delayedReleaseHours: Number(e.target.value || 24) }));
-                setIsDirty(true);
-              }}
-              style={{ marginLeft: 6, width: 80 }}
-            />
-          </label>
+          <>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={Boolean(settings.delayedReleaseEnabled)}
+                onChange={(e) => {
+                  setSettings((s) => ({ ...s, delayedReleaseEnabled: e.target.checked }));
+                  setIsDirty(true);
+                }}
+              />
+              24h Auto-Release Active
+            </label>
+            <label>
+              Hold Hours
+              <input
+                type="number"
+                min={1}
+                value={settings.delayedReleaseHours ?? 24}
+                onChange={(e) => {
+                  setSettings((s) => ({ ...s, delayedReleaseHours: Number(e.target.value || 24) }));
+                  setIsDirty(true);
+                }}
+                style={{ marginLeft: 6, width: 80 }}
+              />
+            </label>
+          </>
         ) : null}
 
         <button type="button" className="ghost" onClick={saveRoutingSettings} disabled={saving}>
@@ -334,7 +348,7 @@ export default function LeadRouterPage() {
           <span className="pill">Manual hold: {releaseRun?.blockedManualHold ?? 0}</span>
           <span className="pill">Submitted/blocked: {releaseRun?.blockedSubmitted ?? 0}</span>
         </div>
-        <small className="muted">Delayed mode rule: lead stays owner-only until hold window expires. At/after the hold time, if no form submission and not manual hold, it routes to the next eligible active agent.</small>
+        <small className="muted">Delayed mode rule: lead stays owner-only until hold window expires. At/after hold time, if no form submission and not manual hold, it routes to the next eligible active (unpaused) agent. This 24h auto-release runs independently from Instant Routing ON/OFF.</small>
       </div>
 
       <div className="panel" style={{ marginBottom: 10 }}>
