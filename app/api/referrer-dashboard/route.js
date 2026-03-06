@@ -47,6 +47,12 @@ function appReferrerName(row = {}) {
   return clean(row?.referralName || row?.referredByName || mapRefCodeToName(row?.refCode || row?.referral_code || ''));
 }
 
+function isSubmittedApplication(row = {}) {
+  const mode = normalize(row?.mode || 'submit');
+  const submittedAt = clean(row?.submitted_at || row?.submittedAt || '');
+  return mode === 'submit' && Boolean(submittedAt);
+}
+
 function pendingRequest(requests = [], memberEmail = '', stepKey = '') {
   const em = emailKey(memberEmail);
   return Boolean((requests || []).find((r) => emailKey(r?.memberEmail) === em && clean(r?.stepKey) === stepKey && clean(r?.status) === 'pending'));
@@ -166,6 +172,8 @@ export async function GET(req) {
   const appUrl = clean(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
 
   for (const app of apps) {
+    if (!isSubmittedApplication(app)) continue;
+
     const fullName = clean(`${app?.firstName || ''} ${app?.lastName || ''}`) || clean(app?.name || app?.applicantName || '');
     const email = clean(app?.email || app?.applicantEmail || '').toLowerCase();
     const pKey = personKey({ email, name: fullName });
@@ -223,6 +231,8 @@ export async function GET(req) {
 
   const metrics = {
     total: rows.length,
+    submittedApps: rows.length,
+    approvedApps: rows.filter((r) => normalize(r.appStatus).includes('approved')).length,
     onTrack: rows.filter((r) => r.bucket === 'on_track').length,
     needsFollowup: rows.filter((r) => r.bucket === 'needs_followup').length,
     stalled24h: rows.filter((r) => r.stalled24h).length

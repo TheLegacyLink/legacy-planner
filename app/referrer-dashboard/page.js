@@ -239,6 +239,8 @@ export default function ReferrerDashboardPage() {
           <section className="claimsRoster" style={{ marginTop: 8 }}>
             <div className="claimsQuickTools" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               <span className="pill">Total: {metrics.total}</span>
+              <span className="pill">Submitted Apps: {metrics.submittedApps ?? metrics.total}</span>
+              <span className="pill onpace">Approved Apps: {metrics.approvedApps ?? 0}</span>
               <span className="pill onpace">On Track: {metrics.onTrack}</span>
               <span className="pill">Needs Follow-up: {metrics.needsFollowup}</span>
               <span className="pill atrisk">Stalled 24h+: {metrics.stalled24h}</span>
@@ -293,6 +295,7 @@ export default function ReferrerDashboardPage() {
                   <tr>
                     <th>Person</th>
                     <th>Licensed</th>
+                    <th>Application</th>
                     <th>Stage</th>
                     <th>Progress</th>
                     <th>Policy</th>
@@ -310,6 +313,7 @@ export default function ReferrerDashboardPage() {
                         <small className="muted">{r.email || r.phone || '—'}</small>
                       </td>
                       <td>{r.licensed ? 'Yes' : 'No'}</td>
+                      <td>{r.appStatus || 'Submitted'}</td>
                       <td>{r.stage || '—'}</td>
                       <td>{r.completedSteps}/{r.totalSteps} ({r.progressPct}%)</td>
                       <td>{r.policyStatus || '—'}{r.stalled24h ? ' (stalled 24h+)' : ''}</td>
@@ -338,7 +342,7 @@ export default function ReferrerDashboardPage() {
                       ) : null}
                     </tr>
                   ))}
-                  {!(filteredRows || []).length ? <tr><td colSpan={isAdmin ? 9 : 8} className="muted">No referred people found yet.</td></tr> : null}
+                  {!(filteredRows || []).length ? <tr><td colSpan={isAdmin ? 10 : 9} className="muted">No referred people found yet.</td></tr> : null}
                 </tbody>
               </table>
             </div>
