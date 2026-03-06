@@ -6,6 +6,7 @@ const MEMBERS_PATH = 'stores/sponsorship-program-members.json';
 const REQUESTS_PATH = 'stores/sponsorship-sop-requests.json';
 const POLICY_PATH = 'stores/policy-submissions.json';
 const DELEGATIONS_PATH = 'stores/referrer-delegations.json';
+const INVITES_PATH = 'stores/sponsorship-sop-invites.json';
 
 function clean(v = '') { return String(v || '').trim(); }
 function normalize(v = '') { return clean(v).toLowerCase().replace(/\s+/g, ' '); }
@@ -108,20 +109,23 @@ export async function GET(req) {
   const viewer = findInnerUser(viewerName);
   if (!viewer) return Response.json({ ok: false, error: 'viewer_not_found' }, { status: 404 });
 
-  const [appsRaw, membersRaw, requestsRaw, policyRows, delegationsRaw] = await Promise.all([
+  const [appsRaw, membersRaw, requestsRaw, policyRows, delegationsRaw, invitesRaw] = await Promise.all([
     loadJsonStore(APPS_PATH, []),
     loadJsonFile(MEMBERS_PATH, []),
     loadJsonFile(REQUESTS_PATH, []),
     loadJsonStore(POLICY_PATH, []),
-    loadJsonFile(DELEGATIONS_PATH, [])
+    loadJsonFile(DELEGATIONS_PATH, []),
+    loadJsonFile(INVITES_PATH, [])
   ]);
 
   const apps = Array.isArray(appsRaw) ? appsRaw : [];
   const members = Array.isArray(membersRaw) ? membersRaw : [];
   const requests = Array.isArray(requestsRaw) ? requestsRaw : [];
   const delegations = Array.isArray(delegationsRaw) ? delegationsRaw : [];
+  const invites = Array.isArray(invitesRaw) ? invitesRaw : [];
 
   const memberByEmail = new Map(members.map((m) => [emailKey(m?.email), m]));
+  const inviteByEmail = new Map(invites.map((i) => [emailKey(i?.memberEmail), i]));
   const policyByPerson = new Map();
   for (const p of (Array.isArray(policyRows) ? policyRows : [])) {
     const k = personKey({ email: p?.applicantEmail, name: p?.applicantName });
@@ -135,6 +139,7 @@ export async function GET(req) {
   const delegByPerson = new Map(delegations.map((d) => [clean(d.personKey), d]));
   const rows = [];
   const nowMs = Date.now();
+  const appUrl = clean(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
 
   for (const app of apps) {
     const fullName = clean(`${app?.firstName || ''} ${app?.lastName || ''}`) || clean(app?.name || app?.applicantName || '');
@@ -150,6 +155,7 @@ export async function GET(req) {
     if (normalize(effectiveReferrer) !== normalize(viewer.name)) continue;
 
     const member = memberByEmail.get(email) || {};
+    const invite = inviteByEmail.get(emailKey(email)) || null;
     const policy = policyByPerson.get(pKey) || {};
     const step = stepModel({
       ...member,
@@ -181,7 +187,8 @@ export async function GET(req) {
       policyUpdatedAt: clean(policy?.updatedAt || policy?.submittedAt || ''),
       stalled24h,
       bucket: statusBucket({ stalled24h, leadAccessActive: Boolean(member?.leadAccessActive), progressPct: step.progressPct }),
-      lastActivityAt: clean(member?.updatedAt || app?.updatedAt || app?.submitted_at || '')
+      lastActivityAt: clean(member?.updatedAt || app?.updatedAt || app?.submitted_at || ''),
+      sopUrl: invite?.token ? `${appUrl}/sponsorship-sop?invite=${encodeURIComponent(invite.token)}` : `${appUrl}/sponsorship-sop`
     });
   }
 
@@ -199,7 +206,7 @@ export async function GET(req) {
 
   return Response.json({
     ok: true,
-    viewer: { name: viewer.name, role: viewer.role },
+    viewer: { name: viewer.name, role: viewer.role, email: viewer.email || '' },
     rows,
     metrics,
     innerCircle: (users || []).filter((u) => u.active).map((u) => ({ name: u.name, role: u.role }))

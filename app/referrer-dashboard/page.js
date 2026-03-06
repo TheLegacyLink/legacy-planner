@@ -19,7 +19,7 @@ function badgeStyle(bucket = '') {
 }
 
 export default function ReferrerDashboardPage() {
-  const [auth, setAuth] = useState({ name: '', role: '' });
+  const [auth, setAuth] = useState({ name: '', role: '', email: '' });
   const [loginName, setLoginName] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -30,8 +30,10 @@ export default function ReferrerDashboardPage() {
   const [innerCircle, setInnerCircle] = useState([]);
   const [message, setMessage] = useState('');
   const [delegateByPerson, setDelegateByPerson] = useState({});
+  const [showStalledOnly, setShowStalledOnly] = useState(false);
 
   const isAdmin = useMemo(() => normalize(auth.role) === 'admin', [auth.role]);
+  const filteredRows = useMemo(() => (showStalledOnly ? rows.filter((r) => r.stalled24h) : rows), [rows, showStalledOnly]);
 
   async function loadData(silent = false) {
     if (!auth.name) return;
@@ -43,7 +45,7 @@ export default function ReferrerDashboardPage() {
       setRows(data.rows || []);
       setMetrics(data.metrics || { total: 0, onTrack: 0, needsFollowup: 0, stalled24h: 0 });
       setInnerCircle(data.innerCircle || []);
-      setAuth((a) => ({ ...a, role: data?.viewer?.role || a.role }));
+      setAuth((a) => ({ ...a, role: data?.viewer?.role || a.role, email: data?.viewer?.email || a.email || '' }));
     } catch (e) {
       setMessage(`Load failed: ${e?.message || 'unknown_error'}`);
     } finally {
@@ -54,7 +56,7 @@ export default function ReferrerDashboardPage() {
   useEffect(() => {
     try {
       const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || '{}');
-      if (saved?.name) setAuth({ name: saved.name, role: saved.role || '' });
+      if (saved?.name) setAuth({ name: saved.name, role: saved.role || '', email: saved.email || '' });
       if (saved?.name) setLoginName(saved.name);
     } catch {
       // ignore
@@ -87,7 +89,7 @@ export default function ReferrerDashboardPage() {
       return;
     }
 
-    const next = { name: data.user.name, role: data.user.role || '' };
+    const next = { name: data.user.name, role: data.user.role || '', email: data.user.email || '' };
     setAuth(next);
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(next));
     setPassword('');
@@ -95,7 +97,7 @@ export default function ReferrerDashboardPage() {
 
   function logout() {
     sessionStorage.removeItem(SESSION_KEY);
-    setAuth({ name: '', role: '' });
+    setAuth({ name: '', role: '', email: '' });
     setRows([]);
     setMessage('');
   }
@@ -115,6 +117,27 @@ export default function ReferrerDashboardPage() {
     }
     setMessage(`Delegated successfully to ${delegateTo}`);
     await loadData(true);
+  }
+
+  function sendReminderEmail(row) {
+    const to = clean(row?.email);
+    if (!to) {
+      setMessage('No email on file for this person.');
+      return;
+    }
+    const subject = encodeURIComponent('Quick follow-up on your Legacy Link progress');
+    const body = encodeURIComponent([
+      `Hi ${row?.name || ''},`,
+      '',
+      'Just checking in to help you keep momentum with your onboarding progress.',
+      `Current stage I see: ${row?.stage || 'In Progress'}.`,
+      '',
+      'Reply here if you need help and I will support you step-by-step.',
+      '',
+      '— The Legacy Link Team'
+    ].join('\n'));
+    const cc = auth?.email ? `&cc=${encodeURIComponent(auth.email)}` : '';
+    window.location.href = `mailto:${encodeURIComponent(to)}?subject=${subject}&body=${body}${cc}`;
   }
 
   if (!auth.name) {
@@ -143,11 +166,15 @@ export default function ReferrerDashboardPage() {
       </section>
 
       <section className="claimsRoster" style={{ marginTop: 8 }}>
-        <div className="claimsQuickTools" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="claimsQuickTools" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span className="pill">Total: {metrics.total}</span>
           <span className="pill onpace">On Track: {metrics.onTrack}</span>
           <span className="pill">Needs Follow-up: {metrics.needsFollowup}</span>
           <span className="pill atrisk">Stalled 24h+: {metrics.stalled24h}</span>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input type="checkbox" checked={showStalledOnly} onChange={(e) => setShowStalledOnly(e.target.checked)} />
+            Show stalled only
+          </label>
         </div>
         {message ? <p className="muted" style={{ marginTop: 8 }}>{message}</p> : null}
       </section>
@@ -165,11 +192,12 @@ export default function ReferrerDashboardPage() {
                 <th>Policy</th>
                 <th>Status</th>
                 <th>Last Activity</th>
+                <th>Actions</th>
                 {isAdmin ? <th>Delegate</th> : null}
               </tr>
             </thead>
             <tbody>
-              {(rows || []).map((r) => (
+              {(filteredRows || []).map((r) => (
                 <tr key={r.personKey}>
                   <td>
                     <div>{r.name || '—'}</div>
@@ -181,6 +209,12 @@ export default function ReferrerDashboardPage() {
                   <td>{r.policyStatus || '—'}{r.stalled24h ? ' (stalled 24h+)' : ''}</td>
                   <td><span className="pill" style={badgeStyle(r.bucket)}>{r.bucket === 'on_track' ? 'On Track' : r.bucket === 'stalled' ? 'Stalled' : 'Needs Follow-up'}</span></td>
                   <td>{fmt(r.lastActivityAt)}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <a className="ghost" href={r.sopUrl} target="_blank" rel="noreferrer">Open SOP</a>
+                      <button type="button" className="ghost" onClick={() => sendReminderEmail(r)}>Send Reminder</button>
+                    </div>
+                  </td>
                   {isAdmin ? (
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
@@ -196,7 +230,7 @@ export default function ReferrerDashboardPage() {
                   ) : null}
                 </tr>
               ))}
-              {!(rows || []).length ? <tr><td colSpan={isAdmin ? 8 : 7} className="muted">No referred people found yet.</td></tr> : null}
+              {!(filteredRows || []).length ? <tr><td colSpan={isAdmin ? 9 : 8} className="muted">No referred people found yet.</td></tr> : null}
             </tbody>
           </table>
         </div>
