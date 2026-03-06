@@ -3,19 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 
-const LEAD_MARKET_SETTINGS_KEY = 'lead_market_settings_v1';
-const LEAD_ENGAGEMENT_KEY = 'lead_market_engagement_v1';
-
 function clean(v = '') {
   return String(v || '').trim();
 }
 
 function normalize(v = '') {
   return clean(v).toLowerCase().replace(/\s+/g, ' ');
-}
-
-function fullName(row = {}) {
-  return clean(`${row.firstName || ''} ${row.lastName || ''}`);
 }
 
 function fmtDate(iso = '') {
@@ -25,105 +18,74 @@ function fmtDate(iso = '') {
   return d.toLocaleString();
 }
 
-function isApprovedStatus(status = '') {
-  const s = normalize(status);
-  return s.includes('approved');
-}
-
-function rowKey(row = {}) {
-  return clean(row.id) || `${normalize(row.applicant)}|${normalize(row.email)}|${normalize(row.phone)}`;
-}
-
 export default function SponsorshipOpsPage() {
-  const [apps, setApps] = useState([]);
-  const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [tierFilter, setTierFilter] = useState('all');
-  const [marketSettings, setMarketSettings] = useState({
+  const [bookings, setBookings] = useState([]);
+  const [settings, setSettings] = useState({
     sponsorshipTier1Price: 50,
     sponsorshipTier2Price: 89,
     termLifeTier1Price: '',
     termLifeTier2Price: ''
   });
-  const [engagementById, setEngagementById] = useState({});
+  const [adminRows, setAdminRows] = useState([]);
 
   async function load() {
     setLoading(true);
     try {
-      const [appsRes, bookingsRes] = await Promise.all([
-        fetch('/api/sponsorship-applications', { cache: 'no-store' }),
+      const [marketRes, bookingsRes] = await Promise.all([
+        fetch('/api/lead-marketplace', { cache: 'no-store' }),
         fetch('/api/sponsorship-bookings', { cache: 'no-store' })
       ]);
-      const appsJson = await appsRes.json().catch(() => ({}));
+
+      const marketJson = await marketRes.json().catch(() => ({}));
       const bookingsJson = await bookingsRes.json().catch(() => ({}));
 
-      if (appsRes.ok && appsJson?.ok) setApps(Array.isArray(appsJson.rows) ? appsJson.rows : []);
-      if (bookingsRes.ok && bookingsJson?.ok) setBookings(Array.isArray(bookingsJson.rows) ? bookingsJson.rows : []);
+      if (marketRes.ok && marketJson?.ok) {
+        setSettings({
+          sponsorshipTier1Price: Number(marketJson?.settings?.sponsorshipTier1Price || 50),
+          sponsorshipTier2Price: Number(marketJson?.settings?.sponsorshipTier2Price || 89),
+          termLifeTier1Price: marketJson?.settings?.termLifeTier1Price ?? '',
+          termLifeTier2Price: marketJson?.settings?.termLifeTier2Price ?? ''
+        });
+        setAdminRows(Array.isArray(marketJson.adminRows) ? marketJson.adminRows : []);
+      }
+
+      if (bookingsRes.ok && bookingsJson?.ok) {
+        setBookings(Array.isArray(bookingsJson.rows) ? bookingsJson.rows : []);
+      }
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    load();
+  useEffect(() => { load(); }, []);
 
-    try {
-      const rawSettings = localStorage.getItem(LEAD_MARKET_SETTINGS_KEY);
-      if (rawSettings) {
-        const parsed = JSON.parse(rawSettings);
-        setMarketSettings((prev) => ({ ...prev, ...(parsed || {}) }));
-      }
+  async function saveSettings(patch) {
+    const next = { ...settings, ...patch };
+    setSettings(next);
 
-      const rawEngagement = localStorage.getItem(LEAD_ENGAGEMENT_KEY);
-      if (rawEngagement) {
-        const parsed = JSON.parse(rawEngagement);
-        if (parsed && typeof parsed === 'object') setEngagementById(parsed);
-      }
-    } catch {
-      // ignore storage read issues
-    }
-  }, []);
+    await fetch('/api/lead-marketplace', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set_settings', settings: next })
+    });
 
-  function patchMarketSettings(patch) {
-    const next = { ...marketSettings, ...patch };
-    setMarketSettings(next);
-    try {
-      localStorage.setItem(LEAD_MARKET_SETTINGS_KEY, JSON.stringify(next));
-    } catch {
-      // ignore storage write issues
-    }
+    await load();
   }
 
-  function setEngagement(row, replied) {
-    const key = rowKey(row);
-    if (!key) return;
-    const next = { ...engagementById, [key]: replied ? 'replied' : 'no_reply' };
-    setEngagementById(next);
-    try {
-      localStorage.setItem(LEAD_ENGAGEMENT_KEY, JSON.stringify(next));
-    } catch {
-      // ignore storage write issues
-    }
+  async function setEngagement(leadKey, replied) {
+    if (!leadKey) return;
+
+    await fetch('/api/lead-marketplace', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set_engagement', leadKey, engagement: replied ? 'replied' : 'no_reply' })
+    });
+
+    await load();
   }
-
-  const bookingBySourceId = useMemo(() => {
-    const map = new Map();
-    bookings.forEach((b) => {
-      const key = clean(b.source_application_id);
-      if (key) map.set(key, b);
-    });
-    return map;
-  }, [bookings]);
-
-  const bookingByName = useMemo(() => {
-    const map = new Map();
-    bookings.forEach((b) => {
-      const name = normalize(b.applicant_name);
-      if (name && !map.has(name)) map.set(name, b);
-    });
-    return map;
-  }, [bookings]);
 
   const bookedRows = useMemo(() => {
     const deduped = new Map();
@@ -142,10 +104,8 @@ export default function SponsorshipOpsPage() {
         applicant,
         state: clean(b.applicant_state),
         requestedAt,
-        referredBy: clean(b.referred_by),
         claimStatus: clean(b.claim_status || 'Open'),
-        claimedBy: clean(b.claimed_by || ''),
-        createdAt: clean(b.created_at)
+        claimedBy: clean(b.claimed_by || '')
       };
 
       if (!deduped.has(dedupeKey)) {
@@ -154,69 +114,34 @@ export default function SponsorshipOpsPage() {
       }
 
       const prev = deduped.get(dedupeKey);
-      const prevTs = new Date(prev.createdAt || 0).getTime();
-      const curTs = new Date(row.createdAt || 0).getTime();
+      const prevTs = new Date(prev.requestedAt || 0).getTime();
+      const curTs = new Date(row.requestedAt || 0).getTime();
       if (curTs > prevTs) deduped.set(dedupeKey, row);
     });
 
     return Array.from(deduped.values());
   }, [bookings]);
 
-  const approvedNotBooked = useMemo(() => {
-    const list = [];
-    const seen = new Set();
+  const tier1Rows = useMemo(() => adminRows.filter((r) => r.tier === 'tier1'), [adminRows]);
+  const tier2Rows = useMemo(() => adminRows.filter((r) => r.tier === 'tier2'), [adminRows]);
 
-    apps.forEach((a) => {
-      if (!isApprovedStatus(a.status)) return;
+  const approvedFiltered = useMemo(() => {
+    const byTier = tierFilter === 'tier1'
+      ? tier1Rows
+      : tierFilter === 'tier2'
+        ? tier2Rows
+        : adminRows;
 
-      const idMatch = bookingBySourceId.get(clean(a.id));
-      const nameMatch = bookingByName.get(normalize(fullName(a)));
-      if (idMatch || nameMatch) return;
-
-      const applicant = fullName(a);
-      const dedupeKey = `${normalize(applicant)}|${normalize(a.email)}|${normalize(a.phone)}`;
-      if (seen.has(dedupeKey)) return;
-      seen.add(dedupeKey);
-
-      list.push({
-        id: a.id,
-        applicant,
-        firstName: clean(a.firstName),
-        lastName: clean(a.lastName),
-        email: clean(a.email),
-        phone: clean(a.phone),
-        state: clean(a.state),
-        status: clean(a.status),
-        referredBy: clean(a.referralName || a.referred_by || a.refCode || ''),
-        approvedAt: clean(a.reviewedAt || a.updatedAt || a.submitted_at)
-      });
-    });
-
-    list.sort((x, y) => new Date(y.approvedAt || 0).getTime() - new Date(x.approvedAt || 0).getTime());
-    return list;
-  }, [apps, bookingBySourceId, bookingByName]);
-
-  const sponsorshipTier2Rows = useMemo(() => approvedNotBooked.filter((r) => engagementById[rowKey(r)] === 'replied'), [approvedNotBooked, engagementById]);
-  const sponsorshipTier1Rows = useMemo(() => approvedNotBooked.filter((r) => engagementById[rowKey(r)] !== 'replied'), [approvedNotBooked, engagementById]);
+    const q = normalize(query);
+    if (!q) return byTier;
+    return byTier.filter((r) => normalize(`${r.applicant} ${r.email} ${r.phone} ${r.state}`).includes(q));
+  }, [adminRows, tier1Rows, tier2Rows, query, tierFilter]);
 
   const bookedFiltered = useMemo(() => {
     const q = normalize(query);
     if (!q) return bookedRows;
-    return bookedRows.filter((r) => normalize(`${r.applicant} ${r.state} ${r.referredBy} ${r.claimedBy}`).includes(q));
+    return bookedRows.filter((r) => normalize(`${r.applicant} ${r.state} ${r.claimedBy}`).includes(q));
   }, [bookedRows, query]);
-
-  const approvedFiltered = useMemo(() => {
-    const q = normalize(query);
-
-    const byTier = tierFilter === 'tier1'
-      ? sponsorshipTier1Rows
-      : tierFilter === 'tier2'
-        ? sponsorshipTier2Rows
-        : approvedNotBooked;
-
-    if (!q) return byTier;
-    return byTier.filter((r) => normalize(`${r.applicant} ${r.email} ${r.phone} ${r.referredBy}`).includes(q));
-  }, [approvedNotBooked, sponsorshipTier1Rows, sponsorshipTier2Rows, query, tierFilter]);
 
   return (
     <AppShell title="Sponsorship Ops">
@@ -226,7 +151,7 @@ export default function SponsorshipOpsPage() {
         color: '#e2e8f0'
       }}>
         <div className="panelRow" style={{ gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <h3 style={{ margin: 0, color: '#f8fafc' }}>Lead Marketplace (Elite Build)</h3>
+          <h3 style={{ margin: 0, color: '#f8fafc' }}>Lead Marketplace (Admin)</h3>
           <button type="button" onClick={load}>Refresh</button>
         </div>
         <p className="muted" style={{ marginTop: 8, color: '#cbd5e1' }}>
@@ -236,16 +161,16 @@ export default function SponsorshipOpsPage() {
         <div className="grid4" style={{ marginTop: 10 }}>
           <div className="card" style={{ border: '1px solid #334155', background: '#0f172a' }}>
             <p style={{ color: '#93c5fd' }}>Sponsorship Tier 1</p>
-            <h2 style={{ color: '#fff' }}>${Number(marketSettings.sponsorshipTier1Price || 50)}</h2>
+            <h2 style={{ color: '#fff' }}>${Number(settings.sponsorshipTier1Price || 50)}</h2>
             <small style={{ color: '#cbd5e1' }}>Approved • No Booking • No Reply</small>
-            <p style={{ marginTop: 8 }}>Inventory: <strong>{sponsorshipTier1Rows.length}</strong></p>
+            <p style={{ marginTop: 8 }}>Inventory: <strong>{tier1Rows.length}</strong></p>
           </div>
 
           <div className="card" style={{ border: '1px solid #334155', background: '#0f172a' }}>
             <p style={{ color: '#86efac' }}>Sponsorship Tier 2</p>
-            <h2 style={{ color: '#fff' }}>${Number(marketSettings.sponsorshipTier2Price || 89)}</h2>
+            <h2 style={{ color: '#fff' }}>${Number(settings.sponsorshipTier2Price || 89)}</h2>
             <small style={{ color: '#cbd5e1' }}>Approved • No Booking • Replied to Text</small>
-            <p style={{ marginTop: 8 }}>Inventory: <strong>{sponsorshipTier2Rows.length}</strong></p>
+            <p style={{ marginTop: 8 }}>Inventory: <strong>{tier2Rows.length}</strong></p>
           </div>
 
           <div className="card" style={{ border: '1px dashed #475569', background: '#111827' }}>
@@ -270,8 +195,8 @@ export default function SponsorshipOpsPage() {
             <input
               type="number"
               min={1}
-              value={marketSettings.sponsorshipTier1Price}
-              onChange={(e) => patchMarketSettings({ sponsorshipTier1Price: Number(e.target.value || 1) })}
+              value={settings.sponsorshipTier1Price}
+              onChange={(e) => saveSettings({ sponsorshipTier1Price: Number(e.target.value || 1) })}
             />
           </label>
           <label>
@@ -279,8 +204,8 @@ export default function SponsorshipOpsPage() {
             <input
               type="number"
               min={1}
-              value={marketSettings.sponsorshipTier2Price}
-              onChange={(e) => patchMarketSettings({ sponsorshipTier2Price: Number(e.target.value || 1) })}
+              value={settings.sponsorshipTier2Price}
+              onChange={(e) => saveSettings({ sponsorshipTier2Price: Number(e.target.value || 1) })}
             />
           </label>
           <label>
@@ -289,8 +214,8 @@ export default function SponsorshipOpsPage() {
               type="number"
               min={0}
               placeholder="Set later"
-              value={marketSettings.termLifeTier1Price}
-              onChange={(e) => patchMarketSettings({ termLifeTier1Price: e.target.value })}
+              value={settings.termLifeTier1Price}
+              onChange={(e) => saveSettings({ termLifeTier1Price: e.target.value })}
             />
           </label>
           <label>
@@ -299,8 +224,8 @@ export default function SponsorshipOpsPage() {
               type="number"
               min={0}
               placeholder="Set later"
-              value={marketSettings.termLifeTier2Price}
-              onChange={(e) => patchMarketSettings({ termLifeTier2Price: e.target.value })}
+              value={settings.termLifeTier2Price}
+              onChange={(e) => saveSettings({ termLifeTier2Price: e.target.value })}
             />
           </label>
         </div>
@@ -317,7 +242,7 @@ export default function SponsorshipOpsPage() {
         <div className="settingsGrid" style={{ marginTop: 8 }}>
           <label>
             Search
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, email, phone, referred by..." />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, email, phone, state..." />
           </label>
         </div>
 
@@ -333,7 +258,6 @@ export default function SponsorshipOpsPage() {
                 <th>Email</th>
                 <th>Phone</th>
                 <th>State</th>
-                <th>Referred By</th>
                 <th>Approved At</th>
                 <th>Engagement</th>
                 <th>Tier</th>
@@ -341,31 +265,29 @@ export default function SponsorshipOpsPage() {
             </thead>
             <tbody>
               {approvedFiltered.map((r) => {
-                const key = rowKey(r);
-                const replied = engagementById[key] === 'replied';
+                const replied = r.engagement === 'Replied';
                 return (
-                  <tr key={r.id || key}>
+                  <tr key={r.key || r.id}>
                     <td>{r.applicant || '—'}</td>
                     <td>{r.email || '—'}</td>
                     <td>{r.phone || '—'}</td>
                     <td>{r.state || '—'}</td>
-                    <td>{r.referredBy || '—'}</td>
                     <td>{fmtDate(r.approvedAt)}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        <button type="button" className={!replied ? '' : 'ghost'} onClick={() => setEngagement(r, false)}>No Reply</button>
-                        <button type="button" className={replied ? '' : 'ghost'} onClick={() => setEngagement(r, true)}>Replied</button>
+                        <button type="button" className={!replied ? '' : 'ghost'} onClick={() => setEngagement(r.key, false)}>No Reply</button>
+                        <button type="button" className={replied ? '' : 'ghost'} onClick={() => setEngagement(r.key, true)}>Replied</button>
                       </div>
                     </td>
                     <td>
                       <span className="pill" style={{ background: replied ? '#166534' : '#1d4ed8', color: '#fff' }}>
-                        {replied ? `Tier 2 • $${Number(marketSettings.sponsorshipTier2Price || 89)}` : `Tier 1 • $${Number(marketSettings.sponsorshipTier1Price || 50)}`}
+                        {replied ? `Tier 2 • $${Number(settings.sponsorshipTier2Price || 89)}` : `Tier 1 • $${Number(settings.sponsorshipTier1Price || 50)}`}
                       </span>
                     </td>
                   </tr>
                 );
               })}
-              {!approvedFiltered.length ? <tr><td colSpan={8} className="muted">No matching approved-unbooked leads right now.</td></tr> : null}
+              {!approvedFiltered.length ? <tr><td colSpan={7} className="muted">No matching approved-unbooked leads right now.</td></tr> : null}
             </tbody>
           </table>
         )}
@@ -380,7 +302,6 @@ export default function SponsorshipOpsPage() {
                 <th>Applicant</th>
                 <th>State</th>
                 <th>Booked Time (EST)</th>
-                <th>Referred By</th>
                 <th>Claim Status</th>
                 <th>Claimed By</th>
               </tr>
@@ -391,12 +312,11 @@ export default function SponsorshipOpsPage() {
                   <td>{r.applicant || '—'}</td>
                   <td>{r.state || '—'}</td>
                   <td>{r.requestedAt || '—'}</td>
-                  <td>{r.referredBy || '—'}</td>
                   <td>{r.claimStatus || '—'}</td>
                   <td>{r.claimedBy || '—'}</td>
                 </tr>
               ))}
-              {!bookedFiltered.length ? <tr><td colSpan={6} className="muted">No bookings found.</td></tr> : null}
+              {!bookedFiltered.length ? <tr><td colSpan={5} className="muted">No bookings found.</td></tr> : null}
             </tbody>
           </table>
         )}
