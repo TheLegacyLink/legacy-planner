@@ -187,7 +187,11 @@ export default function LeadMarketplacePage() {
       ? rows.filter((r) => r.tier === 'tier1')
       : tierFilter === 'tier2'
         ? rows.filter((r) => r.tier === 'tier2')
-        : rows;
+        : tierFilter === 'purchased'
+          ? rows.filter((r) => r.soldToViewer)
+          : tierFilter === 'available'
+            ? rows.filter((r) => !r.sold)
+            : rows;
 
     const q = normalize(query);
     if (!q) return byTier;
@@ -197,7 +201,9 @@ export default function LeadMarketplacePage() {
   const counts = useMemo(() => ({
     total: rows.length,
     tier1: rows.filter((r) => r.tier === 'tier1').length,
-    tier2: rows.filter((r) => r.tier === 'tier2').length
+    tier2: rows.filter((r) => r.tier === 'tier2').length,
+    purchased: rows.filter((r) => r.soldToViewer).length,
+    available: rows.filter((r) => !r.sold).length
   }), [rows]);
 
   if (!auth.name) {
@@ -243,6 +249,8 @@ export default function LeadMarketplacePage() {
             <span className="pill" style={{ background: '#1d4ed8', color: '#fff' }}>Tier 1 • ${settings.sponsorshipTier1Price}</span>
             <span className="pill" style={{ background: '#166534', color: '#fff' }}>Tier 2 • ${settings.sponsorshipTier2Price}</span>
             <span className="pill">Inventory: {counts.total}</span>
+            <span className="pill">Available: {counts.available}</span>
+            <span className="pill">My Purchased: {counts.purchased}</span>
             <span className="pill">Tier 1: {counts.tier1}</span>
             <span className="pill">Tier 2: {counts.tier2}</span>
           </div>
@@ -250,6 +258,12 @@ export default function LeadMarketplacePage() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button type="button" className={tierFilter === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setTierFilter('all')}>
               All ({counts.total})
+            </button>
+            <button type="button" className={tierFilter === 'available' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setTierFilter('available')}>
+              Available ({counts.available})
+            </button>
+            <button type="button" className={tierFilter === 'purchased' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setTierFilter('purchased')}>
+              My Purchased ({counts.purchased})
             </button>
             <button type="button" className={tierFilter === 'tier1' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setTierFilter('tier1')}>
               Tier 1 ({counts.tier1})
