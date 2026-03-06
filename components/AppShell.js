@@ -17,6 +17,8 @@ const tabs = [
   { href: '/licensed-agents', label: 'Licensed Agents' },
   { href: '/sponsorships', label: 'Sponsorships' },
   { href: '/sponsorship-review', label: 'Sponsorship Review' },
+  { href: '/sponsorship-program', label: 'Sponsorship Program' },
+  { href: '/sponsorship-queue', label: 'Sponsorship Queue' },
   { href: '/lead-router', label: 'Lead Router' },
   { href: '/lead-claims', label: 'Lead Claims' },
   { href: '/lead-marketplace', label: 'Lead Marketplace' },
