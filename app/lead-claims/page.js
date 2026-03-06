@@ -268,7 +268,10 @@ export default function LeadClaimsPortalPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        setMessage(data?.error || 'Delete failed');
+        const msg = data?.error === 'delete_not_eligible_yet'
+          ? 'Delete is only available 24+ hours after the appointment time.'
+          : data?.error || 'Delete failed';
+        setMessage(msg);
         return;
       }
       setMessage('Appointment removed from queue.');
@@ -420,7 +423,7 @@ export default function LeadClaimsPortalPage() {
                     <p className="muted">{sourceLabel(row)} — Referred by {referredBy}</p>
                   </div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    {isAdmin ? (
+                    {isAdmin && row.delete_eligible ? (
                       <button
                         type="button"
                         className="ghost"

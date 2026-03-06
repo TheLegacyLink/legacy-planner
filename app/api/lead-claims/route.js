@@ -123,6 +123,24 @@ function parseDateTime12(raw = '') {
   return { date, hour, minute: Number(min) };
 }
 
+function bookingUtcMs(row = {}) {
+  const parsed = parseDateTime12(clean(row?.requested_at_est || ''));
+  if (!parsed) return NaN;
+
+  const zone = clean(row?.booking_timezone || inferTimezoneFromState(row?.applicant_state) || 'ET').toUpperCase();
+  const offset = Number(ZONE_OFFSET[zone] ?? -5);
+  const [y, mo, d] = parsed.date.split('-').map((n) => Number(n));
+  if (!y || !mo || !d) return NaN;
+
+  return Date.UTC(y, mo - 1, d, parsed.hour, parsed.minute, 0, 0) - offset * 60 * 60 * 1000;
+}
+
+function isDeleteEligible(row = {}, nowMs = Date.now()) {
+  const whenMs = bookingUtcMs(row);
+  if (Number.isNaN(whenMs)) return false;
+  return nowMs - whenMs >= 24 * 60 * 60 * 1000;
+}
+
 function formatHourMinute(hour24 = 0, minute = 0) {
   const suffix = hour24 >= 12 ? 'PM' : 'AM';
   let h = hour24 % 12;
@@ -512,7 +530,8 @@ function toPortalRow(row = {}, viewerName = '', viewerRole = '') {
     applicant_phone: full ? clean(row?.applicant_phone) : maskPhone(row?.applicant_phone),
     notes: full ? clean(row?.notes) : '',
     is_priority_window_open: withinPriority,
-    can_claim: canClaim
+    can_claim: canClaim,
+    delete_eligible: isDeleteEligible(row)
   };
 }
 
@@ -679,6 +698,9 @@ export async function POST(req) {
 
   if (action === 'delete') {
     if (!isAdminRole(actor.role)) return Response.json({ ok: false, error: 'admin_only' }, { status: 403 });
+    if (!isDeleteEligible(row)) {
+      return Response.json({ ok: false, error: 'delete_not_eligible_yet' }, { status: 409 });
+    }
 
     if (targetStore === 'sponsor') {
       const [removed] = sponsorRows.splice(sponsorIdx, 1);
