@@ -4,6 +4,7 @@ import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../
 const STORE_PATH = 'stores/sponsorship-applications.json';
 const MEMBERS_PATH = 'stores/sponsorship-program-members.json';
 const INVITES_PATH = 'stores/sponsorship-sop-invites.json';
+const AUTH_USERS_PATH = 'stores/sponsorship-sop-auth-users.json';
 
 const DEFAULT_SKOOL_URL = 'https://www.skool.com/legacylink/about';
 const DEFAULT_YOUTUBE_URL = 'https://youtu.be/SVvU9SvCH9o?si=H9BNtEDzglTuvJaI';
@@ -30,6 +31,11 @@ function normalize(v = '') {
 
 function randomToken(prefix = 'sop') {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+}
+
+function randomPassword() {
+  const base = Math.random().toString(36).slice(-6).toUpperCase();
+  return `LL-${base}`;
 }
 
 function plusWeeksIso(iso = '', weeks = 8) {
@@ -100,7 +106,39 @@ function upsertInvite(invites = [], member = {}) {
   return invite;
 }
 
-async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licensed = false } = {}) {
+function upsertAuthUser(authUsers = [], member = {}) {
+  const email = clean(member?.email).toLowerCase();
+  const name = clean(member?.name);
+  const idx = authUsers.findIndex((u) => normalize(u?.email) === normalize(email));
+
+  if (idx >= 0) {
+    authUsers[idx] = {
+      ...authUsers[idx],
+      name,
+      email,
+      active: true,
+      role: clean(authUsers[idx]?.role || 'agent') || 'agent',
+      updatedAt: nowIso()
+    };
+    return { user: authUsers[idx], plainPassword: '', created: false };
+  }
+
+  const password = randomPassword();
+  const user = {
+    id: `sau_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    name,
+    email,
+    role: 'agent',
+    password,
+    active: true,
+    createdAt: nowIso(),
+    updatedAt: nowIso()
+  };
+  authUsers.push(user);
+  return { user, plainPassword: password, created: true };
+}
+
+async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licensed = false, loginName = '', loginPassword = '', hasExistingLogin = false } = {}) {
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
   const from = clean(process.env.GMAIL_FROM) || user;
@@ -115,6 +153,10 @@ async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licen
     ? 'You are on the licensed track. Complete each SOP step and submit approvals where required.'
     : 'You are currently on the unlicensed track. Complete the SOP steps and licensing milestone to unlock lead access.';
 
+  const loginBlockText = hasExistingLogin
+    ? ['SOP Login Name: ' + (loginName || to), 'SOP Password: (use your existing password)']
+    : ['SOP Login Name: ' + (loginName || to), 'SOP Password: ' + (loginPassword || '')];
+
   const text = [
     `Hi ${firstName || 'Agent'},`,
     '',
@@ -122,6 +164,8 @@ async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licen
     intro,
     '',
     `Your personal SOP link: ${sopLink}`,
+    '',
+    ...loginBlockText,
     '',
     `Skool Community: ${skoolUrl}`,
     `YouTube (Whatever It Takes): ${youtubeUrl}`,
@@ -136,6 +180,8 @@ async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licen
     <p>Hi <strong>${firstName || 'Agent'}</strong>,</p>
     <p>${intro}</p>
     <p><strong>Your personal SOP link:</strong><br/><a href="${sopLink}">${sopLink}</a></p>
+    <p><strong>SOP Login Name:</strong> ${loginName || to}<br/>
+    <strong>SOP Password:</strong> ${hasExistingLogin ? 'Use your existing password' : (loginPassword || '')}</p>
     <ul>
       <li><strong>Skool Community:</strong> <a href="${skoolUrl}">${skoolUrl}</a></li>
       <li><strong>YouTube (Whatever It Takes):</strong> <a href="${youtubeUrl}">${youtubeUrl}</a></li>
@@ -339,13 +385,15 @@ export async function POST(req) {
     let inviteEmail = { ok: false, error: 'not_sent' };
 
     if (decision === 'approve') {
-      const [membersRaw, invitesRaw] = await Promise.all([
+      const [membersRaw, invitesRaw, authUsersRaw] = await Promise.all([
         loadJsonFile(MEMBERS_PATH, []),
-        loadJsonFile(INVITES_PATH, [])
+        loadJsonFile(INVITES_PATH, []),
+        loadJsonFile(AUTH_USERS_PATH, [])
       ]);
 
       const members = Array.isArray(membersRaw) ? membersRaw : [];
       const invites = Array.isArray(invitesRaw) ? invitesRaw : [];
+      const authUsers = Array.isArray(authUsersRaw) ? authUsersRaw : [];
       const approved = store[idx];
 
       const em = normalize(approved?.email || '');
@@ -358,6 +406,7 @@ export async function POST(req) {
       else members.push(member);
 
       const invite = upsertInvite(invites, member);
+      const authProvision = upsertAuthUser(authUsers, member);
       inviteToken = invite.token;
 
       const appUrl = clean(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
@@ -367,7 +416,10 @@ export async function POST(req) {
         to: clean(member.email),
         firstName: clean(approved?.firstName),
         sopLink,
-        licensed: boolFromLicensed(approved?.isLicensed)
+        licensed: boolFromLicensed(approved?.isLicensed),
+        loginName: authProvision.user?.name || member.name,
+        loginPassword: authProvision.plainPassword,
+        hasExistingLogin: !authProvision.created
       });
 
       store[idx] = {
@@ -379,7 +431,8 @@ export async function POST(req) {
 
       await Promise.all([
         saveJsonFile(MEMBERS_PATH, members),
-        saveJsonFile(INVITES_PATH, invites)
+        saveJsonFile(INVITES_PATH, invites),
+        saveJsonFile(AUTH_USERS_PATH, authUsers)
       ]);
     }
 

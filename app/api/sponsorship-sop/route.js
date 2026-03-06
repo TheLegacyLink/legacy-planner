@@ -304,6 +304,24 @@ export async function POST(req) {
     return Response.json({ ok: true, invite, inviteUrl });
   }
 
+  if (action === 'self_complete_step') {
+    const memberName = clean(body?.memberName);
+    const memberEmail = clean(body?.memberEmail).toLowerCase();
+    const stepKey = clean(body?.stepKey);
+    if (!memberName || !memberEmail || !stepKey) return Response.json({ ok: false, error: 'missing_fields' }, { status: 400 });
+
+    const idx = members.findIndex((m) => normalize(m?.email) === normalize(memberEmail) || normalize(m?.name) === normalize(memberName));
+    if (idx < 0) return Response.json({ ok: false, error: 'member_not_found' }, { status: 404 });
+
+    if (stepKey === 'onboarding_complete') {
+      members[idx] = defaultMember({ ...members[idx], onboardingComplete: true });
+      await saveJsonFile(MEMBERS_PATH, members);
+      return Response.json({ ok: true, member: members[idx] });
+    }
+
+    return Response.json({ ok: false, error: 'step_not_self_completable' }, { status: 400 });
+  }
+
   if (action === 'request_approval') {
     const memberName = clean(body?.memberName);
     const memberEmail = clean(body?.memberEmail).toLowerCase();

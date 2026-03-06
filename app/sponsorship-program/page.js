@@ -64,6 +64,19 @@ export default function SponsorshipProgramPage() {
 
   const sortedMembers = useMemo(() => [...members].sort((a, b) => clean(a.name).localeCompare(clean(b.name))), [members]);
 
+  const pipeline = useMemo(() => {
+    const counts = {
+      total: members.length,
+      licensed: members.filter((m) => m.licensed).length,
+      unlicensed: members.filter((m) => !m.licensed).length,
+      accessActive: members.filter((m) => m.leadAccessActive).length,
+      waitingSkool: members.filter((m) => !m.schoolCommunityJoined).length,
+      waitingYoutube: members.filter((m) => !m.youtubeCommentApproved).length,
+      waitingContracting: members.filter((m) => !(m.contractingStarted || m.contractingComplete)).length
+    };
+    return counts;
+  }, [members]);
+
   function editMember(m) {
     setForm({
       ...EMPTY,
@@ -110,6 +123,19 @@ export default function SponsorshipProgramPage() {
           Tier 0 defaults: 5 leads/week for 8 weeks. SLA: 10 minutes from grab.
         </p>
         {message ? <p className="pill" style={{ background: '#dbeafe', color: '#1e3a8a' }}>{message}</p> : null}
+      </div>
+
+      <div className="panel" style={{ marginTop: 10 }}>
+        <h3 style={{ marginTop: 0 }}>Intake / Mint Panel</h3>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <span className="pill">Total: {pipeline.total}</span>
+          <span className="pill">Licensed: {pipeline.licensed}</span>
+          <span className="pill">Unlicensed: {pipeline.unlicensed}</span>
+          <span className="pill">Lead Access Active: {pipeline.accessActive}</span>
+          <span className="pill">Waiting Skool: {pipeline.waitingSkool}</span>
+          <span className="pill">Waiting YouTube: {pipeline.waitingYoutube}</span>
+          <span className="pill">Waiting Contracting: {pipeline.waitingContracting}</span>
+        </div>
       </div>
 
       <div className="panel" style={{ marginTop: 10 }}>
@@ -166,27 +192,48 @@ export default function SponsorshipProgramPage() {
                 <th>Access</th>
                 <th>Cap</th>
                 <th>Commission</th>
+                <th>Stage</th>
+                <th>Created</th>
                 <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              {sortedMembers.map((m) => (
-                <tr key={m.id}>
-                  <td>{m.name}<br /><small className="muted">{m.email}</small></td>
-                  <td>{m.tier}</td>
-                  <td>{m.licensed ? '✅' : '—'}</td>
-                  <td>{m.onboardingComplete ? '✅' : '—'}</td>
-                  <td>{m.communityServiceApproved ? '✅' : '—'}</td>
-                  <td>{m.schoolCommunityJoined ? '✅' : '—'}</td>
-                  <td>{m.youtubeCommentApproved ? '✅' : '—'}</td>
-                  <td>{m.contractingStarted || m.contractingComplete ? '✅' : '—'}</td>
-                  <td>{m.leadAccessActive ? 'Active' : 'Hold'}</td>
-                  <td>{m.tier0WeeklyCap || 5}</td>
-                  <td>{m.commissionNonSponsoredPct || 50}%</td>
-                  <td><button type="button" className="ghost" onClick={() => editMember(m)}>Edit</button></td>
-                </tr>
-              ))}
-              {!sortedMembers.length ? <tr><td colSpan={12} className="muted">No members configured yet.</td></tr> : null}
+              {sortedMembers.map((m) => {
+                const stage = !m.licensed
+                  ? 'Pre-licensing'
+                  : !m.onboardingComplete
+                    ? 'Onboarding'
+                    : !m.communityServiceApproved
+                      ? 'Community Service'
+                      : !m.schoolCommunityJoined
+                        ? 'Join Skool'
+                        : !m.youtubeCommentApproved
+                          ? 'YouTube Approval'
+                          : !(m.contractingStarted || m.contractingComplete)
+                            ? 'Start Contracting'
+                            : m.leadAccessActive
+                              ? 'Lead Access Active'
+                              : 'Gate Review';
+                return (
+                  <tr key={m.id}>
+                    <td>{m.name}<br /><small className="muted">{m.email}</small></td>
+                    <td>{m.tier}</td>
+                    <td>{m.licensed ? '✅' : '—'}</td>
+                    <td>{m.onboardingComplete ? '✅' : '—'}</td>
+                    <td>{m.communityServiceApproved ? '✅' : '—'}</td>
+                    <td>{m.schoolCommunityJoined ? '✅' : '—'}</td>
+                    <td>{m.youtubeCommentApproved ? '✅' : '—'}</td>
+                    <td>{m.contractingStarted || m.contractingComplete ? '✅' : '—'}</td>
+                    <td>{m.leadAccessActive ? 'Active' : 'Hold'}</td>
+                    <td>{m.tier0WeeklyCap || 5}</td>
+                    <td>{m.commissionNonSponsoredPct || 50}%</td>
+                    <td>{stage}</td>
+                    <td>{fmtDate(m.createdAt)}</td>
+                    <td><button type="button" className="ghost" onClick={() => editMember(m)}>Edit</button></td>
+                  </tr>
+                );
+              })}
+              {!sortedMembers.length ? <tr><td colSpan={14} className="muted">No members configured yet.</td></tr> : null}
             </tbody>
           </table>
         )}

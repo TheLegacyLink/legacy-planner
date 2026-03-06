@@ -24,6 +24,7 @@ export default function SponsorshipSopPage() {
   const [loginName, setLoginName] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [loginUsers, setLoginUsers] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
@@ -83,17 +84,32 @@ export default function SponsorshipSopPage() {
       return;
     }
 
-    try {
-      const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || '{}');
-      if (saved?.name) {
-        setAuth(saved);
-        loadSop({ viewerName: saved.name, viewerEmail: saved.email || '' });
-      } else {
+    async function boot() {
+      try {
+        const usersRes = await fetch('/api/sponsorship-sop-auth', { cache: 'no-store' });
+        const usersData = await usersRes.json().catch(() => ({}));
+        if (usersRes.ok && usersData?.ok && Array.isArray(usersData.users)) {
+          setLoginUsers(usersData.users);
+          if (!loginName && usersData.users[0]?.name) setLoginName(usersData.users[0].name);
+        }
+      } catch {
+        // ignore
+      }
+
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || '{}');
+        if (saved?.name) {
+          setAuth(saved);
+          loadSop({ viewerName: saved.name, viewerEmail: saved.email || '' });
+        } else {
+          setLoading(false);
+        }
+      } catch {
         setLoading(false);
       }
-    } catch {
-      setLoading(false);
     }
+
+    boot();
   }, [demo, invite]);
 
   async function login() {
@@ -105,7 +121,7 @@ export default function SponsorshipSopPage() {
       return;
     }
 
-    const res = await fetch('/api/lead-claims-auth', {
+    const res = await fetch('/api/sponsorship-sop-auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, password })
@@ -123,7 +139,7 @@ export default function SponsorshipSopPage() {
       return;
     }
 
-    const next = { name: data.user.name, email: data.user.email || '', role: data.user.role };
+    const next = { name: data.user.name, email: data.user.email || '', role: data.user.role || 'agent' };
     setAuth(next);
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(next));
     await loadSop({ viewerName: next.name, viewerEmail: next.email || '' });
@@ -162,6 +178,30 @@ export default function SponsorshipSopPage() {
     }
   }
 
+  async function selfCompleteStep(stepKey = '') {
+    if (!member?.name || !member?.email || !stepKey) return;
+
+    setRequestingStep(stepKey);
+    setNotice('');
+    try {
+      const res = await fetch('/api/sponsorship-sop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'self_complete_step', memberName: member.name, memberEmail: member.email, stepKey })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setNotice(`Update failed: ${data?.error || 'unknown'}`);
+        return;
+      }
+
+      setNotice('Step marked complete.');
+      await loadSop(demo ? { demo } : invite ? { invite } : { viewerName: auth.name, viewerEmail: auth.email || '' });
+    } finally {
+      setRequestingStep('');
+    }
+  }
+
   async function createTesters() {
     setNotice('Creating tester profiles...');
     const res = await fetch('/api/sponsorship-sop', {
@@ -187,7 +227,13 @@ export default function SponsorshipSopPage() {
         <section className="claimsAuthCard">
           <h2 className="claimsWordmark">The Legacy Link</h2>
           <p className="claimsQuote">Sponsorship SOP Page</p>
-          <input placeholder="Full name" value={loginName} onChange={(e) => setLoginName(e.target.value)} />
+          {loginUsers.length ? (
+            <select value={loginName} onChange={(e) => setLoginName(e.target.value)}>
+              {loginUsers.map((u) => <option key={u.email || u.name} value={u.name}>{u.name}</option>)}
+            </select>
+          ) : (
+            <input placeholder="Full name" value={loginName} onChange={(e) => setLoginName(e.target.value)} />
+          )}
           <input
             type="password"
             placeholder="Password"
@@ -199,9 +245,7 @@ export default function SponsorshipSopPage() {
           {loginError ? <small className="errorCheck">{loginError}</small> : null}
 
           <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
-            <button type="button" className="ghost" onClick={createTesters}>Create 2 Testers</button>
-            <a href="/sponsorship-sop?demo=licensed">View Licensed Tester SOP</a>
-            <a href="/sponsorship-sop?demo=unlicensed">View Unlicensed Tester SOP</a>
+            <button type="button" className="ghost" onClick={createTesters}>Create 2 Testers (Admin Testing)</button>
           </div>
         </section>
       </main>
@@ -237,10 +281,12 @@ export default function SponsorshipSopPage() {
             {resources?.skoolUrl ? <a href={resources.skoolUrl} target="_blank" rel="noreferrer">Open Skool Community</a> : <span className="muted">Skool link pending</span>}
             {resources?.youtubeUrl ? <a href={resources.youtubeUrl} target="_blank" rel="noreferrer">Open “Whatever It Takes” YouTube</a> : <span className="muted">YouTube link pending</span>}
           </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <a href="/sponsorship-sop?demo=licensed">Licensed Demo</a>
-            <a href="/sponsorship-sop?demo=unlicensed">Unlicensed Demo</a>
-          </div>
+          {isDemo ? (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <a href="/sponsorship-sop?demo=licensed">Licensed Demo</a>
+              <a href="/sponsorship-sop?demo=unlicensed">Unlicensed Demo</a>
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -274,6 +320,15 @@ export default function SponsorshipSopPage() {
                     onClick={() => requestApproval(step.key)}
                   >
                     {requestingStep === step.key ? 'Submitting...' : 'Request Approval'}
+                  </button>
+                ) : step.type === 'self_or_review' && !isDemo ? (
+                  <button
+                    type="button"
+                    className="publicPrimaryBtn publicBtnBlock"
+                    disabled={requestingStep === step.key}
+                    onClick={() => selfCompleteStep(step.key)}
+                  >
+                    {requestingStep === step.key ? 'Saving...' : 'Mark Complete'}
                   </button>
                 ) : (
                   <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled>
