@@ -27,13 +27,19 @@ export default function ReferrerDashboardPage() {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
   const [metrics, setMetrics] = useState({ total: 0, onTrack: 0, needsFollowup: 0, stalled24h: 0 });
+  const [leaderboard, setLeaderboard] = useState([]);
   const [innerCircle, setInnerCircle] = useState([]);
   const [message, setMessage] = useState('');
   const [delegateByPerson, setDelegateByPerson] = useState({});
   const [showStalledOnly, setShowStalledOnly] = useState(false);
+  const [showLicensedOnly, setShowLicensedOnly] = useState(false);
 
   const isAdmin = useMemo(() => normalize(auth.role) === 'admin', [auth.role]);
-  const filteredRows = useMemo(() => (showStalledOnly ? rows.filter((r) => r.stalled24h) : rows), [rows, showStalledOnly]);
+  const filteredRows = useMemo(() => rows.filter((r) => {
+    if (showStalledOnly && !r.stalled24h) return false;
+    if (showLicensedOnly && !r.licensed) return false;
+    return true;
+  }), [rows, showStalledOnly, showLicensedOnly]);
 
   async function loadData(silent = false) {
     if (!auth.name) return;
@@ -44,6 +50,7 @@ export default function ReferrerDashboardPage() {
       if (!res.ok || !data?.ok) throw new Error(data?.error || 'load_failed');
       setRows(data.rows || []);
       setMetrics(data.metrics || { total: 0, onTrack: 0, needsFollowup: 0, stalled24h: 0 });
+      setLeaderboard(data.leaderboard || []);
       setInnerCircle(data.innerCircle || []);
       setAuth((a) => ({ ...a, role: data?.viewer?.role || a.role, email: data?.viewer?.email || a.email || '' }));
     } catch (e) {
@@ -119,25 +126,70 @@ export default function ReferrerDashboardPage() {
     await loadData(true);
   }
 
+  function openMail({ to = '', subject = '', body = '', cc = '' } = {}) {
+    const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}${cc ? `&cc=${encodeURIComponent(cc)}` : ''}`;
+    window.location.href = mailto;
+  }
+
   function sendReminderEmail(row) {
     const to = clean(row?.email);
     if (!to) {
       setMessage('No email on file for this person.');
       return;
     }
-    const subject = encodeURIComponent('Quick follow-up on your Legacy Link progress');
-    const body = encodeURIComponent([
-      `Hi ${row?.name || ''},`,
-      '',
-      'Just checking in to help you keep momentum with your onboarding progress.',
-      `Current stage I see: ${row?.stage || 'In Progress'}.`,
-      '',
-      'Reply here if you need help and I will support you step-by-step.',
-      '',
-      '— The Legacy Link Team'
-    ].join('\n'));
-    const cc = auth?.email ? `&cc=${encodeURIComponent(auth.email)}` : '';
-    window.location.href = `mailto:${encodeURIComponent(to)}?subject=${subject}&body=${body}${cc}`;
+    openMail({
+      to,
+      subject: 'Quick follow-up on your Legacy Link progress',
+      body: [
+        `Hi ${row?.name || ''},`,
+        '',
+        'Just checking in to help you keep momentum with your onboarding progress.',
+        `Current stage I see: ${row?.stage || 'In Progress'}.`,
+        '',
+        'Reply here if you need help and I will support you step-by-step.',
+        '',
+        '— The Legacy Link Team'
+      ].join('\n'),
+      cc: auth?.email || ''
+    });
+  }
+
+  function messageJamal(row) {
+    openMail({
+      to: 'support@Jdholmesagencyllc.com',
+      subject: `Support needed for ${row?.name || 'referral'} (licensing/progress)`,
+      body: [
+        'Hi Jamal,',
+        '',
+        `Please support this referral: ${row?.name || '—'}.`,
+        `Email: ${row?.email || '—'}`,
+        `Current stage: ${row?.stage || '—'}`,
+        `Licensed: ${row?.licensed ? 'Yes' : 'No'}`,
+        '',
+        'Please follow up within 24 hours.',
+        '',
+        `— ${auth?.name || 'Inner Circle'}`
+      ].join('\n'),
+      cc: auth?.email || ''
+    });
+  }
+
+  function messageDave(row) {
+    openMail({
+      to: 'davevanlarcena0021@gmail.com',
+      subject: `GHL follow-up for ${row?.name || 'referral'}`,
+      body: [
+        'Hi Dave,',
+        '',
+        `Please review GHL readiness for: ${row?.name || '—'}.`,
+        `Email: ${row?.email || '—'}`,
+        `Current stage: ${row?.stage || '—'}`,
+        `Licensed: ${row?.licensed ? 'Yes' : 'No'}`,
+        '',
+        `— ${auth?.name || 'Inner Circle'}`
+      ].join('\n'),
+      cc: auth?.email || ''
+    });
   }
 
   if (!auth.name) {
@@ -175,8 +227,43 @@ export default function ReferrerDashboardPage() {
             <input type="checkbox" checked={showStalledOnly} onChange={(e) => setShowStalledOnly(e.target.checked)} />
             Show stalled only
           </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input type="checkbox" checked={showLicensedOnly} onChange={(e) => setShowLicensedOnly(e.target.checked)} />
+            Licensed only
+          </label>
         </div>
         {message ? <p className="muted" style={{ marginTop: 8 }}>{message}</p> : null}
+      </section>
+
+      <section className="claimsRoster" style={{ marginTop: 8 }}>
+        <h3 style={{ marginTop: 0 }}>Leaderboard — Team Momentum</h3>
+        <div style={{ overflowX: 'auto' }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Referrer</th>
+                <th>On Track</th>
+                <th>Stalled</th>
+                <th>Avg Progress</th>
+                <th>Speed Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(leaderboard || []).map((r, i) => (
+                <tr key={`${r.name}-${i}`}>
+                  <td>#{i + 1}</td>
+                  <td>{r.name}</td>
+                  <td>{r.onTrack}/{r.total}</td>
+                  <td>{r.stalled}</td>
+                  <td>{r.avgProgress}%</td>
+                  <td>{r.speedScore}</td>
+                </tr>
+              ))}
+              {!(leaderboard || []).length ? <tr><td colSpan={6} className="muted">No leaderboard data yet.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="claimsCards">
@@ -213,6 +300,8 @@ export default function ReferrerDashboardPage() {
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <a className="ghost" href={r.sopUrl} target="_blank" rel="noreferrer">Open SOP</a>
                       <button type="button" className="ghost" onClick={() => sendReminderEmail(r)}>Send Reminder</button>
+                      <button type="button" className="ghost" onClick={() => messageJamal(r)}>Message Jamal</button>
+                      <button type="button" className="ghost" onClick={() => messageDave(r)}>Message Dave</button>
                     </div>
                   </td>
                   {isAdmin ? (

@@ -204,11 +204,37 @@ export async function GET(req) {
     stalled24h: rows.filter((r) => r.stalled24h).length
   };
 
+  const byReferrer = new Map();
+  for (const r of rows) {
+    const key = clean(r.effectiveReferrer || r.originalReferrer || '');
+    if (!key) continue;
+    const cur = byReferrer.get(key) || { name: key, total: 0, onTrack: 0, stalled: 0, progressSum: 0 };
+    cur.total += 1;
+    if (r.bucket === 'on_track') cur.onTrack += 1;
+    if (r.stalled24h) cur.stalled += 1;
+    cur.progressSum += Number(r.progressPct || 0);
+    byReferrer.set(key, cur);
+  }
+
+  const leaderboard = [...byReferrer.values()].map((x) => {
+    const avgProgress = x.total ? Math.round(x.progressSum / x.total) : 0;
+    const speedScore = (x.onTrack * 2) - x.stalled + (avgProgress / 100);
+    return {
+      name: x.name,
+      total: x.total,
+      onTrack: x.onTrack,
+      stalled: x.stalled,
+      avgProgress,
+      speedScore: Math.round(speedScore * 100) / 100
+    };
+  }).sort((a, b) => b.speedScore - a.speedScore).slice(0, 10);
+
   return Response.json({
     ok: true,
     viewer: { name: viewer.name, role: viewer.role, email: viewer.email || '' },
     rows,
     metrics,
+    leaderboard,
     innerCircle: (users || []).filter((u) => u.active).map((u) => ({ name: u.name, role: u.role }))
   });
 }
