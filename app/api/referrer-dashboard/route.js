@@ -94,6 +94,30 @@ function stepModel(member = {}, requests = []) {
   return { steps, approved, total, progressPct, stage };
 }
 
+function bonusSplit(row = {}) {
+  const monthly = Number(row?.monthlyPremium || 0) || 0;
+  const maxBonus = Math.min(monthly, 700);
+  const referred = normalize(row?.referredByName || '');
+  const writer = normalize(row?.policyWriterName || '');
+  const writerEligible = !!writer && !!referred && writer !== referred;
+  const writerBonus = writerEligible ? Math.min(100, maxBonus) : 0;
+  const referralBonus = Math.max(maxBonus - writerBonus, 0);
+  return { referralBonus, writerBonus, totalRecommended: maxBonus };
+}
+
+function viewerPayoutForPolicy(row = {}, viewerName = '') {
+  const v = normalize(viewerName);
+  if (!v) return { payout: 0, role: 'none' };
+  const split = bonusSplit(row);
+  const referred = normalize(row?.referredByName || '');
+  const writer = normalize(row?.policyWriterName || '');
+
+  if (v === referred && v === writer) return { payout: split.totalRecommended, role: 'referrer_writer' };
+  if (v === referred) return { payout: split.referralBonus, role: 'referrer' };
+  if (v === writer) return { payout: split.writerBonus, role: 'writer' };
+  return { payout: 0, role: 'none' };
+}
+
 function statusBucket({ stalled24h = false, leadAccessActive = false, progressPct = 0 } = {}) {
   if (stalled24h) return 'stalled';
   if (leadAccessActive || progressPct >= 85) return 'on_track';
@@ -209,19 +233,24 @@ export async function GET(req) {
       const n = normalize(viewer.name);
       return normalize(p?.referredByName || '') === n || normalize(p?.policyWriterName || '') === n || normalize(p?.submittedBy || '') === n;
     })
-    .map((p) => ({
-      id: clean(p?.id || ''),
-      applicantName: clean(p?.applicantName || ''),
-      referredByName: clean(p?.referredByName || ''),
-      policyWriterName: clean(p?.policyWriterName || ''),
-      status: clean(p?.status || 'Submitted') || 'Submitted',
-      submittedAt: clean(p?.submittedAt || ''),
-      approvedAt: clean(p?.approvedAt || ''),
-      payoutStatus: clean(p?.payoutStatus || 'Unpaid') || 'Unpaid',
-      payoutAmount: Number(p?.payoutAmount || 0) || 0,
-      payoutPaidAt: clean(p?.payoutPaidAt || ''),
-      monthlyPremium: Number(p?.monthlyPremium || 0) || 0
-    }))
+    .map((p) => {
+      const payout = viewerPayoutForPolicy(p, viewer.name);
+      return {
+        id: clean(p?.id || ''),
+        applicantName: clean(p?.applicantName || ''),
+        referredByName: clean(p?.referredByName || ''),
+        policyWriterName: clean(p?.policyWriterName || ''),
+        status: clean(p?.status || 'Submitted') || 'Submitted',
+        submittedAt: clean(p?.submittedAt || ''),
+        approvedAt: clean(p?.approvedAt || ''),
+        payoutStatus: clean(p?.payoutStatus || 'Unpaid') || 'Unpaid',
+        payoutAmount: Number(p?.payoutAmount || 0) || 0,
+        payoutPaidAt: clean(p?.payoutPaidAt || ''),
+        monthlyPremium: Number(p?.monthlyPremium || 0) || 0,
+        viewerPayout: Number(payout.payout || 0),
+        viewerPayoutRole: payout.role
+      };
+    })
     .sort((a, b) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime());
 
   const policyMetrics = {

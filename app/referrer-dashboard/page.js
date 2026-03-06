@@ -353,8 +353,8 @@ export default function ReferrerDashboardPage() {
                 <tr>
                   <th>Client</th>
                   <th>Status</th>
-                  <th>Payout</th>
-                  <th>Premium</th>
+                  <th>My Payout</th>
+                  <th>Payout Status</th>
                   <th>Submitted</th>
                   <th>Approved</th>
                   <th>Paid At</th>
@@ -368,8 +368,12 @@ export default function ReferrerDashboardPage() {
                       <small className="muted">Ref: {p.referredByName || '—'} • Writer: {p.policyWriterName || '—'}</small>
                     </td>
                     <td>{p.status || 'Submitted'}</td>
-                    <td>{p.payoutStatus || 'Unpaid'}{(Number(p.payoutAmount || 0) > 0) ? ` ($${Number(p.payoutAmount).toFixed(2)})` : ''}</td>
-                    <td>${Number(p.monthlyPremium || 0).toFixed(2)}</td>
+                    <td>
+                      ${Number(p.viewerPayout || 0).toFixed(2)}
+                      <br />
+                      <small className="muted">{p.viewerPayoutRole === 'referrer' ? 'Referral share' : p.viewerPayoutRole === 'writer' ? 'Writer share' : p.viewerPayoutRole === 'referrer_writer' ? 'Full share' : 'No share'}</small>
+                    </td>
+                    <td>{p.payoutStatus || 'Unpaid'}{(Number(p.payoutAmount || 0) > 0) ? ` (Total $${Number(p.payoutAmount).toFixed(2)})` : ''}</td>
                     <td>{fmt(p.submittedAt)}</td>
                     <td>{fmt(p.approvedAt)}</td>
                     <td>{fmt(p.payoutPaidAt)}</td>
