@@ -348,6 +348,10 @@ function findUserByName(name = '') {
   return activeUsers().find((u) => normalize(u.name) === needle) || null;
 }
 
+function isAdminRole(role = '') {
+  return normalize(role) === 'admin';
+}
+
 function isManagerRole(role = '') {
   const r = normalize(role);
   return r === 'admin' || r === 'manager';
@@ -674,7 +678,7 @@ export async function POST(req) {
   const row = applyPriorityDefaults(targetStore === 'sponsor' ? { ...sponsorRows[sponsorIdx], source_type: 'sponsorship' } : toBonusClaimRow(bonusRows[bonusIdx]));
 
   if (action === 'delete') {
-    if (!isManagerRole(actor.role)) return Response.json({ ok: false, error: 'manager_only' }, { status: 403 });
+    if (!isAdminRole(actor.role)) return Response.json({ ok: false, error: 'admin_only' }, { status: 403 });
 
     if (targetStore === 'sponsor') {
       const [removed] = sponsorRows.splice(sponsorIdx, 1);

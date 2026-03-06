@@ -58,6 +58,7 @@ export default function LeadClaimsPortalPage() {
   const [weeklyClaimCap, setWeeklyClaimCap] = useState(2);
   const [viewerClaimedThisWeek, setViewerClaimedThisWeek] = useState(0);
 
+  const isAdmin = useMemo(() => normalize(auth.role) === 'admin', [auth.role]);
   const isManager = useMemo(() => ['admin', 'manager'].includes(normalize(auth.role)), [auth.role]);
 
   const loadRows = useCallback(async (silent = false) => {
@@ -250,6 +251,33 @@ export default function LeadClaimsPortalPage() {
     }
   };
 
+  const deleteAppointment = async (leadId, applicantName = '') => {
+    if (!isAdmin || !leadId) return;
+    const ok = typeof window === 'undefined'
+      ? true
+      : window.confirm(`Delete ${applicantName || 'this appointment'} from queue? This cannot be undone.`);
+    if (!ok) return;
+
+    setSavingId(leadId);
+    setMessage('');
+    try {
+      const res = await fetch('/api/lead-claims', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', bookingId: leadId, actorName: auth.name })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setMessage(data?.error || 'Delete failed');
+        return;
+      }
+      setMessage('Appointment removed from queue.');
+      await loadRows(true);
+    } finally {
+      setSavingId('');
+    }
+  };
+
   const availableRows = useMemo(() => rows.filter((r) => !clean(r.claimed_by) || clean(r.assignment_status) === 'pending_confirmation'), [rows]);
 
   const filteredRows = useMemo(() => {
@@ -391,7 +419,19 @@ export default function LeadClaimsPortalPage() {
                     <h3>{row.applicant_name || 'Lead'}</h3>
                     <p className="muted">{sourceLabel(row)} — Referred by {referredBy}</p>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    {isAdmin ? (
+                      <button
+                        type="button"
+                        className="ghost"
+                        disabled={savingId === row.id}
+                        onClick={() => deleteAppointment(row.id, row.applicant_name)}
+                        style={{ padding: '4px 8px', fontSize: 12, color: '#b91c1c', borderColor: '#fecaca' }}
+                        title="Delete appointment"
+                      >
+                        {savingId === row.id ? 'Deleting...' : 'Delete'}
+                      </button>
+                    ) : null}
                     {isMyReferral ? <span className="pill myReferralPill">⭐ Your Referral</span> : null}
                     {isVip ? <span className="pill" style={{ background: '#f59e0b', color: '#fff' }}>VIP</span> : null}
                   </div>
