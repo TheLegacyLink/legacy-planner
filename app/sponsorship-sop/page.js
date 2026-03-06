@@ -32,6 +32,7 @@ export default function SponsorshipSopPage() {
   const [sop, setSop] = useState(null);
   const [resources, setResources] = useState({ skoolUrl: '', youtubeUrl: '' });
   const [requestingStep, setRequestingStep] = useState('');
+  const [npnInput, setNpnInput] = useState('');
 
   const queryParams = useMemo(() => {
     if (typeof window === 'undefined') return { demo: '', invite: '' };
@@ -66,6 +67,7 @@ export default function SponsorshipSopPage() {
 
       setMember(data.member || null);
       setSop(data.sop || null);
+      setNpnInput(clean(data?.member?.npn || ''));
       setResources(data.resources || { skoolUrl: '', youtubeUrl: '' });
       setNotice('');
     } finally {
@@ -202,6 +204,28 @@ export default function SponsorshipSopPage() {
     }
   }
 
+  async function saveNpn() {
+    if (!member?.name || !member?.email) return;
+    setRequestingStep('license_verified');
+    setNotice('');
+    try {
+      const res = await fetch('/api/sponsorship-sop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_profile_fields', memberName: member.name, memberEmail: member.email, npn: npnInput })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setNotice(`NPN save failed: ${data?.error || 'unknown'}`);
+        return;
+      }
+      setNotice('NPN saved.');
+      await loadSop(demo ? { demo } : invite ? { invite } : { viewerName: auth.name, viewerEmail: auth.email || '' });
+    } finally {
+      setRequestingStep('');
+    }
+  }
+
   async function createTesters() {
     setNotice('Creating tester profiles...');
     const res = await fetch('/api/sponsorship-sop', {
@@ -277,6 +301,19 @@ export default function SponsorshipSopPage() {
             <span className="pill">Commission (non-sponsored): {member?.commissionNonSponsoredPct || 50}%</span>
           </div>
           <div className="muted">When a step says “Request Approval,” click it and wait for admin review.</div>
+          {member?.licensed ? (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <label>
+                NPN
+                <input value={npnInput} onChange={(e) => setNpnInput(e.target.value)} placeholder="National Producer Number" style={{ marginLeft: 6 }} />
+              </label>
+              <button type="button" className="ghost" onClick={saveNpn} disabled={requestingStep === 'license_verified'}>
+                {requestingStep === 'license_verified' ? 'Saving...' : 'Save NPN'}
+              </button>
+            </div>
+          ) : (
+            <div className="muted">Unlicensed track: NPN not required until licensed.</div>
+          )}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {resources?.skoolUrl ? <a href={resources.skoolUrl} target="_blank" rel="noreferrer">Open Skool Community</a> : <span className="muted">Skool link pending</span>}
             {resources?.youtubeUrl ? <a href={resources.youtubeUrl} target="_blank" rel="noreferrer">Open “Whatever It Takes” YouTube</a> : <span className="muted">YouTube link pending</span>}
@@ -296,6 +333,7 @@ export default function SponsorshipSopPage() {
           {(sop?.steps || []).map((step) => {
             const st = step.status;
             const canRequest = step.type === 'approval_required' && st !== 'approved' && st !== 'pending' && !isDemo;
+            const canSelfComplete = step.type === 'self_or_review' && step.key !== 'license_verified' && st !== 'approved' && st !== 'locked' && !isDemo;
             return (
               <article key={step.key} className="claimCard claimCardV2 marketplaceCard">
                 <div className="claimTop">
@@ -321,14 +359,18 @@ export default function SponsorshipSopPage() {
                   >
                     {requestingStep === step.key ? 'Submitting...' : 'Request Approval'}
                   </button>
-                ) : step.type === 'self_or_review' && !isDemo ? (
+                ) : canSelfComplete ? (
                   <button
                     type="button"
                     className="publicPrimaryBtn publicBtnBlock"
                     disabled={requestingStep === step.key}
                     onClick={() => selfCompleteStep(step.key)}
                   >
-                    {requestingStep === step.key ? 'Saving...' : 'Mark Complete'}
+                    {requestingStep === step.key ? 'Saving...' : step.key === 'contracting_started' ? 'Mark Contracting Started' : 'Acknowledge Script'}
+                  </button>
+                ) : step.key === 'license_verified' ? (
+                  <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled>
+                    Save NPN Above
                   </button>
                 ) : (
                   <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled>

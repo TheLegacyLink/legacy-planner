@@ -3,6 +3,7 @@ import { loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 const MEMBERS_PATH = 'stores/sponsorship-program-members.json';
 const REQUESTS_PATH = 'stores/sponsorship-sop-requests.json';
 const INVITES_PATH = 'stores/sponsorship-sop-invites.json';
+const AUTH_USERS_PATH = 'stores/sponsorship-sop-auth-users.json';
 
 const DEFAULT_SKOOL_URL = 'https://www.skool.com/legacylink/about';
 const DEFAULT_YOUTUBE_URL = 'https://youtu.be/SVvU9SvCH9o?si=H9BNtEDzglTuvJaI';
@@ -23,6 +24,11 @@ function randomToken(prefix = 'sop') {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
 }
 
+function randomPassword() {
+  const base = Math.random().toString(36).slice(-6).toUpperCase();
+  return `LL-${base}`;
+}
+
 function plusWeeksIso(iso = '', weeks = 8) {
   const ts = new Date(iso || Date.now()).getTime();
   if (!Number.isFinite(ts) || ts <= 0) return '';
@@ -32,11 +38,12 @@ function plusWeeksIso(iso = '', weeks = 8) {
 function gatePass(member = {}) {
   return Boolean(
     member?.licensed &&
-    member?.onboardingComplete &&
+    clean(member?.npn) &&
     member?.communityServiceApproved &&
     member?.schoolCommunityJoined &&
     member?.youtubeCommentApproved &&
     (member?.contractingStarted || member?.contractingComplete) &&
+    member?.sponsorshipScriptAcknowledged &&
     member?.active !== false
   );
 }
@@ -48,7 +55,9 @@ function defaultMember(raw = {}) {
     name: clean(raw?.name),
     email: clean(raw?.email).toLowerCase(),
     licensed: Boolean(raw?.licensed),
+    npn: clean(raw?.npn || ''),
     onboardingComplete: Boolean(raw?.onboardingComplete),
+    sponsorshipScriptAcknowledged: Boolean(raw?.sponsorshipScriptAcknowledged),
     communityServiceApproved: Boolean(raw?.communityServiceApproved),
     schoolCommunityJoined: Boolean(raw?.schoolCommunityJoined),
     youtubeCommentApproved: Boolean(raw?.youtubeCommentApproved),
@@ -67,15 +76,31 @@ function defaultMember(raw = {}) {
   };
 }
 
-function getStepStatus(member = {}, requests = [], stepKey = '') {
-  const req = (requests || []).find((r) => normalize(r?.memberEmail) === normalize(member?.email) && clean(r?.stepKey) === stepKey && clean(r?.status) === 'pending');
+function hasPendingRequest(member = {}, requests = [], stepKey = '') {
+  return Boolean((requests || []).find((r) => normalize(r?.memberEmail) === normalize(member?.email) && clean(r?.stepKey) === stepKey && clean(r?.status) === 'pending'));
+}
 
-  if (stepKey === 'onboarding_complete') return member?.onboardingComplete ? 'approved' : req ? 'pending' : 'not_started';
+function getStepStatus(member = {}, requests = [], stepKey = '') {
+  const req = hasPendingRequest(member, requests, stepKey);
+
   if (stepKey === 'community_service_submit') return member?.communityServiceApproved ? 'approved' : req ? 'pending' : 'not_started';
-  if (stepKey === 'license_verified') return member?.licensed ? 'approved' : req ? 'pending' : 'not_started';
+  if (stepKey === 'license_verified') return clean(member?.npn) ? 'approved' : req ? 'pending' : 'not_started';
   if (stepKey === 'skool_joined') return member?.schoolCommunityJoined ? 'approved' : req ? 'pending' : 'not_started';
   if (stepKey === 'youtube_comment_approved') return member?.youtubeCommentApproved ? 'approved' : req ? 'pending' : 'not_started';
-  if (stepKey === 'contracting_started') return (member?.contractingStarted || member?.contractingComplete) ? 'approved' : req ? 'pending' : 'not_started';
+
+  if (stepKey === 'contracting_started') {
+    const skoolGateOpened = member?.schoolCommunityJoined || hasPendingRequest(member, requests, 'skool_joined');
+    if (!skoolGateOpened) return 'locked';
+    return (member?.contractingStarted || member?.contractingComplete) ? 'approved' : 'not_started';
+  }
+
+  if (stepKey === 'sponsorship_script_ack') {
+    if (!member?.licensed) return 'locked';
+    const unlocked = Boolean(member?.communityServiceApproved && member?.contractingComplete);
+    if (!unlocked) return 'locked';
+    return member?.sponsorshipScriptAcknowledged ? 'approved' : 'not_started';
+  }
+
   if (stepKey === 'lead_access_active') return member?.leadAccessActive ? 'approved' : 'locked';
 
   return req ? 'pending' : 'not_started';
@@ -84,12 +109,6 @@ function getStepStatus(member = {}, requests = [], stepKey = '') {
 function buildSop(member = {}, requests = []) {
   const steps = [
     {
-      key: 'onboarding_complete',
-      title: 'Complete onboarding checklist',
-      type: 'self_or_review',
-      description: 'Scripts, CRM basics, call expectations, compliance acknowledgement.'
-    },
-    {
       key: 'community_service_submit',
       title: 'Submit community service proof',
       type: 'approval_required',
@@ -97,15 +116,21 @@ function buildSop(member = {}, requests = []) {
     },
     {
       key: 'license_verified',
-      title: 'License verified',
-      type: 'approval_required',
-      description: 'Licensing verification required before live sponsorship lead access.'
+      title: 'License verification (NPN)',
+      type: 'self_or_review',
+      description: 'Enter your National Producer Number (NPN). This is required for licensed-track lead access.'
     },
     {
       key: 'skool_joined',
-      title: 'Join Skool community',
+      title: 'Join SKOOL community',
       type: 'approval_required',
-      description: 'Join the Skool community (link will be provided) and request approval.'
+      description: 'Request-only gate: submit your SKOOL join request to unlock contracting start.'
+    },
+    {
+      key: 'contracting_started',
+      title: 'Contracting process started',
+      type: 'self_or_review',
+      description: 'This unlocks only after SKOOL request is submitted. Mark started when you begin F&G contracting.'
     },
     {
       key: 'youtube_comment_approved',
@@ -114,10 +139,10 @@ function buildSop(member = {}, requests = []) {
       description: 'Watch the required YouTube video and leave a comment. Admin must approve after manual review.'
     },
     {
-      key: 'contracting_started',
-      title: 'Contracting process started',
-      type: 'approval_required',
-      description: 'Full contracting completion is not required to begin sponsored lead access, but process must be started.'
+      key: 'sponsorship_script_ack',
+      title: 'Sponsorship script acknowledged (licensed only)',
+      type: 'self_or_review',
+      description: 'Unlocked only after community service approved + F&G contracting approved. Confirm you reviewed the sponsorship script.'
     },
     {
       key: 'lead_access_active',
@@ -178,6 +203,31 @@ function upsertInvite(invites = [], member = {}) {
   return invite;
 }
 
+function upsertAuthUser(authUsers = [], member = {}) {
+  const email = clean(member?.email).toLowerCase();
+  const name = clean(member?.name);
+  const idx = authUsers.findIndex((u) => normalize(u?.email) === normalize(email));
+
+  if (idx >= 0) {
+    authUsers[idx] = { ...authUsers[idx], name, email, active: true, updatedAt: nowIso() };
+    return { user: authUsers[idx], plainPassword: '', created: false };
+  }
+
+  const password = randomPassword();
+  const user = {
+    id: `sau_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    name,
+    email,
+    role: 'agent',
+    password,
+    active: true,
+    createdAt: nowIso(),
+    updatedAt: nowIso()
+  };
+  authUsers.push(user);
+  return { user, plainPassword: password, created: true };
+}
+
 function demoMember(mode = 'unlicensed') {
   if (mode === 'licensed') {
     const m = defaultMember({
@@ -185,11 +235,14 @@ function demoMember(mode = 'unlicensed') {
       name: 'Demo Licensed Agent',
       email: 'demo.licensed@innercirclelink.com',
       licensed: true,
+      npn: '12345678',
       onboardingComplete: true,
+      sponsorshipScriptAcknowledged: true,
       communityServiceApproved: true,
       schoolCommunityJoined: true,
       youtubeCommentApproved: true,
       contractingStarted: true,
+      contractingComplete: true,
       active: true,
       tier: 'PROGRAM_TIER_0',
       commissionNonSponsoredPct: 50
@@ -313,13 +366,41 @@ export async function POST(req) {
     const idx = members.findIndex((m) => normalize(m?.email) === normalize(memberEmail) || normalize(m?.name) === normalize(memberName));
     if (idx < 0) return Response.json({ ok: false, error: 'member_not_found' }, { status: 404 });
 
-    if (stepKey === 'onboarding_complete') {
-      members[idx] = defaultMember({ ...members[idx], onboardingComplete: true });
+    const row = members[idx];
+
+    if (stepKey === 'contracting_started') {
+      const skoolGateOpened = Boolean(row?.schoolCommunityJoined || hasPendingRequest(row, requests, 'skool_joined'));
+      if (!skoolGateOpened) return Response.json({ ok: false, error: 'skool_request_required_first' }, { status: 400 });
+      members[idx] = defaultMember({ ...row, contractingStarted: true });
+      await saveJsonFile(MEMBERS_PATH, members);
+      return Response.json({ ok: true, member: members[idx] });
+    }
+
+    if (stepKey === 'sponsorship_script_ack') {
+      if (!row?.licensed) return Response.json({ ok: false, error: 'licensed_only_step' }, { status: 400 });
+      if (!(row?.communityServiceApproved && row?.contractingComplete)) {
+        return Response.json({ ok: false, error: 'locked_until_community_and_contracting_approved' }, { status: 400 });
+      }
+      members[idx] = defaultMember({ ...row, sponsorshipScriptAcknowledged: true });
       await saveJsonFile(MEMBERS_PATH, members);
       return Response.json({ ok: true, member: members[idx] });
     }
 
     return Response.json({ ok: false, error: 'step_not_self_completable' }, { status: 400 });
+  }
+
+  if (action === 'update_profile_fields') {
+    const memberName = clean(body?.memberName);
+    const memberEmail = clean(body?.memberEmail).toLowerCase();
+    const npn = clean(body?.npn);
+    if (!memberName || !memberEmail) return Response.json({ ok: false, error: 'missing_fields' }, { status: 400 });
+
+    const idx = members.findIndex((m) => normalize(m?.email) === normalize(memberEmail) || normalize(m?.name) === normalize(memberName));
+    if (idx < 0) return Response.json({ ok: false, error: 'member_not_found' }, { status: 404 });
+
+    members[idx] = defaultMember({ ...members[idx], npn });
+    await saveJsonFile(MEMBERS_PATH, members);
+    return Response.json({ ok: true, member: members[idx] });
   }
 
   if (action === 'request_approval') {
