@@ -1,4 +1,4 @@
-import { loadJsonFile, saveJsonFile } from '../../../../../lib/blobJsonStore';
+import { loadJsonFile, saveJsonFile } from '../../../../lib/blobJsonStore';
 
 const MARKETPLACE_PATH = 'stores/lead-marketplace.json';
 
