@@ -29,6 +29,7 @@ export default function SponsorshipSopPage() {
   const [notice, setNotice] = useState('');
   const [member, setMember] = useState(null);
   const [sop, setSop] = useState(null);
+  const [resources, setResources] = useState({ skoolUrl: '', youtubeUrl: '' });
   const [requestingStep, setRequestingStep] = useState('');
 
   const demo = useMemo(() => {
@@ -57,6 +58,7 @@ export default function SponsorshipSopPage() {
 
       setMember(data.member || null);
       setSop(data.sop || null);
+      setResources(data.resources || { skoolUrl: '', youtubeUrl: '' });
       setNotice('');
     } finally {
       setLoading(false);
@@ -219,6 +221,10 @@ export default function SponsorshipSopPage() {
             <span className="pill">Commission (non-sponsored): {member?.commissionNonSponsoredPct || 50}%</span>
           </div>
           <div className="muted">When a step says “Request Approval,” click it and wait for admin review.</div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {resources?.skoolUrl ? <a href={resources.skoolUrl} target="_blank" rel="noreferrer">Open Skool Community</a> : <span className="muted">Skool link pending</span>}
+            {resources?.youtubeUrl ? <a href={resources.youtubeUrl} target="_blank" rel="noreferrer">Open “Whatever It Takes” YouTube</a> : <span className="muted">YouTube link pending</span>}
+          </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <a href="/sponsorship-sop?demo=licensed">Licensed Demo</a>
             <a href="/sponsorship-sop?demo=unlicensed">Unlicensed Demo</a>

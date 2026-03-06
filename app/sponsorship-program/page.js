@@ -21,6 +21,8 @@ const EMPTY = {
   licensed: false,
   onboardingComplete: false,
   communityServiceApproved: false,
+  schoolCommunityJoined: false,
+  youtubeCommentApproved: false,
   contractingStarted: false,
   contractingComplete: false,
   active: true,
@@ -134,6 +136,8 @@ export default function SponsorshipProgramPage() {
           <label><input type="checkbox" checked={form.licensed} onChange={(e) => setForm((f) => ({ ...f, licensed: e.target.checked }))} /> Licensed</label>
           <label><input type="checkbox" checked={form.onboardingComplete} onChange={(e) => setForm((f) => ({ ...f, onboardingComplete: e.target.checked }))} /> Onboarding Complete</label>
           <label><input type="checkbox" checked={form.communityServiceApproved} onChange={(e) => setForm((f) => ({ ...f, communityServiceApproved: e.target.checked }))} /> Community Service Approved</label>
+          <label><input type="checkbox" checked={form.schoolCommunityJoined} onChange={(e) => setForm((f) => ({ ...f, schoolCommunityJoined: e.target.checked }))} /> Joined Skool Community</label>
+          <label><input type="checkbox" checked={form.youtubeCommentApproved} onChange={(e) => setForm((f) => ({ ...f, youtubeCommentApproved: e.target.checked }))} /> YouTube Comment Approved</label>
           <label><input type="checkbox" checked={form.contractingStarted} onChange={(e) => setForm((f) => ({ ...f, contractingStarted: e.target.checked }))} /> Contracting Started</label>
           <label><input type="checkbox" checked={form.contractingComplete} onChange={(e) => setForm((f) => ({ ...f, contractingComplete: e.target.checked }))} /> Contracting Complete</label>
           <label><input type="checkbox" checked={form.active} onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))} /> Active</label>
@@ -156,6 +160,8 @@ export default function SponsorshipProgramPage() {
                 <th>Licensed</th>
                 <th>Onboarding</th>
                 <th>Community</th>
+                <th>Skool</th>
+                <th>YouTube</th>
                 <th>Contracting</th>
                 <th>Access</th>
                 <th>Cap</th>
@@ -171,6 +177,8 @@ export default function SponsorshipProgramPage() {
                   <td>{m.licensed ? '✅' : '—'}</td>
                   <td>{m.onboardingComplete ? '✅' : '—'}</td>
                   <td>{m.communityServiceApproved ? '✅' : '—'}</td>
+                  <td>{m.schoolCommunityJoined ? '✅' : '—'}</td>
+                  <td>{m.youtubeCommentApproved ? '✅' : '—'}</td>
                   <td>{m.contractingStarted || m.contractingComplete ? '✅' : '—'}</td>
                   <td>{m.leadAccessActive ? 'Active' : 'Hold'}</td>
                   <td>{m.tier0WeeklyCap || 5}</td>
@@ -178,7 +186,7 @@ export default function SponsorshipProgramPage() {
                   <td><button type="button" className="ghost" onClick={() => editMember(m)}>Edit</button></td>
                 </tr>
               ))}
-              {!sortedMembers.length ? <tr><td colSpan={10} className="muted">No members configured yet.</td></tr> : null}
+              {!sortedMembers.length ? <tr><td colSpan={12} className="muted">No members configured yet.</td></tr> : null}
             </tbody>
           </table>
         )}

@@ -22,7 +22,15 @@ function plusWeeksIso(iso = '', weeks = 8) {
 }
 
 function gatePass(member = {}) {
-  return Boolean(member?.licensed && member?.onboardingComplete && member?.communityServiceApproved && (member?.contractingStarted || member?.contractingComplete) && member?.active !== false);
+  return Boolean(
+    member?.licensed &&
+    member?.onboardingComplete &&
+    member?.communityServiceApproved &&
+    member?.schoolCommunityJoined &&
+    member?.youtubeCommentApproved &&
+    (member?.contractingStarted || member?.contractingComplete) &&
+    member?.active !== false
+  );
 }
 
 function defaultMember(raw = {}) {
@@ -34,6 +42,8 @@ function defaultMember(raw = {}) {
     licensed: Boolean(raw?.licensed),
     onboardingComplete: Boolean(raw?.onboardingComplete),
     communityServiceApproved: Boolean(raw?.communityServiceApproved),
+    schoolCommunityJoined: Boolean(raw?.schoolCommunityJoined),
+    youtubeCommentApproved: Boolean(raw?.youtubeCommentApproved),
     contractingStarted: Boolean(raw?.contractingStarted),
     contractingComplete: Boolean(raw?.contractingComplete),
     active: raw?.active !== false,
@@ -55,6 +65,8 @@ function getStepStatus(member = {}, requests = [], stepKey = '') {
   if (stepKey === 'onboarding_complete') return member?.onboardingComplete ? 'approved' : req ? 'pending' : 'not_started';
   if (stepKey === 'community_service_submit') return member?.communityServiceApproved ? 'approved' : req ? 'pending' : 'not_started';
   if (stepKey === 'license_verified') return member?.licensed ? 'approved' : req ? 'pending' : 'not_started';
+  if (stepKey === 'skool_joined') return member?.schoolCommunityJoined ? 'approved' : req ? 'pending' : 'not_started';
+  if (stepKey === 'youtube_comment_approved') return member?.youtubeCommentApproved ? 'approved' : req ? 'pending' : 'not_started';
   if (stepKey === 'contracting_started') return (member?.contractingStarted || member?.contractingComplete) ? 'approved' : req ? 'pending' : 'not_started';
   if (stepKey === 'lead_access_active') return member?.leadAccessActive ? 'approved' : 'locked';
 
@@ -80,6 +92,18 @@ function buildSop(member = {}, requests = []) {
       title: 'License verified',
       type: 'approval_required',
       description: 'Licensing verification required before live sponsorship lead access.'
+    },
+    {
+      key: 'skool_joined',
+      title: 'Join Skool community',
+      type: 'approval_required',
+      description: 'Join the Skool community (link will be provided) and request approval.'
+    },
+    {
+      key: 'youtube_comment_approved',
+      title: 'Watch “Whatever It Takes” + comment approved',
+      type: 'approval_required',
+      description: 'Watch the required YouTube video and leave a comment. Admin must approve after manual review.'
     },
     {
       key: 'contracting_started',
@@ -120,6 +144,8 @@ function demoMember(mode = 'unlicensed') {
       licensed: true,
       onboardingComplete: true,
       communityServiceApproved: true,
+      schoolCommunityJoined: true,
+      youtubeCommentApproved: true,
       contractingStarted: true,
       active: true,
       tier: 'PROGRAM_TIER_0',
@@ -136,6 +162,8 @@ function demoMember(mode = 'unlicensed') {
     licensed: false,
     onboardingComplete: true,
     communityServiceApproved: false,
+    schoolCommunityJoined: false,
+    youtubeCommentApproved: false,
     contractingStarted: false,
     active: true,
     tier: 'PROGRAM_TIER_0',
@@ -169,7 +197,15 @@ export async function GET(req) {
   member.leadAccessActive = gatePass(member);
   const sop = buildSop(member, requests);
 
-  return Response.json({ ok: true, member, sop });
+  return Response.json({
+    ok: true,
+    member,
+    sop,
+    resources: {
+      skoolUrl: clean(process.env.SPONSORSHIP_SKOOL_URL || ''),
+      youtubeUrl: clean(process.env.SPONSORSHIP_YOUTUBE_URL || '')
+    }
+  });
 }
 
 export async function POST(req) {

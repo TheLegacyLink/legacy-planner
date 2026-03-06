@@ -161,6 +161,8 @@ function normalizeMember(raw = {}) {
     licensed: Boolean(raw?.licensed),
     onboardingComplete: Boolean(raw?.onboardingComplete),
     communityServiceApproved: Boolean(raw?.communityServiceApproved),
+    schoolCommunityJoined: Boolean(raw?.schoolCommunityJoined),
+    youtubeCommentApproved: Boolean(raw?.youtubeCommentApproved),
     contractingStarted: Boolean(raw?.contractingStarted),
     contractingComplete: Boolean(raw?.contractingComplete),
     leadAccessActive: Boolean(raw?.leadAccessActive),
@@ -175,7 +177,7 @@ function normalizeMember(raw = {}) {
     createdAt: clean(raw?.createdAt || nowIso())
   };
 
-  const gatePass = member.licensed && member.onboardingComplete && member.communityServiceApproved && (member.contractingStarted || member.contractingComplete);
+  const gatePass = member.licensed && member.onboardingComplete && member.communityServiceApproved && member.schoolCommunityJoined && member.youtubeCommentApproved && (member.contractingStarted || member.contractingComplete);
   member.leadAccessActive = gatePass && member.active;
 
   return member;
