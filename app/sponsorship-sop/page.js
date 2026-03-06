@@ -159,6 +159,11 @@ export default function SponsorshipSopPage() {
   async function requestApproval(stepKey = '') {
     if (!member?.name || !member?.email || !stepKey) return;
 
+    if (stepKey === 'unlicensed_contact_jamal') {
+      const yes = window.confirm('Are you ready to move forward with the online studying?');
+      if (!yes) return;
+    }
+
     setRequestingStep(stepKey);
     setNotice('');
     try {
@@ -173,7 +178,11 @@ export default function SponsorshipSopPage() {
         return;
       }
 
-      setNotice('Approval request submitted. Waiting for admin review.');
+      if (stepKey === 'unlicensed_contact_jamal') {
+        setNotice('Perfect — Jamal has been notified by email. He will contact you within 24 hours to get you started.');
+      } else {
+        setNotice('Approval request submitted. Waiting for admin review.');
+      }
       await loadSop(demo ? { demo } : invite ? { invite } : { viewerName: auth.name, viewerEmail: auth.email || '' });
     } finally {
       setRequestingStep('');
@@ -357,7 +366,7 @@ export default function SponsorshipSopPage() {
                     disabled={requestingStep === step.key}
                     onClick={() => requestApproval(step.key)}
                   >
-                    {requestingStep === step.key ? 'Submitting...' : 'Request Approval'}
+                    {requestingStep === step.key ? 'Submitting...' : step.key === 'unlicensed_contact_jamal' ? 'Ready to Start Online Study' : 'Request Approval'}
                   </button>
                 ) : canSelfComplete ? (
                   <button

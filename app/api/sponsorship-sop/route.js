@@ -1,4 +1,6 @@
 import { loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
+import nodemailer from 'nodemailer';
+import users from '../../../data/innerCircleUsers.json';
 
 const MEMBERS_PATH = 'stores/sponsorship-program-members.json';
 const REQUESTS_PATH = 'stores/sponsorship-sop-requests.json';
@@ -18,6 +20,54 @@ function normalize(v = '') {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function findJamalEmail() {
+  const fromUsers = (users || []).find((u) => normalize(u?.name || '') === 'jamal holmes' && clean(u?.email));
+  return clean(process.env.SPONSORSHIP_JAMAL_EMAIL || fromUsers?.email || 'support@Jdholmesagencyllc.com');
+}
+
+async function sendJamalLicensingReadyEmail(member = {}) {
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  const to = findJamalEmail();
+
+  if (!user || !pass || !to) return { ok: false, error: 'missing_email_env_or_jamal' };
+
+  const firstName = clean((member?.name || '').split(' ')[0] || 'Agent');
+  const subject = `Unlicensed Agent Ready to Start Studying: ${member?.name || 'Unknown'}`;
+  const text = [
+    'Hi Jamal,',
+    '',
+    `${member?.name || 'An unlicensed agent'} confirmed they are ready to move forward with online study.`,
+    '',
+    `Name: ${member?.name || '—'}`,
+    `Email: ${member?.email || '—'}`,
+    `NPN: ${member?.npn || 'Not provided'}`,
+    '',
+    'Please contact them within 24 hours to get them started.',
+    '',
+    `— Legacy Link SOP System`
+  ].join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.6;">
+      <p>Hi Jamal,</p>
+      <p><strong>${member?.name || 'An unlicensed agent'}</strong> confirmed they are ready to move forward with online study.</p>
+      <ul>
+        <li><strong>Name:</strong> ${member?.name || '—'}</li>
+        <li><strong>Email:</strong> ${member?.email || '—'}</li>
+        <li><strong>NPN:</strong> ${member?.npn || 'Not provided'}</li>
+      </ul>
+      <p><strong>Please contact them within 24 hours to get them started.</strong></p>
+      <p>— Legacy Link SOP System</p>
+    </div>`;
+
+  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+  const info = await tx.sendMail({ from, to, subject, text, html });
+
+  return { ok: true, to, messageId: info?.messageId || '', firstName };
 }
 
 function randomToken(prefix = 'sop') {
@@ -423,6 +473,9 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'missing_fields' }, { status: 400 });
     }
 
+    const member = findMember(members, { name: memberName, email: memberEmail });
+    if (!member) return Response.json({ ok: false, error: 'member_not_found' }, { status: 404 });
+
     const exists = requests.find((r) => normalize(r?.memberEmail) === normalize(memberEmail) && clean(r?.stepKey) === stepKey && clean(r?.status) === 'pending');
     if (!exists) {
       requests.push({
@@ -436,7 +489,12 @@ export async function POST(req) {
       await saveJsonFile(REQUESTS_PATH, requests);
     }
 
-    return Response.json({ ok: true });
+    let jamalEmail = null;
+    if (stepKey === 'unlicensed_contact_jamal') {
+      jamalEmail = await sendJamalLicensingReadyEmail(member).catch((e) => ({ ok: false, error: clean(e?.message || 'jamal_email_failed') }));
+    }
+
+    return Response.json({ ok: true, jamalEmail });
   }
 
   return Response.json({ ok: false, error: 'unsupported_action' }, { status: 400 });
