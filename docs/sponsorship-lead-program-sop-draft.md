@@ -65,21 +65,26 @@ Licensed participants can receive sponsorship leads when minimum readiness is me
 
 ## Tier 0 — Sponsored Start (Free)
 - Eligibility: licensed + onboarding complete + community service approved + contracting started
-- Lead release: controlled starter volume
+- Lead release: **5 leads/week for 8 weeks (2 months)**
+- Access method: grab-based from Sponsorship Queue
 - Goal: prove speed + consistency + conversion behavior
+- Commission on non-sponsored leads: **50%**
 
 ## Tier 1 — $97
 - Trigger: consistent activity + basic conversion discipline
 - Increased lead flow
+- Commission on non-sponsored leads: **60%**
 
 ## Tier 2 — $497
 - Trigger: stronger production and follow-up consistency
 - Priority lead access
+- Commission on non-sponsored leads: **70%**
 
 ## Tier 3 — $1,200 recurring
 - Target state for scale
 - Example allocation: up to 60 leads/month
 - Highest priority routing and support
+- Commission on non-sponsored leads: **80%**
 
 ---
 
@@ -144,8 +149,8 @@ When new sponsorship lead enters queue:
 
 ## 8) Compliance / Quality Controls
 
-- Mandatory first contact SLA (ex: within 5–10 minutes)
-- Minimum follow-up attempts (5–7)
+- Mandatory first contact SLA: **within 10 minutes of lead grab**
+- Minimum follow-up attempts: 5–7
 - Auto reassign on non-compliance
 - Full assignment and contact-attempt logging
 - Admin override at all times
@@ -196,15 +201,46 @@ When new sponsorship lead enters queue:
 5. **On Gate Pass**
    - Set `LEAD_ACCESS_ACTIVE`
    - Assign `PROGRAM_TIER_0`
+   - Set `PROGRAM_TIER_0_START_AT`
+   - Set `PROGRAM_TIER_0_END_AT` = start + 8 weeks
+   - Set weekly cap = 5
    - Add to sponsorship distribution pool
 
-6. **On SLA Miss**
+6. **On Lead Grab**
+   - Start first-contact SLA countdown = 10 minutes
+   - If first touch not logged by minute 10 → auto-reassign + compliance strike
+
+7. **On SLA Miss**
    - Auto-reassign lead
    - Log compliance strike
 
 ---
 
-## 11) Starter KPIs
+## 11) Upgrade Promotion & Referral Messaging SOP
+
+Use this message sequence once participant starts closing and sending referrals:
+
+1. **Activation reminder (Tier 0)**
+   - “You’re at 50% and receiving sponsored starter leads. Keep your SLA clean to unlock upgrades.”
+
+2. **Tier 1 pitch ($97 / 60%)**
+   - Trigger: consistent follow-up + first closings
+   - Message: “Activate Tier 1 to move from 50% to 60% on non-sponsored leads and increase flow.”
+
+3. **Tier 2 pitch ($497 / 70%)**
+   - Trigger: sustained production + SLA compliance
+   - Message: “Move to 70% and priority lead access.”
+
+4. **Tier 3 pitch ($1,200 / 80%)**
+   - Trigger: stable producer status
+   - Message: “Activate 80% split + high-volume allocation (up to 60/month).”
+
+5. **Referral-link reinforcement**
+   - Every upgrade message includes: “Use your referral link daily; referrals + speed = faster tier movement.”
+
+---
+
+## 12) Starter KPIs
 
 - Time to first contact
 - Contact rate
@@ -216,7 +252,7 @@ When new sponsorship lead enters queue:
 
 ---
 
-## 12) Next Build Sequence (Practical)
+## 13) Next Build Sequence (Practical)
 
 1. Add status fields and gate engine
 2. Build Sponsorship Queue page (eligible users only)
