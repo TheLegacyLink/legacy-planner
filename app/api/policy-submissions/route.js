@@ -2,18 +2,55 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import nodemailer from 'nodemailer';
-import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 import users from '../../../data/innerCircleUsers.json';
 
 const STORE_PATH = 'stores/policy-submissions.json';
 const SPONSORSHIP_APPS_STORE_PATH = 'stores/sponsorship-applications.json';
+const MEMBERS_PATH = 'stores/sponsorship-program-members.json';
+const INVITES_PATH = 'stores/sponsorship-sop-invites.json';
+
+const DEFAULT_SKOOL_URL = 'https://www.skool.com/legacylink/about';
+const DEFAULT_YOUTUBE_URL = 'https://youtu.be/SVvU9SvCH9o?si=H9BNtEDzglTuvJaI';
 
 function clean(v = '') {
   return String(v || '').trim();
 }
 
+
+function dupNameKey(v = '') {
+  return String(v || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function dupAmount(v) {
+  const n = Number(String(v ?? '').replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function sameDayIso(a = '', b = '') {
+  const da = new Date(a || 0);
+  const db = new Date(b || 0);
+  if (Number.isNaN(da.getTime()) || Number.isNaN(db.getTime())) return false;
+  return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
+}
+
 function nowIso() {
   return new Date().toISOString();
+}
+
+function randomToken(prefix = 'sop') {
+  return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+}
+
+function plusWeeksIso(iso = '', weeks = 8) {
+  const ts = new Date(iso || Date.now()).getTime();
+  if (!Number.isFinite(ts) || ts <= 0) return '';
+  return new Date(ts + Number(weeks || 8) * 7 * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function isLicensedValue(v = '') {
+  const n = normalize(v);
+  return n === 'licensed' || n === 'yes' || n === 'true';
 }
 
 function normalize(v = '') {
@@ -71,6 +108,9 @@ function normalizedRecord(row = {}) {
     applicantName: clean(row.applicantName),
     referredByName: clean(row.referredByName),
     policyWriterName: clean(row.policyWriterName),
+    applicantEmail: clean(row.applicantEmail).toLowerCase(),
+    applicantPhone: clean(row.applicantPhone),
+    applicantLicensedStatus: clean(row.applicantLicensedStatus),
     submittedBy: clean(row.submittedBy),
     submittedByRole: clean(row.submittedByRole),
     state: clean(row.state).toUpperCase(),
@@ -243,6 +283,142 @@ function mapRefCodeToInnerCircleName(refCode = '') {
   return '';
 }
 
+function buildOrUpdateProgramMember(existing = {}, row = {}) {
+  const licensed = isLicensedValue(row?.applicantLicensedStatus);
+  const now = nowIso();
+  const tier0StartAt = clean(existing?.tier0StartAt || now);
+
+  return {
+    id: clean(existing?.id || `spm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`),
+    name: clean(existing?.name || row?.applicantName),
+    email: clean(existing?.email || row?.applicantEmail).toLowerCase(),
+    licensed,
+    onboardingComplete: Boolean(existing?.onboardingComplete),
+    communityServiceApproved: Boolean(existing?.communityServiceApproved),
+    schoolCommunityJoined: Boolean(existing?.schoolCommunityJoined),
+    youtubeCommentApproved: Boolean(existing?.youtubeCommentApproved),
+    contractingStarted: Boolean(existing?.contractingStarted),
+    contractingComplete: Boolean(existing?.contractingComplete),
+    active: existing?.active !== false,
+    tier: clean(existing?.tier || 'PROGRAM_TIER_0'),
+    tier0WeeklyCap: Number(existing?.tier0WeeklyCap || 5),
+    tier0StartAt,
+    tier0EndAt: clean(existing?.tier0EndAt || plusWeeksIso(tier0StartAt, 8)),
+    commissionNonSponsoredPct: Number(existing?.commissionNonSponsoredPct || 50),
+    notes: clean(existing?.notes || ''),
+    createdAt: clean(existing?.createdAt || now),
+    updatedAt: now,
+    leadAccessActive: Boolean(
+      licensed &&
+      existing?.onboardingComplete &&
+      existing?.communityServiceApproved &&
+      existing?.schoolCommunityJoined &&
+      existing?.youtubeCommentApproved &&
+      (existing?.contractingStarted || existing?.contractingComplete) &&
+      existing?.active !== false
+    )
+  };
+}
+
+function upsertInvite(invites = [], member = {}) {
+  const em = normalize(member?.email || '');
+  const idx = invites.findIndex((i) => normalize(i?.memberEmail) === em);
+  const invite = {
+    id: clean(idx >= 0 ? invites[idx].id : `spi_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`),
+    token: randomToken('sop'),
+    memberName: clean(member?.name),
+    memberEmail: clean(member?.email).toLowerCase(),
+    status: 'active',
+    createdAt: clean(idx >= 0 ? invites[idx].createdAt : nowIso()),
+    updatedAt: nowIso()
+  };
+
+  if (idx >= 0) invites[idx] = invite;
+  else invites.push(invite);
+
+  return invite;
+}
+
+async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licensed = false } = {}) {
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  if (!to || !user || !pass) return { ok: false, error: 'missing_gmail_env' };
+
+  const skoolUrl = clean(process.env.SPONSORSHIP_SKOOL_URL || DEFAULT_SKOOL_URL);
+  const youtubeUrl = clean(process.env.SPONSORSHIP_YOUTUBE_URL || DEFAULT_YOUTUBE_URL);
+
+  const intro = licensed
+    ? 'You are on the licensed track. Complete each SOP step and submit approvals where required.'
+    : 'You are currently on the unlicensed track. Complete SOP steps and licensing to unlock lead access.';
+
+  const subject = 'Your Legacy Link Sponsorship SOP Portal';
+  const text = [
+    `Hi ${firstName || 'Agent'},`,
+    '',
+    intro,
+    `Your personal SOP link: ${sopLink}`,
+    `Skool Community: ${skoolUrl}`,
+    `YouTube (Whatever It Takes): ${youtubeUrl}`,
+    '',
+    '— The Legacy Link Team'
+  ].join('\n');
+
+  const html = brandEmailFrame(
+    'Your Sponsorship SOP Portal',
+    `<p>Hi <strong>${firstName || 'Agent'}</strong>,</p>
+     <p>${intro}</p>
+     <p><strong>Your personal SOP link:</strong><br/><a href="${sopLink}">${sopLink}</a></p>
+     <ul style="padding-left:18px; margin:10px 0;">
+       <li><strong>Skool Community:</strong> <a href="${skoolUrl}">${skoolUrl}</a></li>
+       <li><strong>YouTube (Whatever It Takes):</strong> <a href="${youtubeUrl}">${youtubeUrl}</a></li>
+     </ul>`
+  );
+
+  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+  const info = await tx.sendMail({ from, to, subject, text, html });
+  return { ok: true, messageId: info?.messageId || '' };
+}
+
+async function ensureSopProvisionFromActSubmit(row = {}) {
+  const email = clean(row?.applicantEmail).toLowerCase();
+  const name = clean(row?.applicantName);
+  if (!email || !name) return { ok: false, error: 'missing_applicant_identity' };
+
+  const [membersRaw, invitesRaw] = await Promise.all([
+    loadJsonFile(MEMBERS_PATH, []),
+    loadJsonFile(INVITES_PATH, [])
+  ]);
+
+  const members = Array.isArray(membersRaw) ? membersRaw : [];
+  const invites = Array.isArray(invitesRaw) ? invitesRaw : [];
+
+  const mIdx = members.findIndex((m) => normalize(m?.email || '') === normalize(email));
+  const existing = mIdx >= 0 ? members[mIdx] : {};
+  const member = buildOrUpdateProgramMember(existing, row);
+
+  if (mIdx >= 0) members[mIdx] = member;
+  else members.push(member);
+
+  const invite = upsertInvite(invites, member);
+  const appUrl = clean(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
+  const sopLink = `${appUrl}/sponsorship-sop?invite=${encodeURIComponent(invite.token)}`;
+
+  const inviteEmail = await sendSopInviteEmail({
+    to: email,
+    firstName: clean(name.split(' ')[0]),
+    sopLink,
+    licensed: isLicensedValue(row?.applicantLicensedStatus)
+  }).catch((e) => ({ ok: false, error: clean(e?.message || 'send_failed') }));
+
+  await Promise.all([
+    saveJsonFile(MEMBERS_PATH, members),
+    saveJsonFile(INVITES_PATH, invites)
+  ]);
+
+  return { ok: true, sopLink, inviteToken: invite.token, inviteEmail };
+}
+
 export async function GET() {
   const rows = await getStore();
   rows.sort((a, b) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime());
@@ -251,6 +427,27 @@ export async function GET() {
 
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
+  const duplicateBypass = Boolean(body?.forceDuplicate || body?.confirmDuplicate);
+  if (!duplicateBypass) {
+    const applicantName = String(body?.submission?.applicantName || body?.submission?.applicant_name || body?.applicantName || body?.applicant_name || '');
+    const amountRaw = body?.submission?.annualPremium ?? body?.submission?.annual_premium ?? body?.annualPremium ?? body?.annual_premium ?? body?.premium;
+    const newNameKey = dupNameKey(applicantName);
+    const newAmount = dupAmount(amountRaw);
+    if (newNameKey && newAmount > 0) {
+      const existingRows = await loadJsonStore(STORE_PATH, []);
+      const nowIso = new Date().toISOString();
+      const dup = (existingRows || []).find((r) => {
+        const existingName = dupNameKey(r?.applicantName || r?.applicant_name || '');
+        const existingAmount = dupAmount(r?.annualPremium ?? r?.annual_premium ?? r?.premium);
+        const existingAt = r?.submittedAt || r?.submitted_at || r?.createdAt || r?.created_at;
+        return existingName === newNameKey && existingAmount === newAmount && sameDayIso(existingAt, nowIso);
+      });
+      if (dup) {
+        return Response.json({ ok: false, error: 'duplicate_submitted_today', message: 'This has already been submitted today. Do you still want to continue?', existing: dup }, { status: 409 });
+      }
+    }
+  }
+
   const mode = clean(body?.mode || 'upsert').toLowerCase();
   const store = await getStore();
 
@@ -368,11 +565,36 @@ export async function POST(req) {
   }
 
   await writeStore(store);
-  return Response.json({ ok: true, row: idx >= 0 ? store[idx] : duplicateIdx >= 0 ? store[duplicateIdx] : rec });
+
+  const finalRow = idx >= 0 ? store[idx] : duplicateIdx >= 0 ? store[duplicateIdx] : rec;
+  const sop = await ensureSopProvisionFromActSubmit(finalRow).catch((e) => ({ ok: false, error: clean(e?.message || 'sop_provision_failed') }));
+
+  return Response.json({ ok: true, row: finalRow, sop });
 }
 
 export async function PATCH(req) {
   const body = await req.json().catch(() => ({}));
+  const duplicateBypass = Boolean(body?.forceDuplicate || body?.confirmDuplicate);
+  if (!duplicateBypass) {
+    const applicantName = String(body?.submission?.applicantName || body?.submission?.applicant_name || body?.applicantName || body?.applicant_name || '');
+    const amountRaw = body?.submission?.annualPremium ?? body?.submission?.annual_premium ?? body?.annualPremium ?? body?.annual_premium ?? body?.premium;
+    const newNameKey = dupNameKey(applicantName);
+    const newAmount = dupAmount(amountRaw);
+    if (newNameKey && newAmount > 0) {
+      const existingRows = await loadJsonStore(STORE_PATH, []);
+      const nowIso = new Date().toISOString();
+      const dup = (existingRows || []).find((r) => {
+        const existingName = dupNameKey(r?.applicantName || r?.applicant_name || '');
+        const existingAmount = dupAmount(r?.annualPremium ?? r?.annual_premium ?? r?.premium);
+        const existingAt = r?.submittedAt || r?.submitted_at || r?.createdAt || r?.created_at;
+        return existingName === newNameKey && existingAmount === newAmount && sameDayIso(existingAt, nowIso);
+      });
+      if (dup) {
+        return Response.json({ ok: false, error: 'duplicate_submitted_today', message: 'This has already been submitted today. Do you still want to continue?', existing: dup }, { status: 409 });
+      }
+    }
+  }
+
   const id = clean(body?.id);
   if (!id) return Response.json({ ok: false, error: 'missing_id' }, { status: 400 });
 

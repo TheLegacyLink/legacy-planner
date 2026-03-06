@@ -44,6 +44,9 @@ export default function InnerCircleAppSubmitPage() {
 
   const [form, setForm] = useState({
     applicantName: '',
+    applicantEmail: '',
+    applicantPhone: '',
+    applicantLicensedStatus: '',
     referredByName: '',
     policyWriterName: '',
     policyWriterOtherName: '',
@@ -95,6 +98,9 @@ export default function InnerCircleAppSubmitPage() {
 
     return (
       form.applicantName.trim() &&
+      form.applicantEmail.trim() &&
+      form.applicantPhone.trim() &&
+      form.applicantLicensedStatus.trim() &&
       form.referredByName.trim() &&
       writerOk &&
       form.state.trim() &&
@@ -178,6 +184,9 @@ export default function InnerCircleAppSubmitPage() {
     setSaved('Application submitted successfully.');
     setForm({
       applicantName: '',
+      applicantEmail: '',
+      applicantPhone: '',
+      applicantLicensedStatus: '',
       referredByName: '',
       policyWriterName: '',
       policyWriterOtherName: '',
@@ -250,6 +259,34 @@ export default function InnerCircleAppSubmitPage() {
               onChange={(e) => update('applicantName', e.target.value)}
               placeholder="Enter client's full name"
             />
+          </label>
+
+          <label>
+            Applicant Email *
+            <input
+              type="email"
+              value={form.applicantEmail}
+              onChange={(e) => update('applicantEmail', e.target.value)}
+              placeholder="applicant@email.com"
+            />
+          </label>
+
+          <label>
+            Applicant Phone *
+            <input
+              value={form.applicantPhone}
+              onChange={(e) => update('applicantPhone', e.target.value)}
+              placeholder="(555) 555-5555"
+            />
+          </label>
+
+          <label>
+            Licensed? *
+            <select value={form.applicantLicensedStatus} onChange={(e) => update('applicantLicensedStatus', e.target.value)}>
+              <option value="">Select status</option>
+              <option value="Licensed">Licensed</option>
+              <option value="Unlicensed">Unlicensed</option>
+            </select>
           </label>
 
           <label>
