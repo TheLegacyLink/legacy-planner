@@ -133,9 +133,6 @@ function withTier(rows = [], market = {}) {
 }
 
 function projectAgentRow(row = {}, viewer = {}) {
-  const role = normalize(viewer?.role || '');
-  const isPrivilegedViewer = role === 'admin' || role === 'manager';
-
   const sold = row?.sold || null;
   const hasSoldRecord = Boolean(sold);
 
@@ -150,7 +147,7 @@ function projectAgentRow(row = {}, viewer = {}) {
   );
 
   const soldToOther = hasSoldRecord && !soldToViewer;
-  const unlocked = isPrivilegedViewer || soldToViewer;
+  const unlocked = soldToViewer;
 
   const base = {
     key: row.key,
@@ -204,7 +201,9 @@ export async function GET(req) {
   const baseRows = buildApprovedNotBooked(apps, bookings);
   const rows = withTier(baseRows, market);
 
-  const agentRows = rows.map((r) => projectAgentRow(r, viewer));
+  const agentRows = rows
+    .map((r) => projectAgentRow(r, viewer))
+    .filter((r) => !r.soldToOther);
 
   return Response.json({
     ok: true,
