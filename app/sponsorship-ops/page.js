@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 
+const LEAD_MARKET_SETTINGS_KEY = 'lead_market_settings_v1';
+const LEAD_ENGAGEMENT_KEY = 'lead_market_engagement_v1';
+
 function clean(v = '') {
   return String(v || '').trim();
 }
@@ -27,11 +30,23 @@ function isApprovedStatus(status = '') {
   return s.includes('approved');
 }
 
+function rowKey(row = {}) {
+  return clean(row.id) || `${normalize(row.applicant)}|${normalize(row.email)}|${normalize(row.phone)}`;
+}
+
 export default function SponsorshipOpsPage() {
   const [apps, setApps] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [tierFilter, setTierFilter] = useState('all');
+  const [marketSettings, setMarketSettings] = useState({
+    sponsorshipTier1Price: 50,
+    sponsorshipTier2Price: 89,
+    termLifeTier1Price: '',
+    termLifeTier2Price: ''
+  });
+  const [engagementById, setEngagementById] = useState({});
 
   async function load() {
     setLoading(true);
@@ -50,7 +65,47 @@ export default function SponsorshipOpsPage() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+
+    try {
+      const rawSettings = localStorage.getItem(LEAD_MARKET_SETTINGS_KEY);
+      if (rawSettings) {
+        const parsed = JSON.parse(rawSettings);
+        setMarketSettings((prev) => ({ ...prev, ...(parsed || {}) }));
+      }
+
+      const rawEngagement = localStorage.getItem(LEAD_ENGAGEMENT_KEY);
+      if (rawEngagement) {
+        const parsed = JSON.parse(rawEngagement);
+        if (parsed && typeof parsed === 'object') setEngagementById(parsed);
+      }
+    } catch {
+      // ignore storage read issues
+    }
+  }, []);
+
+  function patchMarketSettings(patch) {
+    const next = { ...marketSettings, ...patch };
+    setMarketSettings(next);
+    try {
+      localStorage.setItem(LEAD_MARKET_SETTINGS_KEY, JSON.stringify(next));
+    } catch {
+      // ignore storage write issues
+    }
+  }
+
+  function setEngagement(row, replied) {
+    const key = rowKey(row);
+    if (!key) return;
+    const next = { ...engagementById, [key]: replied ? 'replied' : 'no_reply' };
+    setEngagementById(next);
+    try {
+      localStorage.setItem(LEAD_ENGAGEMENT_KEY, JSON.stringify(next));
+    } catch {
+      // ignore storage write issues
+    }
+  }
 
   const bookingBySourceId = useMemo(() => {
     const map = new Map();
@@ -141,6 +196,9 @@ export default function SponsorshipOpsPage() {
     return list;
   }, [apps, bookingBySourceId, bookingByName]);
 
+  const sponsorshipTier2Rows = useMemo(() => approvedNotBooked.filter((r) => engagementById[rowKey(r)] === 'replied'), [approvedNotBooked, engagementById]);
+  const sponsorshipTier1Rows = useMemo(() => approvedNotBooked.filter((r) => engagementById[rowKey(r)] !== 'replied'), [approvedNotBooked, engagementById]);
+
   const bookedFiltered = useMemo(() => {
     const q = normalize(query);
     if (!q) return bookedRows;
@@ -149,23 +207,112 @@ export default function SponsorshipOpsPage() {
 
   const approvedFiltered = useMemo(() => {
     const q = normalize(query);
-    if (!q) return approvedNotBooked;
-    return approvedNotBooked.filter((r) => normalize(`${r.applicant} ${r.email} ${r.phone} ${r.referredBy}`).includes(q));
-  }, [approvedNotBooked, query]);
+
+    const byTier = tierFilter === 'tier1'
+      ? sponsorshipTier1Rows
+      : tierFilter === 'tier2'
+        ? sponsorshipTier2Rows
+        : approvedNotBooked;
+
+    if (!q) return byTier;
+    return byTier.filter((r) => normalize(`${r.applicant} ${r.email} ${r.phone} ${r.referredBy}`).includes(q));
+  }, [approvedNotBooked, sponsorshipTier1Rows, sponsorshipTier2Rows, query, tierFilter]);
 
   return (
     <AppShell title="Sponsorship Ops">
-      <div className="panel">
-        <div className="panelRow" style={{ gap: 12, flexWrap: 'wrap' }}>
-          <h3 style={{ margin: 0 }}>Sponsorship Appointment Visibility</h3>
+      <div className="panel" style={{
+        background: 'linear-gradient(135deg, #0b1220 0%, #111827 40%, #1f2937 100%)',
+        border: '1px solid #334155',
+        color: '#e2e8f0'
+      }}>
+        <div className="panelRow" style={{ gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, color: '#f8fafc' }}>Lead Marketplace (Elite Build)</h3>
           <button type="button" onClick={load}>Refresh</button>
         </div>
-        <p className="muted" style={{ marginTop: 8 }}>
-          See who booked sponsorship appointments and who is approved but still not booked.
+        <p className="muted" style={{ marginTop: 8, color: '#cbd5e1' }}>
+          Approved sponsorship leads that did not book are split into sellable tiers.
         </p>
-        <p className="pill onpace" style={{ marginTop: 8 }}>
-          Email queued: Approved-not-booked follow-up sends Thu 9:00 AM EST.
-        </p>
+
+        <div className="grid4" style={{ marginTop: 10 }}>
+          <div className="card" style={{ border: '1px solid #334155', background: '#0f172a' }}>
+            <p style={{ color: '#93c5fd' }}>Sponsorship Tier 1</p>
+            <h2 style={{ color: '#fff' }}>${Number(marketSettings.sponsorshipTier1Price || 50)}</h2>
+            <small style={{ color: '#cbd5e1' }}>Approved • No Booking • No Reply</small>
+            <p style={{ marginTop: 8 }}>Inventory: <strong>{sponsorshipTier1Rows.length}</strong></p>
+          </div>
+
+          <div className="card" style={{ border: '1px solid #334155', background: '#0f172a' }}>
+            <p style={{ color: '#86efac' }}>Sponsorship Tier 2</p>
+            <h2 style={{ color: '#fff' }}>${Number(marketSettings.sponsorshipTier2Price || 89)}</h2>
+            <small style={{ color: '#cbd5e1' }}>Approved • No Booking • Replied to Text</small>
+            <p style={{ marginTop: 8 }}>Inventory: <strong>{sponsorshipTier2Rows.length}</strong></p>
+          </div>
+
+          <div className="card" style={{ border: '1px dashed #475569', background: '#111827' }}>
+            <p style={{ color: '#fcd34d' }}>Term Life Section</p>
+            <h2 style={{ color: '#fff' }}>Coming Soon</h2>
+            <small style={{ color: '#cbd5e1' }}>Set pricing below when ready.</small>
+          </div>
+
+          <div className="card" style={{ border: '1px solid #334155', background: '#0f172a' }}>
+            <p style={{ color: '#e2e8f0' }}>Booked Appointments</p>
+            <h2 style={{ color: '#fff' }}>{bookedRows.length}</h2>
+            <small style={{ color: '#cbd5e1' }}>Not for sale — internal call handling</small>
+          </div>
+        </div>
+      </div>
+
+      <div className="panel">
+        <h3 style={{ marginTop: 0 }}>Pricing Control</h3>
+        <div className="settingsGrid" style={{ marginTop: 8 }}>
+          <label>
+            Sponsorship Tier 1 ($)
+            <input
+              type="number"
+              min={1}
+              value={marketSettings.sponsorshipTier1Price}
+              onChange={(e) => patchMarketSettings({ sponsorshipTier1Price: Number(e.target.value || 1) })}
+            />
+          </label>
+          <label>
+            Sponsorship Tier 2 ($)
+            <input
+              type="number"
+              min={1}
+              value={marketSettings.sponsorshipTier2Price}
+              onChange={(e) => patchMarketSettings({ sponsorshipTier2Price: Number(e.target.value || 1) })}
+            />
+          </label>
+          <label>
+            Term Life Tier 1 ($)
+            <input
+              type="number"
+              min={0}
+              placeholder="Set later"
+              value={marketSettings.termLifeTier1Price}
+              onChange={(e) => patchMarketSettings({ termLifeTier1Price: e.target.value })}
+            />
+          </label>
+          <label>
+            Term Life Tier 2 ($)
+            <input
+              type="number"
+              min={0}
+              placeholder="Set later"
+              value={marketSettings.termLifeTier2Price}
+              onChange={(e) => patchMarketSettings({ termLifeTier2Price: e.target.value })}
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="panel" style={{ marginTop: 10 }}>
+        <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <h3 style={{ marginTop: 0, marginBottom: 0 }}>Sponsorship Lead Inventory</h3>
+          <button type="button" className={tierFilter === 'all' ? '' : 'ghost'} onClick={() => setTierFilter('all')}>All</button>
+          <button type="button" className={tierFilter === 'tier1' ? '' : 'ghost'} onClick={() => setTierFilter('tier1')}>Tier 1 Only</button>
+          <button type="button" className={tierFilter === 'tier2' ? '' : 'ghost'} onClick={() => setTierFilter('tier2')}>Tier 2 Only</button>
+        </div>
 
         <div className="settingsGrid" style={{ marginTop: 8 }}>
           <label>
@@ -174,16 +321,58 @@ export default function SponsorshipOpsPage() {
           </label>
         </div>
 
-        <div className="grid4" style={{ marginTop: 10 }}>
-          <div className="card"><p>Booked Appointments</p><h2>{bookedRows.length}</h2></div>
-          <div className="card"><p>Approved Not Booked</p><h2>{approvedNotBooked.length}</h2></div>
-          <div className="card"><p>Filtered Booked</p><h2>{bookedFiltered.length}</h2></div>
-          <div className="card"><p>Filtered Follow-Up</p><h2>{approvedFiltered.length}</h2></div>
-        </div>
+        <p className="pill onpace" style={{ marginTop: 8 }}>
+          Thursday 9:00 AM EST email reminder still runs for approved-not-booked follow-up.
+        </p>
+
+        {loading ? <p className="muted">Loading...</p> : (
+          <table className="table" style={{ marginTop: 8 }}>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>State</th>
+                <th>Referred By</th>
+                <th>Approved At</th>
+                <th>Engagement</th>
+                <th>Tier</th>
+              </tr>
+            </thead>
+            <tbody>
+              {approvedFiltered.map((r) => {
+                const key = rowKey(r);
+                const replied = engagementById[key] === 'replied';
+                return (
+                  <tr key={r.id || key}>
+                    <td>{r.applicant || '—'}</td>
+                    <td>{r.email || '—'}</td>
+                    <td>{r.phone || '—'}</td>
+                    <td>{r.state || '—'}</td>
+                    <td>{r.referredBy || '—'}</td>
+                    <td>{fmtDate(r.approvedAt)}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button type="button" className={!replied ? '' : 'ghost'} onClick={() => setEngagement(r, false)}>No Reply</button>
+                        <button type="button" className={replied ? '' : 'ghost'} onClick={() => setEngagement(r, true)}>Replied</button>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="pill" style={{ background: replied ? '#166534' : '#1d4ed8', color: '#fff' }}>
+                        {replied ? `Tier 2 • $${Number(marketSettings.sponsorshipTier2Price || 89)}` : `Tier 1 • $${Number(marketSettings.sponsorshipTier1Price || 50)}`}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!approvedFiltered.length ? <tr><td colSpan={8} className="muted">No matching approved-unbooked leads right now.</td></tr> : null}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <div className="panel" style={{ overflowX: 'auto' }}>
-        <h3 style={{ marginTop: 0 }}>Who Has Booked</h3>
+        <h3 style={{ marginTop: 0 }}>Booked Appointments (Not For Sale)</h3>
         {loading ? <p className="muted">Loading...</p> : (
           <table className="table">
             <thead>
@@ -208,37 +397,6 @@ export default function SponsorshipOpsPage() {
                 </tr>
               ))}
               {!bookedFiltered.length ? <tr><td colSpan={6} className="muted">No bookings found.</td></tr> : null}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      <div className="panel" style={{ overflowX: 'auto' }}>
-        <h3 style={{ marginTop: 0 }}>Approved But Not Booked (Follow-Up List)</h3>
-        {loading ? <p className="muted">Loading...</p> : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>State</th>
-                <th>Referred By</th>
-                <th>Approved At</th>
-              </tr>
-            </thead>
-            <tbody>
-              {approvedFiltered.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.applicant || '—'}</td>
-                  <td>{r.email || '—'}</td>
-                  <td>{r.phone || '—'}</td>
-                  <td>{r.state || '—'}</td>
-                  <td>{r.referredBy || '—'}</td>
-                  <td>{fmtDate(r.approvedAt)}</td>
-                </tr>
-              ))}
-              {!approvedFiltered.length ? <tr><td colSpan={6} className="muted">No approved-unbooked records right now.</td></tr> : null}
             </tbody>
           </table>
         )}
