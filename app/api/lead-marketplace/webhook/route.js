@@ -102,42 +102,51 @@ async function sendBuyerReceiptEmail(payload = {}) {
   ].join('\n');
 
   const html = `
-    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111">
-      <h2 style="margin:0 0 10px">✅ Lead Purchase Confirmed</h2>
-      <p><strong>Congrats ${buyerName}</strong> — your lead purchase is confirmed.</p>
+    <div style="margin:0;padding:24px;background:#f4f5fb;font-family:Inter,Arial,sans-serif;color:#111827;line-height:1.5;">
+      <div style="max-width:720px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(17,24,39,.08);">
+        <div style="background:linear-gradient(135deg,#2f00ff 0%,#5b21b6 100%);padding:20px 24px;color:#fff;">
+          <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.9;">The Legacy Link</div>
+          <h2 style="margin:6px 0 0;font-size:22px;line-height:1.2;">✅ Lead Purchase Confirmed</h2>
+          <p style="margin:8px 0 0;opacity:.95;">Congrats ${buyerName} — your lead is secured and unlocked.</p>
+        </div>
 
-      <h3 style="margin-bottom:6px">Receipt</h3>
-      <ul>
-        <li><strong>Lead:</strong> ${leadName}</li>
-        <li><strong>Tier:</strong> ${tier}</li>
-        <li><strong>Amount:</strong> $${amount}</li>
-        <li><strong>Purchased At:</strong> ${paidAt}</li>
-        <li><strong>Stripe Session:</strong> ${clean(payload?.stripeSessionId || '')}</li>
-      </ul>
+        <div style="padding:22px 24px;">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+            <span style="background:#eef2ff;color:#312e81;border:1px solid #c7d2fe;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;">${tier}</span>
+            <span style="background:#dcfce7;color:#166534;border:1px solid #86efac;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;">$${amount}</span>
+            <span style="background:#ecfeff;color:#0f766e;border:1px solid #99f6e4;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;">Approved Lead</span>
+          </div>
 
-      <h3 style="margin-bottom:6px">Lead Details</h3>
-      <ul>
-        <li><strong>Name:</strong> ${leadName}</li>
-        <li><strong>Phone:</strong> ${clean(payload?.leadPhone || 'N/A')}</li>
-        <li><strong>Email:</strong> ${clean(payload?.leadEmail || 'N/A')}</li>
-        <li><strong>State:</strong> ${state}</li>
-        <li><strong>Engagement:</strong> ${engagement}</li>
-      </ul>
+          <h3 style="margin:0 0 8px;font-size:16px;">Receipt</h3>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px;">
+            <tr><td style="padding:6px 0;color:#6b7280;">Lead</td><td style="padding:6px 0;font-weight:600;">${leadName}</td></tr>
+            <tr><td style="padding:6px 0;color:#6b7280;">State</td><td style="padding:6px 0;font-weight:600;">${state}</td></tr>
+            <tr><td style="padding:6px 0;color:#6b7280;">Engagement</td><td style="padding:6px 0;font-weight:600;">${engagement}</td></tr>
+            <tr><td style="padding:6px 0;color:#6b7280;">Purchased At</td><td style="padding:6px 0;font-weight:600;">${paidAt}</td></tr>
+            <tr><td style="padding:6px 0;color:#6b7280;">Reference</td><td style="padding:6px 0;font-weight:600;">${clean(payload?.stripeSessionId || '')}</td></tr>
+          </table>
 
-      <h3 style="margin-bottom:6px">Call Script (Approved Lead)</h3>
-      <ol>
-        <li><strong>Opener:</strong> ${script.callOpener}</li>
-        <li><strong>Bridge Question:</strong> ${script.bridge}</li>
-        <li><strong>Booking Close:</strong> ${script.close}</li>
-        <li><strong>No-Answer Text:</strong> ${script.noAnswerText}</li>
-      </ol>
+          <div style="border:1px dashed #d1d5db;border-radius:12px;padding:14px;margin-bottom:16px;background:#fcfcff;">
+            <h3 style="margin:0 0 8px;font-size:16px;">Lead Details</h3>
+            <p style="margin:4px 0;"><strong>Name:</strong> ${leadName}</p>
+            <p style="margin:4px 0;"><strong>Phone:</strong> ${clean(payload?.leadPhone || 'N/A')}</p>
+            <p style="margin:4px 0;"><strong>Email:</strong> ${clean(payload?.leadEmail || 'N/A')}</p>
+          </div>
 
-      <h3 style="margin-bottom:6px">Execution Standard</h3>
-      <ul>
-        <li>Call in 5 minutes or less</li>
-        <li>Minimum 5–7 attempts</li>
-        <li>Log all outcomes in CRM</li>
-      </ul>
+          <h3 style="margin:0 0 8px;font-size:16px;">Approved Lead Script</h3>
+          <ol style="padding-left:18px;margin:0 0 14px;">
+            <li style="margin-bottom:8px;"><strong>Opener:</strong> ${script.callOpener}</li>
+            <li style="margin-bottom:8px;"><strong>Bridge:</strong> ${script.bridge}</li>
+            <li style="margin-bottom:8px;"><strong>Booking Close:</strong> ${script.close}</li>
+            <li><strong>No-Answer Text:</strong> ${script.noAnswerText}</li>
+          </ol>
+
+          <div style="background:#111827;color:#fff;border-radius:12px;padding:14px;">
+            <div style="font-weight:700;margin-bottom:6px;">Execution Standard</div>
+            <div style="font-size:14px;opacity:.95;">Call in 5 minutes • 5–7 attempts minimum • log every outcome in CRM</div>
+          </div>
+        </div>
+      </div>
     </div>
   `;
 
