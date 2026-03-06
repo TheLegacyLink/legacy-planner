@@ -266,6 +266,110 @@ function enforceSlaExpiry(claims = [], events = [], now = new Date()) {
   return changed;
 }
 
+function recentClaimsForMember(claims = [], member = {}, sinceIso = '') {
+  const cutoff = new Date(sinceIso || 0).getTime();
+  return (claims || []).filter((c) => {
+    const sameMember = normalize(c?.memberName) === normalize(member?.name) || normalize(c?.memberEmail) === normalize(member?.email);
+    if (!sameMember) return false;
+    if (!cutoff) return true;
+    return new Date(c?.grabbedAt || 0).getTime() >= cutoff;
+  });
+}
+
+function commissionForTier(tier = 'PROGRAM_TIER_0') {
+  if (tier === 'PROGRAM_TIER_1') return 60;
+  if (tier === 'PROGRAM_TIER_2') return 70;
+  if (tier === 'PROGRAM_TIER_3') return 80;
+  return 50;
+}
+
+function buildUpgradeRecommendations(members = [], claims = [], now = new Date()) {
+  const since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  return (members || []).map((member) => {
+    const recent = recentClaimsForMember(claims, member, since);
+    const grabs = recent.length;
+    const contactLogged = recent.filter((c) => clean(c?.status) === 'contact_logged').length;
+    const slaMetCount = recent.filter((c) => c?.slaMet === true).length;
+    const avgFirstContact = contactLogged
+      ? Math.round(recent.filter((c) => clean(c?.status) === 'contact_logged').reduce((acc, c) => acc + Number(c?.minutesToFirstContact || 0), 0) / Math.max(1, contactLogged))
+      : null;
+    const slaRate = contactLogged ? Math.round((slaMetCount / contactLogged) * 100) : 0;
+
+    let recommendTier = '';
+    let price = '';
+    let commission = member?.commissionNonSponsoredPct || commissionForTier(member?.tier);
+    let rationale = 'Continue current tier until more activity logs in.';
+    let urgency = 'monitor';
+
+    if (!member?.leadAccessActive) {
+      rationale = 'Complete gate requirements first (license/onboarding/community/contracting-started).';
+      urgency = 'hold';
+    } else if (member?.tier === 'PROGRAM_TIER_0') {
+      if (contactLogged >= 8 && slaRate >= 80) {
+        recommendTier = 'PROGRAM_TIER_1';
+        price = '$97';
+        commission = 60;
+        rationale = 'Consistent contact volume + SLA discipline. Ready for first paid activation.';
+        urgency = 'promote';
+      } else {
+        rationale = 'Needs 8+ logged contacts in 30d and 80%+ SLA to trigger Tier 1 recommendation.';
+      }
+    } else if (member?.tier === 'PROGRAM_TIER_1') {
+      if (contactLogged >= 20 && slaRate >= 85) {
+        recommendTier = 'PROGRAM_TIER_2';
+        price = '$497';
+        commission = 70;
+        rationale = 'Strong operating discipline and production behavior support Tier 2.';
+        urgency = 'promote';
+      } else if (contactLogged >= 10 && slaRate < 65) {
+        rationale = 'SLA quality is dropping. Coach before upgrade.';
+        urgency = 'coach';
+      } else {
+        rationale = 'Needs 20+ logged contacts and 85%+ SLA for Tier 2 recommendation.';
+      }
+    } else if (member?.tier === 'PROGRAM_TIER_2') {
+      if (contactLogged >= 45 && slaRate >= 90) {
+        recommendTier = 'PROGRAM_TIER_3';
+        price = '$1,200';
+        commission = 80;
+        rationale = 'High consistency + speed supports scale package activation.';
+        urgency = 'promote';
+      } else if (contactLogged >= 15 && slaRate < 70) {
+        rationale = 'Fix SLA consistency before moving to Tier 3.';
+        urgency = 'coach';
+      } else {
+        rationale = 'Needs 45+ logged contacts and 90%+ SLA for Tier 3 recommendation.';
+      }
+    } else {
+      rationale = 'Top tier active. Maintain SLA and conversion discipline.';
+      urgency = 'maintain';
+    }
+
+    return {
+      memberId: member.id,
+      memberName: member.name,
+      currentTier: member.tier,
+      recommendTier,
+      recommendPrice: price,
+      projectedCommissionPct: commission,
+      grabs30d: grabs,
+      contactLogged30d: contactLogged,
+      slaMet30d: slaMetCount,
+      slaRate30d: slaRate,
+      avgFirstContactMin: avgFirstContact,
+      urgency,
+      rationale
+    };
+  }).sort((a, b) => {
+    const order = { promote: 0, coach: 1, monitor: 2, maintain: 3, hold: 4 };
+    const ao = order[a.urgency] ?? 9;
+    const bo = order[b.urgency] ?? 9;
+    if (ao !== bo) return ao - bo;
+    return clean(a.memberName).localeCompare(clean(b.memberName));
+  });
+}
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const viewer = {
@@ -321,6 +425,8 @@ export async function GET(req) {
       };
     });
 
+  const recommendations = buildUpgradeRecommendations(members, claims, new Date());
+
   return Response.json({
     ok: true,
     config: {
@@ -343,7 +449,8 @@ export async function GET(req) {
     admin: {
       members,
       claims: claims.sort((a, b) => new Date(b?.grabbedAt || 0).getTime() - new Date(a?.grabbedAt || 0).getTime()).slice(0, 500),
-      recentEvents: events.sort((a, b) => new Date(b?.timestamp || 0).getTime() - new Date(a?.timestamp || 0).getTime()).slice(0, 200)
+      recentEvents: events.sort((a, b) => new Date(b?.timestamp || 0).getTime() - new Date(a?.timestamp || 0).getTime()).slice(0, 200),
+      recommendations
     }
   });
 }

@@ -38,6 +38,7 @@ export default function SponsorshipProgramPage() {
   const [members, setMembers] = useState([]);
   const [claims, setClaims] = useState([]);
   const [events, setEvents] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
   const [form, setForm] = useState(EMPTY);
 
   async function load() {
@@ -50,6 +51,7 @@ export default function SponsorshipProgramPage() {
         setMembers(Array.isArray(data?.admin?.members) ? data.admin.members : []);
         setClaims(Array.isArray(data?.admin?.claims) ? data.admin.claims : []);
         setEvents(Array.isArray(data?.admin?.recentEvents) ? data.admin.recentEvents : []);
+        setRecommendations(Array.isArray(data?.admin?.recommendations) ? data.admin.recommendations : []);
       }
     } finally {
       setLoading(false);
@@ -180,6 +182,39 @@ export default function SponsorshipProgramPage() {
             </tbody>
           </table>
         )}
+      </div>
+
+      <div className="panel" style={{ marginTop: 10, overflowX: 'auto' }}>
+        <h3 style={{ marginTop: 0 }}>Upgrade Recommendations (Last 30 Days)</h3>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Current</th>
+              <th>Recommended</th>
+              <th>30d Contacts</th>
+              <th>SLA Rate</th>
+              <th>Avg First Contact</th>
+              <th>Urgency</th>
+              <th>Why</th>
+            </tr>
+          </thead>
+          <tbody>
+            {recommendations.map((r) => (
+              <tr key={r.memberId}>
+                <td>{r.memberName}</td>
+                <td>{r.currentTier}</td>
+                <td>{r.recommendTier ? `${r.recommendTier} (${r.recommendPrice} • ${r.projectedCommissionPct}%)` : 'Stay'}</td>
+                <td>{r.contactLogged30d} / {r.grabs30d}</td>
+                <td>{r.slaRate30d}%</td>
+                <td>{r.avgFirstContactMin ?? '—'} min</td>
+                <td>{r.urgency}</td>
+                <td>{r.rationale}</td>
+              </tr>
+            ))}
+            {!recommendations.length ? <tr><td colSpan={8} className="muted">No recommendation data yet.</td></tr> : null}
+          </tbody>
+        </table>
       </div>
 
       <div className="panel" style={{ marginTop: 10, overflowX: 'auto' }}>
