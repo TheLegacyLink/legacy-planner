@@ -443,6 +443,13 @@ export default function PolicyPayoutsPage() {
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             <button
                               type="button"
+                              onClick={() => patchRow(r.id, { status: 'Approved', applicantLicensedStatus: 'Licensed' })}
+                              style={{ background: '#166534', color: '#fff', border: '1px solid #14532d' }}
+                            >
+                              Approve + Licensed + Notify All
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => patchRow(r.id, { status: 'Approved' })}
                             >
                               Approve + Notify
