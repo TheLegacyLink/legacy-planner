@@ -204,6 +204,34 @@ export async function GET(req) {
     stalled24h: rows.filter((r) => r.stalled24h).length
   };
 
+  const myPolicies = (Array.isArray(policyRows) ? policyRows : [])
+    .filter((p) => {
+      const n = normalize(viewer.name);
+      return normalize(p?.referredByName || '') === n || normalize(p?.policyWriterName || '') === n || normalize(p?.submittedBy || '') === n;
+    })
+    .map((p) => ({
+      id: clean(p?.id || ''),
+      applicantName: clean(p?.applicantName || ''),
+      referredByName: clean(p?.referredByName || ''),
+      policyWriterName: clean(p?.policyWriterName || ''),
+      status: clean(p?.status || 'Submitted') || 'Submitted',
+      submittedAt: clean(p?.submittedAt || ''),
+      approvedAt: clean(p?.approvedAt || ''),
+      payoutStatus: clean(p?.payoutStatus || 'Unpaid') || 'Unpaid',
+      payoutAmount: Number(p?.payoutAmount || 0) || 0,
+      payoutPaidAt: clean(p?.payoutPaidAt || ''),
+      monthlyPremium: Number(p?.monthlyPremium || 0) || 0
+    }))
+    .sort((a, b) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime());
+
+  const policyMetrics = {
+    total: myPolicies.length,
+    submitted: myPolicies.filter((p) => normalize(p.status) === 'submitted').length,
+    approved: myPolicies.filter((p) => normalize(p.status).startsWith('approved')).length,
+    declined: myPolicies.filter((p) => normalize(p.status).startsWith('declined')).length,
+    paid: myPolicies.filter((p) => normalize(p.payoutStatus) === 'paid').length
+  };
+
   const byReferrer = new Map();
   for (const r of rows) {
     const key = clean(r.effectiveReferrer || r.originalReferrer || '');
@@ -235,6 +263,8 @@ export async function GET(req) {
     rows,
     metrics,
     leaderboard,
+    myPolicies,
+    policyMetrics,
     innerCircle: (users || []).filter((u) => u.active).map((u) => ({ name: u.name, role: u.role }))
   });
 }

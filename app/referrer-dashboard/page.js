@@ -28,11 +28,14 @@ export default function ReferrerDashboardPage() {
   const [rows, setRows] = useState([]);
   const [metrics, setMetrics] = useState({ total: 0, onTrack: 0, needsFollowup: 0, stalled24h: 0 });
   const [leaderboard, setLeaderboard] = useState([]);
+  const [myPolicies, setMyPolicies] = useState([]);
+  const [policyMetrics, setPolicyMetrics] = useState({ total: 0, submitted: 0, approved: 0, declined: 0, paid: 0 });
   const [innerCircle, setInnerCircle] = useState([]);
   const [message, setMessage] = useState('');
   const [delegateByPerson, setDelegateByPerson] = useState({});
   const [showStalledOnly, setShowStalledOnly] = useState(false);
   const [showLicensedOnly, setShowLicensedOnly] = useState(false);
+  const [viewMode, setViewMode] = useState('scoreboard');
 
   const isAdmin = useMemo(() => normalize(auth.role) === 'admin', [auth.role]);
   const filteredRows = useMemo(() => rows.filter((r) => {
@@ -51,6 +54,8 @@ export default function ReferrerDashboardPage() {
       setRows(data.rows || []);
       setMetrics(data.metrics || { total: 0, onTrack: 0, needsFollowup: 0, stalled24h: 0 });
       setLeaderboard(data.leaderboard || []);
+      setMyPolicies(data.myPolicies || []);
+      setPolicyMetrics(data.policyMetrics || { total: 0, submitted: 0, approved: 0, declined: 0, paid: 0 });
       setInnerCircle(data.innerCircle || []);
       setAuth((a) => ({ ...a, role: data?.viewer?.role || a.role, email: data?.viewer?.email || a.email || '' }));
     } catch (e) {
@@ -219,111 +224,164 @@ export default function ReferrerDashboardPage() {
 
       <section className="claimsRoster" style={{ marginTop: 8 }}>
         <div className="claimsQuickTools" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span className="pill">Total: {metrics.total}</span>
-          <span className="pill onpace">On Track: {metrics.onTrack}</span>
-          <span className="pill">Needs Follow-up: {metrics.needsFollowup}</span>
-          <span className="pill atrisk">Stalled 24h+: {metrics.stalled24h}</span>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <input type="checkbox" checked={showStalledOnly} onChange={(e) => setShowStalledOnly(e.target.checked)} />
-            Show stalled only
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <input type="checkbox" checked={showLicensedOnly} onChange={(e) => setShowLicensedOnly(e.target.checked)} />
-            Licensed only
-          </label>
+          <button type="button" className={viewMode === 'scoreboard' ? '' : 'ghost'} onClick={() => setViewMode('scoreboard')}>My Referrals</button>
+          <button type="button" className={viewMode === 'policies' ? '' : 'ghost'} onClick={() => setViewMode('policies')}>My Policy Pipeline</button>
+          <span className="pill">Policies: {policyMetrics.total}</span>
+          <span className="pill">Submitted: {policyMetrics.submitted}</span>
+          <span className="pill onpace">Approved: {policyMetrics.approved}</span>
+          <span className="pill atrisk">Declined: {policyMetrics.declined}</span>
+          <span className="pill">Paid: {policyMetrics.paid}</span>
         </div>
-        {message ? <p className="muted" style={{ marginTop: 8 }}>{message}</p> : null}
       </section>
 
-      <section className="claimsRoster" style={{ marginTop: 8 }}>
-        <h3 style={{ marginTop: 0 }}>Leaderboard — Team Momentum</h3>
-        <div style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Referrer</th>
-                <th>On Track</th>
-                <th>Stalled</th>
-                <th>Avg Progress</th>
-                <th>Speed Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(leaderboard || []).map((r, i) => (
-                <tr key={`${r.name}-${i}`}>
-                  <td>#{i + 1}</td>
-                  <td>{r.name}</td>
-                  <td>{r.onTrack}/{r.total}</td>
-                  <td>{r.stalled}</td>
-                  <td>{r.avgProgress}%</td>
-                  <td>{r.speedScore}</td>
+      {viewMode === 'scoreboard' ? (
+        <>
+          <section className="claimsRoster" style={{ marginTop: 8 }}>
+            <div className="claimsQuickTools" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span className="pill">Total: {metrics.total}</span>
+              <span className="pill onpace">On Track: {metrics.onTrack}</span>
+              <span className="pill">Needs Follow-up: {metrics.needsFollowup}</span>
+              <span className="pill atrisk">Stalled 24h+: {metrics.stalled24h}</span>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input type="checkbox" checked={showStalledOnly} onChange={(e) => setShowStalledOnly(e.target.checked)} />
+                Show stalled only
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input type="checkbox" checked={showLicensedOnly} onChange={(e) => setShowLicensedOnly(e.target.checked)} />
+                Licensed only
+              </label>
+            </div>
+            {message ? <p className="muted" style={{ marginTop: 8 }}>{message}</p> : null}
+          </section>
+
+          <section className="claimsRoster" style={{ marginTop: 8 }}>
+            <h3 style={{ marginTop: 0 }}>Leaderboard — Team Momentum</h3>
+            <div style={{ overflowX: 'auto' }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Referrer</th>
+                    <th>On Track</th>
+                    <th>Stalled</th>
+                    <th>Avg Progress</th>
+                    <th>Speed Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(leaderboard || []).map((r, i) => (
+                    <tr key={`${r.name}-${i}`}>
+                      <td>#{i + 1}</td>
+                      <td>{r.name}</td>
+                      <td>{r.onTrack}/{r.total}</td>
+                      <td>{r.stalled}</td>
+                      <td>{r.avgProgress}%</td>
+                      <td>{r.speedScore}</td>
+                    </tr>
+                  ))}
+                  {!(leaderboard || []).length ? <tr><td colSpan={6} className="muted">No leaderboard data yet.</td></tr> : null}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="claimsCards">
+            {loading ? <p>Loading...</p> : null}
+            <div style={{ overflowX: 'auto' }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Person</th>
+                    <th>Licensed</th>
+                    <th>Stage</th>
+                    <th>Progress</th>
+                    <th>Policy</th>
+                    <th>Status</th>
+                    <th>Last Activity</th>
+                    <th>Actions</th>
+                    {isAdmin ? <th>Delegate</th> : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(filteredRows || []).map((r) => (
+                    <tr key={r.personKey}>
+                      <td>
+                        <div>{r.name || '—'}</div>
+                        <small className="muted">{r.email || r.phone || '—'}</small>
+                      </td>
+                      <td>{r.licensed ? 'Yes' : 'No'}</td>
+                      <td>{r.stage || '—'}</td>
+                      <td>{r.completedSteps}/{r.totalSteps} ({r.progressPct}%)</td>
+                      <td>{r.policyStatus || '—'}{r.stalled24h ? ' (stalled 24h+)' : ''}</td>
+                      <td><span className="pill" style={badgeStyle(r.bucket)}>{r.bucket === 'on_track' ? 'On Track' : r.bucket === 'stalled' ? 'Stalled' : 'Needs Follow-up'}</span></td>
+                      <td>{fmt(r.lastActivityAt)}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <a className="ghost" href={r.sopUrl} target="_blank" rel="noreferrer">Open SOP</a>
+                          <button type="button" className="ghost" onClick={() => sendReminderEmail(r)}>Send Reminder</button>
+                          <button type="button" className="ghost" onClick={() => messageJamal(r)}>Message Jamal</button>
+                          <button type="button" className="ghost" onClick={() => messageDave(r)}>Message Dave</button>
+                        </div>
+                      </td>
+                      {isAdmin ? (
+                        <td>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <select
+                              value={delegateByPerson[r.personKey] || r.effectiveReferrer || ''}
+                              onChange={(e) => setDelegateByPerson((m) => ({ ...m, [r.personKey]: e.target.value }))}
+                            >
+                              {(innerCircle || []).map((u) => <option key={u.name} value={u.name}>{u.name}</option>)}
+                            </select>
+                            <button type="button" className="ghost" onClick={() => saveDelegation(r.personKey)}>Save</button>
+                          </div>
+                        </td>
+                      ) : null}
+                    </tr>
+                  ))}
+                  {!(filteredRows || []).length ? <tr><td colSpan={isAdmin ? 9 : 8} className="muted">No referred people found yet.</td></tr> : null}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      ) : (
+        <section className="claimsCards" style={{ marginTop: 8 }}>
+          <h3 style={{ marginTop: 0 }}>My Policy Pipeline (View Only)</h3>
+          <div style={{ overflowX: 'auto' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Client</th>
+                  <th>Status</th>
+                  <th>Payout</th>
+                  <th>Premium</th>
+                  <th>Submitted</th>
+                  <th>Approved</th>
+                  <th>Paid At</th>
                 </tr>
-              ))}
-              {!(leaderboard || []).length ? <tr><td colSpan={6} className="muted">No leaderboard data yet.</td></tr> : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="claimsCards">
-        {loading ? <p>Loading...</p> : null}
-        <div style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Person</th>
-                <th>Licensed</th>
-                <th>Stage</th>
-                <th>Progress</th>
-                <th>Policy</th>
-                <th>Status</th>
-                <th>Last Activity</th>
-                <th>Actions</th>
-                {isAdmin ? <th>Delegate</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {(filteredRows || []).map((r) => (
-                <tr key={r.personKey}>
-                  <td>
-                    <div>{r.name || '—'}</div>
-                    <small className="muted">{r.email || r.phone || '—'}</small>
-                  </td>
-                  <td>{r.licensed ? 'Yes' : 'No'}</td>
-                  <td>{r.stage || '—'}</td>
-                  <td>{r.completedSteps}/{r.totalSteps} ({r.progressPct}%)</td>
-                  <td>{r.policyStatus || '—'}{r.stalled24h ? ' (stalled 24h+)' : ''}</td>
-                  <td><span className="pill" style={badgeStyle(r.bucket)}>{r.bucket === 'on_track' ? 'On Track' : r.bucket === 'stalled' ? 'Stalled' : 'Needs Follow-up'}</span></td>
-                  <td>{fmt(r.lastActivityAt)}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <a className="ghost" href={r.sopUrl} target="_blank" rel="noreferrer">Open SOP</a>
-                      <button type="button" className="ghost" onClick={() => sendReminderEmail(r)}>Send Reminder</button>
-                      <button type="button" className="ghost" onClick={() => messageJamal(r)}>Message Jamal</button>
-                      <button type="button" className="ghost" onClick={() => messageDave(r)}>Message Dave</button>
-                    </div>
-                  </td>
-                  {isAdmin ? (
+              </thead>
+              <tbody>
+                {(myPolicies || []).map((p) => (
+                  <tr key={p.id || `${p.applicantName}-${p.submittedAt}`}>
                     <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <select
-                          value={delegateByPerson[r.personKey] || r.effectiveReferrer || ''}
-                          onChange={(e) => setDelegateByPerson((m) => ({ ...m, [r.personKey]: e.target.value }))}
-                        >
-                          {(innerCircle || []).map((u) => <option key={u.name} value={u.name}>{u.name}</option>)}
-                        </select>
-                        <button type="button" className="ghost" onClick={() => saveDelegation(r.personKey)}>Save</button>
-                      </div>
+                      <div>{p.applicantName || '—'}</div>
+                      <small className="muted">Ref: {p.referredByName || '—'} • Writer: {p.policyWriterName || '—'}</small>
                     </td>
-                  ) : null}
-                </tr>
-              ))}
-              {!(filteredRows || []).length ? <tr><td colSpan={isAdmin ? 9 : 8} className="muted">No referred people found yet.</td></tr> : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                    <td>{p.status || 'Submitted'}</td>
+                    <td>{p.payoutStatus || 'Unpaid'}{(Number(p.payoutAmount || 0) > 0) ? ` ($${Number(p.payoutAmount).toFixed(2)})` : ''}</td>
+                    <td>${Number(p.monthlyPremium || 0).toFixed(2)}</td>
+                    <td>{fmt(p.submittedAt)}</td>
+                    <td>{fmt(p.approvedAt)}</td>
+                    <td>{fmt(p.payoutPaidAt)}</td>
+                  </tr>
+                ))}
+                {!(myPolicies || []).length ? <tr><td colSpan={7} className="muted">No policy submissions yet for your profile.</td></tr> : null}
+              </tbody>
+            </table>
+          </div>
+          <p className="muted" style={{ marginTop: 8 }}>This view is read-only. Status approvals/declines are controlled by Kimora/admin.</p>
+        </section>
+      )}
     </main>
   );
 }

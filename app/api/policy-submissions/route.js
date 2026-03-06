@@ -278,6 +278,50 @@ async function sendBackOfficeGhlSetupEmail(row = {}) {
   return { ok: true, messageId: info?.messageId || '', to: recipients };
 }
 
+async function sendPayoutPaidEmail(row = {}) {
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  if (!user || !pass) return { ok: false, error: 'missing_gmail_env' };
+
+  const recipients = [...new Set([
+    findUserEmailByName(clean(row?.referredByName || '')),
+    findUserEmailByName(clean(row?.policyWriterName || '')),
+    ...adminEmails()
+  ].filter(Boolean))];
+  if (!recipients.length) return { ok: false, error: 'no_recipients' };
+
+  const amount = Number(row?.payoutAmount || 0) || 0;
+  const subject = `Payout Paid: ${row.applicantName || 'Applicant'}`;
+  const text = [
+    'Great news — payout has been marked as PAID.',
+    '',
+    `Client: ${row.applicantName || '—'}`,
+    `Referred By: ${row.referredByName || '—'}`,
+    `Policy Writer: ${row.policyWriterName || '—'}`,
+    `Payout Amount: $${amount.toFixed(2)}`,
+    `Paid At: ${row.payoutPaidAt || nowIso()}`,
+    '',
+    '— The Legacy Link Support Team'
+  ].join('\n');
+
+  const html = brandEmailFrame(
+    'Payout Marked Paid',
+    `<p>Great news — payout has been marked as <strong>PAID</strong>.</p>
+     <ul style="padding-left:18px; margin:10px 0;">
+       <li><strong>Client:</strong> ${row.applicantName || '—'}</li>
+       <li><strong>Referred By:</strong> ${row.referredByName || '—'}</li>
+       <li><strong>Policy Writer:</strong> ${row.policyWriterName || '—'}</li>
+       <li><strong>Payout Amount:</strong> $${amount.toFixed(2)}</li>
+       <li><strong>Paid At:</strong> ${row.payoutPaidAt || nowIso()}</li>
+     </ul>`
+  );
+
+  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+  const info = await tx.sendMail({ from, to: recipients.join(', '), subject, text, html });
+  return { ok: true, messageId: info?.messageId || '', to: recipients };
+}
+
 async function sendDeclineEmail(row = {}) {
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
@@ -727,6 +771,9 @@ export async function PATCH(req) {
   const suppressEmail = Boolean(patch?.suppressEmail);
   const approveTransition = prevStatus !== 'approved' && clean(nextStatus).toLowerCase() === 'approved';
   const declineTransition = prevStatus !== 'declined' && clean(nextStatus).toLowerCase() === 'declined';
+  const prevPayoutStatus = clean(store[idx].payoutStatus || 'Unpaid').toLowerCase();
+  const nextPayoutStatus = patch.payoutStatus != null ? clean(patch.payoutStatus).toLowerCase() : prevPayoutStatus;
+  const paidTransition = prevPayoutStatus !== 'paid' && nextPayoutStatus === 'paid';
 
   const approvedAt = approveTransition
     ? nowIso()
@@ -754,6 +801,7 @@ export async function PATCH(req) {
 
   let email = null;
   let backOfficeEmail = null;
+  let payoutEmail = null;
   if (!suppressEmail && approveTransition) {
     email = await sendApprovalEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'email_failed' }));
     if (isLicensedValue(store[idx]?.applicantLicensedStatus)) {
@@ -765,6 +813,10 @@ export async function PATCH(req) {
     email = await sendDeclineEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'email_failed' }));
   }
 
+  if (!suppressEmail && paidTransition) {
+    payoutEmail = await sendPayoutPaidEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'payout_email_failed' }));
+  }
+
   await writeStore(store);
-  return Response.json({ ok: true, row: store[idx], email, backOfficeEmail });
+  return Response.json({ ok: true, row: store[idx], email, backOfficeEmail, payoutEmail });
 }
