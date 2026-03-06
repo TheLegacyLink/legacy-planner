@@ -2,6 +2,7 @@ import { loadJsonFile, loadJsonStore } from '../../../../lib/blobJsonStore';
 
 const APPLICATIONS_PATH = 'stores/sponsorship-applications.json';
 const BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
+const CALLER_LEADS_PATH = 'stores/caller-leads.json';
 const MARKETPLACE_PATH = 'stores/lead-marketplace.json';
 
 const DEFAULT_SETTINGS = {
@@ -103,7 +104,53 @@ function isOlderThanDays(iso = '', days = 14) {
   return Date.now() - t >= days * 24 * 60 * 60 * 1000;
 }
 
-function withTier(rows = [], market = {}) {
+function normalizePhone(v = '') {
+  return String(v || '').replace(/\D/g, '');
+}
+
+function isRepliedSignalFromCaller(row = {}) {
+  const stage = normalize(row?.stage || '');
+  const callResult = normalize(row?.callResult || row?.call_result || '');
+  const direction = normalize(row?.callDirection || row?.direction || row?.event || row?.source || '');
+
+  if (direction.includes('inbound') || direction === 'in') return true;
+  if (callResult.includes('spoke') || callResult.includes('connected') || callResult.includes('replied')) return true;
+
+  return ['connected', 'qualified', 'form completed', 'policy started', 'approved', 'onboarding started', 'moved forward'].includes(stage);
+}
+
+function buildAutoEngagementByLeadId(rows = [], callerRows = []) {
+  const byEmail = new Map();
+  const byPhone = new Map();
+  const byName = new Map();
+
+  for (const c of callerRows || []) {
+    if (!isRepliedSignalFromCaller(c)) continue;
+
+    const em = normalize(c?.email || '');
+    const ph = normalizePhone(c?.phone || '');
+    const nm = normalize(c?.name || `${c?.firstName || ''} ${c?.lastName || ''}`);
+
+    if (em && !byEmail.has(em)) byEmail.set(em, true);
+    if (ph && !byPhone.has(ph)) byPhone.set(ph, true);
+    if (nm && !byName.has(nm)) byName.set(nm, true);
+  }
+
+  const out = {};
+  for (const row of rows || []) {
+    const key = leadKey(row);
+    const em = normalize(row?.email || '');
+    const ph = normalizePhone(row?.phone || '');
+    const nm = normalize(row?.applicant || '');
+
+    const replied = (em && byEmail.has(em)) || (ph && byPhone.has(ph)) || (nm && byName.has(nm));
+    if (replied) out[key] = 'replied';
+  }
+
+  return out;
+}
+
+function withTier(rows = [], market = {}, autoEngagementByLeadId = {}) {
   const settings = market?.settings || DEFAULT_SETTINGS;
   const engagement = market?.engagementByLeadId || {};
   const soldByLeadId = market?.soldByLeadId || {};
@@ -111,7 +158,7 @@ function withTier(rows = [], market = {}) {
 
   return (rows || []).map((row) => {
     const key = leadKey(row);
-    const replied = engagement[key] === 'replied';
+    const replied = engagement[key] === 'replied' || autoEngagementByLeadId[key] === 'replied';
     const sold = soldByLeadId[key] || null;
 
     const tier = replied ? 'tier2' : 'tier1';
@@ -152,14 +199,17 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'missing_buyer_name' }, { status: 400 });
   }
 
-  const [apps, bookings, rawMarket] = await Promise.all([
+  const [apps, bookings, callerLeads, rawMarket] = await Promise.all([
     loadJsonStore(APPLICATIONS_PATH, []),
     loadJsonStore(BOOKINGS_PATH, []),
+    loadJsonStore(CALLER_LEADS_PATH, []),
     loadJsonFile(MARKETPLACE_PATH, {})
   ]);
 
   const market = normalizeStore(rawMarket);
-  const rows = withTier(buildApprovedNotBooked(apps, bookings, market?.settings?.marketplaceOwnerTag || 'link'), market);
+  const baseRows = buildApprovedNotBooked(apps, bookings, market?.settings?.marketplaceOwnerTag || 'link');
+  const autoEngagementByLeadId = buildAutoEngagementByLeadId(baseRows, callerLeads);
+  const rows = withTier(baseRows, market, autoEngagementByLeadId);
   const row = rows.find((r) => r.key === requestedLeadKey);
 
   if (!row) {
