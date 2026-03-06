@@ -92,11 +92,20 @@ export default function LeadMarketplacePage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const checkout = params.get('checkout');
+    const upsell = params.get('upsell');
+
     if (checkout === 'success') {
       setNotice('🎉 Congratulations! Purchase successful. Check your email for receipt + approved-lead script.');
       load();
     } else if (checkout === 'cancel') {
       setNotice('Checkout canceled. No charge made.');
+    }
+
+    if (upsell === 'success') {
+      setNotice('🚀 Upsell accepted. Two additional Tier 1 leads were added to your account.');
+      load();
+    } else if (upsell === 'cancel') {
+      setNotice('Upsell checkout canceled.');
     }
   }, []);
 

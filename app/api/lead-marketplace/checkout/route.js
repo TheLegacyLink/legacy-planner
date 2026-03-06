@@ -146,7 +146,7 @@ export async function POST(req) {
   const amount = Math.max(1, Math.round(Number(row.price || 0) * 100));
   const origin = clean(body?.origin) || clean(req.headers.get('origin') || '') || clean(process.env.NEXT_PUBLIC_APP_URL) || 'https://innercirclelink.com';
 
-  const successUrl = `${origin}/lead-marketplace?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
+  const successUrl = `${origin}/lead-marketplace/offer?session_id={CHECKOUT_SESSION_ID}`;
   const cancelUrl = `${origin}/lead-marketplace?checkout=cancel`;
 
   const { default: Stripe } = await import('stripe');

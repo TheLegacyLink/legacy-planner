@@ -15,7 +15,8 @@ function normalizeStore(raw = {}) {
       ...(raw?.settings || {})
     },
     engagementByLeadId: raw?.engagementByLeadId && typeof raw.engagementByLeadId === 'object' ? raw.engagementByLeadId : {},
-    soldByLeadId: raw?.soldByLeadId && typeof raw.soldByLeadId === 'object' ? raw.soldByLeadId : {}
+    soldByLeadId: raw?.soldByLeadId && typeof raw.soldByLeadId === 'object' ? raw.soldByLeadId : {},
+    upsellBySourceSessionId: raw?.upsellBySourceSessionId && typeof raw.upsellBySourceSessionId === 'object' ? raw.upsellBySourceSessionId : {}
   };
 }
 
@@ -195,13 +196,66 @@ export async function POST(req) {
   }
 
   const session = event?.data?.object || {};
+  const metadataType = clean(session?.metadata?.type || '');
+
+  const rawMarket = await loadJsonFile(MARKETPLACE_PATH, {});
+  const market = normalizeStore(rawMarket);
+
+  if (metadataType === 'marketplace_upsell_fallback') {
+    const sourceSessionId = clean(session?.metadata?.sourceSessionId || '');
+    const offerLeadKeys = clean(session?.metadata?.offerLeadKeys || '')
+      .split(',')
+      .map((x) => clean(x))
+      .filter(Boolean);
+
+    if (!sourceSessionId || !offerLeadKeys.length) {
+      return Response.json({ ok: false, error: 'invalid_upsell_metadata' }, { status: 400 });
+    }
+
+    if (market.upsellBySourceSessionId[sourceSessionId]) {
+      return Response.json({ ok: true, idempotent: true, upsell: market.upsellBySourceSessionId[sourceSessionId] });
+    }
+
+    const paidAt = new Date().toISOString();
+    for (const leadKey of offerLeadKeys) {
+      if (market.soldByLeadId[leadKey]) continue;
+      market.soldByLeadId[leadKey] = {
+        leadKey,
+        buyerName: clean(session?.metadata?.buyerName || ''),
+        buyerEmail: clean(session?.metadata?.buyerEmail || (session?.customer_details?.email || '')).toLowerCase(),
+        buyerRole: clean(session?.metadata?.buyerRole || 'agent'),
+        tier: 'tier1',
+        state: '',
+        engagement: 'No Reply',
+        leadApplicant: '',
+        leadPhone: '',
+        leadEmail: '',
+        stripeSessionId: clean(session?.id || ''),
+        stripePaymentIntent: clean(session?.payment_intent || ''),
+        paymentStatus: clean(session?.payment_status || 'paid'),
+        amountTotalUsd: Number(session?.amount_total || 0) / Math.max(1, offerLeadKeys.length) / 100,
+        paidAt,
+        createdAt: paidAt,
+        source: 'upsell_offer_fallback'
+      };
+    }
+
+    market.upsellBySourceSessionId[sourceSessionId] = {
+      leadKeys: offerLeadKeys,
+      amountUsd: Number(session?.amount_total || 0) / 100,
+      chargeId: clean(session?.payment_intent || ''),
+      paidAt
+    };
+
+    await saveJsonFile(MARKETPLACE_PATH, market);
+    return Response.json({ ok: true, upsell: market.upsellBySourceSessionId[sourceSessionId] });
+  }
+
   const leadKey = clean(session?.metadata?.leadKey || '');
   if (!leadKey) {
     return Response.json({ ok: false, error: 'missing_lead_key' }, { status: 400 });
   }
 
-  const rawMarket = await loadJsonFile(MARKETPLACE_PATH, {});
-  const market = normalizeStore(rawMarket);
   const existing = market?.soldByLeadId?.[leadKey];
 
   if (existing?.stripeSessionId && existing.stripeSessionId === session.id) {
