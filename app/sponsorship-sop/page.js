@@ -297,10 +297,10 @@ export default function SponsorshipSopPage() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <span className="pill">Progress: {sop?.progressPct ?? 0}%</span>
             <span className="pill">Lead Access: {sop?.leadAccessActive ? 'Active' : 'Pending'}</span>
-            <span className="pill">Tier: {member?.tier || 'PROGRAM_TIER_0'}</span>
-            <span className="pill">Commission (non-sponsored): {member?.commissionNonSponsoredPct || 50}%</span>
+            <span className="pill">Program Tier: {member?.tier || 'TIER_SPONSORSHIP'}</span>
+            <span className="pill">Sponsor Commission: {member?.commissionNonSponsoredPct || 50}%</span>
           </div>
-          <div className="muted">When a step says “Request Approval,” click it and wait for admin review.</div>
+          <div className="muted">When a step says “Request Approval,” click it and wait for admin review. Sponsorship tier starts at 50% commission and no upfront program payment.</div>
           {member?.licensed ? (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <label>

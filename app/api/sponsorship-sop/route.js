@@ -64,7 +64,7 @@ function defaultMember(raw = {}) {
     contractingStarted: Boolean(raw?.contractingStarted),
     contractingComplete: Boolean(raw?.contractingComplete),
     active: raw?.active !== false,
-    tier: clean(raw?.tier || 'PROGRAM_TIER_0') || 'PROGRAM_TIER_0',
+    tier: clean(raw?.tier || 'TIER_SPONSORSHIP') || 'TIER_SPONSORSHIP',
     tier0StartAt: start,
     tier0EndAt: clean(raw?.tier0EndAt || plusWeeksIso(start, 8)),
     tier0WeeklyCap: Number(raw?.tier0WeeklyCap || 5),
@@ -244,7 +244,7 @@ function demoMember(mode = 'unlicensed') {
       contractingStarted: true,
       contractingComplete: true,
       active: true,
-      tier: 'PROGRAM_TIER_0',
+      tier: 'TIER_SPONSORSHIP',
       commissionNonSponsoredPct: 50
     });
     m.leadAccessActive = true;
@@ -262,7 +262,7 @@ function demoMember(mode = 'unlicensed') {
     youtubeCommentApproved: false,
     contractingStarted: false,
     active: true,
-    tier: 'PROGRAM_TIER_0',
+    tier: 'TIER_SPONSORSHIP',
     commissionNonSponsoredPct: 50
   });
   m.leadAccessActive = false;

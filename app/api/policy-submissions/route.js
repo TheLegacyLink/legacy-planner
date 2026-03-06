@@ -217,6 +217,65 @@ async function sendApprovalEmail(row = {}) {
   return { ok: true, messageId: info.messageId, to: recipients };
 }
 
+function backOfficeRecipients() {
+  const configured = clean(process.env.BACKOFFICE_GHL_SETUP_EMAILS || process.env.BACKOFFICE_GHL_SETUP_EMAIL || '');
+  return [...new Set(configured.split(',').map((s) => clean(s)).filter(Boolean))];
+}
+
+async function sendBackOfficeGhlSetupEmail(row = {}) {
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  if (!user || !pass) return { ok: false, error: 'missing_gmail_env' };
+
+  const recipients = backOfficeRecipients();
+  if (!recipients.length) return { ok: false, error: 'missing_backoffice_recipients' };
+
+  const applicant = clean(row?.applicantName || 'Unknown Applicant');
+  const email = clean(row?.applicantEmail || '');
+  const phone = clean(row?.applicantPhone || '');
+  const writer = clean(row?.policyWriterName || '');
+  const referrer = clean(row?.referredByName || '');
+  const state = clean(row?.state || '');
+
+  const subject = `GHL Setup Needed: ${applicant} (F&G Approved)`;
+  const text = [
+    'Back Office Team,',
+    '',
+    'Please create/enable this agent in GoHighLevel so they can receive assigned leads.',
+    '',
+    `Applicant: ${applicant}`,
+    `Email: ${email || '—'}`,
+    `Phone: ${phone || '—'}`,
+    `State: ${state || '—'}`,
+    `Referred By: ${referrer || '—'}`,
+    `Policy Writer: ${writer || '—'}`,
+    '',
+    'Trigger reason: F&G application approved.',
+    '',
+    '— The Legacy Link System'
+  ].join('\n');
+
+  const html = brandEmailFrame(
+    'Back Office Action Needed — GHL Setup',
+    `<p>Back Office Team,</p>
+     <p>Please create/enable this agent in GoHighLevel so they can receive assigned leads.</p>
+     <ul style="padding-left:18px; margin:10px 0;">
+       <li><strong>Applicant:</strong> ${applicant}</li>
+       <li><strong>Email:</strong> ${email || '—'}</li>
+       <li><strong>Phone:</strong> ${phone || '—'}</li>
+       <li><strong>State:</strong> ${state || '—'}</li>
+       <li><strong>Referred By:</strong> ${referrer || '—'}</li>
+       <li><strong>Policy Writer:</strong> ${writer || '—'}</li>
+     </ul>
+     <p><strong>Trigger reason:</strong> F&G application approved.</p>`
+  );
+
+  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+  const info = await tx.sendMail({ from, to: recipients.join(', '), subject, text, html });
+  return { ok: true, messageId: info?.messageId || '', to: recipients };
+}
+
 async function sendDeclineEmail(row = {}) {
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
@@ -299,14 +358,16 @@ function buildOrUpdateProgramMember(existing = {}, row = {}) {
     name: clean(existing?.name || row?.applicantName),
     email: clean(existing?.email || row?.applicantEmail).toLowerCase(),
     licensed,
+    npn: clean(existing?.npn || ''),
     onboardingComplete: Boolean(existing?.onboardingComplete),
+    sponsorshipScriptAcknowledged: Boolean(existing?.sponsorshipScriptAcknowledged),
     communityServiceApproved: Boolean(existing?.communityServiceApproved),
     schoolCommunityJoined: Boolean(existing?.schoolCommunityJoined),
     youtubeCommentApproved: Boolean(existing?.youtubeCommentApproved),
     contractingStarted: Boolean(existing?.contractingStarted),
     contractingComplete: Boolean(existing?.contractingComplete),
     active: existing?.active !== false,
-    tier: clean(existing?.tier || 'PROGRAM_TIER_0'),
+    tier: clean(existing?.tier || 'TIER_SPONSORSHIP') || 'TIER_SPONSORSHIP',
     tier0WeeklyCap: Number(existing?.tier0WeeklyCap || 5),
     tier0StartAt,
     tier0EndAt: clean(existing?.tier0EndAt || plusWeeksIso(tier0StartAt, 8)),
@@ -316,11 +377,12 @@ function buildOrUpdateProgramMember(existing = {}, row = {}) {
     updatedAt: now,
     leadAccessActive: Boolean(
       licensed &&
-      existing?.onboardingComplete &&
+      clean(existing?.npn) &&
       existing?.communityServiceApproved &&
       existing?.schoolCommunityJoined &&
       existing?.youtubeCommentApproved &&
       (existing?.contractingStarted || existing?.contractingComplete) &&
+      existing?.sponsorshipScriptAcknowledged &&
       existing?.active !== false
     )
   };
@@ -689,12 +751,14 @@ export async function PATCH(req) {
   };
 
   let email = null;
+  let backOfficeEmail = null;
   if (!suppressEmail && approveTransition) {
     email = await sendApprovalEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'email_failed' }));
+    backOfficeEmail = await sendBackOfficeGhlSetupEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'backoffice_email_failed' }));
   } else if (!suppressEmail && declineTransition) {
     email = await sendDeclineEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'email_failed' }));
   }
 
   await writeStore(store);
-  return Response.json({ ok: true, row: store[idx], email });
+  return Response.json({ ok: true, row: store[idx], email, backOfficeEmail });
 }
