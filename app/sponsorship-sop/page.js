@@ -30,7 +30,7 @@ export default function SponsorshipSopPage() {
   const [notice, setNotice] = useState('');
   const [member, setMember] = useState(null);
   const [sop, setSop] = useState(null);
-  const [resources, setResources] = useState({ skoolUrl: '', youtubeUrl: '' });
+  const [resources, setResources] = useState({ skoolUrl: '', youtubeUrl: '', jamalContact: 'Jamal' });
   const [requestingStep, setRequestingStep] = useState('');
   const [npnInput, setNpnInput] = useState('');
 
@@ -312,7 +312,7 @@ export default function SponsorshipSopPage() {
               </button>
             </div>
           ) : (
-            <div className="muted">Unlicensed track: NPN not required until licensed.</div>
+            <div className="muted">Unlicensed track: contact {resources?.jamalContact || 'Jamal'} to start licensing. Request the unlicensed licensing step below to confirm kickoff.</div>
           )}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {resources?.skoolUrl ? <a href={resources.skoolUrl} target="_blank" rel="noreferrer">Open Skool Community</a> : <span className="muted">Skool link pending</span>}

@@ -219,7 +219,9 @@ async function sendApprovalEmail(row = {}) {
 
 function backOfficeRecipients() {
   const configured = clean(process.env.BACKOFFICE_GHL_SETUP_EMAILS || process.env.BACKOFFICE_GHL_SETUP_EMAIL || '');
-  return [...new Set(configured.split(',').map((s) => clean(s)).filter(Boolean))];
+  const fallback = 'davevanlarcena0021@gmail.com';
+  const list = configured ? configured.split(',').map((s) => clean(s)).filter(Boolean) : [fallback];
+  return [...new Set(list)];
 }
 
 async function sendBackOfficeGhlSetupEmail(row = {}) {
@@ -240,7 +242,7 @@ async function sendBackOfficeGhlSetupEmail(row = {}) {
 
   const subject = `GHL Setup Needed: ${applicant} (F&G Approved)`;
   const text = [
-    'Back Office Team,',
+    'Hi Dave,',
     '',
     'Please create/enable this agent in GoHighLevel so they can receive assigned leads.',
     '',
@@ -258,8 +260,8 @@ async function sendBackOfficeGhlSetupEmail(row = {}) {
 
   const html = brandEmailFrame(
     'Back Office Action Needed — GHL Setup',
-    `<p>Back Office Team,</p>
-     <p>Please create/enable this agent in GoHighLevel so they can receive assigned leads.</p>
+    `<p>Hi Dave,</p>
+     <p>Please create/enable this licensed agent in GoHighLevel so they can receive assigned leads.</p>
      <ul style="padding-left:18px; margin:10px 0;">
        <li><strong>Applicant:</strong> ${applicant}</li>
        <li><strong>Email:</strong> ${email || '—'}</li>
@@ -754,7 +756,11 @@ export async function PATCH(req) {
   let backOfficeEmail = null;
   if (!suppressEmail && approveTransition) {
     email = await sendApprovalEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'email_failed' }));
-    backOfficeEmail = await sendBackOfficeGhlSetupEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'backoffice_email_failed' }));
+    if (isLicensedValue(store[idx]?.applicantLicensedStatus)) {
+      backOfficeEmail = await sendBackOfficeGhlSetupEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'backoffice_email_failed' }));
+    } else {
+      backOfficeEmail = { ok: true, skipped: true, reason: 'not_licensed_agent' };
+    }
   } else if (!suppressEmail && declineTransition) {
     email = await sendDeclineEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'email_failed' }));
   }

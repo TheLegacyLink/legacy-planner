@@ -94,6 +94,11 @@ function getStepStatus(member = {}, requests = [], stepKey = '') {
     return (member?.contractingStarted || member?.contractingComplete) ? 'approved' : 'not_started';
   }
 
+  if (stepKey === 'unlicensed_contact_jamal') {
+    if (member?.licensed) return 'approved';
+    return req ? 'pending' : 'not_started';
+  }
+
   if (stepKey === 'sponsorship_script_ack') {
     if (!member?.licensed) return 'locked';
     const unlocked = Boolean(member?.communityServiceApproved && member?.contractingComplete);
@@ -120,6 +125,12 @@ function buildSop(member = {}, requests = []) {
       type: 'self_or_review',
       description: 'Enter your National Producer Number (NPN). This is required for licensed-track lead access.'
     },
+    ...(!member?.licensed ? [{
+      key: 'unlicensed_contact_jamal',
+      title: 'Unlicensed: Contact Jamal to start licensing',
+      type: 'approval_required',
+      description: 'If you are not licensed, request this step and connect with Jamal to start your licensing process. Once licensed, this step is confirmed.'
+    }] : []),
     {
       key: 'skool_joined',
       title: 'Join SKOOL community',
@@ -305,7 +316,8 @@ export async function GET(req) {
     sop,
     resources: {
       skoolUrl: clean(process.env.SPONSORSHIP_SKOOL_URL || DEFAULT_SKOOL_URL),
-      youtubeUrl: clean(process.env.SPONSORSHIP_YOUTUBE_URL || DEFAULT_YOUTUBE_URL)
+      youtubeUrl: clean(process.env.SPONSORSHIP_YOUTUBE_URL || DEFAULT_YOUTUBE_URL),
+      jamalContact: clean(process.env.SPONSORSHIP_JAMAL_CONTACT || 'Jamal')
     },
     inviteToken: invite ? invite.token : ''
   });
