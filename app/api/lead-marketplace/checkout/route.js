@@ -164,7 +164,7 @@ export async function POST(req) {
           currency: 'usd',
           unit_amount: amount,
           product_data: {
-            name: `Sponsorship Lead ${row.tier === 'tier2' ? 'Tier 2' : 'Tier 1'}`,
+            name: 'Sponsorship Lead',
             description: `${row.state || 'Unknown State'} • ${row.engagement}`
           }
         }
@@ -177,7 +177,11 @@ export async function POST(req) {
       buyerRole,
       tier: row.tier,
       state: clean(row.state || ''),
-      amountUsd: String(row.price || '')
+      amountUsd: String(row.price || ''),
+      engagement: clean(row.engagement || ''),
+      leadApplicant: clean(row.applicant || ''),
+      leadPhone: clean(row.phone || ''),
+      leadEmail: clean(row.email || '')
     }
   });
 

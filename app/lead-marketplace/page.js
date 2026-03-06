@@ -93,7 +93,7 @@ export default function LeadMarketplacePage() {
     const params = new URLSearchParams(window.location.search);
     const checkout = params.get('checkout');
     if (checkout === 'success') {
-      setNotice('Payment successful. Unlocking your lead now...');
+      setNotice('🎉 Congratulations! Purchase successful. Check your email for receipt + approved-lead script.');
       load();
     } else if (checkout === 'cancel') {
       setNotice('Checkout canceled. No charge made.');
