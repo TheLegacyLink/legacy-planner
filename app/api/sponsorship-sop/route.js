@@ -2,6 +2,10 @@ import { loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 
 const MEMBERS_PATH = 'stores/sponsorship-program-members.json';
 const REQUESTS_PATH = 'stores/sponsorship-sop-requests.json';
+const INVITES_PATH = 'stores/sponsorship-sop-invites.json';
+
+const DEFAULT_SKOOL_URL = 'https://www.skool.com/legacylink/about';
+const DEFAULT_YOUTUBE_URL = 'https://youtu.be/SVvU9SvCH9o?si=H9BNtEDzglTuvJaI';
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -13,6 +17,10 @@ function normalize(v = '') {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function randomToken(prefix = 'sop') {
+  return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
 }
 
 function plusWeeksIso(iso = '', weeks = 8) {
@@ -135,6 +143,41 @@ function findMember(members = [], { name = '', email = '' } = {}) {
   return members.find((m) => (em && normalize(m?.email) === em) || (nm && normalize(m?.name) === nm));
 }
 
+function findInvite(invites = [], token = '') {
+  const tk = clean(token);
+  if (!tk) return null;
+  return (invites || []).find((i) => clean(i?.token) === tk && clean(i?.status || 'active') === 'active') || null;
+}
+
+function upsertInvite(invites = [], member = {}) {
+  const em = normalize(member?.email || '');
+  const nm = normalize(member?.name || '');
+  const existingIdx = (invites || []).findIndex((i) => normalize(i?.memberEmail) === em || (nm && normalize(i?.memberName) === nm));
+
+  const invite = {
+    id: `spi_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    token: randomToken('sop'),
+    memberName: clean(member?.name),
+    memberEmail: clean(member?.email).toLowerCase(),
+    status: 'active',
+    createdAt: nowIso(),
+    updatedAt: nowIso()
+  };
+
+  if (existingIdx >= 0) {
+    invites[existingIdx] = {
+      ...invites[existingIdx],
+      ...invite,
+      id: invites[existingIdx].id,
+      createdAt: invites[existingIdx].createdAt || invite.createdAt
+    };
+    return invites[existingIdx];
+  }
+
+  invites.push(invite);
+  return invite;
+}
+
 function demoMember(mode = 'unlicensed') {
   if (mode === 'licensed') {
     const m = defaultMember({
@@ -176,20 +219,26 @@ function demoMember(mode = 'unlicensed') {
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const demo = normalize(searchParams.get('demo') || '');
+  const inviteToken = clean(searchParams.get('invite') || '');
   const viewer = {
     name: clean(searchParams.get('viewerName') || ''),
     email: clean(searchParams.get('viewerEmail') || '').toLowerCase()
   };
 
-  const [membersRaw, requestsRaw] = await Promise.all([
+  const [membersRaw, requestsRaw, invitesRaw] = await Promise.all([
     loadJsonFile(MEMBERS_PATH, []),
-    loadJsonFile(REQUESTS_PATH, [])
+    loadJsonFile(REQUESTS_PATH, []),
+    loadJsonFile(INVITES_PATH, [])
   ]);
 
   const members = (Array.isArray(membersRaw) ? membersRaw : []).map((m) => defaultMember(m));
   const requests = Array.isArray(requestsRaw) ? requestsRaw : [];
+  const invites = Array.isArray(invitesRaw) ? invitesRaw : [];
 
-  const member = demo ? demoMember(demo) : findMember(members, viewer);
+  const invite = findInvite(invites, inviteToken);
+  const invitedViewer = invite ? { name: invite.memberName, email: invite.memberEmail } : viewer;
+
+  const member = demo ? demoMember(demo) : findMember(members, invitedViewer);
   if (!member) {
     return Response.json({ ok: false, error: 'member_not_found' }, { status: 404 });
   }
@@ -202,9 +251,10 @@ export async function GET(req) {
     member,
     sop,
     resources: {
-      skoolUrl: clean(process.env.SPONSORSHIP_SKOOL_URL || ''),
-      youtubeUrl: clean(process.env.SPONSORSHIP_YOUTUBE_URL || '')
-    }
+      skoolUrl: clean(process.env.SPONSORSHIP_SKOOL_URL || DEFAULT_SKOOL_URL),
+      youtubeUrl: clean(process.env.SPONSORSHIP_YOUTUBE_URL || DEFAULT_YOUTUBE_URL)
+    },
+    inviteToken: invite ? invite.token : ''
   });
 }
 
@@ -212,13 +262,15 @@ export async function POST(req) {
   const body = await req.json().catch(() => ({}));
   const action = normalize(body?.action || '');
 
-  const [membersRaw, requestsRaw] = await Promise.all([
+  const [membersRaw, requestsRaw, invitesRaw] = await Promise.all([
     loadJsonFile(MEMBERS_PATH, []),
-    loadJsonFile(REQUESTS_PATH, [])
+    loadJsonFile(REQUESTS_PATH, []),
+    loadJsonFile(INVITES_PATH, [])
   ]);
 
   const members = (Array.isArray(membersRaw) ? membersRaw : []).map((m) => defaultMember(m));
   const requests = Array.isArray(requestsRaw) ? requestsRaw : [];
+  const invites = Array.isArray(invitesRaw) ? invitesRaw : [];
 
   if (action === 'create_testers') {
     const testers = [
@@ -234,6 +286,22 @@ export async function POST(req) {
 
     await saveJsonFile(MEMBERS_PATH, members);
     return Response.json({ ok: true, testers });
+  }
+
+  if (action === 'generate_invite') {
+    const memberName = clean(body?.memberName);
+    const memberEmail = clean(body?.memberEmail).toLowerCase();
+    if (!memberName || !memberEmail) return Response.json({ ok: false, error: 'missing_member_identity' }, { status: 400 });
+
+    const member = findMember(members, { name: memberName, email: memberEmail });
+    if (!member) return Response.json({ ok: false, error: 'member_not_found' }, { status: 404 });
+
+    const invite = upsertInvite(invites, member);
+    await saveJsonFile(INVITES_PATH, invites);
+
+    const origin = clean(body?.origin) || clean(process.env.NEXT_PUBLIC_APP_URL) || 'https://innercirclelink.com';
+    const inviteUrl = `${origin.replace(/\/$/, '')}/sponsorship-sop?invite=${encodeURIComponent(invite.token)}`;
+    return Response.json({ ok: true, invite, inviteUrl });
   }
 
   if (action === 'request_approval') {

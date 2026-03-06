@@ -32,17 +32,24 @@ export default function SponsorshipSopPage() {
   const [resources, setResources] = useState({ skoolUrl: '', youtubeUrl: '' });
   const [requestingStep, setRequestingStep] = useState('');
 
-  const demo = useMemo(() => {
-    if (typeof window === 'undefined') return '';
+  const queryParams = useMemo(() => {
+    if (typeof window === 'undefined') return { demo: '', invite: '' };
     const p = new URLSearchParams(window.location.search);
-    return normalize(p.get('demo') || '');
+    return {
+      demo: normalize(p.get('demo') || ''),
+      invite: clean(p.get('invite') || '')
+    };
   }, []);
+
+  const demo = queryParams.demo;
+  const invite = queryParams.invite;
 
   async function loadSop(params = {}) {
     setLoading(true);
     try {
       const query = new URLSearchParams();
       if (params.demo) query.set('demo', params.demo);
+      if (params.invite) query.set('invite', params.invite);
       if (params.viewerName) query.set('viewerName', params.viewerName);
       if (params.viewerEmail) query.set('viewerEmail', params.viewerEmail);
 
@@ -71,6 +78,11 @@ export default function SponsorshipSopPage() {
       return;
     }
 
+    if (invite) {
+      loadSop({ invite });
+      return;
+    }
+
     try {
       const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || '{}');
       if (saved?.name) {
@@ -82,7 +94,7 @@ export default function SponsorshipSopPage() {
     } catch {
       setLoading(false);
     }
-  }, [demo]);
+  }, [demo, invite]);
 
   async function login() {
     setLoginError('');
@@ -144,7 +156,7 @@ export default function SponsorshipSopPage() {
       }
 
       setNotice('Approval request submitted. Waiting for admin review.');
-      await loadSop(demo ? { demo } : { viewerName: auth.name, viewerEmail: auth.email || '' });
+      await loadSop(demo ? { demo } : invite ? { invite } : { viewerName: auth.name, viewerEmail: auth.email || '' });
     } finally {
       setRequestingStep('');
     }
@@ -169,7 +181,7 @@ export default function SponsorshipSopPage() {
 
   const isDemo = demo === 'licensed' || demo === 'unlicensed';
 
-  if (!isDemo && !auth.name) {
+  if (!isDemo && !invite && !auth.name) {
     return (
       <main className="claimsPortal claimsPortalMarketplace">
         <section className="claimsAuthCard">
@@ -203,7 +215,7 @@ export default function SponsorshipSopPage() {
           <h1>Agent Sponsorship SOP</h1>
           <p>{member?.name || auth.name} • {sop?.track === 'licensed' ? 'Licensed Track' : 'Unlicensed Track'}</p>
         </div>
-        {!isDemo ? <button type="button" className="ghost" onClick={logout}>Logout</button> : null}
+        {!isDemo && !invite ? <button type="button" className="ghost" onClick={logout}>Logout</button> : null}
       </section>
 
       {notice ? (

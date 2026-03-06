@@ -1,6 +1,12 @@
-import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import nodemailer from 'nodemailer';
+import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 
 const STORE_PATH = 'stores/sponsorship-applications.json';
+const MEMBERS_PATH = 'stores/sponsorship-program-members.json';
+const INVITES_PATH = 'stores/sponsorship-sop-invites.json';
+
+const DEFAULT_SKOOL_URL = 'https://www.skool.com/legacylink/about';
+const DEFAULT_YOUTUBE_URL = 'https://youtu.be/SVvU9SvCH9o?si=H9BNtEDzglTuvJaI';
 
 async function getStore() {
   return await loadJsonStore(STORE_PATH, []);
@@ -16,6 +22,134 @@ function clean(v = '') {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function normalize(v = '') {
+  return clean(v).toLowerCase().replace(/\s+/g, ' ');
+}
+
+function randomToken(prefix = 'sop') {
+  return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+}
+
+function plusWeeksIso(iso = '', weeks = 8) {
+  const ts = new Date(iso || Date.now()).getTime();
+  if (!Number.isFinite(ts) || ts <= 0) return '';
+  return new Date(ts + Number(weeks || 8) * 7 * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function boolFromLicensed(value = '') {
+  return normalize(value) === 'yes' || normalize(value) === 'licensed' || normalize(value) === 'true';
+}
+
+function buildOrUpdateProgramMember(existing = {}, app = {}) {
+  const licensed = boolFromLicensed(app?.isLicensed);
+  const now = nowIso();
+  const tier0StartAt = clean(existing?.tier0StartAt || now);
+
+  const member = {
+    id: clean(existing?.id || `spm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`),
+    name: clean(existing?.name || `${app?.firstName || ''} ${app?.lastName || ''}`),
+    email: clean(existing?.email || app?.email).toLowerCase(),
+    licensed,
+    onboardingComplete: Boolean(existing?.onboardingComplete),
+    communityServiceApproved: Boolean(existing?.communityServiceApproved),
+    schoolCommunityJoined: Boolean(existing?.schoolCommunityJoined),
+    youtubeCommentApproved: Boolean(existing?.youtubeCommentApproved),
+    contractingStarted: Boolean(existing?.contractingStarted),
+    contractingComplete: Boolean(existing?.contractingComplete),
+    active: existing?.active !== false,
+    tier: clean(existing?.tier || 'PROGRAM_TIER_0'),
+    tier0WeeklyCap: Number(existing?.tier0WeeklyCap || 5),
+    tier0StartAt,
+    tier0EndAt: clean(existing?.tier0EndAt || plusWeeksIso(tier0StartAt, 8)),
+    commissionNonSponsoredPct: Number(existing?.commissionNonSponsoredPct || 50),
+    notes: clean(existing?.notes || ''),
+    createdAt: clean(existing?.createdAt || now),
+    updatedAt: now,
+    leadAccessActive: Boolean(
+      licensed &&
+      existing?.onboardingComplete &&
+      existing?.communityServiceApproved &&
+      existing?.schoolCommunityJoined &&
+      existing?.youtubeCommentApproved &&
+      (existing?.contractingStarted || existing?.contractingComplete) &&
+      existing?.active !== false
+    )
+  };
+
+  return member;
+}
+
+function upsertInvite(invites = [], member = {}) {
+  const em = normalize(member?.email || '');
+  const idx = invites.findIndex((i) => normalize(i?.memberEmail) === em);
+  const invite = {
+    id: clean(idx >= 0 ? invites[idx].id : `spi_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`),
+    token: randomToken('sop'),
+    memberName: clean(member?.name),
+    memberEmail: clean(member?.email).toLowerCase(),
+    status: 'active',
+    createdAt: clean(idx >= 0 ? invites[idx].createdAt : nowIso()),
+    updatedAt: nowIso()
+  };
+
+  if (idx >= 0) invites[idx] = invite;
+  else invites.push(invite);
+
+  return invite;
+}
+
+async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licensed = false } = {}) {
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  if (!to || !user || !pass) return { ok: false, error: 'email_not_configured' };
+
+  const skoolUrl = clean(process.env.SPONSORSHIP_SKOOL_URL || DEFAULT_SKOOL_URL);
+  const youtubeUrl = clean(process.env.SPONSORSHIP_YOUTUBE_URL || DEFAULT_YOUTUBE_URL);
+  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+
+  const subject = 'Your Legacy Link Sponsorship SOP Portal';
+  const intro = licensed
+    ? 'You are on the licensed track. Complete each SOP step and submit approvals where required.'
+    : 'You are currently on the unlicensed track. Complete the SOP steps and licensing milestone to unlock lead access.';
+
+  const text = [
+    `Hi ${firstName || 'Agent'},`,
+    '',
+    'Welcome to your Sponsorship SOP portal.',
+    intro,
+    '',
+    `Your personal SOP link: ${sopLink}`,
+    '',
+    `Skool Community: ${skoolUrl}`,
+    `YouTube (Whatever It Takes): ${youtubeUrl}`,
+    '',
+    'Some steps are self-complete; some require approval. Click Request Approval where prompted.',
+    '',
+    '— The Legacy Link Team'
+  ].join('\n');
+
+  const html = `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;">
+    <h2>Your Sponsorship SOP Portal</h2>
+    <p>Hi <strong>${firstName || 'Agent'}</strong>,</p>
+    <p>${intro}</p>
+    <p><strong>Your personal SOP link:</strong><br/><a href="${sopLink}">${sopLink}</a></p>
+    <ul>
+      <li><strong>Skool Community:</strong> <a href="${skoolUrl}">${skoolUrl}</a></li>
+      <li><strong>YouTube (Whatever It Takes):</strong> <a href="${youtubeUrl}">${youtubeUrl}</a></li>
+    </ul>
+    <p>Some steps are self-complete; some require approval. Click <strong>Request Approval</strong> where prompted.</p>
+    <p>— The Legacy Link Team</p>
+  </div>`;
+
+  try {
+    const info = await tx.sendMail({ from, to, subject, text, html });
+    return { ok: true, messageId: clean(info?.messageId) };
+  } catch (error) {
+    return { ok: false, error: clean(error?.message || 'send_failed') || 'send_failed' };
+  }
 }
 
 function normalizeName(v = '') {
@@ -200,8 +334,57 @@ export async function POST(req) {
       updatedAt: nowIso()
     };
 
+    let sopLink = '';
+    let inviteToken = '';
+    let inviteEmail = { ok: false, error: 'not_sent' };
+
+    if (decision === 'approve') {
+      const [membersRaw, invitesRaw] = await Promise.all([
+        loadJsonFile(MEMBERS_PATH, []),
+        loadJsonFile(INVITES_PATH, [])
+      ]);
+
+      const members = Array.isArray(membersRaw) ? membersRaw : [];
+      const invites = Array.isArray(invitesRaw) ? invitesRaw : [];
+      const approved = store[idx];
+
+      const em = normalize(approved?.email || '');
+      const nm = normalize(`${approved?.firstName || ''} ${approved?.lastName || ''}`);
+      const mIdx = members.findIndex((m) => normalize(m?.email || '') === em || normalize(m?.name || '') === nm);
+      const existingMember = mIdx >= 0 ? members[mIdx] : {};
+      const member = buildOrUpdateProgramMember(existingMember, approved);
+
+      if (mIdx >= 0) members[mIdx] = member;
+      else members.push(member);
+
+      const invite = upsertInvite(invites, member);
+      inviteToken = invite.token;
+
+      const appUrl = clean(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
+      sopLink = `${appUrl}/sponsorship-sop?invite=${encodeURIComponent(inviteToken)}`;
+
+      inviteEmail = await sendSopInviteEmail({
+        to: clean(member.email),
+        firstName: clean(approved?.firstName),
+        sopLink,
+        licensed: boolFromLicensed(approved?.isLicensed)
+      });
+
+      store[idx] = {
+        ...store[idx],
+        sopInviteToken: inviteToken,
+        sopLink,
+        sopInviteSentAt: inviteEmail.ok ? nowIso() : clean(store[idx]?.sopInviteSentAt || '')
+      };
+
+      await Promise.all([
+        saveJsonFile(MEMBERS_PATH, members),
+        saveJsonFile(INVITES_PATH, invites)
+      ]);
+    }
+
     await writeStore(store);
-    return Response.json({ ok: true, row: store[idx] });
+    return Response.json({ ok: true, row: store[idx], sopLink, inviteToken, inviteEmail });
   }
 
   return Response.json({ ok: false, error: 'unsupported_mode' }, { status: 400 });
