@@ -359,11 +359,13 @@ export default function PolicyPayoutsPage() {
                 <th>Writer Bonus</th>
                 <th>Recommended Total</th>
                 <th>State</th>
+                <th>Licensed</th>
                 <th>Submitted</th>
                 <th>Approval</th>
                 <th>Payout Due</th>
                 <th>Payout $</th>
                 <th>Payout Status</th>
+                <th>Notified</th>
                 <th>Paid At</th>
                 <th>Paid By</th>
               </tr>
@@ -393,6 +395,16 @@ export default function PolicyPayoutsPage() {
                     <td>{money(split.writerBonus)}</td>
                     <td>{money(split.totalRecommended)}</td>
                     <td>{r.state || '—'}</td>
+                    <td>
+                      <select
+                        value={r.applicantLicensedStatus || ''}
+                        onChange={(e) => patchRow(r.id, { applicantLicensedStatus: e.target.value })}
+                      >
+                        <option value="">Unknown</option>
+                        <option value="Licensed">Licensed</option>
+                        <option value="Unlicensed">Unlicensed</option>
+                      </select>
+                    </td>
                     <td>{fmtDate(r.submittedAt)}</td>
                     <td>
                       {approvalLocked ? (
@@ -468,8 +480,7 @@ export default function PolicyPayoutsPage() {
                             payoutStatus: e.target.value,
                             payoutPaidAt: isPaid ? new Date().toISOString() : '',
                             payoutPaidBy: isPaid ? 'Kimora' : '',
-                            status: isPaid ? 'Approved' : r.status,
-                            suppressEmail: isPaid
+                            status: isPaid ? 'Approved' : r.status
                           });
                         }}
                       >
@@ -477,13 +488,22 @@ export default function PolicyPayoutsPage() {
                         <option value="Paid">Paid</option>
                       </select>
                     </td>
+                    <td>
+                      {r.approvedEmailSentAt ? 'Approved Email ✅' : 'Approval Email ⏳'}
+                      <br />
+                      {r.sopInviteSentAt ? 'SOP Invite ✅' : 'SOP Invite ⏳'}
+                      <br />
+                      {r.backOfficeNotifiedAt ? 'Back Office ✅' : 'Back Office ⏳'}
+                      <br />
+                      {r.payoutEmailSentAt ? 'Payout Paid Email ✅' : 'Payout Email ⏳'}
+                    </td>
                     <td>{fmtDate(r.payoutPaidAt)}</td>
                     <td>{r.payoutPaidBy || '—'}</td>
                   </tr>
                 );
               })}
               {!filtered.length ? (
-                <tr><td colSpan={15} className="muted">No policy submissions found yet.</td></tr>
+                <tr><td colSpan={17} className="muted">No policy submissions found yet.</td></tr>
               ) : null}
             </tbody>
           </table>

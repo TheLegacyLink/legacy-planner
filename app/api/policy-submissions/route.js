@@ -796,18 +796,29 @@ export async function PATCH(req) {
     approvedAt,
     payoutDueAt,
     policyNumber: patch.policyNumber != null ? clean(patch.policyNumber) : store[idx].policyNumber,
+    applicantLicensedStatus: patch.applicantLicensedStatus != null ? clean(patch.applicantLicensedStatus) : store[idx].applicantLicensedStatus,
     updatedAt: nowIso()
   };
 
   let email = null;
   let backOfficeEmail = null;
   let payoutEmail = null;
+  let sopProvision = null;
+
   if (!suppressEmail && approveTransition) {
     email = await sendApprovalEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'email_failed' }));
+    if (email?.ok) store[idx].approvedEmailSentAt = nowIso();
+
     if (isLicensedValue(store[idx]?.applicantLicensedStatus)) {
       backOfficeEmail = await sendBackOfficeGhlSetupEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'backoffice_email_failed' }));
+      if (backOfficeEmail?.ok) store[idx].backOfficeNotifiedAt = nowIso();
     } else {
       backOfficeEmail = { ok: true, skipped: true, reason: 'not_licensed_agent' };
+    }
+
+    sopProvision = await ensureSopProvisionFromActSubmit(store[idx]).catch((e) => ({ ok: false, error: clean(e?.message || 'sop_provision_failed') }));
+    if (sopProvision?.inviteEmail?.ok) {
+      store[idx].sopInviteSentAt = nowIso();
     }
   } else if (!suppressEmail && declineTransition) {
     email = await sendDeclineEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'email_failed' }));
@@ -815,8 +826,9 @@ export async function PATCH(req) {
 
   if (!suppressEmail && paidTransition) {
     payoutEmail = await sendPayoutPaidEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'payout_email_failed' }));
+    if (payoutEmail?.ok) store[idx].payoutEmailSentAt = nowIso();
   }
 
   await writeStore(store);
-  return Response.json({ ok: true, row: store[idx], email, backOfficeEmail, payoutEmail });
+  return Response.json({ ok: true, row: store[idx], email, backOfficeEmail, payoutEmail, sopProvision });
 }
