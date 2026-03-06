@@ -159,19 +159,21 @@ function withTier(rows = [], market = {}) {
   }).filter((r) => !r.hidden);
 }
 
-function projectAgentRow(row = {}, viewer = {}) {
-  const sold = row?.sold || null;
-  const hasSoldRecord = Boolean(sold);
-
+function soldBelongsToViewer(sold = {}, viewer = {}) {
+  if (!sold) return false;
   const buyerEmail = normalize(sold?.buyerEmail || '');
   const buyerName = normalize(sold?.buyerName || '');
   const viewerEmail = normalize(viewer?.email || '');
   const viewerName = normalize(viewer?.name || '');
 
-  const soldToViewer = hasSoldRecord && (
-    (buyerEmail && viewerEmail && buyerEmail === viewerEmail) ||
-    (buyerName && viewerName && buyerName === viewerName)
-  );
+  return (buyerEmail && viewerEmail && buyerEmail === viewerEmail) || (buyerName && viewerName && buyerName === viewerName);
+}
+
+function projectAgentRow(row = {}, viewer = {}) {
+  const sold = row?.sold || null;
+  const hasSoldRecord = Boolean(sold);
+
+  const soldToViewer = hasSoldRecord && soldBelongsToViewer(sold, viewer);
 
   const soldToOther = hasSoldRecord && !soldToViewer;
   const unlocked = soldToViewer;
@@ -228,9 +230,33 @@ export async function GET(req) {
   const baseRows = buildApprovedNotBooked(apps, bookings, market?.settings?.marketplaceOwnerTag || 'link');
   const rows = withTier(baseRows, market);
 
-  const agentRows = rows
+  const agentRowsBase = rows
     .map((r) => projectAgentRow(r, viewer))
     .filter((r) => !r.soldToOther);
+
+  const existingKeys = new Set(agentRowsBase.map((r) => r.key));
+  const purchasedRowsFromStore = Object.entries(market?.soldByLeadId || {})
+    .filter(([leadKey, sold]) => !existingKeys.has(leadKey) && soldBelongsToViewer(sold, viewer))
+    .map(([leadKey, sold]) => ({
+      key: leadKey,
+      state: clean(sold?.state || '—'),
+      engagement: clean(sold?.engagement || 'No Reply'),
+      tier: clean(sold?.tier || 'tier1'),
+      price: Number(sold?.amountTotalUsd || 0) || Number((market?.settings?.sponsorshipTier1Price || 50)),
+      approvedAt: clean(sold?.paidAt || sold?.createdAt || ''),
+      sold: true,
+      soldAt: clean(sold?.paidAt || sold?.createdAt || ''),
+      soldToViewer: true,
+      soldToOther: false,
+      soldLabel: 'Purchased',
+      canPurchase: false,
+      unlocked: true,
+      applicant: clean(sold?.leadApplicant || 'Purchased Lead'),
+      email: clean(sold?.leadEmail || 'N/A'),
+      phone: clean(sold?.leadPhone || 'N/A')
+    }));
+
+  const agentRows = [...agentRowsBase, ...purchasedRowsFromStore];
 
   return Response.json({
     ok: true,
