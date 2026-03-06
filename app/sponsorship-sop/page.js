@@ -12,12 +12,12 @@ function normalize(v = '') {
   return clean(v).toLowerCase();
 }
 
-const STATUS_STYLE = {
-  approved: { bg: '#dcfce7', color: '#166534', label: 'Approved' },
-  pending: { bg: '#fef3c7', color: '#92400e', label: 'Pending Approval' },
-  not_started: { bg: '#e2e8f0', color: '#334155', label: 'Not Started' },
-  locked: { bg: '#fee2e2', color: '#991b1b', label: 'Locked' }
-};
+function statusStyle(status = '') {
+  if (status === 'approved') return { background: '#dcfce7', color: '#166534' };
+  if (status === 'pending') return { background: '#fef9c3', color: '#854d0e' };
+  if (status === 'locked') return { background: '#fee2e2', color: '#991b1b' };
+  return { background: '#e5e7eb', color: '#374151' };
+}
 
 export default function SponsorshipSopPage() {
   const [auth, setAuth] = useState({ name: '', email: '', role: '' });
@@ -26,75 +26,61 @@ export default function SponsorshipSopPage() {
   const [loginError, setLoginError] = useState('');
 
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('');
+  const [notice, setNotice] = useState('');
   const [member, setMember] = useState(null);
   const [sop, setSop] = useState(null);
-  const [requesting, setRequesting] = useState('');
+  const [requestingStep, setRequestingStep] = useState('');
 
   const demo = useMemo(() => {
     if (typeof window === 'undefined') return '';
-    return normalize(new URLSearchParams(window.location.search).get('demo') || '');
+    const p = new URLSearchParams(window.location.search);
+    return normalize(p.get('demo') || '');
   }, []);
 
-  useEffect(() => {
+  async function loadSop(params = {}) {
+    setLoading(true);
     try {
-      const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || '{}');
-      if (saved?.name) setAuth(saved);
-    } catch {
-      // ignore
+      const query = new URLSearchParams();
+      if (params.demo) query.set('demo', params.demo);
+      if (params.viewerName) query.set('viewerName', params.viewerName);
+      if (params.viewerEmail) query.set('viewerEmail', params.viewerEmail);
+
+      const res = await fetch(`/api/sponsorship-sop?${query.toString()}`, { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data?.ok) {
+        setMember(null);
+        setSop(null);
+        setNotice(data?.error === 'member_not_found' ? 'No SOP profile found yet for this agent.' : 'Unable to load SOP right now.');
+        return;
+      }
+
+      setMember(data.member || null);
+      setSop(data.sop || null);
+      setNotice('');
+    } finally {
+      setLoading(false);
     }
-  }, []);
-
-  async function loadSop(viewer = auth) {
-    const params = new URLSearchParams();
-    if (demo) params.set('demo', demo);
-    if (!demo) {
-      params.set('viewerName', viewer?.name || '');
-      params.set('viewerEmail', viewer?.email || '');
-    }
-
-    const res = await fetch(`/api/sponsorship-sop?${params.toString()}`, { cache: 'no-store' });
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok || !data?.ok) {
-      setMember(null);
-      setSop(null);
-      setMessage(data?.error === 'member_not_found' ? 'No SOP profile found yet. Ask admin to add you in Sponsorship Program.' : 'Unable to load SOP.');
-      return;
-    }
-
-    setMember(data.member);
-    setSop(data.sop);
-    setMessage('');
   }
 
   useEffect(() => {
-    if (demo) {
-      setLoading(true);
-      loadSop({});
-      setLoading(false);
+    if (demo === 'licensed' || demo === 'unlicensed') {
+      loadSop({ demo });
       return;
     }
 
-    if (!auth.name) {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || '{}');
+      if (saved?.name) {
+        setAuth(saved);
+        loadSop({ viewerName: saved.name, viewerEmail: saved.email || '' });
+      } else {
+        setLoading(false);
+      }
+    } catch {
       setLoading(false);
-      return;
     }
-
-    let active = true;
-    async function run() {
-      setLoading(true);
-      await loadSop(auth);
-      if (active) setLoading(false);
-    }
-
-    run();
-    const timer = setInterval(run, 20000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [auth.name, auth.email, demo]);
+  }, [demo]);
 
   async function login() {
     setLoginError('');
@@ -117,9 +103,16 @@ export default function SponsorshipSopPage() {
       return;
     }
 
-    const next = { name: data.user.name, email: data.user.email || '', role: data.user.role || '' };
+    const role = normalize(data?.user?.role);
+    if (!['submitter', 'agent', 'manager', 'admin'].includes(role)) {
+      setLoginError('Access denied for this SOP page.');
+      return;
+    }
+
+    const next = { name: data.user.name, email: data.user.email || '', role: data.user.role };
     setAuth(next);
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(next));
+    await loadSop({ viewerName: next.name, viewerEmail: next.email || '' });
     setPassword('');
   }
 
@@ -128,13 +121,14 @@ export default function SponsorshipSopPage() {
     setAuth({ name: '', email: '', role: '' });
     setMember(null);
     setSop(null);
-    setMessage('');
+    setNotice('');
   }
 
   async function requestApproval(stepKey = '') {
     if (!member?.name || !member?.email || !stepKey) return;
-    setRequesting(stepKey);
 
+    setRequestingStep(stepKey);
+    setNotice('');
     try {
       const res = await fetch('/api/sponsorship-sop', {
         method: 'POST',
@@ -143,40 +137,42 @@ export default function SponsorshipSopPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        setMessage(`Request failed: ${data?.error || 'unknown'}`);
+        setNotice(`Request failed: ${data?.error || 'unknown'}`);
         return;
       }
 
-      setMessage('Approval request submitted. Please wait for admin review.');
-      await loadSop(auth);
+      setNotice('Approval request submitted. Waiting for admin review.');
+      await loadSop(demo ? { demo } : { viewerName: auth.name, viewerEmail: auth.email || '' });
     } finally {
-      setRequesting('');
+      setRequestingStep('');
     }
   }
 
   async function createTesters() {
-    setMessage('Creating tester profiles...');
+    setNotice('Creating tester profiles...');
     const res = await fetch('/api/sponsorship-sop', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'create_testers' })
     });
+
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data?.ok) {
-      setMessage(`Could not create testers: ${data?.error || 'unknown'}`);
+      setNotice(`Unable to create testers: ${data?.error || 'unknown'}`);
       return;
     }
-    setMessage('Testers created. Use the links below to preview both tracks.');
+
+    setNotice('Testers created. Use the demo links below.');
   }
 
-  const canPreviewWithoutLogin = demo === 'licensed' || demo === 'unlicensed';
+  const isDemo = demo === 'licensed' || demo === 'unlicensed';
 
-  if (!canPreviewWithoutLogin && !auth.name) {
+  if (!isDemo && !auth.name) {
     return (
       <main className="claimsPortal claimsPortalMarketplace">
         <section className="claimsAuthCard">
           <h2 className="claimsWordmark">The Legacy Link</h2>
-          <p className="claimsQuote">Sponsorship SOP</p>
+          <p className="claimsQuote">Sponsorship SOP Page</p>
           <input placeholder="Full name" value={loginName} onChange={(e) => setLoginName(e.target.value)} />
           <input
             type="password"
@@ -188,10 +184,10 @@ export default function SponsorshipSopPage() {
           <button type="button" className="publicPrimaryBtn" onClick={login}>Open My SOP</button>
           {loginError ? <small className="errorCheck">{loginError}</small> : null}
 
-          <div style={{ marginTop: 14, display: 'grid', gap: 8 }}>
+          <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
             <button type="button" className="ghost" onClick={createTesters}>Create 2 Testers</button>
-            <a className="ghost" href="/sponsorship-sop?demo=licensed" style={{ textAlign: 'center', padding: 8 }}>Preview Licensed Tester</a>
-            <a className="ghost" href="/sponsorship-sop?demo=unlicensed" style={{ textAlign: 'center', padding: 8 }}>Preview Unlicensed Tester</a>
+            <a href="/sponsorship-sop?demo=licensed">View Licensed Tester SOP</a>
+            <a href="/sponsorship-sop?demo=unlicensed">View Unlicensed Tester SOP</a>
           </div>
         </section>
       </main>
@@ -202,66 +198,70 @@ export default function SponsorshipSopPage() {
     <main className="claimsPortal claimsPortalMarketplace">
       <section className="claimsHeader marketplaceHeader">
         <div>
-          <h1>Sponsorship SOP</h1>
-          <p>
-            {member?.name || (demo ? `Demo ${demo}` : auth.name)} • {sop?.track === 'licensed' ? 'Licensed Track' : 'Unlicensed Track'}
-          </p>
+          <h1>Agent Sponsorship SOP</h1>
+          <p>{member?.name || auth.name} • {sop?.track === 'licensed' ? 'Licensed Track' : 'Unlicensed Track'}</p>
         </div>
-        {!demo ? <button type="button" className="ghost" onClick={logout}>Logout</button> : null}
+        {!isDemo ? <button type="button" className="ghost" onClick={logout}>Logout</button> : null}
       </section>
+
+      {notice ? (
+        <section className="claimsRoster" style={{ marginTop: 8 }}>
+          <div className="pill" style={{ background: '#dbeafe', color: '#1e3a8a' }}>{notice}</div>
+        </section>
+      ) : null}
 
       <section className="claimsRoster" style={{ marginTop: 8 }}>
         <div className="claimsQuickTools" style={{ display: 'grid', gap: 8 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <span className="pill">Progress: {sop?.progressPct || 0}%</span>
-            <span className="pill" style={{ background: sop?.leadAccessActive ? '#dcfce7' : '#fee2e2', color: sop?.leadAccessActive ? '#166534' : '#991b1b' }}>
-              Lead Access: {sop?.leadAccessActive ? 'Active' : 'Hold'}
-            </span>
+            <span className="pill">Progress: {sop?.progressPct ?? 0}%</span>
+            <span className="pill">Lead Access: {sop?.leadAccessActive ? 'Active' : 'Pending'}</span>
             <span className="pill">Tier: {member?.tier || 'PROGRAM_TIER_0'}</span>
-            <span className="pill">Commission: {member?.commissionNonSponsoredPct ?? 50}%</span>
+            <span className="pill">Commission (non-sponsored): {member?.commissionNonSponsoredPct || 50}%</span>
           </div>
-
-          {message ? <div className="pill" style={{ background: '#dbeafe', color: '#1e3a8a' }}>{message}</div> : null}
-
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <a className="ghost" href="/sponsorship-queue" style={{ padding: '8px 12px' }}>Open Sponsorship Queue</a>
-            <a className="ghost" href="/sponsorship-sop?demo=licensed" style={{ padding: '8px 12px' }}>Licensed Demo</a>
-            <a className="ghost" href="/sponsorship-sop?demo=unlicensed" style={{ padding: '8px 12px' }}>Unlicensed Demo</a>
+          <div className="muted">When a step says “Request Approval,” click it and wait for admin review.</div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <a href="/sponsorship-sop?demo=licensed">Licensed Demo</a>
+            <a href="/sponsorship-sop?demo=unlicensed">Unlicensed Demo</a>
           </div>
         </div>
       </section>
 
-      <section className="claimsCards" style={{ marginTop: 10 }}>
+      <section className="claimsCards">
         {loading ? <p>Loading...</p> : null}
-
-        <div className="claimsLeadGrid marketplaceGrid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))' }}>
+        <div className="claimsLeadGrid marketplaceGrid">
           {(sop?.steps || []).map((step) => {
-            const style = STATUS_STYLE[step.status] || STATUS_STYLE.not_started;
-            const approvalStep = step.type === 'approval_required' || step.type === 'self_or_review';
-            const showRequest = approvalStep && (step.status === 'not_started' || step.status === 'locked');
-
+            const st = step.status;
+            const canRequest = step.type === 'approval_required' && st !== 'approved' && st !== 'pending' && !isDemo;
             return (
               <article key={step.key} className="claimCard claimCardV2 marketplaceCard">
                 <div className="claimTop">
-                  <h3 style={{ margin: 0 }}>{step.title}</h3>
-                  <span className="pill" style={{ background: style.bg, color: style.color }}>{style.label}</span>
+                  <div>
+                    <h3>{step.title}</h3>
+                    <p className="muted">{step.description}</p>
+                  </div>
+                  <span className="pill" style={statusStyle(st)}>{st.replace('_', ' ')}</span>
                 </div>
-                <p className="muted" style={{ marginTop: 8 }}>{step.description}</p>
 
-                {step.status === 'pending' ? (
-                  <p className="claimPrivateHint">Waiting for admin approval.</p>
-                ) : null}
-
-                {showRequest ? (
+                {st === 'approved' ? (
+                  <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled>Completed ✅</button>
+                ) : st === 'pending' ? (
+                  <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled>Waiting for Approval ⏳</button>
+                ) : st === 'locked' ? (
+                  <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled>Locked 🔒</button>
+                ) : canRequest ? (
                   <button
                     type="button"
                     className="publicPrimaryBtn publicBtnBlock"
-                    disabled={requesting === step.key}
+                    disabled={requestingStep === step.key}
                     onClick={() => requestApproval(step.key)}
                   >
-                    {requesting === step.key ? 'Submitting...' : 'Request Approval'}
+                    {requestingStep === step.key ? 'Submitting...' : 'Request Approval'}
                   </button>
-                ) : null}
+                ) : (
+                  <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled>
+                    Self Progress Step
+                  </button>
+                )}
               </article>
             );
           })}
