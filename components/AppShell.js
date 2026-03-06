@@ -19,6 +19,7 @@ const tabs = [
   { href: '/sponsorship-review', label: 'Sponsorship Review' },
   { href: '/sponsorship-program', label: 'Sponsorship Program' },
   { href: '/sponsorship-queue', label: 'Sponsorship Queue' },
+  { href: '/sponsorship-sop', label: 'Sponsorship SOP' },
   { href: '/lead-router', label: 'Lead Router' },
   { href: '/lead-claims', label: 'Lead Claims' },
   { href: '/lead-marketplace', label: 'Lead Marketplace' },
