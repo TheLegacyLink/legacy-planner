@@ -6,7 +6,8 @@ const MARKETPLACE_PATH = 'stores/lead-marketplace.json';
 
 const DEFAULT_SETTINGS = {
   sponsorshipTier1Price: 50,
-  sponsorshipTier2Price: 89
+  sponsorshipTier2Price: 89,
+  marketplaceOwnerTag: 'link'
 };
 
 function clean(v = '') {
@@ -38,11 +39,22 @@ function normalizeStore(raw = {}) {
       ...(raw?.settings || {})
     },
     engagementByLeadId: raw?.engagementByLeadId && typeof raw.engagementByLeadId === 'object' ? raw.engagementByLeadId : {},
-    soldByLeadId: raw?.soldByLeadId && typeof raw.soldByLeadId === 'object' ? raw.soldByLeadId : {}
+    soldByLeadId: raw?.soldByLeadId && typeof raw.soldByLeadId === 'object' ? raw.soldByLeadId : {},
+    hiddenLeadKeys: raw?.hiddenLeadKeys && typeof raw.hiddenLeadKeys === 'object' ? raw.hiddenLeadKeys : {}
   };
 }
 
-function buildApprovedNotBooked(apps = [], bookings = []) {
+function isOwnedByMarketplace(app = {}, ownerTagRaw = 'link') {
+  const ownerTag = normalize(ownerTagRaw || 'link');
+  if (!ownerTag) return true;
+
+  const referral = normalize(app?.referralName || app?.referred_by || app?.refCode || app?.referral_code || '');
+  const reviewedBy = normalize(app?.reviewedBy || app?.assignedTo || app?.assigned_to || '');
+
+  return referral.includes(ownerTag) || reviewedBy.includes(ownerTag);
+}
+
+function buildApprovedNotBooked(apps = [], bookings = [], ownerTag = 'link') {
   const bookingBySourceId = new Map();
   const bookingByName = new Map();
 
@@ -59,6 +71,7 @@ function buildApprovedNotBooked(apps = [], bookings = []) {
 
   for (const app of apps || []) {
     if (!isApprovedStatus(app?.status)) continue;
+    if (!isOwnedByMarketplace(app, ownerTag)) continue;
 
     const applicant = fullName(app);
     const sourceId = clean(app?.id);
@@ -84,25 +97,39 @@ function buildApprovedNotBooked(apps = [], bookings = []) {
   return list;
 }
 
+function isOlderThanDays(iso = '', days = 14) {
+  const t = new Date(iso || 0).getTime();
+  if (!t) return false;
+  return Date.now() - t >= days * 24 * 60 * 60 * 1000;
+}
+
 function withTier(rows = [], market = {}) {
   const settings = market?.settings || DEFAULT_SETTINGS;
   const engagement = market?.engagementByLeadId || {};
   const soldByLeadId = market?.soldByLeadId || {};
+  const hiddenLeadKeys = market?.hiddenLeadKeys || {};
 
   return (rows || []).map((row) => {
     const key = leadKey(row);
     const replied = engagement[key] === 'replied';
     const sold = soldByLeadId[key] || null;
 
+    const tier = replied ? 'tier2' : 'tier1';
+    const basePrice = tier === 'tier2' ? Number(settings.sponsorshipTier2Price || 89) : Number(settings.sponsorshipTier1Price || 50);
+    const oldLeadDiscounted = tier === 'tier1' && isOlderThanDays(row.approvedAt, 14);
+    const price = oldLeadDiscounted ? 25 : basePrice;
+
     return {
       ...row,
       key,
-      tier: replied ? 'tier2' : 'tier1',
+      tier,
       engagement: replied ? 'Replied' : 'No Reply',
-      price: replied ? Number(settings.sponsorshipTier2Price || 89) : Number(settings.sponsorshipTier1Price || 50),
-      sold
+      price,
+      oldLeadDiscounted,
+      sold,
+      hidden: Boolean(hiddenLeadKeys[key])
     };
-  });
+  }).filter((r) => !r.hidden);
 }
 
 export async function POST(req) {
@@ -132,7 +159,7 @@ export async function POST(req) {
   ]);
 
   const market = normalizeStore(rawMarket);
-  const rows = withTier(buildApprovedNotBooked(apps, bookings), market);
+  const rows = withTier(buildApprovedNotBooked(apps, bookings, market?.settings?.marketplaceOwnerTag || 'link'), market);
   const row = rows.find((r) => r.key === requestedLeadKey);
 
   if (!row) {

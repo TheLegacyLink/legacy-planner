@@ -27,7 +27,8 @@ export default function SponsorshipOpsPage() {
     sponsorshipTier1Price: 50,
     sponsorshipTier2Price: 89,
     termLifeTier1Price: '',
-    termLifeTier2Price: ''
+    termLifeTier2Price: '',
+    marketplaceOwnerTag: 'link'
   });
   const [adminRows, setAdminRows] = useState([]);
 
@@ -47,7 +48,8 @@ export default function SponsorshipOpsPage() {
           sponsorshipTier1Price: Number(marketJson?.settings?.sponsorshipTier1Price || 50),
           sponsorshipTier2Price: Number(marketJson?.settings?.sponsorshipTier2Price || 89),
           termLifeTier1Price: marketJson?.settings?.termLifeTier1Price ?? '',
-          termLifeTier2Price: marketJson?.settings?.termLifeTier2Price ?? ''
+          termLifeTier2Price: marketJson?.settings?.termLifeTier2Price ?? '',
+          marketplaceOwnerTag: marketJson?.settings?.marketplaceOwnerTag ?? 'link'
         });
         setAdminRows(Array.isArray(marketJson.adminRows) ? marketJson.adminRows : []);
       }
@@ -82,6 +84,22 @@ export default function SponsorshipOpsPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'set_engagement', leadKey, engagement: replied ? 'replied' : 'no_reply' })
+    });
+
+    await load();
+  }
+
+  async function removeFromStore(row) {
+    const leadKey = clean(row?.key || row?.id);
+    if (!leadKey) return;
+
+    const ok = window.confirm(`Remove ${row?.applicant || 'this lead'} from store?`);
+    if (!ok) return;
+
+    await fetch('/api/lead-marketplace', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'hide_lead', leadKey, actorName: 'Kimora' })
     });
 
     await load();
@@ -228,7 +246,16 @@ export default function SponsorshipOpsPage() {
               onChange={(e) => saveSettings({ termLifeTier2Price: e.target.value })}
             />
           </label>
+          <label>
+            Marketplace owner tag
+            <input
+              value={settings.marketplaceOwnerTag}
+              onChange={(e) => saveSettings({ marketplaceOwnerTag: e.target.value })}
+              placeholder="link"
+            />
+          </label>
         </div>
+        <p className="muted" style={{ marginTop: 8 }}>Tier 1 leads older than 14 days auto-price to <strong>$25</strong>.</p>
       </div>
 
       <div className="panel" style={{ marginTop: 10 }}>
@@ -261,6 +288,7 @@ export default function SponsorshipOpsPage() {
                 <th>Approved At</th>
                 <th>Engagement</th>
                 <th>Tier</th>
+                <th>Admin</th>
               </tr>
             </thead>
             <tbody>
@@ -281,13 +309,18 @@ export default function SponsorshipOpsPage() {
                     </td>
                     <td>
                       <span className="pill" style={{ background: replied ? '#166534' : '#1d4ed8', color: '#fff' }}>
-                        {replied ? `Tier 2 • $${Number(settings.sponsorshipTier2Price || 89)}` : `Tier 1 • $${Number(settings.sponsorshipTier1Price || 50)}`}
+                        {replied ? `Tier 2 • $${Number(settings.sponsorshipTier2Price || 89)}` : `Tier 1 • $${Number(r.price || settings.sponsorshipTier1Price || 50)}`}
                       </span>
+                    </td>
+                    <td>
+                      <button type="button" className="ghost" onClick={() => removeFromStore(r)} style={{ color: '#b91c1c', borderColor: '#fecaca' }}>
+                        Remove
+                      </button>
                     </td>
                   </tr>
                 );
               })}
-              {!approvedFiltered.length ? <tr><td colSpan={7} className="muted">No matching approved-unbooked leads right now.</td></tr> : null}
+              {!approvedFiltered.length ? <tr><td colSpan={8} className="muted">No matching approved-unbooked leads right now.</td></tr> : null}
             </tbody>
           </table>
         )}

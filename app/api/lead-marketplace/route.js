@@ -8,7 +8,8 @@ const DEFAULT_SETTINGS = {
   sponsorshipTier1Price: 50,
   sponsorshipTier2Price: 89,
   termLifeTier1Price: '',
-  termLifeTier2Price: ''
+  termLifeTier2Price: '',
+  marketplaceOwnerTag: 'link'
 };
 
 function clean(v = '') {
@@ -64,11 +65,22 @@ function normalizeStore(raw = {}) {
   return {
     settings,
     engagementByLeadId: raw?.engagementByLeadId && typeof raw.engagementByLeadId === 'object' ? raw.engagementByLeadId : {},
-    soldByLeadId: raw?.soldByLeadId && typeof raw.soldByLeadId === 'object' ? raw.soldByLeadId : {}
+    soldByLeadId: raw?.soldByLeadId && typeof raw.soldByLeadId === 'object' ? raw.soldByLeadId : {},
+    hiddenLeadKeys: raw?.hiddenLeadKeys && typeof raw.hiddenLeadKeys === 'object' ? raw.hiddenLeadKeys : {}
   };
 }
 
-function buildApprovedNotBooked(apps = [], bookings = []) {
+function isOwnedByMarketplace(app = {}, ownerTagRaw = 'link') {
+  const ownerTag = normalize(ownerTagRaw || 'link');
+  if (!ownerTag) return true;
+
+  const referral = normalize(app?.referralName || app?.referred_by || app?.refCode || app?.referral_code || '');
+  const reviewedBy = normalize(app?.reviewedBy || app?.assignedTo || app?.assigned_to || '');
+
+  return referral.includes(ownerTag) || reviewedBy.includes(ownerTag);
+}
+
+function buildApprovedNotBooked(apps = [], bookings = [], ownerTag = 'link') {
   const bookingBySourceId = new Map();
   const bookingByName = new Map();
 
@@ -85,6 +97,7 @@ function buildApprovedNotBooked(apps = [], bookings = []) {
 
   for (const app of apps || []) {
     if (!isApprovedStatus(app?.status)) continue;
+    if (!isOwnedByMarketplace(app, ownerTag)) continue;
 
     const applicant = fullName(app);
     const sourceId = clean(app?.id);
@@ -111,25 +124,39 @@ function buildApprovedNotBooked(apps = [], bookings = []) {
   return list.sort((a, b) => new Date(b.approvedAt || 0).getTime() - new Date(a.approvedAt || 0).getTime());
 }
 
+function isOlderThanDays(iso = '', days = 14) {
+  const t = new Date(iso || 0).getTime();
+  if (!t) return false;
+  return Date.now() - t >= days * 24 * 60 * 60 * 1000;
+}
+
 function withTier(rows = [], market = {}) {
   const settings = market?.settings || DEFAULT_SETTINGS;
   const engagement = market?.engagementByLeadId || {};
   const soldByLeadId = market?.soldByLeadId || {};
+  const hiddenLeadKeys = market?.hiddenLeadKeys || {};
 
   return (rows || []).map((row) => {
     const key = leadKey(row);
     const replied = engagement[key] === 'replied';
     const sold = soldByLeadId[key] || null;
 
+    const tier = replied ? 'tier2' : 'tier1';
+    const basePrice = tier === 'tier2' ? Number(settings.sponsorshipTier2Price || 89) : Number(settings.sponsorshipTier1Price || 50);
+    const oldLeadDiscounted = tier === 'tier1' && isOlderThanDays(row.approvedAt, 14);
+    const price = oldLeadDiscounted ? 25 : basePrice;
+
     return {
       ...row,
       key,
       engagement: replied ? 'Replied' : 'No Reply',
-      tier: replied ? 'tier2' : 'tier1',
-      price: replied ? Number(settings.sponsorshipTier2Price || 89) : Number(settings.sponsorshipTier1Price || 50),
-      sold
+      tier,
+      price,
+      oldLeadDiscounted,
+      sold,
+      hidden: Boolean(hiddenLeadKeys[key])
     };
-  });
+  }).filter((r) => !r.hidden);
 }
 
 function projectAgentRow(row = {}, viewer = {}) {
@@ -198,7 +225,7 @@ export async function GET(req) {
   ]);
 
   const market = normalizeStore(rawMarket);
-  const baseRows = buildApprovedNotBooked(apps, bookings);
+  const baseRows = buildApprovedNotBooked(apps, bookings, market?.settings?.marketplaceOwnerTag || 'link');
   const rows = withTier(baseRows, market);
 
   const agentRows = rows
@@ -255,6 +282,25 @@ export async function POST(req) {
 
     await saveJsonFile(MARKETPLACE_PATH, next);
     return Response.json({ ok: true, engagementByLeadId: next.engagementByLeadId });
+  }
+
+  if (action === 'hide_lead') {
+    const key = clean(body?.leadKey);
+    if (!key) return Response.json({ ok: false, error: 'missing_lead_key' }, { status: 400 });
+
+    const next = {
+      ...market,
+      hiddenLeadKeys: {
+        ...(market.hiddenLeadKeys || {}),
+        [key]: {
+          hiddenAt: new Date().toISOString(),
+          hiddenBy: clean(body?.actorName || 'Admin')
+        }
+      }
+    };
+
+    await saveJsonFile(MARKETPLACE_PATH, next);
+    return Response.json({ ok: true, hiddenLeadKeys: next.hiddenLeadKeys });
   }
 
   return Response.json({ ok: false, error: 'unsupported_action' }, { status: 400 });

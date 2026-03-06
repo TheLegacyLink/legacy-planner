@@ -34,15 +34,27 @@ function normalizeStore(raw = {}) {
     settings: {
       sponsorshipTier1Price: 50,
       sponsorshipTier2Price: 89,
+      marketplaceOwnerTag: 'link',
       ...(raw?.settings || {})
     },
     engagementByLeadId: raw?.engagementByLeadId && typeof raw.engagementByLeadId === 'object' ? raw.engagementByLeadId : {},
     soldByLeadId: raw?.soldByLeadId && typeof raw.soldByLeadId === 'object' ? raw.soldByLeadId : {},
+    hiddenLeadKeys: raw?.hiddenLeadKeys && typeof raw.hiddenLeadKeys === 'object' ? raw.hiddenLeadKeys : {},
     upsellBySourceSessionId: raw?.upsellBySourceSessionId && typeof raw.upsellBySourceSessionId === 'object' ? raw.upsellBySourceSessionId : {}
   };
 }
 
-function buildApprovedNotBooked(apps = [], bookings = []) {
+function isOwnedByMarketplace(app = {}, ownerTagRaw = 'link') {
+  const ownerTag = normalize(ownerTagRaw || 'link');
+  if (!ownerTag) return true;
+
+  const referral = normalize(app?.referralName || app?.referred_by || app?.refCode || app?.referral_code || '');
+  const reviewedBy = normalize(app?.reviewedBy || app?.assignedTo || app?.assigned_to || '');
+
+  return referral.includes(ownerTag) || reviewedBy.includes(ownerTag);
+}
+
+function buildApprovedNotBooked(apps = [], bookings = [], ownerTag = 'link') {
   const bookingBySourceId = new Map();
   const bookingByName = new Map();
 
@@ -59,6 +71,7 @@ function buildApprovedNotBooked(apps = [], bookings = []) {
 
   for (const app of apps || []) {
     if (!isApprovedStatus(app?.status)) continue;
+    if (!isOwnedByMarketplace(app, ownerTag)) continue;
 
     const applicant = fullName(app);
     const sourceId = clean(app?.id);
@@ -88,6 +101,7 @@ function buildApprovedNotBooked(apps = [], bookings = []) {
 function withTier(rows = [], market = {}) {
   const engagement = market?.engagementByLeadId || {};
   const soldByLeadId = market?.soldByLeadId || {};
+  const hiddenLeadKeys = market?.hiddenLeadKeys || {};
 
   return (rows || []).map((row) => {
     const key = leadKey(row);
@@ -99,9 +113,10 @@ function withTier(rows = [], market = {}) {
       key,
       tier: replied ? 'tier2' : 'tier1',
       engagement: replied ? 'Replied' : 'No Reply',
-      sold
+      sold,
+      hidden: Boolean(hiddenLeadKeys[key])
     };
-  });
+  }).filter((r) => !r.hidden);
 }
 
 function pickUpsellLeadKeys(rows = [], sourceLeadKey = '') {
@@ -146,7 +161,7 @@ export async function POST(req) {
   ]);
 
   const market = normalizeStore(rawMarket);
-  const rows = withTier(buildApprovedNotBooked(apps, bookings), market);
+  const rows = withTier(buildApprovedNotBooked(apps, bookings, market?.settings?.marketplaceOwnerTag || 'link'), market);
   const offerLeadKeys = pickUpsellLeadKeys(rows, sourceLeadKey);
 
   if (action === 'preview') {
@@ -175,14 +190,53 @@ export async function POST(req) {
 
   const customerId = clean(sourceSession?.customer || '');
   const sourcePaymentIntentId = clean(sourceSession?.payment_intent || '');
+
+  async function createFallbackCheckout() {
+    const origin = clean(body?.origin) || clean(req.headers.get('origin') || '') || clean(process.env.NEXT_PUBLIC_APP_URL) || 'https://innercirclelink.com';
+    const successUrl = `${origin}/lead-marketplace?upsell=success`;
+    const cancelUrl = `${origin}/lead-marketplace?upsell=cancel`;
+
+    const fallbackSession = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      customer: customerId || undefined,
+      customer_email: clean(sourceSession?.metadata?.buyerEmail || sourceSession?.customer_details?.email || '') || undefined,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: 'usd',
+            unit_amount: OFFER_AMOUNT_USD * 100,
+            product_data: {
+              name: `Limited-Time Upsell (${OFFER_LEAD_COUNT} Tier 1 Leads)`,
+              description: 'Special post-purchase offer'
+            }
+          }
+        }
+      ],
+      metadata: {
+        type: 'marketplace_upsell_fallback',
+        sourceSessionId,
+        sourceLeadKey,
+        offerLeadKeys: offerLeadKeys.join(','),
+        buyerName: clean(sourceSession?.metadata?.buyerName || ''),
+        buyerEmail: clean(sourceSession?.metadata?.buyerEmail || sourceSession?.customer_details?.email || ''),
+        buyerRole: clean(sourceSession?.metadata?.buyerRole || 'agent')
+      }
+    });
+
+    return Response.json({ ok: false, requiresCheckout: true, checkoutUrl: fallbackSession.url });
+  }
+
   if (!customerId || !sourcePaymentIntentId) {
-    return Response.json({ ok: false, error: 'source_payment_not_ready' }, { status: 409 });
+    return createFallbackCheckout();
   }
 
   const sourceIntent = await stripe.paymentIntents.retrieve(sourcePaymentIntentId);
   const paymentMethodId = clean(sourceIntent?.payment_method || '');
   if (!paymentMethodId) {
-    return Response.json({ ok: false, error: 'missing_payment_method' }, { status: 409 });
+    return createFallbackCheckout();
   }
 
   try {
@@ -241,40 +295,7 @@ export async function POST(req) {
     const requiresAuth = code === 'authentication_required' || code === 'card_declined';
 
     if (requiresAuth) {
-      const origin = clean(body?.origin) || clean(req.headers.get('origin') || '') || clean(process.env.NEXT_PUBLIC_APP_URL) || 'https://innercirclelink.com';
-      const successUrl = `${origin}/lead-marketplace?upsell=success`;
-      const cancelUrl = `${origin}/lead-marketplace?upsell=cancel`;
-
-      const fallbackSession = await stripe.checkout.sessions.create({
-        mode: 'payment',
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-        customer: customerId,
-        line_items: [
-          {
-            quantity: 1,
-            price_data: {
-              currency: 'usd',
-              unit_amount: OFFER_AMOUNT_USD * 100,
-              product_data: {
-                name: `Limited-Time Upsell (${OFFER_LEAD_COUNT} Tier 1 Leads)`,
-                description: 'Special post-purchase offer'
-              }
-            }
-          }
-        ],
-        metadata: {
-          type: 'marketplace_upsell_fallback',
-          sourceSessionId,
-          sourceLeadKey,
-          offerLeadKeys: offerLeadKeys.join(','),
-          buyerName: clean(sourceSession?.metadata?.buyerName || ''),
-          buyerEmail: clean(sourceSession?.metadata?.buyerEmail || sourceSession?.customer_details?.email || ''),
-          buyerRole: clean(sourceSession?.metadata?.buyerRole || 'agent')
-        }
-      });
-
-      return Response.json({ ok: false, requiresCheckout: true, checkoutUrl: fallbackSession.url });
+      return createFallbackCheckout();
     }
 
     return Response.json({ ok: false, error: error?.message || 'upsell_charge_failed' }, { status: 500 });

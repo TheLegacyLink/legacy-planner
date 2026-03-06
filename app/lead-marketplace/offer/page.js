@@ -105,7 +105,10 @@ export default function OfferPage() {
       return;
     }
 
-    setMessage(data?.error || 'Unable to process offer right now.');
+    const friendly = data?.error === 'insufficient_tier1_inventory'
+      ? 'Offer unavailable: not enough Tier 1 inventory right now.'
+      : 'Unable to process offer right now. Please try once more.';
+    setMessage(friendly);
     setProcessing(false);
   }
 
@@ -122,16 +125,16 @@ export default function OfferPage() {
         </div>
       </section>
 
-      <section className="panel" style={{ maxWidth: 860, margin: '18px auto', border: '2px solid #5b21b6' }}>
+      <section className="panel" style={{ maxWidth: 860, margin: '18px auto', border: '2px solid #5b21b6', background: '#ffffff', color: '#0f172a' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <p style={{ margin: 0, fontWeight: 700, color: '#4338ca' }}>Post-Purchase Deal</p>
             <h2 style={{ margin: '6px 0 0' }}>Get {offer.leadCount} Tier 1 Leads for ${offer.amountUsd} total</h2>
-            <p className="muted" style={{ marginTop: 8 }}>You just completed checkout. Your payment info is already on file.</p>
+            <p className="muted" style={{ marginTop: 8, color: '#334155' }}>You just completed checkout. Your payment info is already on file.</p>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <p className="muted" style={{ margin: 0 }}>Offer expires in</p>
-            <div style={{ fontSize: 34, fontWeight: 800, color: secondsLeft <= 15 ? '#b91c1c' : '#111827' }}>{fmtClock(secondsLeft)}</div>
+            <p className="muted" style={{ margin: 0, color: '#475569', fontWeight: 700 }}>Offer expires in</p>
+            <div style={{ fontSize: 40, fontWeight: 900, color: secondsLeft <= 15 ? '#b91c1c' : '#111827', letterSpacing: 1 }}>{fmtClock(secondsLeft)}</div>
           </div>
         </div>
 
