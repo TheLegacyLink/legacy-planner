@@ -20,7 +20,7 @@ function fmtDate(iso = '') {
 }
 
 export default function LeadMarketplacePage() {
-  const [auth, setAuth] = useState({ name: '', role: '' });
+  const [auth, setAuth] = useState({ name: '', email: '', role: '' });
   const [loginName, setLoginName] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -30,17 +30,40 @@ export default function LeadMarketplacePage() {
   const [settings, setSettings] = useState({ sponsorshipTier1Price: 50, sponsorshipTier2Price: 89 });
   const [query, setQuery] = useState('');
   const [tierFilter, setTierFilter] = useState('all');
+  const [notice, setNotice] = useState('');
+  const [buyingLeadKey, setBuyingLeadKey] = useState('');
 
   const allowedRoles = useMemo(() => new Set(['agent', 'manager', 'admin']), []);
 
   useEffect(() => {
     try {
       const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || '{}');
-      if (saved?.name) setAuth({ name: saved.name, role: saved.role || '' });
+      if (saved?.name) setAuth({ name: saved.name, email: saved.email || '', role: saved.role || '' });
     } catch {
       // ignore
     }
   }, []);
+
+  async function load() {
+    if (!auth.name) return;
+
+    const params = new URLSearchParams({
+      viewerName: auth.name,
+      viewerEmail: auth.email || '',
+      viewerRole: auth.role || ''
+    });
+
+    const res = await fetch(`/api/lead-marketplace?${params.toString()}`, { cache: 'no-store' });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok && data?.ok) {
+      setRows(Array.isArray(data.agentRows) ? data.agentRows : []);
+      setSettings({
+        sponsorshipTier1Price: Number(data?.settings?.sponsorshipTier1Price || 50),
+        sponsorshipTier2Price: Number(data?.settings?.sponsorshipTier2Price || 89)
+      });
+    }
+  }
 
   useEffect(() => {
     if (!auth.name) {
@@ -50,30 +73,32 @@ export default function LeadMarketplacePage() {
 
     let active = true;
 
-    async function load() {
-      const res = await fetch('/api/lead-marketplace', { cache: 'no-store' });
-      const data = await res.json().catch(() => ({}));
+    async function refresh() {
       if (!active) return;
-
-      if (res.ok && data?.ok) {
-        setRows(Array.isArray(data.agentRows) ? data.agentRows : []);
-        setSettings({
-          sponsorshipTier1Price: Number(data?.settings?.sponsorshipTier1Price || 50),
-          sponsorshipTier2Price: Number(data?.settings?.sponsorshipTier2Price || 89)
-        });
-      }
-      setLoading(false);
+      setLoading(true);
+      await load();
+      if (active) setLoading(false);
     }
 
-    setLoading(true);
-    load();
-    const timer = setInterval(load, 20000);
+    refresh();
+    const timer = setInterval(refresh, 20000);
 
     return () => {
       active = false;
       clearInterval(timer);
     };
-  }, [auth.name]);
+  }, [auth.name, auth.email, auth.role]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get('checkout');
+    if (checkout === 'success') {
+      setNotice('Payment successful. Unlocking your lead now...');
+      load();
+    } else if (checkout === 'cancel') {
+      setNotice('Checkout canceled. No charge made.');
+    }
+  }, []);
 
   async function login() {
     setLoginError('');
@@ -102,7 +127,7 @@ export default function LeadMarketplacePage() {
       return;
     }
 
-    const next = { name: data.user.name, role: data.user.role };
+    const next = { name: data.user.name, email: data.user.email || '', role: data.user.role };
     setAuth(next);
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(next));
     setPassword('');
@@ -110,10 +135,42 @@ export default function LeadMarketplacePage() {
 
   function logout() {
     sessionStorage.removeItem(SESSION_KEY);
-    setAuth({ name: '', role: '' });
+    setAuth({ name: '', email: '', role: '' });
     setRows([]);
     setLoginName('');
     setPassword('');
+    setNotice('');
+  }
+
+  async function purchaseLead(row) {
+    if (!row?.key || !auth.name) return;
+
+    setNotice('');
+    setBuyingLeadKey(row.key);
+    try {
+      const res = await fetch('/api/lead-marketplace/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leadKey: row.key,
+          buyerName: auth.name,
+          buyerEmail: auth.email || '',
+          buyerRole: auth.role || 'agent',
+          origin: window.location.origin
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok || !data?.url) {
+        setNotice(data?.error === 'lead_already_sold' ? 'That lead was already sold.' : 'Unable to start checkout right now.');
+        await load();
+        return;
+      }
+
+      window.location.href = data.url;
+    } finally {
+      setBuyingLeadKey('');
+    }
   }
 
   const filteredRows = useMemo(() => {
@@ -165,6 +222,12 @@ export default function LeadMarketplacePage() {
         <button type="button" className="ghost" onClick={logout}>Logout</button>
       </section>
 
+      {notice ? (
+        <section className="claimsRoster" style={{ marginTop: 8 }}>
+          <div className="pill" style={{ background: '#dbeafe', color: '#1e3a8a' }}>{notice}</div>
+        </section>
+      ) : null}
+
       <section className="claimsRoster" style={{ marginTop: 8 }}>
         <div className="claimsQuickTools" style={{ display: 'grid', gap: 8 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -203,33 +266,58 @@ export default function LeadMarketplacePage() {
         ) : null}
 
         <div className="claimsLeadGrid marketplaceGrid">
-          {filteredRows.map((row) => (
-            <article key={row.key} className="claimCard claimCardV2 marketplaceCard">
-              <div className="claimTop">
-                <div>
-                  <h3>{row.applicant || 'Private Lead'}</h3>
-                  <p className="muted">{row.state || '—'} • {row.engagement}</p>
+          {filteredRows.map((row) => {
+            const soldColor = row.soldToViewer ? '#166534' : row.sold ? '#7f1d1d' : '#1d4ed8';
+            return (
+              <article key={row.key} className="claimCard claimCardV2 marketplaceCard">
+                <div className="claimTop">
+                  <div>
+                    <h3>{row.applicant || 'Private Lead'}</h3>
+                    <p className="muted">{row.state || '—'} • {row.engagement}</p>
+                  </div>
+                  <span className="pill" style={{ background: row.tier === 'tier2' ? '#166534' : '#1d4ed8', color: '#fff' }}>
+                    {row.tier === 'tier2' ? `Tier 2 • $${row.price}` : `Tier 1 • $${row.price}`}
+                  </span>
                 </div>
-                <span className="pill" style={{ background: row.tier === 'tier2' ? '#166534' : '#1d4ed8', color: '#fff' }}>
-                  {row.tier === 'tier2' ? `Tier 2 • $${row.price}` : `Tier 1 • $${row.price}`}
-                </span>
-              </div>
 
-              <p className="muted" style={{ margin: '6px 0 0' }}>Approved: {fmtDate(row.approvedAt)}</p>
+                <p className="muted" style={{ margin: '6px 0 0' }}>Approved: {fmtDate(row.approvedAt)}</p>
 
-              <div className="claimPrivate" style={{ marginTop: 10 }}>
-                <p><strong>Name:</strong> {row.applicant}</p>
-                <p><strong>Email:</strong> {row.email}</p>
-                <p><strong>Phone:</strong> {row.phone}</p>
-              </div>
+                <div className="claimPrivate" style={{ marginTop: 10 }}>
+                  <p><strong>Name:</strong> {row.applicant}</p>
+                  <p><strong>Email:</strong> {row.email}</p>
+                  <p><strong>Phone:</strong> {row.phone}</p>
+                </div>
 
-              <p className="claimPrivateHint">Contact details are masked until purchase is completed.</p>
+                <p className="claimPrivateHint">
+                  {row.unlocked ? 'Lead unlocked for your account.' : 'Contact details are masked until purchase is completed.'}
+                </p>
 
-              <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled>
-                Purchase (Payment Setup Next)
-              </button>
-            </article>
-          ))}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span className="pill" style={{ background: soldColor, color: '#fff' }}>{row.soldLabel}</span>
+                  {row.soldAt ? <small className="muted">{fmtDate(row.soldAt)}</small> : null}
+                </div>
+
+                {row.unlocked ? (
+                  <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled>
+                    Purchased • Unlocked
+                  </button>
+                ) : row.sold ? (
+                  <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled>
+                    Sold
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="publicPrimaryBtn publicBtnBlock"
+                    disabled={buyingLeadKey === row.key}
+                    onClick={() => purchaseLead(row)}
+                  >
+                    {buyingLeadKey === row.key ? 'Redirecting...' : `Purchase • $${row.price}`}
+                  </button>
+                )}
+              </article>
+            );
+          })}
         </div>
       </section>
     </main>

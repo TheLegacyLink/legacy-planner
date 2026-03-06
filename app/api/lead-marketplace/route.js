@@ -63,7 +63,8 @@ function normalizeStore(raw = {}) {
 
   return {
     settings,
-    engagementByLeadId: raw?.engagementByLeadId && typeof raw.engagementByLeadId === 'object' ? raw.engagementByLeadId : {}
+    engagementByLeadId: raw?.engagementByLeadId && typeof raw.engagementByLeadId === 'object' ? raw.engagementByLeadId : {},
+    soldByLeadId: raw?.soldByLeadId && typeof raw.soldByLeadId === 'object' ? raw.soldByLeadId : {}
   };
 }
 
@@ -97,8 +98,7 @@ function buildApprovedNotBooked(apps = [], bookings = []) {
       email: clean(app?.email),
       phone: clean(app?.phone),
       state: clean(app?.state),
-      approvedAt: clean(app?.reviewedAt || app?.updatedAt || app?.submitted_at || ''),
-      referredBy: clean(app?.referralName || app?.referred_by || app?.refCode || '')
+      approvedAt: clean(app?.reviewedAt || app?.updatedAt || app?.submitted_at || '')
     };
 
     const dedupeKey = `${normalize(row.applicant)}|${normalize(row.email)}|${normalize(row.phone)}`;
@@ -114,21 +114,86 @@ function buildApprovedNotBooked(apps = [], bookings = []) {
 function withTier(rows = [], market = {}) {
   const settings = market?.settings || DEFAULT_SETTINGS;
   const engagement = market?.engagementByLeadId || {};
+  const soldByLeadId = market?.soldByLeadId || {};
 
   return (rows || []).map((row) => {
     const key = leadKey(row);
     const replied = engagement[key] === 'replied';
+    const sold = soldByLeadId[key] || null;
+
     return {
       ...row,
       key,
       engagement: replied ? 'Replied' : 'No Reply',
       tier: replied ? 'tier2' : 'tier1',
-      price: replied ? Number(settings.sponsorshipTier2Price || 89) : Number(settings.sponsorshipTier1Price || 50)
+      price: replied ? Number(settings.sponsorshipTier2Price || 89) : Number(settings.sponsorshipTier1Price || 50),
+      sold
     };
   });
 }
 
-export async function GET() {
+function viewerCanReveal(row = {}, viewer = {}) {
+  const role = normalize(viewer?.role || '');
+  if (role === 'admin' || role === 'manager') return true;
+
+  const sold = row?.sold;
+  if (!sold) return false;
+
+  const buyerEmail = normalize(sold?.buyerEmail || '');
+  const buyerName = normalize(sold?.buyerName || '');
+  const viewerEmail = normalize(viewer?.email || '');
+  const viewerName = normalize(viewer?.name || '');
+
+  return (buyerEmail && viewerEmail && buyerEmail === viewerEmail) || (buyerName && viewerName && buyerName === viewerName);
+}
+
+function projectAgentRow(row = {}, viewer = {}) {
+  const sold = row?.sold || null;
+  const soldToViewer = viewerCanReveal(row, viewer);
+  const soldToOther = Boolean(sold) && !soldToViewer;
+
+  const base = {
+    key: row.key,
+    state: clean(row.state || '—'),
+    engagement: row.engagement,
+    tier: row.tier,
+    price: row.price,
+    approvedAt: row.approvedAt,
+    sold: Boolean(sold),
+    soldAt: sold?.paidAt || sold?.createdAt || '',
+    soldToViewer,
+    soldToOther,
+    soldLabel: soldToViewer ? 'Purchased' : soldToOther ? 'Sold' : 'Available',
+    canPurchase: !sold
+  };
+
+  if (soldToViewer || normalize(viewer?.role) === 'admin' || normalize(viewer?.role) === 'manager') {
+    return {
+      ...base,
+      applicant: row.applicant,
+      email: row.email,
+      phone: row.phone,
+      unlocked: true
+    };
+  }
+
+  return {
+    ...base,
+    applicant: maskName(row.applicant),
+    email: maskEmail(row.email),
+    phone: maskPhone(row.phone),
+    unlocked: false
+  };
+}
+
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const viewer = {
+    name: clean(searchParams.get('viewerName') || ''),
+    email: clean(searchParams.get('viewerEmail') || ''),
+    role: clean(searchParams.get('viewerRole') || '')
+  };
+
   const [apps, bookings, rawMarket] = await Promise.all([
     loadJsonStore(APPLICATIONS_PATH, []),
     loadJsonStore(BOOKINGS_PATH, []),
@@ -139,26 +204,20 @@ export async function GET() {
   const baseRows = buildApprovedNotBooked(apps, bookings);
   const rows = withTier(baseRows, market);
 
+  const agentRows = rows.map((r) => projectAgentRow(r, viewer));
+
   return Response.json({
     ok: true,
     settings: market.settings,
     inventory: {
       total: rows.length,
       tier1: rows.filter((r) => r.tier === 'tier1').length,
-      tier2: rows.filter((r) => r.tier === 'tier2').length
+      tier2: rows.filter((r) => r.tier === 'tier2').length,
+      sold: rows.filter((r) => r.sold).length,
+      available: rows.filter((r) => !r.sold).length
     },
     adminRows: rows,
-    agentRows: rows.map((r) => ({
-      key: r.key,
-      state: clean(r.state || '—'),
-      engagement: r.engagement,
-      tier: r.tier,
-      price: r.price,
-      approvedAt: r.approvedAt,
-      applicant: maskName(r.applicant),
-      email: maskEmail(r.email),
-      phone: maskPhone(r.phone)
-    }))
+    agentRows
   });
 }
 
