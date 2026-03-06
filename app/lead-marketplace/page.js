@@ -297,14 +297,16 @@ export default function LeadMarketplacePage() {
                   {row.soldAt ? <small className="muted">{fmtDate(row.soldAt)}</small> : null}
                 </div>
 
-                {row.unlocked ? (
-                  <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled>
-                    Purchased • Unlocked
-                  </button>
-                ) : row.sold ? (
-                  <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled>
-                    Sold
-                  </button>
+                {row.sold ? (
+                  row.soldToViewer ? (
+                    <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled>
+                      Purchased • Unlocked
+                    </button>
+                  ) : (
+                    <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled>
+                      Sold
+                    </button>
+                  )
                 ) : (
                   <button
                     type="button"

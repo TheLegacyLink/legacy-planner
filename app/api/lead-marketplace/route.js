@@ -132,25 +132,25 @@ function withTier(rows = [], market = {}) {
   });
 }
 
-function viewerCanReveal(row = {}, viewer = {}) {
+function projectAgentRow(row = {}, viewer = {}) {
   const role = normalize(viewer?.role || '');
-  if (role === 'admin' || role === 'manager') return true;
+  const isPrivilegedViewer = role === 'admin' || role === 'manager';
 
-  const sold = row?.sold;
-  if (!sold) return false;
+  const sold = row?.sold || null;
+  const hasSoldRecord = Boolean(sold);
 
   const buyerEmail = normalize(sold?.buyerEmail || '');
   const buyerName = normalize(sold?.buyerName || '');
   const viewerEmail = normalize(viewer?.email || '');
   const viewerName = normalize(viewer?.name || '');
 
-  return (buyerEmail && viewerEmail && buyerEmail === viewerEmail) || (buyerName && viewerName && buyerName === viewerName);
-}
+  const soldToViewer = hasSoldRecord && (
+    (buyerEmail && viewerEmail && buyerEmail === viewerEmail) ||
+    (buyerName && viewerName && buyerName === viewerName)
+  );
 
-function projectAgentRow(row = {}, viewer = {}) {
-  const sold = row?.sold || null;
-  const soldToViewer = viewerCanReveal(row, viewer);
-  const soldToOther = Boolean(sold) && !soldToViewer;
+  const soldToOther = hasSoldRecord && !soldToViewer;
+  const unlocked = isPrivilegedViewer || soldToViewer;
 
   const base = {
     key: row.key,
@@ -159,21 +159,21 @@ function projectAgentRow(row = {}, viewer = {}) {
     tier: row.tier,
     price: row.price,
     approvedAt: row.approvedAt,
-    sold: Boolean(sold),
+    sold: hasSoldRecord,
     soldAt: sold?.paidAt || sold?.createdAt || '',
     soldToViewer,
     soldToOther,
     soldLabel: soldToViewer ? 'Purchased' : soldToOther ? 'Sold' : 'Available',
-    canPurchase: !sold
+    canPurchase: !hasSoldRecord,
+    unlocked
   };
 
-  if (soldToViewer || normalize(viewer?.role) === 'admin' || normalize(viewer?.role) === 'manager') {
+  if (unlocked) {
     return {
       ...base,
       applicant: row.applicant,
       email: row.email,
-      phone: row.phone,
-      unlocked: true
+      phone: row.phone
     };
   }
 
