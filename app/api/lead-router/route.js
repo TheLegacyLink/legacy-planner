@@ -665,7 +665,7 @@ function inferDurationSec(row = {}) {
   return explicit > 0 ? explicit : 0;
 }
 
-function buildCalledLeadRows(leads = [], sponsorshipMap = new Map(), ownerLookup = new Map(), settings = {}) {
+function buildCalledLeadRows(leads = [], sponsorshipMap = new Map(), ownerLookup = new Map(), settings = {}, submittedBlockLookup = new Set()) {
   return (leads || [])
     .map((r) => {
       const calledAt = inferCalledAt(r);
@@ -674,6 +674,7 @@ function buildCalledLeadRows(leads = [], sponsorshipMap = new Map(), ownerLookup
       const owner = resolveLeadOwner(r, ownerLookup);
       if (!isInnerCircleOwner(owner, settings)) return null;
       if (!isOutboundCall(r)) return null;
+      if (hasSponsorshipFormSubmitted(r) || isBlockedBySubmittedCrossCheck(r, submittedBlockLookup)) return null;
 
       const createdAt = clean(r?.createdAt || r?.updatedAt || '');
       const calledTs = new Date(calledAt || 0).getTime();
@@ -1070,7 +1071,7 @@ export async function GET(req) {
   const sponsorshipMap = sponsorshipLookup(sponsorship);
   const ownerLookup = buildOwnerLookup(events);
   const callMetrics = buildCallMetrics(settings, leads, sponsorshipMap, ownerLookup);
-  const calledLeadRows = buildCalledLeadRows(leads, sponsorshipMap, ownerLookup, settings);
+  const calledLeadRows = buildCalledLeadRows(leads, sponsorshipMap, ownerLookup, settings, submittedBlockLookup);
   const recent = enrichEvents(events, sponsorshipMap).sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()).slice(0, 300);
 
   const ghlSyncEvents = [...(events || [])]
@@ -1139,6 +1140,7 @@ export async function GET(req) {
   };
   const delayedQueue = (leads || [])
     .filter((r) => clean(r?.releaseMode || '').toLowerCase() === 'delayed24h' && clean(r?.releaseStatus || '') !== 'released_to_agent')
+    .filter((r) => !hasSponsorshipFormSubmitted(r) && !isBlockedBySubmittedCrossCheck(r, submittedBlockLookup))
     .sort((a, b) => new Date(a?.releaseEligibleAt || a?.createdAt || 0).getTime() - new Date(b?.releaseEligibleAt || b?.createdAt || 0).getTime())
     .slice(0, 200)
     .map((r) => ({
