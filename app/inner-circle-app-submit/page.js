@@ -78,6 +78,7 @@ export default function InnerCircleAppSubmitPage() {
   const [contractEmailBusy, setContractEmailBusy] = useState(false);
   const [contractEmailMsg, setContractEmailMsg] = useState('');
   const [contractLinkInfo, setContractLinkInfo] = useState({ loading: false, sentAt: '', requestedByName: '' });
+  const [contractLastCheckedAt, setContractLastCheckedAt] = useState('');
   const [prefill, setPrefill] = useState(null);
   const [prefillApplied, setPrefillApplied] = useState(false);
 
@@ -173,6 +174,7 @@ export default function InnerCircleAppSubmitPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
         setContractStatus({ loading: false, checkedEmail: em, signed: false, signedAt: '' });
+        setContractLastCheckedAt(new Date().toISOString());
         return;
       }
       setContractStatus({
@@ -181,8 +183,10 @@ export default function InnerCircleAppSubmitPage() {
         signed: Boolean(data?.signed),
         signedAt: data?.row?.signedAt || ''
       });
+      setContractLastCheckedAt(new Date().toISOString());
     } catch {
       setContractStatus({ loading: false, checkedEmail: em, signed: false, signedAt: '' });
+      setContractLastCheckedAt(new Date().toISOString());
     }
   }
 
@@ -214,6 +218,17 @@ export default function InnerCircleAppSubmitPage() {
     }, 300);
     return () => clearTimeout(t);
   }, [form.applicantEmail]);
+
+  useEffect(() => {
+    const email = String(form.applicantEmail || '').trim();
+    if (!email || contractStatus.signed) return;
+
+    const timer = setInterval(() => {
+      checkContractSignature(email);
+    }, 15000);
+
+    return () => clearInterval(timer);
+  }, [form.applicantEmail, contractStatus.signed]);
 
   const canSubmit = useMemo(() => {
     const writerOk = form.policyWriterName === 'Other'
@@ -448,6 +463,9 @@ export default function InnerCircleAppSubmitPage() {
                 <button type="button" className="ghost" onClick={sendAgreementLinkEmail} disabled={contractEmailBusy}>
                   {contractEmailBusy ? 'Sending Agreement…' : 'Send Agreement Link to Applicant'}
                 </button>
+                <button type="button" className="ghost" onClick={() => checkContractSignature(form.applicantEmail)}>
+                  Refresh Signature Status
+                </button>
                 <a className="ghost" href="/contract-agreement" target="_blank" rel="noreferrer">Open Agreement / DocuSign</a>
               </>
             ) : null}
@@ -457,6 +475,11 @@ export default function InnerCircleAppSubmitPage() {
             <small className="muted" style={{ gridColumn: '1 / -1' }}>
               Agreement link last sent: {new Date(contractLinkInfo.sentAt).toLocaleString()}
               {contractLinkInfo.requestedByName ? ` by ${contractLinkInfo.requestedByName}` : ''}
+            </small>
+          ) : null}
+          {contractLastCheckedAt ? (
+            <small className="muted" style={{ gridColumn: '1 / -1' }}>
+              Signature status last checked: {new Date(contractLastCheckedAt).toLocaleString()}
             </small>
           ) : null}
 

@@ -30,7 +30,6 @@ export default function ContractAgreementPage() {
           ) : (
             <span className="pill atrisk">DocuSign link not configured yet (NEXT_PUBLIC_DOCUSIGN_ICA_URL)</span>
           )}
-          <a className="ghost" href="/docs/contracts/ICA_v2.md" target="_blank" rel="noreferrer">View ICA Draft</a>
           <a className="ghost" href="/docs/contracts/COMPENSATION_SCHEDULE_EXHIBIT_A.md" target="_blank" rel="noreferrer">View Compensation Schedule (Exhibit A)</a>
         </div>
 
