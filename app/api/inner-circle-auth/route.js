@@ -17,7 +17,7 @@ export async function GET() {
   const active = (users || []).filter((u) => u.active);
   return Response.json({
     ok: true,
-    users: active.map((u) => ({ name: u.name, role: u.role }))
+    users: active.map((u) => ({ name: u.name, email: u.email, role: u.role }))
   });
 }
 

@@ -17,6 +17,13 @@ function fmtDate(iso = '') {
   return d.toLocaleString();
 }
 
+const SMALL_BTN = {
+  fontSize: 12,
+  padding: '6px 8px',
+  lineHeight: 1.15,
+  borderRadius: 8
+};
+
 function normalize(v = '') {
   return String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
@@ -69,6 +76,7 @@ export default function PolicyPayoutsPage() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('all');
   const [savingId, setSavingId] = useState('');
+  const [emailingId, setEmailingId] = useState('');
   const [syncMsg, setSyncMsg] = useState('');
 
   async function load() {
@@ -191,6 +199,73 @@ export default function PolicyPayoutsPage() {
       }
     } finally {
       setSavingId('');
+    }
+  }
+
+  function emailForUserName(name = '') {
+    const n = normalize(name);
+    const hit = (users || []).find((u) => normalize(u?.name || '') === n);
+    return String(hit?.email || '').trim();
+  }
+
+  async function sendTelephoneInterviewEmail(row = {}) {
+    const id = String(row?.id || '');
+    if (!id) return;
+
+    const refEmail = emailForUserName(row?.referredByName);
+    const writerEmail = emailForUserName(row?.policyWriterName);
+    const applicantEmail = String(row?.applicantEmail || '').trim();
+
+    const toList = [refEmail, writerEmail, applicantEmail].filter(Boolean);
+    const dedup = [...new Set(toList)];
+    if (!dedup.length) {
+      setSyncMsg('No email found for interview reminder recipients.');
+      return;
+    }
+
+    const primary = dedup[0];
+    const cc = dedup.slice(1).join(', ');
+    const applicantName = String(row?.applicantName || 'Applicant').trim();
+    const greetingName = String(row?.referredByName || row?.policyWriterName || 'Team').trim();
+
+    const subject = `Telephone Interview Needed: ${applicantName}`;
+    const text = [
+      `Good Afternoon ${greetingName},`,
+      '',
+      `Telephone Interview – Our interview department has been attempting to contact ${applicantName} to complete the telephone interview.`,
+      'Please encourage them to call 877–844–5041 to complete the interview between 8 A.M. to 9 P.M. Central Monday–Friday.',
+      '',
+      'Thank you,',
+      'The Legacy Link'
+    ].join('\n');
+
+    setEmailingId(id);
+    try {
+      const res = await fetch('/api/manual-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'send',
+          to: primary,
+          cc,
+          subject,
+          text,
+          html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;">
+            <p>Good Afternoon ${greetingName},</p>
+            <p><strong>Telephone Interview</strong> – Our interview department has been attempting to contact <strong>${applicantName}</strong> to complete the telephone interview.</p>
+            <p>Please encourage them to call <strong>877–844–5041</strong> to complete the interview between <strong>8 A.M. to 9 P.M. Central Monday–Friday</strong>.</p>
+            <p>Thank you,<br/>The Legacy Link</p>
+          </div>`
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setSyncMsg(`Telephone interview email failed: ${data?.error || 'unknown_error'}`);
+        return;
+      }
+      setSyncMsg(`Telephone interview email sent for ${applicantName}.`);
+    } finally {
+      setEmailingId('');
     }
   }
 
@@ -444,29 +519,38 @@ export default function PolicyPayoutsPage() {
                             <button
                               type="button"
                               onClick={() => patchRow(r.id, { status: 'Approved', applicantLicensedStatus: 'Licensed' })}
-                              style={{ background: '#166534', color: '#fff', border: '1px solid #14532d' }}
+                              style={{ ...SMALL_BTN, background: '#166534', color: '#fff', border: '1px solid #14532d' }}
                             >
-                              Approve + Licensed + Notify All
+                              Approve (Licensed)
                             </button>
                             <button
                               type="button"
                               onClick={() => patchRow(r.id, { status: 'Approved', applicantLicensedStatus: 'Unlicensed' })}
-                              style={{ background: '#92400e', color: '#fff', border: '1px solid #78350f' }}
+                              style={{ ...SMALL_BTN, background: '#92400e', color: '#fff', border: '1px solid #78350f' }}
                             >
-                              Approve + Unlicensed + Notify All
+                              Approve (Unlicensed)
                             </button>
                             <button
                               type="button"
                               onClick={() => patchRow(r.id, { status: 'Approved' })}
+                              style={SMALL_BTN}
                             >
-                              Approve + Notify
+                              Approve
                             </button>
                             <button
                               type="button"
                               onClick={() => patchRow(r.id, { status: 'Declined' })}
-                              style={{ background: '#b91c1c', color: '#fff', border: '1px solid #991b1b' }}
+                              style={{ ...SMALL_BTN, background: '#b91c1c', color: '#fff', border: '1px solid #991b1b' }}
                             >
-                              Decline + Notify
+                              Decline
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => sendTelephoneInterviewEmail(r)}
+                              disabled={emailingId === r.id}
+                              style={{ ...SMALL_BTN, background: '#0f172a', color: '#fff', border: '1px solid #020617' }}
+                            >
+                              {emailingId === r.id ? 'Sending…' : 'Send Interview Email'}
                             </button>
                           </div>
                         </div>
