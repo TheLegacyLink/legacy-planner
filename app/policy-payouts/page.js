@@ -213,10 +213,9 @@ export default function PolicyPayoutsPage() {
     if (!id) return;
 
     const refEmail = emailForUserName(row?.referredByName);
-    const writerEmail = emailForUserName(row?.policyWriterName);
     const applicantEmail = String(row?.applicantEmail || '').trim();
 
-    const toList = [refEmail, writerEmail, applicantEmail].filter(Boolean);
+    const toList = [applicantEmail, refEmail].filter(Boolean);
     const dedup = [...new Set(toList)];
     if (!dedup.length) {
       setSyncMsg('No email found for interview reminder recipients.');
@@ -224,9 +223,13 @@ export default function PolicyPayoutsPage() {
     }
 
     const primary = dedup[0];
-    const cc = dedup.slice(1).join(', ');
+    const ccList = [
+      dedup[1],
+      session?.email || ''
+    ].filter(Boolean);
+    const cc = [...new Set(ccList)].join(', ');
     const applicantName = String(row?.applicantName || 'Applicant').trim();
-    const greetingName = String(row?.referredByName || row?.policyWriterName || 'Team').trim();
+    const greetingName = String(row?.referredByName || 'Team').trim();
 
     const subject = `Telephone Interview Needed: ${applicantName}`;
     const text = [
