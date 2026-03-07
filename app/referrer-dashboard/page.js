@@ -238,22 +238,15 @@ export default function ReferrerDashboardPage() {
         <>
           <section className="claimsRoster" style={{ marginTop: 8 }}>
             <div className="claimsQuickTools" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span className="pill">Total: {metrics.total}</span>
+              <span className="pill">Sponsorship Forms: {metrics.total}</span>
               <span className="pill">Submitted Apps: {metrics.submittedApps ?? metrics.total}</span>
               <span className="pill onpace">Approved Apps: {metrics.approvedApps ?? 0}</span>
-              <span className="pill onpace">On Track: {metrics.onTrack}</span>
-              <span className="pill">Needs Follow-up: {metrics.needsFollowup}</span>
-              <span className="pill atrisk">Stalled 24h+: {metrics.stalled24h}</span>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <input type="checkbox" checked={showStalledOnly} onChange={(e) => setShowStalledOnly(e.target.checked)} />
-                Show stalled only
-              </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <input type="checkbox" checked={showLicensedOnly} onChange={(e) => setShowLicensedOnly(e.target.checked)} />
                 Licensed only
               </label>
             </div>
-            <p className="muted" style={{ marginTop: 8 }}>Progress/stage bars below are policy-pipeline based (Submitted → Approved → Paid) for people who submitted policy applications.</p>
+            <p className="muted" style={{ marginTop: 8 }}>This section shows people who submitted sponsorship forms and their application status only.</p>
             {message ? <p className="muted" style={{ marginTop: 8 }}>{message}</p> : null}
           </section>
 
@@ -302,7 +295,6 @@ export default function ReferrerDashboardPage() {
                     <th>Policy</th>
                     <th>Status</th>
                     <th>Last Activity</th>
-                    <th>Actions</th>
                     {isAdmin ? <th>Delegate</th> : null}
                   </tr>
                 </thead>
@@ -320,14 +312,6 @@ export default function ReferrerDashboardPage() {
                       <td>{r.policyStatus || '—'}{r.stalled24h ? ' (stalled 24h+)' : ''}</td>
                       <td><span className="pill" style={badgeStyle(r.bucket)}>{r.bucket === 'on_track' ? 'On Track' : r.bucket === 'stalled' ? 'Stalled' : 'Needs Follow-up'}</span></td>
                       <td>{fmt(r.lastActivityAt)}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <a className="ghost" href={r.sopUrl} target="_blank" rel="noreferrer">Open SOP</a>
-                          <button type="button" className="ghost" onClick={() => sendReminderEmail(r)}>Send Reminder</button>
-                          <button type="button" className="ghost" onClick={() => messageJamal(r)}>Message Jamal</button>
-                          <button type="button" className="ghost" onClick={() => messageDave(r)}>Message Dave</button>
-                        </div>
-                      </td>
                       {isAdmin ? (
                         <td>
                           <div style={{ display: 'flex', gap: 6 }}>
@@ -343,7 +327,7 @@ export default function ReferrerDashboardPage() {
                       ) : null}
                     </tr>
                   ))}
-                  {!(filteredRows || []).length ? <tr><td colSpan={isAdmin ? 10 : 9} className="muted">No referred people found yet.</td></tr> : null}
+                  {!(filteredRows || []).length ? <tr><td colSpan={isAdmin ? 9 : 8} className="muted">No referred people found yet.</td></tr> : null}
                 </tbody>
               </table>
             </div>
@@ -351,7 +335,7 @@ export default function ReferrerDashboardPage() {
         </>
       ) : (
         <section className="claimsCards" style={{ marginTop: 8 }}>
-          <h3 style={{ marginTop: 0 }}>My Policy Pipeline (View Only)</h3>
+          <h3 style={{ marginTop: 0 }}>My Policy Pipeline</h3>
           <div style={{ overflowX: 'auto' }}>
             <table>
               <thead>
@@ -360,10 +344,7 @@ export default function ReferrerDashboardPage() {
                   <th>Status</th>
                   <th>My Payout</th>
                   <th>Payout Status</th>
-                  <th>Submitted</th>
-                  <th>Approved</th>
                   <th>SOP</th>
-                  <th>Paid At</th>
                 </tr>
               </thead>
               <tbody>
@@ -380,17 +361,14 @@ export default function ReferrerDashboardPage() {
                       <small className="muted">{p.viewerPayoutRole === 'referrer' ? 'Referral share' : p.viewerPayoutRole === 'writer' ? 'Writer share' : p.viewerPayoutRole === 'referrer_writer' ? 'Full share' : 'No share'}</small>
                     </td>
                     <td>{p.payoutStatus || 'Unpaid'}{(Number(p.payoutAmount || 0) > 0) ? ` (Total $${Number(p.payoutAmount).toFixed(2)})` : ''}</td>
-                    <td>{fmt(p.submittedAt)}</td>
-                    <td>{fmt(p.approvedAt)}</td>
                     <td><a className="ghost" href={p.sopUrl} target="_blank" rel="noreferrer">Open SOP</a></td>
-                    <td>{fmt(p.payoutPaidAt)}</td>
                   </tr>
                 ))}
-                {!(myPolicies || []).length ? <tr><td colSpan={8} className="muted">No policy submissions yet for your profile.</td></tr> : null}
+                {!(myPolicies || []).length ? <tr><td colSpan={5} className="muted">No policy submissions yet for your profile.</td></tr> : null}
               </tbody>
             </table>
           </div>
-          <p className="muted" style={{ marginTop: 8 }}>This view is read-only. Status approvals/declines are controlled by Kimora/admin.</p>
+          {null}
         </section>
       )}
     </main>

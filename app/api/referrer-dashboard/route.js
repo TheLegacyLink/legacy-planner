@@ -220,12 +220,8 @@ export async function GET(req) {
     }, requests);
 
     const policyStatus = clean(policy?.status || '');
-    if (!policyStatus) continue; // Referrer scoreboard rows should be policy-submitted people only.
-
-    const policyTs = new Date(policy?.updatedAt || policy?.submittedAt || 0).getTime();
-    const stalled24h = Boolean(policyStatus && !['approved', 'declined'].includes(normalize(policyStatus)) && Number.isFinite(policyTs) && nowMs - policyTs >= 24 * 60 * 60 * 1000);
-    const policyModel = policyProgressModel(policy);
-    const finalBucket = stalled24h ? 'stalled' : policyModel.bucket;
+    const appStatus = clean(app?.status || 'Submitted');
+    const approved = normalize(appStatus).includes('approved');
 
     rows.push({
       personKey: pKey,
@@ -233,21 +229,22 @@ export async function GET(req) {
       email,
       phone: clean(app?.phone || app?.applicantPhone || ''),
       licensed: Boolean(member?.licensed ?? boolLicensed(app?.isLicensed)),
-      appStatus: clean(app?.status || ''),
+      appStatus,
       originalReferrer,
       effectiveReferrer,
       delegatedBy: clean(delegate?.delegatedBy || ''),
-      progressPct: policyModel.progressPct,
-      completedSteps: policyModel.completed,
-      totalSteps: policyModel.total,
-      stage: policyModel.stage,
+      progressPct: approved ? 100 : 50,
+      completedSteps: approved ? 2 : 1,
+      totalSteps: 2,
+      stage: approved ? 'Application Approved' : 'Application Submitted',
       sponsorshipStage: step.stage,
       leadAccessActive: Boolean(member?.leadAccessActive),
       policyStatus,
       policyUpdatedAt: clean(policy?.updatedAt || policy?.submittedAt || ''),
-      stalled24h,
-      bucket: finalBucket,
-      lastActivityAt: clean(policy?.updatedAt || policy?.submittedAt || member?.updatedAt || app?.updatedAt || app?.submitted_at || ''),
+      stalled24h: false,
+      bucket: approved ? 'on_track' : 'needs_followup',
+      submittedAt: clean(app?.submitted_at || app?.submittedAt || ''),
+      lastActivityAt: clean(app?.updatedAt || app?.submitted_at || member?.updatedAt || ''),
       sopUrl: invite?.token ? `${appUrl}/sponsorship-sop?invite=${encodeURIComponent(invite.token)}` : `${appUrl}/sponsorship-sop`
     });
   }
