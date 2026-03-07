@@ -14,23 +14,75 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function safeJsonParse(raw = '') {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function first(...vals) {
+  for (const v of vals) {
+    if (v !== undefined && v !== null && clean(v) !== '') return v;
+  }
+  return '';
+}
+
+function isCompletedEvent(payload = {}) {
+  const status = clean(first(
+    payload?.envelopeStatus,
+    payload?.status,
+    payload?.data?.envelopeSummary?.status,
+    payload?.data?.envelopeStatus,
+    payload?.envelopeSummary?.status,
+    payload?.event
+  )).toLowerCase();
+
+  return status === 'completed' || status === 'envelope-completed' || status === 'envelope_completed';
+}
+
+function extractRecipientArray(payload = {}) {
+  const candidates = [
+    payload?.recipients?.signers,
+    payload?.data?.envelopeSummary?.recipients?.signers,
+    payload?.data?.envelopeSummary?.recipients,
+    payload?.envelopeSummary?.recipients?.signers,
+    payload?.envelopeSummary?.recipients,
+    payload?.recipients
+  ];
+
+  for (const c of candidates) {
+    if (Array.isArray(c)) return c;
+  }
+  return [];
+}
+
 function extractCompletedRecords(payload = {}) {
-  // Expected when DocuSign Connect is configured for JSON payloads.
-  // We support a minimal envelope schema; unknown shapes are ignored.
-  const envelopeStatus = clean(payload?.envelopeStatus || payload?.status || '').toLowerCase();
-  if (envelopeStatus !== 'completed') return [];
+  if (!isCompletedEvent(payload)) return [];
 
-  const envelopeId = clean(payload?.envelopeId || payload?.envelope_id || '');
-  const completedAt = clean(payload?.completedDateTime || payload?.completed_at || nowIso());
+  const envelopeId = clean(first(
+    payload?.envelopeId,
+    payload?.envelope_id,
+    payload?.data?.envelopeSummary?.envelopeId,
+    payload?.envelopeSummary?.envelopeId
+  ));
 
-  const recipients = payload?.recipients?.signers || payload?.recipients || [];
-  const list = Array.isArray(recipients) ? recipients : [];
+  const completedAt = clean(first(
+    payload?.completedDateTime,
+    payload?.completed_at,
+    payload?.data?.envelopeSummary?.completedDateTime,
+    payload?.envelopeSummary?.completedDateTime,
+    nowIso()
+  ));
 
-  return list
+  const recipients = extractRecipientArray(payload);
+
+  return recipients
     .map((s) => ({
-      email: normalizeEmail(s?.email || s?.emailAddress || ''),
-      name: clean(s?.name || ''),
-      signedAt: clean(s?.signedDateTime || completedAt),
+      email: normalizeEmail(first(s?.email, s?.emailAddress)),
+      name: clean(first(s?.name, s?.userName)),
+      signedAt: clean(first(s?.signedDateTime, completedAt)),
       envelopeId
     }))
     .filter((r) => r.email);
@@ -45,9 +97,13 @@ export async function POST(req) {
     }
   }
 
-  const payload = await req.json().catch(() => ({}));
+  const raw = await req.text().catch(() => '');
+  const payload = safeJsonParse(raw) || {};
+
   const records = extractCompletedRecords(payload);
-  if (!records.length) return Response.json({ ok: true, skipped: true, reason: 'no_completed_records' });
+  if (!records.length) {
+    return Response.json({ ok: true, skipped: true, reason: 'no_completed_records' });
+  }
 
   const rows = await loadJsonStore(STORE_PATH, []);
   const list = Array.isArray(rows) ? rows : [];
