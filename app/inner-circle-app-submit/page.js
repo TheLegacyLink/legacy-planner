@@ -75,6 +75,8 @@ export default function InnerCircleAppSubmitPage() {
   const [ref, setRef] = useState('');
   const [saved, setSaved] = useState('');
   const [contractStatus, setContractStatus] = useState({ loading: false, checkedEmail: '', signed: false, signedAt: '' });
+  const [contractEmailBusy, setContractEmailBusy] = useState(false);
+  const [contractEmailMsg, setContractEmailMsg] = useState('');
   const [prefill, setPrefill] = useState(null);
   const [prefillApplied, setPrefillApplied] = useState(false);
 
@@ -203,6 +205,42 @@ export default function InnerCircleAppSubmitPage() {
       contractStatus.signed
     );
   }, [form, contractStatus.signed]);
+
+  async function sendAgreementLinkEmail() {
+    const applicantName = String(form.applicantName || '').trim();
+    const applicantEmail = String(form.applicantEmail || '').trim();
+    if (!applicantName || !applicantEmail) {
+      setContractEmailMsg('Please enter applicant name and email first.');
+      return;
+    }
+
+    setContractEmailBusy(true);
+    setContractEmailMsg('');
+    try {
+      const res = await fetch('/api/contract-signatures/send-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          applicantName,
+          applicantEmail,
+          applicantPhone: form.applicantPhone,
+          applicantState: form.state,
+          requestedByName: session?.name || '',
+          requestedByEmail: session?.email || ''
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setContractEmailMsg(`Could not send agreement email: ${data?.error || 'unknown_error'}`);
+        return;
+      }
+      setContractEmailMsg('Agreement email sent successfully.');
+    } catch {
+      setContractEmailMsg('Could not send agreement email right now.');
+    } finally {
+      setContractEmailBusy(false);
+    }
+  }
 
   async function login(e) {
     e.preventDefault();
@@ -378,10 +416,14 @@ export default function InnerCircleAppSubmitPage() {
             {!contractStatus.loading && form.applicantEmail && !contractStatus.signed ? (
               <>
                 <span className="pill atrisk">Contract Required Before Submit</span>
+                <button type="button" className="ghost" onClick={sendAgreementLinkEmail} disabled={contractEmailBusy}>
+                  {contractEmailBusy ? 'Sending Agreement…' : 'Send Agreement Link to Applicant'}
+                </button>
                 <a className="ghost" href="/contract-agreement" target="_blank" rel="noreferrer">Open Agreement / DocuSign</a>
               </>
             ) : null}
           </div>
+          {contractEmailMsg ? <small className="muted" style={{ gridColumn: '1 / -1' }}>{contractEmailMsg}</small> : null}
 
           <label>
             Applicant Phone *
