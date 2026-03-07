@@ -30,10 +30,53 @@ function normalizePremiumInput(v = '') {
   return rebuilt;
 }
 
+function prefillFromSearch() {
+  if (typeof window === 'undefined') return null;
+  const sp = new URLSearchParams(window.location.search);
+  const refCode = normalizeRef(sp.get('ref') || sp.get('refCode') || '');
+  const firstName = String(sp.get('firstName') || '').trim();
+  const lastName = String(sp.get('lastName') || '').trim();
+  const name = String(sp.get('name') || `${firstName} ${lastName}` || '').trim();
+  const email = String(sp.get('email') || '').trim();
+  const phone = String(sp.get('phone') || '').trim();
+  const state = String(sp.get('state') || '').trim().toUpperCase().slice(0, 2);
+  const licensed = String(sp.get('licensed') || '').trim();
+  const referredBy = String(sp.get('referredBy') || '').trim();
+
+  const hasAny = Boolean(name || email || phone || state || licensed || referredBy || refCode);
+  if (!hasAny) return null;
+
+  return {
+    refCode,
+    applicantName: name,
+    applicantEmail: email,
+    applicantPhone: phone,
+    applicantLicensedStatus: licensed,
+    state,
+    referredByNameRaw: referredBy
+  };
+}
+
+function mapReferrerToUser(raw = '', users = [], refCode = '') {
+  const input = String(raw || '').trim().toLowerCase();
+  const byCode = String(refCode || '').replace(/[_-]+/g, ' ').trim().toLowerCase();
+  if (!input && !byCode) return '';
+
+  for (const u of users || []) {
+    const n = String(u?.name || '').trim().toLowerCase();
+    if (!n) continue;
+    if (input && (n === input || n.includes(input) || input.includes(n))) return u.name;
+    if (byCode && (n.includes(byCode) || byCode.includes(n.split(' ')[0] || ''))) return u.name;
+  }
+  return '';
+}
+
 export default function InnerCircleAppSubmitPage() {
   const [ref, setRef] = useState('');
   const [saved, setSaved] = useState('');
   const [contractStatus, setContractStatus] = useState({ loading: false, checkedEmail: '', signed: false, signedAt: '' });
+  const [prefill, setPrefill] = useState(null);
+  const [prefillApplied, setPrefillApplied] = useState(false);
 
   const [authLoading, setAuthLoading] = useState(true);
   const [session, setSession] = useState(null);
@@ -61,8 +104,9 @@ export default function InnerCircleAppSubmitPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const sp = new URLSearchParams(window.location.search);
-    setRef(normalizeRef(sp.get('ref') || ''));
+    const pre = prefillFromSearch();
+    setPrefill(pre);
+    setRef(pre?.refCode || '');
 
     try {
       const raw = localStorage.getItem(SESSION_KEY);
@@ -117,6 +161,22 @@ export default function InnerCircleAppSubmitPage() {
       setContractStatus({ loading: false, checkedEmail: em, signed: false, signedAt: '' });
     }
   }
+
+  useEffect(() => {
+    if (!prefill || prefillApplied) return;
+    const mappedReferrer = mapReferrerToUser(prefill.referredByNameRaw, users, prefill.refCode);
+
+    setForm((prev) => ({
+      ...prev,
+      applicantName: prefill.applicantName || prev.applicantName,
+      applicantEmail: prefill.applicantEmail || prev.applicantEmail,
+      applicantPhone: prefill.applicantPhone || prev.applicantPhone,
+      applicantLicensedStatus: prefill.applicantLicensedStatus || prev.applicantLicensedStatus,
+      state: prefill.state || prev.state,
+      referredByName: mappedReferrer || prev.referredByName
+    }));
+    setPrefillApplied(true);
+  }, [prefill, prefillApplied, users]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -288,6 +348,7 @@ export default function InnerCircleAppSubmitPage() {
           <button type="button" className="ghost" onClick={logout}>Log Out</button>
         </div>
         {ref ? <p className="pill onpace">Referral code locked: {ref}</p> : null}
+        {prefill ? <p className="pill">Prefilled from booked call — review and complete remaining fields.</p> : null}
 
         <form className="settingsGrid" onSubmit={submit}>
           <label>

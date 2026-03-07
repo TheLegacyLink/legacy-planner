@@ -162,6 +162,26 @@ function applicantKey(row = {}) {
   return `id:${String(row?.id || row?.applicantName || '').trim().toLowerCase()}`;
 }
 
+function buildAppSubmitPrefillUrl(booking = {}) {
+  const qp = new URLSearchParams();
+  const push = (k, v) => {
+    const val = String(v || '').trim();
+    if (val) qp.set(k, val);
+  };
+
+  push('ref', booking?.referral_code || '');
+  push('firstName', booking?.applicant_first_name || '');
+  push('lastName', booking?.applicant_last_name || '');
+  push('name', booking?.applicant_name || '');
+  push('email', booking?.applicant_email || '');
+  push('phone', booking?.applicant_phone || '');
+  push('state', booking?.applicant_state || '');
+  push('licensed', booking?.licensed_status || '');
+  push('referredBy', booking?.referred_by || '');
+
+  return `/inner-circle-app-submit?${qp.toString()}`;
+}
+
 export default function MissionControl() {
   const [config, setConfig] = useState(DEFAULTS);
   const [rows, setRows] = useState([]);
@@ -790,10 +810,14 @@ export default function MissionControl() {
                 <th>Booked At</th>
                 <th>Assigned Policy Writer</th>
                 <th>Status</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              {bookingQueue.map((b) => {
+              {Array.from(new Map((bookingQueue || []).map((b) => {
+                const key = `${cleanName(b?.applicant_name || '')}|${String(b?.requested_at_est || '').trim()}|${String(b?.source_application_id || '').trim()}`;
+                return [key, b];
+              })).values()).map((b) => {
                 const withinPriority = isWithinPriorityWindow(b);
                 const assignedTo = b.claimed_by || b.priority_agent || 'Unassigned';
 
@@ -812,6 +836,11 @@ export default function MissionControl() {
                       ) : (
                         <span className="pill atrisk">✅ Booked • Unassigned</span>
                       )}
+                    </td>
+                    <td>
+                      <a href={buildAppSubmitPrefillUrl(b)}>
+                        <button type="button" className="ghost">Submit App</button>
+                      </a>
                     </td>
                   </tr>
                 );
