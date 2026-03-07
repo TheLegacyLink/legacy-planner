@@ -1,7 +1,18 @@
 import nodemailer from 'nodemailer';
+import { loadJsonStore, saveJsonStore } from '../../../../lib/blobJsonStore';
+
+const SENDS_PATH = 'stores/contract-signature-link-sends.json';
 
 function clean(v = '') {
   return String(v || '').trim();
+}
+
+function normalizeEmail(v = '') {
+  return clean(v).toLowerCase();
+}
+
+function nowIso() {
+  return new Date().toISOString();
 }
 
 function getDocusignUrl() {
@@ -19,11 +30,23 @@ function smtp() {
   };
 }
 
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const email = normalizeEmail(searchParams.get('email') || '');
+  if (!email) return Response.json({ ok: false, error: 'missing_email' }, { status: 400 });
+
+  const rows = await loadJsonStore(SENDS_PATH, []);
+  const list = Array.isArray(rows) ? rows : [];
+  const row = list.find((r) => normalizeEmail(r?.email) === email) || null;
+
+  return Response.json({ ok: true, row });
+}
+
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
 
   const applicantName = clean(body?.applicantName || '');
-  const applicantEmail = clean(body?.applicantEmail || '').toLowerCase();
+  const applicantEmail = normalizeEmail(body?.applicantEmail || '');
   const applicantPhone = clean(body?.applicantPhone || '');
   const applicantState = clean(body?.applicantState || '');
   const requestedByName = clean(body?.requestedByName || '');
@@ -84,12 +107,33 @@ export async function POST(req) {
       html
     });
 
+    const rows = await loadJsonStore(SENDS_PATH, []);
+    const list = Array.isArray(rows) ? rows : [];
+    const idx = list.findIndex((r) => normalizeEmail(r?.email) === applicantEmail);
+    const sentAt = nowIso();
+    const rec = {
+      email: applicantEmail,
+      applicantName,
+      applicantPhone,
+      applicantState,
+      requestedByName,
+      requestedByEmail,
+      messageId: info?.messageId || '',
+      sentAt,
+      updatedAt: sentAt,
+      createdAt: idx >= 0 ? clean(list[idx]?.createdAt || sentAt) : sentAt
+    };
+    if (idx >= 0) list[idx] = { ...list[idx], ...rec };
+    else list.push(rec);
+    await saveJsonStore(SENDS_PATH, list);
+
     return Response.json({
       ok: true,
       messageId: info?.messageId || '',
       accepted: info?.accepted || [],
       requestedByName,
-      requestedByEmail
+      requestedByEmail,
+      sentAt
     });
   } catch (error) {
     return Response.json({ ok: false, error: clean(error?.message || 'send_failed') }, { status: 502 });

@@ -77,6 +77,7 @@ export default function InnerCircleAppSubmitPage() {
   const [contractStatus, setContractStatus] = useState({ loading: false, checkedEmail: '', signed: false, signedAt: '' });
   const [contractEmailBusy, setContractEmailBusy] = useState(false);
   const [contractEmailMsg, setContractEmailMsg] = useState('');
+  const [contractLinkInfo, setContractLinkInfo] = useState({ loading: false, sentAt: '', requestedByName: '' });
   const [prefill, setPrefill] = useState(null);
   const [prefillApplied, setPrefillApplied] = useState(false);
 
@@ -138,6 +139,27 @@ export default function InnerCircleAppSubmitPage() {
 
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
+  async function loadContractLinkInfo(email = '') {
+    const em = String(email || '').trim().toLowerCase();
+    if (!em) {
+      setContractLinkInfo({ loading: false, sentAt: '', requestedByName: '' });
+      return;
+    }
+
+    setContractLinkInfo((s) => ({ ...s, loading: true }));
+    try {
+      const res = await fetch(`/api/contract-signatures/send-link?email=${encodeURIComponent(em)}`, { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok || !data?.row) {
+        setContractLinkInfo({ loading: false, sentAt: '', requestedByName: '' });
+        return;
+      }
+      setContractLinkInfo({ loading: false, sentAt: data.row.sentAt || '', requestedByName: data.row.requestedByName || '' });
+    } catch {
+      setContractLinkInfo({ loading: false, sentAt: '', requestedByName: '' });
+    }
+  }
+
   async function checkContractSignature(email = '') {
     const em = String(email || '').trim().toLowerCase();
     if (!em) {
@@ -182,8 +204,13 @@ export default function InnerCircleAppSubmitPage() {
 
   useEffect(() => {
     const t = setTimeout(() => {
-      if (form.applicantEmail.trim()) checkContractSignature(form.applicantEmail);
-      else setContractStatus({ loading: false, checkedEmail: '', signed: false, signedAt: '' });
+      if (form.applicantEmail.trim()) {
+        checkContractSignature(form.applicantEmail);
+        loadContractLinkInfo(form.applicantEmail);
+      } else {
+        setContractStatus({ loading: false, checkedEmail: '', signed: false, signedAt: '' });
+        setContractLinkInfo({ loading: false, sentAt: '', requestedByName: '' });
+      }
     }, 300);
     return () => clearTimeout(t);
   }, [form.applicantEmail]);
@@ -234,6 +261,8 @@ export default function InnerCircleAppSubmitPage() {
         setContractEmailMsg(`Could not send agreement email: ${data?.error || 'unknown_error'}`);
         return;
       }
+      const sentAt = data?.sentAt || new Date().toISOString();
+      setContractLinkInfo({ loading: false, sentAt, requestedByName: session?.name || '' });
       setContractEmailMsg('Agreement email sent successfully.');
     } catch {
       setContractEmailMsg('Could not send agreement email right now.');
@@ -424,6 +453,12 @@ export default function InnerCircleAppSubmitPage() {
             ) : null}
           </div>
           {contractEmailMsg ? <small className="muted" style={{ gridColumn: '1 / -1' }}>{contractEmailMsg}</small> : null}
+          {contractLinkInfo.sentAt ? (
+            <small className="muted" style={{ gridColumn: '1 / -1' }}>
+              Agreement link last sent: {new Date(contractLinkInfo.sentAt).toLocaleString()}
+              {contractLinkInfo.requestedByName ? ` by ${contractLinkInfo.requestedByName}` : ''}
+            </small>
+          ) : null}
 
           <label>
             Applicant Phone *
