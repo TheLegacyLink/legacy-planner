@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'legacy-inner-circle-policy-apps-v1';
 const SESSION_KEY = 'legacy-inner-circle-submit-session-v1';
@@ -79,8 +79,10 @@ export default function InnerCircleAppSubmitPage() {
   const [contractEmailMsg, setContractEmailMsg] = useState('');
   const [contractLinkInfo, setContractLinkInfo] = useState({ loading: false, sentAt: '', requestedByName: '' });
   const [contractLastCheckedAt, setContractLastCheckedAt] = useState('');
+  const [showSignedToast, setShowSignedToast] = useState(false);
   const [prefill, setPrefill] = useState(null);
   const [prefillApplied, setPrefillApplied] = useState(false);
+  const signedRef = useRef(false);
 
   const [authLoading, setAuthLoading] = useState(true);
   const [session, setSession] = useState(null);
@@ -225,10 +227,21 @@ export default function InnerCircleAppSubmitPage() {
 
     const timer = setInterval(() => {
       checkContractSignature(email);
-    }, 15000);
+    }, 10 * 60 * 1000);
 
     return () => clearInterval(timer);
   }, [form.applicantEmail, contractStatus.signed]);
+
+  useEffect(() => {
+    const prev = signedRef.current;
+    if (!prev && contractStatus.signed && contractStatus.checkedEmail) {
+      setShowSignedToast(true);
+      const t = setTimeout(() => setShowSignedToast(false), 4500);
+      signedRef.current = contractStatus.signed;
+      return () => clearTimeout(t);
+    }
+    signedRef.current = contractStatus.signed;
+  }, [contractStatus.signed, contractStatus.checkedEmail]);
 
   const canSubmit = useMemo(() => {
     const writerOk = form.policyWriterName === 'Other'
@@ -421,6 +434,24 @@ export default function InnerCircleAppSubmitPage() {
 
   return (
     <main className="publicPage">
+      {showSignedToast ? (
+        <div
+          style={{
+            position: 'fixed',
+            right: 16,
+            top: 16,
+            zIndex: 70,
+            background: '#16a34a',
+            color: '#ffffff',
+            padding: '10px 14px',
+            borderRadius: 10,
+            boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+            fontWeight: 600
+          }}
+        >
+          ✅ Contract signed — you can submit the application now.
+        </div>
+      ) : null}
       <div className="panel" style={{ maxWidth: 840 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <div>
