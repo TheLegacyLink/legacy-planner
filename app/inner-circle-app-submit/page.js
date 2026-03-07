@@ -551,7 +551,7 @@ export default function InnerCircleAppSubmitPage() {
                     </label>
                   </>
                 ) : null}
-                <a className="ghost" href="/contract-agreement" target="_blank" rel="noreferrer">Open Agreement / DocuSign</a>
+                {null}
               </>
             ) : null}
           </div>
