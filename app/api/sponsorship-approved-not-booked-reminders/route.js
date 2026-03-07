@@ -4,6 +4,7 @@ import { loadJsonFile, saveJsonFile, loadJsonStore } from '../../../lib/blobJson
 
 const APPS_PATH = 'stores/sponsorship-applications.json';
 const BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
+const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
 const REMINDER_STATE_PATH = 'stores/sponsorship-approved-not-booked-reminders.json';
 
 const REF_CODE_MAP = {
@@ -62,6 +63,25 @@ function isBooked(app = {}, bookings = []) {
   });
 }
 
+function hasSubmittedPolicy(app = {}, policyRows = []) {
+  const appNameKey = normalizeNameKey(applicantName(app));
+  const appEmail = normalize(app?.email || app?.applicant_email || '');
+  const appPhone = clean(app?.phone || app?.applicant_phone || '').replace(/\D/g, '');
+
+  return (policyRows || []).some((p) => {
+    const pStatus = normalize(p?.status || 'submitted');
+    if (!['submitted', 'approved', 'declined', 'paid', 'pending'].some((k) => pStatus.includes(k))) return false;
+
+    const pNameKey = normalizeNameKey(p?.applicantName || '');
+    const pEmail = normalize(p?.applicantEmail || '');
+    const pPhone = clean(p?.applicantPhone || '').replace(/\D/g, '');
+
+    return (appNameKey && pNameKey && appNameKey === pNameKey)
+      || (appEmail && pEmail && appEmail === pEmail)
+      || (appPhone && pPhone && appPhone === pPhone);
+  });
+}
+
 function referredAgentName(app = {}) {
   const direct = clean(app?.referralName || app?.referredBy || app?.referred_by || '');
   if (direct) return direct;
@@ -116,6 +136,7 @@ async function sendBrandedEmail({ to = '', subject = '', text = '', htmlBody = '
 export async function POST() {
   const apps = await loadJsonStore(APPS_PATH, []);
   const bookings = await loadJsonStore(BOOKINGS_PATH, []);
+  const policyRows = await loadJsonStore(POLICY_SUBMISSIONS_PATH, []);
   const state = await loadJsonFile(REMINDER_STATE_PATH, { byId: {}, updatedAt: '' });
 
   const byId = { ...(state?.byId || {}) };
@@ -130,6 +151,7 @@ export async function POST() {
   for (const app of apps) {
     if (!isApproved(app)) continue;
     if (isBooked(app, bookings)) continue;
+    if (hasSubmittedPolicy(app, policyRows)) continue;
 
     const anchor = approvedAnchor(app);
     if (!anchor) continue;
