@@ -82,6 +82,7 @@ export default function InnerCircleAppSubmitPage() {
   const [showSignedToast, setShowSignedToast] = useState(false);
   const [prefill, setPrefill] = useState(null);
   const [prefillApplied, setPrefillApplied] = useState(false);
+  const [adminBypassContractGate, setAdminBypassContractGate] = useState(false);
   const signedRef = useRef(false);
 
   const [authLoading, setAuthLoading] = useState(true);
@@ -259,9 +260,9 @@ export default function InnerCircleAppSubmitPage() {
       writerOk &&
       form.state.trim() &&
       form.monthlyPremium !== '' &&
-      contractStatus.signed
+      (contractStatus.signed || (isAdmin && adminBypassContractGate))
     );
-  }, [form, contractStatus.signed]);
+  }, [form, contractStatus.signed, isAdmin, adminBypassContractGate]);
 
   async function sendAgreementLinkEmail() {
     const applicantName = String(form.applicantName || '').trim();
@@ -388,7 +389,8 @@ export default function InnerCircleAppSubmitPage() {
       payoutStatus: 'Unpaid',
       payoutAmount: 0,
       contractSignedAt: contractStatus.signedAt || new Date().toISOString(),
-      contractSignatureVerified: Boolean(contractStatus.signed)
+      contractSignatureVerified: Boolean(contractStatus.signed),
+      contractGateBypassedByAdmin: Boolean(isAdmin && adminBypassContractGate && !contractStatus.signed)
     };
 
     if (typeof window !== 'undefined') {
@@ -535,9 +537,19 @@ export default function InnerCircleAppSubmitPage() {
                   Refresh Signature Status
                 </button>
                 {isAdmin ? (
-                  <button type="button" className="ghost" onClick={adminMarkSigned} disabled={contractEmailBusy}>
-                    Mark Signed (Admin)
-                  </button>
+                  <>
+                    <button type="button" className="ghost" onClick={adminMarkSigned} disabled={contractEmailBusy}>
+                      Mark Signed (Admin)
+                    </button>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <input
+                        type="checkbox"
+                        checked={adminBypassContractGate}
+                        onChange={(e) => setAdminBypassContractGate(e.target.checked)}
+                      />
+                      Admin bypass contract gate
+                    </label>
+                  </>
                 ) : null}
                 <a className="ghost" href="/contract-agreement" target="_blank" rel="noreferrer">Open Agreement / DocuSign</a>
               </>
@@ -553,6 +565,11 @@ export default function InnerCircleAppSubmitPage() {
           {contractLastCheckedAt ? (
             <small className="muted" style={{ gridColumn: '1 / -1' }}>
               Signature status last checked: {new Date(contractLastCheckedAt).toLocaleString()}
+            </small>
+          ) : null}
+          {isAdmin && adminBypassContractGate ? (
+            <small className="muted" style={{ gridColumn: '1 / -1', color: '#92400e' }}>
+              Admin bypass is ON for this submission.
             </small>
           ) : null}
 
