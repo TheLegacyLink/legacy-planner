@@ -33,25 +33,44 @@ function isWithinPriorityWindow(row = {}) {
   return exp.getTime() > Date.now();
 }
 
+function rowTimestamp(row = {}) {
+  const ts = new Date(row?.created_at || row?.booked_at || row?.updated_at || 0).getTime();
+  return Number.isFinite(ts) ? ts : 0;
+}
+
+function olderThanHours(row = {}, hours = 24) {
+  const ts = rowTimestamp(row);
+  if (!ts) return false;
+  return (Date.now() - ts) > (Number(hours || 24) * 60 * 60 * 1000);
+}
+
 function refreshExpired(rows = []) {
   const now = Date.now();
   let changed = false;
-  const out = rows.map((row) => {
-    const claimed = normalize(row?.claim_status).startsWith('claimed') || clean(row?.claimed_by);
-    if (claimed) return row;
-    if (!clean(row?.priority_agent) || row?.priority_released) return row;
+  const out = rows
+    .map((row) => {
+      const claimed = normalize(row?.claim_status).startsWith('claimed') || clean(row?.claimed_by);
+      if (claimed) return row;
+      if (!clean(row?.priority_agent) || row?.priority_released) return row;
 
-    const exp = new Date(row?.priority_expires_at || 0);
-    if (Number.isNaN(exp.getTime()) || exp.getTime() > now) return row;
+      const exp = new Date(row?.priority_expires_at || 0);
+      if (Number.isNaN(exp.getTime()) || exp.getTime() > now) return row;
 
-    changed = true;
-    return {
-      ...row,
-      priority_released: true,
-      claim_status: 'Open',
-      updated_at: nowIso()
-    };
-  });
+      changed = true;
+      return {
+        ...row,
+        priority_released: true,
+        claim_status: 'Open',
+        updated_at: nowIso()
+      };
+    })
+    .filter((row) => {
+      if (olderThanHours(row, 24)) {
+        changed = true;
+        return false;
+      }
+      return true;
+    });
 
   return { rows: out, changed };
 }

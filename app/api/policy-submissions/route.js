@@ -10,6 +10,7 @@ const SPONSORSHIP_APPS_STORE_PATH = 'stores/sponsorship-applications.json';
 const MEMBERS_PATH = 'stores/sponsorship-program-members.json';
 const INVITES_PATH = 'stores/sponsorship-sop-invites.json';
 const AUTH_USERS_PATH = 'stores/sponsorship-sop-auth-users.json';
+const SPONSORSHIP_BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
 
 const DEFAULT_SKOOL_URL = 'https://www.skool.com/legacylink/about';
 const DEFAULT_YOUTUBE_URL = 'https://youtu.be/SVvU9SvCH9o?si=H9BNtEDzglTuvJaI';
@@ -69,6 +70,24 @@ function refCodeFromName(name = '') {
 
 function applicantNameKey(name = '') {
   return clean(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function phoneKey(v = '') {
+  return clean(v).replace(/\D/g, '');
+}
+
+function bookingMatchesApplicant(booking = {}, rec = {}) {
+  const bEmail = clean(booking?.applicant_email || booking?.email || '').toLowerCase();
+  const rEmail = clean(rec?.applicantEmail || '').toLowerCase();
+  if (bEmail && rEmail && bEmail === rEmail) return true;
+
+  const bPhone = phoneKey(booking?.applicant_phone || booking?.phone || '');
+  const rPhone = phoneKey(rec?.applicantPhone || '');
+  if (bPhone && rPhone && bPhone === rPhone) return true;
+
+  const bName = applicantNameKey(clean(`${booking?.applicant_first_name || ''} ${booking?.applicant_last_name || ''}`) || booking?.applicant_name || '');
+  const rName = applicantNameKey(rec?.applicantName || '');
+  return Boolean(bName && rName && bName === rName);
 }
 
 function findApplicantIndex(rows = [], applicantName = '', exceptId = '') {
@@ -730,9 +749,23 @@ export async function POST(req) {
   await writeStore(store);
 
   const finalRow = idx >= 0 ? store[idx] : duplicateIdx >= 0 ? store[duplicateIdx] : rec;
+
+  let removedFromBookingQueue = 0;
+  try {
+    const bookings = await loadJsonStore(SPONSORSHIP_BOOKINGS_PATH, []);
+    const list = Array.isArray(bookings) ? bookings : [];
+    const kept = list.filter((b) => !bookingMatchesApplicant(b, finalRow));
+    removedFromBookingQueue = list.length - kept.length;
+    if (removedFromBookingQueue > 0) {
+      await saveJsonStore(SPONSORSHIP_BOOKINGS_PATH, kept);
+    }
+  } catch {
+    // non-blocking
+  }
+
   const sop = await ensureSopProvisionFromActSubmit(finalRow).catch((e) => ({ ok: false, error: clean(e?.message || 'sop_provision_failed') }));
 
-  return Response.json({ ok: true, row: finalRow, sop });
+  return Response.json({ ok: true, row: finalRow, sop, removedFromBookingQueue });
 }
 
 export async function PATCH(req) {
