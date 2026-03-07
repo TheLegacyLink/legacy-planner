@@ -253,6 +253,7 @@ export default function ReferrerDashboardPage() {
                 Licensed only
               </label>
             </div>
+            <p className="muted" style={{ marginTop: 8 }}>Progress/stage bars below are policy-pipeline based (Submitted → Approved → Paid). Sponsorship stage is shown separately for context.</p>
             {message ? <p className="muted" style={{ marginTop: 8 }}>{message}</p> : null}
           </section>
 
@@ -296,8 +297,9 @@ export default function ReferrerDashboardPage() {
                     <th>Person</th>
                     <th>Licensed</th>
                     <th>Application</th>
-                    <th>Stage</th>
-                    <th>Progress</th>
+                    <th>Policy Stage</th>
+                    <th>Policy Progress</th>
+                    <th>Sponsorship Stage</th>
                     <th>Policy</th>
                     <th>Status</th>
                     <th>Last Activity</th>
@@ -316,6 +318,7 @@ export default function ReferrerDashboardPage() {
                       <td>{r.appStatus || 'Submitted'}</td>
                       <td>{r.stage || '—'}</td>
                       <td>{r.completedSteps}/{r.totalSteps} ({r.progressPct}%)</td>
+                      <td>{r.sponsorshipStage || '—'}</td>
                       <td>{r.policyStatus || '—'}{r.stalled24h ? ' (stalled 24h+)' : ''}</td>
                       <td><span className="pill" style={badgeStyle(r.bucket)}>{r.bucket === 'on_track' ? 'On Track' : r.bucket === 'stalled' ? 'Stalled' : 'Needs Follow-up'}</span></td>
                       <td>{fmt(r.lastActivityAt)}</td>
@@ -342,7 +345,7 @@ export default function ReferrerDashboardPage() {
                       ) : null}
                     </tr>
                   ))}
-                  {!(filteredRows || []).length ? <tr><td colSpan={isAdmin ? 10 : 9} className="muted">No referred people found yet.</td></tr> : null}
+                  {!(filteredRows || []).length ? <tr><td colSpan={isAdmin ? 11 : 10} className="muted">No referred people found yet.</td></tr> : null}
                 </tbody>
               </table>
             </div>

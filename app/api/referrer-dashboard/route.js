@@ -124,6 +124,29 @@ function viewerPayoutForPolicy(row = {}, viewerName = '') {
   return { payout: 0, role: 'none' };
 }
 
+function policyProgressModel(policy = {}) {
+  const status = normalize(policy?.status || '');
+  const payoutStatus = normalize(policy?.payoutStatus || '');
+
+  if (!status) {
+    return { stage: 'No Policy Submitted Yet', completed: 0, total: 3, progressPct: 0, bucket: 'needs_followup' };
+  }
+
+  if (status.startsWith('declined')) {
+    return { stage: 'Policy Declined', completed: 1, total: 3, progressPct: 33, bucket: 'needs_followup' };
+  }
+
+  if (status.startsWith('approved') && payoutStatus === 'paid') {
+    return { stage: 'Paid Out', completed: 3, total: 3, progressPct: 100, bucket: 'on_track' };
+  }
+
+  if (status.startsWith('approved')) {
+    return { stage: 'Approved (Unpaid)', completed: 2, total: 3, progressPct: 67, bucket: 'on_track' };
+  }
+
+  return { stage: 'Policy Submitted', completed: 1, total: 3, progressPct: 33, bucket: 'needs_followup' };
+}
+
 function statusBucket({ stalled24h = false, leadAccessActive = false, progressPct = 0 } = {}) {
   if (stalled24h) return 'stalled';
   if (leadAccessActive || progressPct >= 85) return 'on_track';
@@ -199,6 +222,8 @@ export async function GET(req) {
     const policyStatus = clean(policy?.status || '');
     const policyTs = new Date(policy?.updatedAt || policy?.submittedAt || 0).getTime();
     const stalled24h = Boolean(policyStatus && !['approved', 'declined'].includes(normalize(policyStatus)) && Number.isFinite(policyTs) && nowMs - policyTs >= 24 * 60 * 60 * 1000);
+    const policyModel = policyProgressModel(policy);
+    const finalBucket = stalled24h ? 'stalled' : policyModel.bucket;
 
     rows.push({
       personKey: pKey,
@@ -210,16 +235,17 @@ export async function GET(req) {
       originalReferrer,
       effectiveReferrer,
       delegatedBy: clean(delegate?.delegatedBy || ''),
-      progressPct: step.progressPct,
-      completedSteps: step.approved,
-      totalSteps: step.total,
-      stage: step.stage,
+      progressPct: policyModel.progressPct,
+      completedSteps: policyModel.completed,
+      totalSteps: policyModel.total,
+      stage: policyModel.stage,
+      sponsorshipStage: step.stage,
       leadAccessActive: Boolean(member?.leadAccessActive),
       policyStatus,
       policyUpdatedAt: clean(policy?.updatedAt || policy?.submittedAt || ''),
       stalled24h,
-      bucket: statusBucket({ stalled24h, leadAccessActive: Boolean(member?.leadAccessActive), progressPct: step.progressPct }),
-      lastActivityAt: clean(member?.updatedAt || app?.updatedAt || app?.submitted_at || ''),
+      bucket: finalBucket,
+      lastActivityAt: clean(policy?.updatedAt || policy?.submittedAt || member?.updatedAt || app?.updatedAt || app?.submitted_at || ''),
       sopUrl: invite?.token ? `${appUrl}/sponsorship-sop?invite=${encodeURIComponent(invite.token)}` : `${appUrl}/sponsorship-sop`
     });
   }
