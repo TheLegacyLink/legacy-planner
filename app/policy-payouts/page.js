@@ -263,6 +263,12 @@ export default function PolicyPayoutsPage() {
         setSyncMsg(`Telephone interview email failed: ${data?.error || 'unknown_error'}`);
         return;
       }
+
+      const sentAt = new Date().toISOString();
+      await patchRow(id, {
+        interviewEmailSentAt: sentAt,
+        interviewEmailSentBy: session?.name || 'Kimora'
+      });
       setSyncMsg(`Telephone interview email sent for ${applicantName}.`);
     } finally {
       setEmailingId('');
@@ -592,6 +598,8 @@ export default function PolicyPayoutsPage() {
                       {r.sopInviteSentAt ? 'SOP Invite ✅' : 'SOP Invite ⏳'}
                       <br />
                       {r.backOfficeNotifiedAt ? 'Back Office ✅' : 'Back Office ⏳'}
+                      <br />
+                      {r.interviewEmailSentAt ? `Interview Email ✅ (${fmtDate(r.interviewEmailSentAt)})` : 'Interview Email ⏳'}
                       <br />
                       {r.payoutEmailSentAt ? 'Payout Paid Email ✅' : 'Payout Email ⏳'}
                     </td>
