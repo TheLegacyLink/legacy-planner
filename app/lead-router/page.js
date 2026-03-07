@@ -50,6 +50,22 @@ export default function LeadRouterPage() {
   const [bulkTargetAgent, setBulkTargetAgent] = useState('');
   const [selectedWeekLeadIds, setSelectedWeekLeadIds] = useState([]);
   const [innerCircleNames, setInnerCircleNames] = useState([]);
+  const [onboardingRows, setOnboardingRows] = useState([]);
+  const [newAgent, setNewAgent] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    ghlUserId: '',
+    leadConnectorEmail: '',
+    leadConnectorPassword: '',
+    group: 'general',
+    active: true,
+    paused: false,
+    delayedReleaseEnabled: true,
+    capPerDay: '',
+    capPerWeek: '',
+    capPerMonth: ''
+  });
   const [ghlSyncSummary, setGhlSyncSummary] = useState({ total: 0, success: 0, failed: 0, recentAttempts: [], recentFailures: [] });
 
   async function load() {
@@ -196,6 +212,49 @@ export default function LeadRouterPage() {
 
   function clearWeekLeadSelection() {
     setSelectedWeekLeadIds([]);
+  }
+
+  async function saveNewAgent() {
+    if (!newAgent.name.trim()) {
+      alert('Agent name is required.');
+      return;
+    }
+
+    const payload = {
+      mode: 'upsert',
+      ...newAgent
+    };
+
+    const res = await fetch('/api/agent-onboarding', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) {
+      alert(`Agent onboarding save failed: ${data?.error || 'unknown_error'}`);
+      return;
+    }
+
+    setNewAgent((s) => ({ ...s, name: '', email: '', phone: '', ghlUserId: '', leadConnectorEmail: '', leadConnectorPassword: '' }));
+    await load();
+  }
+
+  async function removeOnboardingAgent(name = '') {
+    if (!name) return;
+    if (!confirm(`Remove onboarding profile for ${name}?`)) return;
+
+    const res = await fetch('/api/agent-onboarding', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'remove', name })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) {
+      alert(`Remove failed: ${data?.error || 'unknown_error'}`);
+      return;
+    }
+    await load();
   }
 
   const summary = useMemo(() => {
@@ -355,6 +414,53 @@ export default function LeadRouterPage() {
       </div>
 
       <div className="panel" style={{ marginBottom: 10 }}>
+        <h3 style={{ marginTop: 0 }}>New Agent Setup (Scale)</h3>
+        <small className="muted">Use this once per new agent (inner circle or everyone else). It syncs into Lead Router automatically.</small>
+        <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+          <input placeholder="Full name" value={newAgent.name} onChange={(e) => setNewAgent((s) => ({ ...s, name: e.target.value }))} />
+          <input placeholder="Email" value={newAgent.email} onChange={(e) => setNewAgent((s) => ({ ...s, email: e.target.value }))} />
+          <input placeholder="Phone" value={newAgent.phone} onChange={(e) => setNewAgent((s) => ({ ...s, phone: e.target.value }))} />
+          <input placeholder="GHL User ID" value={newAgent.ghlUserId} onChange={(e) => setNewAgent((s) => ({ ...s, ghlUserId: e.target.value }))} />
+          <input placeholder="Lead Connector Email" value={newAgent.leadConnectorEmail} onChange={(e) => setNewAgent((s) => ({ ...s, leadConnectorEmail: e.target.value }))} />
+          <input placeholder="Lead Connector Temp Password" value={newAgent.leadConnectorPassword} onChange={(e) => setNewAgent((s) => ({ ...s, leadConnectorPassword: e.target.value }))} />
+          <label>
+            Group
+            <select value={newAgent.group} onChange={(e) => setNewAgent((s) => ({ ...s, group: e.target.value }))} style={{ marginLeft: 6 }}>
+              <option value="inner">Inner Circle</option>
+              <option value="general">Everyone Else</option>
+            </select>
+          </label>
+          <button type="button" onClick={saveNewAgent}>Save Agent</button>
+        </div>
+
+        <table style={{ marginTop: 8 }}>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Group</th>
+              <th>Email</th>
+              <th>GHL User ID</th>
+              <th>Connector Login</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(onboardingRows || []).slice(0, 100).map((r) => (
+              <tr key={r.name}>
+                <td>{r.name}</td>
+                <td>{r.group === 'inner' ? 'Inner Circle' : 'Everyone Else'}</td>
+                <td>{r.email || '—'}</td>
+                <td>{r.ghlUserId || '—'}</td>
+                <td>{r.leadConnectorEmail || '—'}</td>
+                <td><button type="button" className="ghost" onClick={() => removeOnboardingAgent(r.name)}>Remove</button></td>
+              </tr>
+            ))}
+            {!(onboardingRows || []).length ? <tr><td colSpan={6} className="muted">No onboarding profiles yet.</td></tr> : null}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 10 }}>
         <h3 style={{ marginTop: 0 }}>Delayed Release Monitor</h3>
         <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
           <span className="pill">Released now: {releaseRun?.released ?? 0}</span>
@@ -445,10 +551,10 @@ export default function LeadRouterPage() {
         <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
           <span className="pill">Unsubmitted this week: {weekUnsubmittedLeads.length}</span>
           <span className="pill">Selected: {selectedWeekLeadIds.length}</span>
-          <button type="button" className="ghost" onClick={selectAllWeekLeads} disabled={!weekUnsubmittedLeads.length}>Select Visible</button>
-          <button type="button" className="ghost" onClick={clearWeekLeadSelection} disabled={!selectedWeekLeadIds.length}>Clear Selection</button>
-          <button type="button" onClick={() => bulkReleaseWeekUnsubmitted('auto')} disabled={!weekUnsubmittedLeads.length}>Auto-Assign ALL (Balanced)</button>
-          <button type="button" onClick={() => bulkReleaseWeekUnsubmitted('auto', true)} disabled={!selectedWeekLeadIds.length}>Auto-Assign SELECTED (Balanced)</button>
+          <button type="button" className="ghost" style={tinyBtn} onClick={selectAllWeekLeads} disabled={!weekUnsubmittedLeads.length}>Select Visible</button>
+          <button type="button" className="ghost" style={tinyBtn} onClick={clearWeekLeadSelection} disabled={!selectedWeekLeadIds.length}>Clear Selection</button>
+          <button type="button" style={tinyBtn} onClick={() => bulkReleaseWeekUnsubmitted('auto')} disabled={!weekUnsubmittedLeads.length}>Auto-Assign ALL</button>
+          <button type="button" style={tinyBtn} onClick={() => bulkReleaseWeekUnsubmitted('auto', true)} disabled={!selectedWeekLeadIds.length}>Auto-Assign SELECTED</button>
           <label>
             Target Agent
             <select
@@ -456,11 +562,16 @@ export default function LeadRouterPage() {
               onChange={(e) => setBulkTargetAgent(e.target.value)}
               style={{ marginLeft: 6 }}
             >
-              {(settings?.agents || []).map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
+              <optgroup label="Inner Circle">
+                {innerCircleAgentRows.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
+              </optgroup>
+              <optgroup label="Everyone Else">
+                {nonInnerCircleAgentRows.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
+              </optgroup>
             </select>
           </label>
-          <button type="button" className="ghost" onClick={() => bulkReleaseWeekUnsubmitted('agent')} disabled={!weekUnsubmittedLeads.length || !bulkTargetAgent}>Assign ALL To Agent</button>
-          <button type="button" className="ghost" onClick={() => bulkReleaseWeekUnsubmitted('agent', true)} disabled={!selectedWeekLeadIds.length || !bulkTargetAgent}>Assign SELECTED To Agent</button>
+          <button type="button" className="ghost" style={tinyBtn} onClick={() => bulkReleaseWeekUnsubmitted('agent')} disabled={!weekUnsubmittedLeads.length || !bulkTargetAgent}>Assign ALL To Target</button>
+          <button type="button" className="ghost" style={tinyBtn} onClick={() => bulkReleaseWeekUnsubmitted('agent', true)} disabled={!selectedWeekLeadIds.length || !bulkTargetAgent}>Assign SELECTED To Target</button>
         </div>
 
         <table>

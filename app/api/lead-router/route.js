@@ -9,6 +9,7 @@ const EVENTS_PATH = 'stores/lead-router-events.json';
 const CALLER_PATH = 'stores/caller-leads.json';
 const SPONSORSHIP_PATH = 'stores/sponsorship-applications.json';
 const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
+const AGENT_ONBOARDING_PATH = 'stores/agent-onboarding.json';
 
 const DEFAULT_SETTINGS = {
   enabled: true,
@@ -44,18 +45,79 @@ function clean(v = '') {
   return String(v || '').trim();
 }
 
+const AGENT_NAME_ALIASES = {
+  'latricia wright': 'Leticia Wright',
+  'latrisha wright': 'Leticia Wright'
+};
+
+function normalizeAgentLabel(name = '') {
+  const nm = clean(name);
+  if (!nm) return '';
+  return AGENT_NAME_ALIASES[nm.toLowerCase()] || nm;
+}
+
 function normalize(v = '') {
   return clean(v).toLowerCase().replace(/\s+/g, ' ');
 }
 
-function findUserEmailByName(name = '') {
-  const n = normalize(name);
-  const hit = (users || []).find((u) => normalize(u?.name || '') === n);
-  return clean(hit?.email || '');
+function safeJsonParse(raw, fallback = {}) {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
 }
 
-async function sendLeadAssignedEmail({ assignedTo = '', previousOwner = '', row = {}, reason = '' } = {}) {
-  const to = findUserEmailByName(assignedTo);
+function buildAgentDirectory(rows = []) {
+  const byName = new Map();
+  for (const r of (rows || [])) {
+    const key = normalize(r?.name || '');
+    if (!key) continue;
+    byName.set(key, r);
+  }
+  return { byName };
+}
+
+function findUserEmailByName(name = '', directory = null) {
+  const n = normalize(name);
+  const hit = (users || []).find((u) => normalize(u?.name || '') === n);
+  if (clean(hit?.email)) return clean(hit.email);
+
+  const mappedDir = clean(directory?.byName?.get(n)?.email || '');
+  if (mappedDir) return mappedDir;
+
+  const map = safeJsonParse(process.env.LEAD_AGENT_EMAIL_MAP_JSON || '{}', {});
+  const mapped = clean(map?.[name] || map?.[n] || '');
+  return mapped;
+}
+
+function leadConnectorCredentialForAgent(name = '', directory = null) {
+  const dir = directory?.byName?.get(normalize(name));
+  if (dir && (clean(dir?.leadConnectorEmail) || clean(dir?.leadConnectorPassword))) {
+    return {
+      email: clean(dir?.leadConnectorEmail || ''),
+      password: clean(dir?.leadConnectorPassword || '')
+    };
+  }
+
+  const map = safeJsonParse(process.env.LEAD_CONNECTOR_CREDENTIALS_JSON || '{}', {});
+  const direct = map?.[name];
+  const byLower = map?.[normalize(name)];
+  const cfg = direct || byLower || null;
+  if (!cfg || typeof cfg !== 'object') return null;
+  return {
+    email: clean(cfg.email || ''),
+    password: clean(cfg.password || '')
+  };
+}
+
+function hadPriorAssignments(events = [], assignedTo = '') {
+  const target = normalizeAgentLabel(assignedTo).toLowerCase();
+  return (events || []).some((e) => ASSIGNMENT_EVENT_TYPES.has(clean(e?.type || '')) && normalizeAgentLabel(e?.assignedTo || '').toLowerCase() === target);
+}
+
+async function sendLeadAssignedEmail({ assignedTo = '', previousOwner = '', row = {}, reason = '', isFirstLead = false, agentDirectory = null } = {}) {
+  const to = findUserEmailByName(assignedTo, agentDirectory);
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
   const from = clean(process.env.GMAIL_FROM) || user;
@@ -65,6 +127,21 @@ async function sendLeadAssignedEmail({ assignedTo = '', previousOwner = '', row 
   const leadName = clean(row?.name || 'Unknown Lead');
   const leadPhone = clean(row?.phone || '—');
   const leadEmail = clean(row?.email || '—');
+
+  const leadConnectorUrl = clean(process.env.LEAD_CONNECTOR_URL || 'https://app.gohighlevel.com');
+  const cred = leadConnectorCredentialForAgent(assignedTo, agentDirectory);
+
+  const onboardingText = isFirstLead ? [
+    '',
+    'First Lead Setup (save this):',
+    `Lead Connector Login: ${leadConnectorUrl}`,
+    cred?.email ? `Login Email: ${cred.email}` : 'Login Email: (use your assigned login)',
+    cred?.password ? `Temporary Password: ${cred.password}` : '',
+    'Back Office: https://innercirclelink.com/referrer-dashboard',
+    '',
+    'Suggested first-contact script:',
+    '“Hi [First Name], this is [Your Name] with The Legacy Link. I saw your request and wanted to connect quickly to answer any questions and help you get started.”'
+  ].filter(Boolean) : [];
 
   const subject = `New Lead Assigned: ${leadName}`;
   const text = [
@@ -77,11 +154,22 @@ async function sendLeadAssignedEmail({ assignedTo = '', previousOwner = '', row 
     `Email: ${leadEmail}`,
     `Previous Owner: ${previousOwner || '—'}`,
     `Assignment Type: ${reason || 'router_assignment'}`,
+    ...onboardingText,
     '',
     'Please reach out as soon as possible.',
     '',
     '— The Legacy Link Support Team'
   ].join('\n');
+
+  const onboardingHtml = isFirstLead ? `
+    <div style="margin-top:14px;padding:12px;border:1px solid #c7d2fe;border-radius:10px;background:#eef2ff;">
+      <p style="margin:0 0 8px;"><strong>First Lead Setup (save this)</strong></p>
+      <p style="margin:4px 0;"><strong>Lead Connector:</strong> <a href="${leadConnectorUrl}" target="_blank" rel="noreferrer">${leadConnectorUrl}</a></p>
+      <p style="margin:4px 0;"><strong>Login Email:</strong> ${cred?.email || '(use your assigned login)'}</p>
+      ${cred?.password ? `<p style="margin:4px 0;"><strong>Temporary Password:</strong> ${cred.password}</p>` : ''}
+      <p style="margin:4px 0;"><strong>Back Office:</strong> <a href="https://innercirclelink.com/referrer-dashboard" target="_blank" rel="noreferrer">https://innercirclelink.com/referrer-dashboard</a></p>
+      <p style="margin:8px 0 0;"><strong>Suggested first-contact script:</strong><br/>“Hi [First Name], this is [Your Name] with The Legacy Link. I saw your request and wanted to connect quickly to answer any questions and help you get started.”</p>
+    </div>` : '';
 
   try {
     const info = await tx.sendMail({
@@ -101,6 +189,7 @@ async function sendLeadAssignedEmail({ assignedTo = '', previousOwner = '', row 
           <li><strong>Previous Owner:</strong> ${previousOwner || '—'}</li>
           <li><strong>Assignment Type:</strong> ${reason || 'router_assignment'}</li>
         </ul>
+        ${onboardingHtml}
         <p>Please reach out as soon as possible.</p>
         <p>— The Legacy Link Support Team</p>
       </div>`
@@ -111,18 +200,13 @@ async function sendLeadAssignedEmail({ assignedTo = '', previousOwner = '', row 
   }
 }
 
-function safeJsonParse(raw, fallback = {}) {
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-}
-
-function resolveOwnerUserId(assignedToName = '') {
+function resolveOwnerUserId(assignedToName = '', directory = null) {
   const map = safeJsonParse(process.env.GHL_USER_ID_MAP_JSON || '{}', {});
   const direct = map?.[assignedToName];
   if (direct) return String(direct);
+
+  const mappedDir = clean(directory?.byName?.get(normalize(assignedToName))?.ghlUserId || '');
+  if (mappedDir) return mappedDir;
 
   const fallback = clean(process.env.GHL_FALLBACK_USER_ID || '');
   return fallback || '';
@@ -180,9 +264,9 @@ async function updateGhlContactOwner({ contactId, assignedUserId }) {
   return { ok: false, reason: 'ghl_update_failed', detail: lastError };
 }
 
-async function syncGhlOwnerForRelease({ row = {}, assignedTo = '' } = {}) {
+async function syncGhlOwnerForRelease({ row = {}, assignedTo = '', agentDirectory = null } = {}) {
   const contactId = clean(row?.externalId || row?.contactId || row?.id || '');
-  const assignedUserId = resolveOwnerUserId(assignedTo);
+  const assignedUserId = resolveOwnerUserId(assignedTo, agentDirectory);
   if (!contactId || !assignedUserId) return { ok: false, reason: 'missing_contact_or_user' };
   return await updateGhlContactOwner({ contactId, assignedUserId });
 }
@@ -833,7 +917,7 @@ function buildCallMetrics(settings, leads = [], sponsorshipMap = new Map(), owne
   };
 }
 
-async function runDelayedReleasePass({ settings, leads, events, submittedBlockLookup = new Set(), now = new Date() }) {
+async function runDelayedReleasePass({ settings, leads, events, submittedBlockLookup = new Set(), agentDirectory = null, now = new Date() }) {
   if (!shouldRunDelayedRelease(settings)) {
     return { released: 0, blockedSubmitted: 0, blockedManualHold: 0, waitingWindow: 0, waitingEligibleAgent: 0 };
   }
@@ -905,6 +989,7 @@ async function runDelayedReleasePass({ settings, leads, events, submittedBlockLo
     }
 
     const previousOwner = clean(row?.owner || settings?.overflowAgent || 'Kimora Link');
+    const isFirstLeadForAgent = !hadPriorAssignments(events, picked.name);
     row.owner = picked.name;
     row.releaseStatus = 'released_to_agent';
     row.releasedAt = nowIso();
@@ -951,7 +1036,7 @@ async function runDelayedReleasePass({ settings, leads, events, submittedBlockLo
       }
     });
 
-    const ghlSync = await syncGhlOwnerForRelease({ row, assignedTo: picked.name });
+    const ghlSync = await syncGhlOwnerForRelease({ row, assignedTo: picked.name, agentDirectory });
     events.push({
       id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       type: 'ghl_owner_sync',
@@ -975,7 +1060,9 @@ async function runDelayedReleasePass({ settings, leads, events, submittedBlockLo
       assignedTo: picked.name,
       previousOwner,
       row,
-      reason: '24h_no_sponsorship_submit'
+      reason: '24h_no_sponsorship_submit',
+      isFirstLead: isFirstLeadForAgent,
+      agentDirectory
     });
     events.push({
       id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1049,7 +1136,7 @@ export async function GET(req) {
 
   let releaseRun = { released: 0, blockedSubmitted: 0, blockedManualHold: 0, waitingWindow: 0, waitingEligibleAgent: 0 };
   if (runRelease) {
-    releaseRun = await runDelayedReleasePass({ settings, leads, events, submittedBlockLookup, now: new Date() });
+    releaseRun = await runDelayedReleasePass({ settings, leads, events, submittedBlockLookup, agentDirectory, now: new Date() });
     if (releaseRun.released || releaseRun.blockedSubmitted || releaseRun.blockedManualHold || releaseRun.waitingEligibleAgent) {
       await saveJsonStore(CALLER_PATH, leads);
       const trimmedReleaseEvents = events
@@ -1281,6 +1368,7 @@ export async function PATCH(req) {
       if (!pickedName) continue;
 
       const previousOwner = clean(row?.owner || settings?.overflowAgent || 'Kimora Link');
+      const isFirstLeadForAgent = !hadPriorAssignments(events, pickedName);
       row.owner = pickedName;
       row.releaseStatus = 'released_to_agent';
       row.releaseReason = strategy === 'agent' ? 'manual_bulk_release_target_agent' : 'manual_bulk_release_auto';
@@ -1313,7 +1401,7 @@ export async function PATCH(req) {
         routingMode: settings.routingMode || 'live'
       });
 
-      const ghlSync = await syncGhlOwnerForRelease({ row, assignedTo: pickedName });
+      const ghlSync = await syncGhlOwnerForRelease({ row, assignedTo: pickedName, agentDirectory });
       events.push({
         id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         type: 'ghl_owner_sync',
@@ -1352,7 +1440,9 @@ export async function PATCH(req) {
         assignedTo: pickedName,
         previousOwner,
         row,
-        reason: row.releaseReason
+        reason: row.releaseReason,
+        isFirstLead: isFirstLeadForAgent,
+        agentDirectory
       });
       events.push({
         id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1406,12 +1496,14 @@ export async function POST(req) {
   const leads = await loadJsonStore(CALLER_PATH, []);
   const sponsorship = await loadJsonStore(SPONSORSHIP_PATH, []);
   const policySubmissions = await loadJsonStore(POLICY_SUBMISSIONS_PATH, []);
+  const agentOnboarding = await loadJsonStore(AGENT_ONBOARDING_PATH, []);
+  const agentDirectory = buildAgentDirectory(agentOnboarding);
   const submittedBlockLookup = buildSubmittedBlockLookup(sponsorship, policySubmissions);
   const now = new Date();
 
   const mode = clean(body?.mode || '').toLowerCase();
   if (mode === 'run-delayed-release' || mode === 'process-delayed-release') {
-    const releaseRun = await runDelayedReleasePass({ settings, leads, events, submittedBlockLookup, now });
+    const releaseRun = await runDelayedReleasePass({ settings, leads, events, submittedBlockLookup, agentDirectory, now });
     if (releaseRun.released || releaseRun.blockedSubmitted || releaseRun.blockedManualHold || releaseRun.waitingEligibleAgent) {
       await saveJsonStore(CALLER_PATH, leads);
       const trimmed = events.sort((a, b) => new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime()).slice(-5000);
@@ -1420,7 +1512,7 @@ export async function POST(req) {
     return Response.json({ ok: true, mode: 'process-delayed-release', releaseRun });
   }
 
-  const releaseRun = await runDelayedReleasePass({ settings, leads, events, submittedBlockLookup, now });
+  const releaseRun = await runDelayedReleasePass({ settings, leads, events, submittedBlockLookup, agentDirectory, now });
 
   const incoming = parseLeadPayload(body);
   const keys = {
