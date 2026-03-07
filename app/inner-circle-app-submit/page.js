@@ -227,7 +227,7 @@ export default function InnerCircleAppSubmitPage() {
 
     const timer = setInterval(() => {
       checkContractSignature(email);
-    }, 10 * 60 * 1000);
+    }, 60 * 60 * 1000);
 
     return () => clearInterval(timer);
   }, [form.applicantEmail, contractStatus.signed]);

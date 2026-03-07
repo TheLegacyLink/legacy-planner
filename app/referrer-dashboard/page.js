@@ -18,6 +18,26 @@ function badgeStyle(bucket = '') {
   return { background: '#fef9c3', color: '#854d0e' };
 }
 
+function buildAppSubmitPrefillUrl(row = {}) {
+  const sp = new URLSearchParams();
+  const push = (k, v) => {
+    const val = clean(v);
+    if (val) sp.set(k, val);
+  };
+
+  push('ref', row?.refCode || '');
+  push('firstName', row?.firstName || '');
+  push('lastName', row?.lastName || '');
+  push('name', row?.name || '');
+  push('email', row?.email || '');
+  push('phone', row?.phone || '');
+  push('state', row?.state || '');
+  push('licensed', row?.licensedStatus || (row?.licensed ? 'Licensed' : 'Unlicensed'));
+  push('referredBy', row?.referredByRaw || row?.originalReferrer || '');
+
+  return `/inner-circle-app-submit?${sp.toString()}`;
+}
+
 export default function ReferrerDashboardPage() {
   const [auth, setAuth] = useState({ name: '', role: '', email: '' });
   const [loginName, setLoginName] = useState('');
@@ -295,6 +315,7 @@ export default function ReferrerDashboardPage() {
                     <th>Policy</th>
                     <th>Status</th>
                     <th>Last Activity</th>
+                    <th>Action</th>
                     {isAdmin ? <th>Delegate</th> : null}
                   </tr>
                 </thead>
@@ -312,6 +333,11 @@ export default function ReferrerDashboardPage() {
                       <td>{r.policyStatus || '—'}{r.stalled24h ? ' (stalled 24h+)' : ''}</td>
                       <td><span className="pill" style={badgeStyle(r.bucket)}>{r.bucket === 'on_track' ? 'On Track' : r.bucket === 'stalled' ? 'Stalled' : 'Needs Follow-up'}</span></td>
                       <td>{fmt(r.lastActivityAt)}</td>
+                      <td>
+                        <a className="ghost" href={buildAppSubmitPrefillUrl(r)}>
+                          Submit App
+                        </a>
+                      </td>
                       {isAdmin ? (
                         <td>
                           <div style={{ display: 'flex', gap: 6 }}>
@@ -327,7 +353,7 @@ export default function ReferrerDashboardPage() {
                       ) : null}
                     </tr>
                   ))}
-                  {!(filteredRows || []).length ? <tr><td colSpan={isAdmin ? 9 : 8} className="muted">No referred people found yet.</td></tr> : null}
+                  {!(filteredRows || []).length ? <tr><td colSpan={isAdmin ? 10 : 9} className="muted">No referred people found yet.</td></tr> : null}
                 </tbody>
               </table>
             </div>
