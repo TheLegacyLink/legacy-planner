@@ -220,6 +220,8 @@ export async function GET(req) {
     }, requests);
 
     const policyStatus = clean(policy?.status || '');
+    if (!policyStatus) continue; // Referrer scoreboard rows should be policy-submitted people only.
+
     const policyTs = new Date(policy?.updatedAt || policy?.submittedAt || 0).getTime();
     const stalled24h = Boolean(policyStatus && !['approved', 'declined'].includes(normalize(policyStatus)) && Number.isFinite(policyTs) && nowMs - policyTs >= 24 * 60 * 60 * 1000);
     const policyModel = policyProgressModel(policy);
@@ -271,9 +273,11 @@ export async function GET(req) {
     })
     .map((p) => {
       const payout = viewerPayoutForPolicy(p, viewer.name);
+      const invite = inviteByEmail.get(emailKey(p?.applicantEmail || '')) || null;
       return {
         id: clean(p?.id || ''),
         applicantName: clean(p?.applicantName || ''),
+        applicantEmail: clean(p?.applicantEmail || ''),
         referredByName: clean(p?.referredByName || ''),
         policyWriterName: clean(p?.policyWriterName || ''),
         status: clean(p?.status || 'Submitted') || 'Submitted',
@@ -284,7 +288,8 @@ export async function GET(req) {
         payoutPaidAt: clean(p?.payoutPaidAt || ''),
         monthlyPremium: Number(p?.monthlyPremium || 0) || 0,
         viewerPayout: Number(payout.payout || 0),
-        viewerPayoutRole: payout.role
+        viewerPayoutRole: payout.role,
+        sopUrl: invite?.token ? `${appUrl}/sponsorship-sop?invite=${encodeURIComponent(invite.token)}` : `${appUrl}/sponsorship-sop`
       };
     })
     .sort((a, b) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime());

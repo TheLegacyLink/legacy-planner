@@ -253,7 +253,7 @@ export default function ReferrerDashboardPage() {
                 Licensed only
               </label>
             </div>
-            <p className="muted" style={{ marginTop: 8 }}>Progress/stage bars below are policy-pipeline based (Submitted → Approved → Paid). Sponsorship stage is shown separately for context.</p>
+            <p className="muted" style={{ marginTop: 8 }}>Progress/stage bars below are policy-pipeline based (Submitted → Approved → Paid) for people who submitted policy applications.</p>
             {message ? <p className="muted" style={{ marginTop: 8 }}>{message}</p> : null}
           </section>
 
@@ -299,7 +299,6 @@ export default function ReferrerDashboardPage() {
                     <th>Application</th>
                     <th>Policy Stage</th>
                     <th>Policy Progress</th>
-                    <th>Sponsorship Stage</th>
                     <th>Policy</th>
                     <th>Status</th>
                     <th>Last Activity</th>
@@ -318,7 +317,6 @@ export default function ReferrerDashboardPage() {
                       <td>{r.appStatus || 'Submitted'}</td>
                       <td>{r.stage || '—'}</td>
                       <td>{r.completedSteps}/{r.totalSteps} ({r.progressPct}%)</td>
-                      <td>{r.sponsorshipStage || '—'}</td>
                       <td>{r.policyStatus || '—'}{r.stalled24h ? ' (stalled 24h+)' : ''}</td>
                       <td><span className="pill" style={badgeStyle(r.bucket)}>{r.bucket === 'on_track' ? 'On Track' : r.bucket === 'stalled' ? 'Stalled' : 'Needs Follow-up'}</span></td>
                       <td>{fmt(r.lastActivityAt)}</td>
@@ -345,7 +343,7 @@ export default function ReferrerDashboardPage() {
                       ) : null}
                     </tr>
                   ))}
-                  {!(filteredRows || []).length ? <tr><td colSpan={isAdmin ? 11 : 10} className="muted">No referred people found yet.</td></tr> : null}
+                  {!(filteredRows || []).length ? <tr><td colSpan={isAdmin ? 10 : 9} className="muted">No referred people found yet.</td></tr> : null}
                 </tbody>
               </table>
             </div>
@@ -364,6 +362,7 @@ export default function ReferrerDashboardPage() {
                   <th>Payout Status</th>
                   <th>Submitted</th>
                   <th>Approved</th>
+                  <th>SOP</th>
                   <th>Paid At</th>
                 </tr>
               </thead>
@@ -383,10 +382,11 @@ export default function ReferrerDashboardPage() {
                     <td>{p.payoutStatus || 'Unpaid'}{(Number(p.payoutAmount || 0) > 0) ? ` (Total $${Number(p.payoutAmount).toFixed(2)})` : ''}</td>
                     <td>{fmt(p.submittedAt)}</td>
                     <td>{fmt(p.approvedAt)}</td>
+                    <td><a className="ghost" href={p.sopUrl} target="_blank" rel="noreferrer">Open SOP</a></td>
                     <td>{fmt(p.payoutPaidAt)}</td>
                   </tr>
                 ))}
-                {!(myPolicies || []).length ? <tr><td colSpan={7} className="muted">No policy submissions yet for your profile.</td></tr> : null}
+                {!(myPolicies || []).length ? <tr><td colSpan={8} className="muted">No policy submissions yet for your profile.</td></tr> : null}
               </tbody>
             </table>
           </div>
