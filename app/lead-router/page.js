@@ -49,6 +49,7 @@ export default function LeadRouterPage() {
   const [weekUnsubmittedLeads, setWeekUnsubmittedLeads] = useState([]);
   const [bulkTargetAgent, setBulkTargetAgent] = useState('');
   const [selectedWeekLeadIds, setSelectedWeekLeadIds] = useState([]);
+  const [innerCircleNames, setInnerCircleNames] = useState([]);
   const [ghlSyncSummary, setGhlSyncSummary] = useState({ total: 0, success: 0, failed: 0, recentAttempts: [], recentFailures: [] });
 
   async function load() {
