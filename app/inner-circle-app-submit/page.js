@@ -243,6 +243,8 @@ export default function InnerCircleAppSubmitPage() {
     signedRef.current = contractStatus.signed;
   }, [contractStatus.signed, contractStatus.checkedEmail]);
 
+  const isAdmin = String(session?.role || '').toLowerCase() === 'admin';
+
   const canSubmit = useMemo(() => {
     const writerOk = form.policyWriterName === 'Other'
       ? form.policyWriterOtherName.trim()
@@ -294,6 +296,41 @@ export default function InnerCircleAppSubmitPage() {
       setContractEmailMsg('Agreement email sent successfully.');
     } catch {
       setContractEmailMsg('Could not send agreement email right now.');
+    } finally {
+      setContractEmailBusy(false);
+    }
+  }
+
+  async function adminMarkSigned() {
+    if (!isAdmin) return;
+    const applicantEmail = String(form.applicantEmail || '').trim();
+    const applicantName = String(form.applicantName || '').trim();
+    if (!applicantEmail || !applicantName) {
+      setContractEmailMsg('Add applicant name and email first.');
+      return;
+    }
+
+    setContractEmailBusy(true);
+    setContractEmailMsg('');
+    try {
+      const res = await fetch('/api/contract-signatures/admin-mark', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          actorName: session?.name || '',
+          applicantEmail,
+          applicantName
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setContractEmailMsg(`Could not mark signed: ${data?.error || 'unknown_error'}`);
+        return;
+      }
+      setContractEmailMsg('Marked as signed by admin.');
+      await checkContractSignature(applicantEmail);
+    } catch {
+      setContractEmailMsg('Could not mark signed right now.');
     } finally {
       setContractEmailBusy(false);
     }
@@ -497,6 +534,11 @@ export default function InnerCircleAppSubmitPage() {
                 <button type="button" className="ghost" onClick={() => checkContractSignature(form.applicantEmail)}>
                   Refresh Signature Status
                 </button>
+                {isAdmin ? (
+                  <button type="button" className="ghost" onClick={adminMarkSigned} disabled={contractEmailBusy}>
+                    Mark Signed (Admin)
+                  </button>
+                ) : null}
                 <a className="ghost" href="/contract-agreement" target="_blank" rel="noreferrer">Open Agreement / DocuSign</a>
               </>
             ) : null}
