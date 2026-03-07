@@ -33,6 +33,7 @@ function normalizePremiumInput(v = '') {
 export default function InnerCircleAppSubmitPage() {
   const [ref, setRef] = useState('');
   const [saved, setSaved] = useState('');
+  const [contractStatus, setContractStatus] = useState({ loading: false, checkedEmail: '', signed: false, signedAt: '' });
 
   const [authLoading, setAuthLoading] = useState(true);
   const [session, setSession] = useState(null);
@@ -91,6 +92,40 @@ export default function InnerCircleAppSubmitPage() {
 
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
+  async function checkContractSignature(email = '') {
+    const em = String(email || '').trim().toLowerCase();
+    if (!em) {
+      setContractStatus({ loading: false, checkedEmail: '', signed: false, signedAt: '' });
+      return;
+    }
+
+    setContractStatus((s) => ({ ...s, loading: true, checkedEmail: em }));
+    try {
+      const res = await fetch(`/api/contract-signatures?email=${encodeURIComponent(em)}`, { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setContractStatus({ loading: false, checkedEmail: em, signed: false, signedAt: '' });
+        return;
+      }
+      setContractStatus({
+        loading: false,
+        checkedEmail: em,
+        signed: Boolean(data?.signed),
+        signedAt: data?.row?.signedAt || ''
+      });
+    } catch {
+      setContractStatus({ loading: false, checkedEmail: em, signed: false, signedAt: '' });
+    }
+  }
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (form.applicantEmail.trim()) checkContractSignature(form.applicantEmail);
+      else setContractStatus({ loading: false, checkedEmail: '', signed: false, signedAt: '' });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [form.applicantEmail]);
+
   const canSubmit = useMemo(() => {
     const writerOk = form.policyWriterName === 'Other'
       ? form.policyWriterOtherName.trim()
@@ -104,9 +139,10 @@ export default function InnerCircleAppSubmitPage() {
       form.referredByName.trim() &&
       writerOk &&
       form.state.trim() &&
-      form.monthlyPremium !== ''
+      form.monthlyPremium !== '' &&
+      contractStatus.signed
     );
-  }, [form]);
+  }, [form, contractStatus.signed]);
 
   async function login(e) {
     e.preventDefault();
@@ -158,7 +194,9 @@ export default function InnerCircleAppSubmitPage() {
       refCode: ref,
       submittedAt: new Date().toISOString(),
       payoutStatus: 'Unpaid',
-      payoutAmount: 0
+      payoutAmount: 0,
+      contractSignedAt: contractStatus.signedAt || new Date().toISOString(),
+      contractSignatureVerified: Boolean(contractStatus.signed)
     };
 
     if (typeof window !== 'undefined') {
@@ -271,6 +309,19 @@ export default function InnerCircleAppSubmitPage() {
             />
           </label>
 
+          <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {contractStatus.loading ? <span className="pill">Checking contract signature…</span> : null}
+            {!contractStatus.loading && form.applicantEmail && contractStatus.signed ? (
+              <span className="pill onpace">Contract Signed ✅ {contractStatus.signedAt ? `(${new Date(contractStatus.signedAt).toLocaleDateString()})` : ''}</span>
+            ) : null}
+            {!contractStatus.loading && form.applicantEmail && !contractStatus.signed ? (
+              <>
+                <span className="pill atrisk">Contract Required Before Submit</span>
+                <a className="ghost" href="/contract-agreement" target="_blank" rel="noreferrer">Open Agreement / DocuSign</a>
+              </>
+            ) : null}
+          </div>
+
           <label>
             Applicant Phone *
             <input
@@ -371,6 +422,7 @@ export default function InnerCircleAppSubmitPage() {
 
           <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
             <button type="submit" disabled={!canSubmit}>Submit Application</button>
+            {!contractStatus.signed ? <small className="muted">Signature gate: applicant must complete ICA before submit.</small> : null}
           </div>
         </form>
 
