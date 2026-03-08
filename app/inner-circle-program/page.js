@@ -87,6 +87,13 @@ export default function InnerCircleProgramPage() {
         </div>
       </div>
 
+      <div className="panel" style={{ maxWidth: 1100, border: '1px solid #854d0e', background: 'linear-gradient(180deg,#1f1302 0%, #140d02 100%)' }}>
+        <h3 style={{ marginTop: 0, color: '#fff' }}>We Don’t Win Unless You Win Guarantee</h3>
+        <p style={{ margin: 0, color: '#fde68a', fontWeight: 700, fontSize: 17 }}>
+          If you complete onboarding, stay plugged in, follow the process, and do what’s required on your end, and you do not generate at least 3 paid referral bonuses, we’ll keep working with you for free until you do.
+        </p>
+      </div>
+
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1e293b', background: '#071126' }}>
         <h3 style={{ marginTop: 0, color: '#fff' }}>Who This Is For</h3>
         <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 6 }}>
