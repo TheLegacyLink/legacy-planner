@@ -1132,6 +1132,8 @@ export async function GET(req) {
   const leads = await loadJsonStore(CALLER_PATH, []);
   const sponsorship = await loadJsonStore(SPONSORSHIP_PATH, []);
   const policySubmissions = await loadJsonStore(POLICY_SUBMISSIONS_PATH, []);
+  const agentOnboarding = await loadJsonStore(AGENT_ONBOARDING_PATH, []);
+  const agentDirectory = buildAgentDirectory(agentOnboarding);
   const submittedBlockLookup = buildSubmittedBlockLookup(sponsorship, policySubmissions);
 
   let releaseRun = { released: 0, blockedSubmitted: 0, blockedManualHold: 0, waitingWindow: 0, waitingEligibleAgent: 0 };
@@ -1332,6 +1334,8 @@ export async function PATCH(req) {
     const events = await loadJsonStore(EVENTS_PATH, []);
     const sponsorship = await loadJsonStore(SPONSORSHIP_PATH, []);
     const policySubmissions = await loadJsonStore(POLICY_SUBMISSIONS_PATH, []);
+    const agentOnboarding = await loadJsonStore(AGENT_ONBOARDING_PATH, []);
+    const agentDirectory = buildAgentDirectory(agentOnboarding);
     const submittedBlockLookup = buildSubmittedBlockLookup(sponsorship, policySubmissions);
     const now = new Date();
 
