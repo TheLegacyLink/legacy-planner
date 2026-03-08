@@ -59,15 +59,24 @@ export default function InnerCircleProgramPage() {
       </div>
 
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1e293b', background: '#071126' }}>
-        <h3 style={{ marginTop: 0, color: '#fff' }}>What You Get</h3>
+        <h3 style={{ marginTop: 0, color: '#fff' }}>What You Actually Get Inside Inner Circle</h3>
+        <p style={{ marginTop: -2, color: '#cbd5e1' }}>
+          This isn’t just leads. It’s a full growth system built to help serious people move faster, stay organized, and create real revenue.
+        </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: 12 }}>
           {[
-            ['60 Leads', 'Consistent lead flow to keep your pipeline active.'],
-            ['Your Own CRM', 'Track every prospect and stop money from leaking.'],
-            ['Business Phone Number', 'Professional communication setup for follow-up.'],
-            ['AI + Automation', 'Keep momentum and improve speed-to-conversation.'],
-            ['Mentorship + Strategy', 'Direct guidance for execution and production.'],
-            ['Social Media Direction', 'Positioning and content support for growth.']
+            ['60 Referral Leads', 'Consistent opportunity flow designed to keep your pipeline active and producing.'],
+            ['Your Own CRM', 'Track every lead, every conversation, and every opportunity in one place.'],
+            ['Business Phone Number', 'A professional business line for cleaner communication and stronger follow-up.'],
+            ['AI Follow-Up + Automation', 'Use AI and automation to keep momentum high and improve speed-to-conversation.'],
+            ['Mentorship + Strategy', 'Direct support and strategic guidance from people who understand production.'],
+            ['Social Media Direction', 'Position yourself better online with support around branding, messaging, and content direction.'],
+            ['$500 Referral Bonus Potential', 'Turn qualified activity into real revenue through the Inner Circle referral structure.'],
+            ['Built-Out Business Infrastructure', 'Plug into systems, workflows, and backend support already set up to help you move faster.'],
+            ['Scripts + Follow-Up Support', 'Know what to say, how to respond, and how to move conversations toward action.'],
+            ['Accountability + Execution', 'Stay focused, stay active, and stay moving with a structure built for consistency.'],
+            ['Pipeline Visibility', 'See where your opportunities stand and quickly identify where money is being won or lost.'],
+            ['Appointment-Booking Momentum', 'Increase the number of real conversations inside your pipeline with smarter follow-up.']
           ].map(([title, desc]) => (
             <div key={title} style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 12, background: '#030a17' }}>
               <strong style={{ color: '#f8fafc', display: 'block', marginBottom: 4 }}>{title}</strong>
@@ -78,20 +87,39 @@ export default function InnerCircleProgramPage() {
       </div>
 
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1e293b', background: '#071126' }}>
-        <h3 style={{ marginTop: 0, color: '#fff' }}>What We’re Producing</h3>
+        <h3 style={{ marginTop: 0, color: '#fff' }}>What This Can Realistically Look Like</h3>
+        <p style={{ marginTop: -2, color: '#cbd5e1' }}>
+          Based on our current internal numbers, a 60-lead cycle can realistically produce around 12 people moving forward.
+          At $500 per referral, that creates the potential for approximately $6,000 in gross revenue.
+        </p>
         <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+          <div className="pill" style={{ justifyContent: 'center', padding: 12, background: '#111827', color: '#f9fafb' }}>Conservative model: $6,000 gross potential</div>
+          <div className="pill" style={{ justifyContent: 'center', padding: 12, background: '#111827', color: '#f9fafb' }}>Projected model range: 5x–7x gross</div>
           <div className="pill" style={{ justifyContent: 'center', padding: 12, background: '#111827', color: '#f9fafb' }}>32 referral bonuses this month</div>
           <div className="pill" style={{ justifyContent: 'center', padding: 12, background: '#111827', color: '#f9fafb' }}>6 applications submitted this week</div>
-          <div className="pill" style={{ justifyContent: 'center', padding: 12, background: '#111827', color: '#f9fafb' }}>Over $500K produced in recent months</div>
-          <div className="pill" style={{ justifyContent: 'center', padding: 12, background: '#111827', color: '#f9fafb' }}>Projected 5x–7x gross return range</div>
         </div>
+        <small style={{ display: 'block', marginTop: 8, color: '#94a3b8' }}>
+          Results vary based on consistency, responsiveness, follow-up, and execution.
+        </small>
+      </div>
+
+      <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1e293b', background: '#071126' }}>
+        <h3 style={{ marginTop: 0, color: '#fff' }}>Real Movement. Not Theory.</h3>
+        <p style={{ margin: 0, color: '#cbd5e1' }}>
+          This is not just an idea. This is a working system. The combination of lead flow, AI-assisted follow-up,
+          automation, and real support is helping serious people move faster.
+        </p>
       </div>
 
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #854d0e', background: 'linear-gradient(180deg,#1f1302 0%, #140d02 100%)' }}>
-        <h3 style={{ marginTop: 0, color: '#fff' }}>We Don’t Win Unless You Win Guarantee</h3>
+        <h3 style={{ marginTop: 0, color: '#fff' }}>3 Referral Break-Even Guarantee</h3>
         <p style={{ margin: 0, color: '#fde68a', fontWeight: 700, fontSize: 17 }}>
-          If you complete onboarding, stay plugged in, follow the process, and do what’s required on your end, and you do not generate at least 3 paid referral bonuses, we’ll keep working with you for free until you do.
+          If you complete onboarding, stay active, follow the Inner Circle process, and do what’s required on your end,
+          and you do not generate at least 3 paid referral bonuses, we will continue working with you at no additional cost until you do.
         </p>
+        <small style={{ display: 'block', marginTop: 8, color: '#fcd34d' }}>
+          Stay active = consistent follow-up, attendance on core coaching calls, and execution of assigned action steps.
+        </small>
       </div>
 
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1e293b', background: '#071126' }}>
