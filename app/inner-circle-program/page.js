@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 
-const KIMORA_IMAGE = process.env.NEXT_PUBLIC_KIMORA_PROGRAM_IMAGE || '/kimora-profile.jpg';
+const KIMORA_IMAGE = process.env.NEXT_PUBLIC_KIMORA_PROGRAM_IMAGE || '/kimora-profile.png';
 
 export default function InnerCircleProgramPage() {
   return (
@@ -32,7 +32,7 @@ export default function InnerCircleProgramPage() {
               alt="Kimora Link"
               width={900}
               height={1200}
-              style={{ width: '100%', height: 340, objectFit: 'cover', display: 'block' }}
+              style={{ width: '100%', height: 360, objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
             />
           </div>
 
