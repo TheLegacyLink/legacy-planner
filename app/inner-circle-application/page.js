@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from 'react';
 
+const CALENDAR_URL = process.env.NEXT_PUBLIC_INNER_CIRCLE_CALENDAR_URL || '/sponsorship-booking';
+const PREP_TRACK_URL = '/sponsorship-signup';
+
 const INITIAL = {
   fullName: '',
   email: '',
@@ -28,8 +31,8 @@ const INITIAL = {
 
 function Field({ label, required = false, children }) {
   return (
-    <label style={{ display: 'grid', gap: 6, color: '#cbd5e1' }}>
-      <strong style={{ fontSize: 14, color: '#e5e7eb' }}>{label}{required ? ' *' : ''}</strong>
+    <label style={{ display: 'grid', gap: 8, color: '#cbd5e1', alignSelf: 'start' }}>
+      <strong style={{ fontSize: 14, lineHeight: 1.35, color: '#e5e7eb' }}>{label}{required ? ' *' : ''}</strong>
       {children}
     </label>
   );
@@ -117,17 +120,17 @@ export default function InnerCircleApplicationPage() {
         <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
           <div style={{ border: '1px solid #1e293b', borderRadius: 10, padding: 12, background: '#020617' }}>
             <small style={{ color: '#94a3b8' }}>Conservative Model</small>
-            <div style={{ fontSize: 24, fontWeight: 800, color: '#e2e8f0' }}>~$6,000 Gross</div>
-            <small style={{ color: '#94a3b8' }}>~12 people moving forward from 60 leads</small>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#e2e8f0' }}>$6,000 Gross</div>
+            <small style={{ color: '#94a3b8' }}>About 12 people moving forward from 60 leads</small>
           </div>
           <div style={{ border: '1px solid #1e293b', borderRadius: 10, padding: 12, background: '#020617' }}>
             <small style={{ color: '#94a3b8' }}>Based on Current Output</small>
-            <div style={{ fontSize: 24, fontWeight: 800, color: '#e2e8f0' }}>~$9,150 Gross</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#e2e8f0' }}>$9,150 Gross</div>
             <small style={{ color: '#94a3b8' }}>Scaled from current month-to-date performance</small>
           </div>
           <div style={{ border: '1px solid #1e293b', borderRadius: 10, padding: 12, background: '#020617' }}>
             <small style={{ color: '#94a3b8' }}>Return Expectation</small>
-            <div style={{ fontSize: 24, fontWeight: 800, color: '#e2e8f0' }}>~5x to ~7x Gross</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#e2e8f0' }}>5x to 7x Gross</div>
             <small style={{ color: '#94a3b8' }}>Results vary with consistency, follow-up, and execution.</small>
           </div>
         </div>
@@ -156,7 +159,7 @@ export default function InnerCircleApplicationPage() {
         <h3 style={{ marginTop: 0, color: '#fff' }}>Inner Circle Qualification Application</h3>
         <p style={{ marginTop: -4, color: '#94a3b8' }}>Complete all questions. This is reviewed for fit, readiness, and execution capacity.</p>
 
-        <form className="settingsGrid" onSubmit={submit}>
+        <form className="settingsGrid" style={{ rowGap: 16, columnGap: 16, alignItems: 'start' }} onSubmit={submit}>
           <Field label="Full Name" required>
             <input value={form.fullName} onChange={(e) => update('fullName', e.target.value)} placeholder="Your full name" />
           </Field>
@@ -269,16 +272,32 @@ export default function InnerCircleApplicationPage() {
         {error ? <p className="red">{error}</p> : null}
 
         {result ? (
-          <div className="panel" style={{ marginTop: 10, borderColor: result.qualified ? '#16a34a' : '#f59e0b', background: result.qualified ? '#052e16' : '#451a03' }}>
+          <div className="panel" style={{ marginTop: 12, borderColor: result.qualified ? '#16a34a' : '#f59e0b', background: result.qualified ? '#052e16' : '#451a03' }}>
             <h4 style={{ marginTop: 0, color: '#fff' }}>
               {result.qualified ? 'Qualified — Next Step Unlocked' : 'Application Received'}
             </h4>
             <p style={{ margin: 0, color: '#e5e7eb' }}>
               {result.qualified
-                ? 'You are qualified for one-on-one strategy call review with Kimora. Our team will contact you with next steps.'
-                : 'Thank you. Your application was received. If needed, we may route you through preparation steps before one-on-one review.'}
+                ? 'You are qualified for one-on-one strategy call review with Kimora. Book your call now.'
+                : 'You are not qualified for one-on-one yet. We saved your information and can route you into a preparation track.'}
             </p>
-            <small style={{ color: '#d1d5db' }}>Qualification score: {result.score}/8</small>
+            <small style={{ color: '#d1d5db', display: 'block', marginTop: 6 }}>Qualification score: {result.score}/8</small>
+            <small style={{ color: '#d1d5db', display: 'block', marginTop: 2 }}>{result.reason}</small>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+              {result.qualified ? (
+                <a href={CALENDAR_URL} className="publicPrimaryBtn" style={{ textDecoration: 'none' }}>
+                  Book 1-on-1 Strategy Call
+                </a>
+              ) : (
+                <a href={PREP_TRACK_URL} className="publicPrimaryBtn" style={{ textDecoration: 'none' }}>
+                  Start Preparation Track
+                </a>
+              )}
+              <a href="/sponsorship-program" className="ghost" style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 8 }}>
+                View Program Details
+              </a>
+            </div>
           </div>
         ) : null}
       </div>
