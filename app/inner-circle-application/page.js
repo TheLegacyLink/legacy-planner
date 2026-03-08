@@ -109,6 +109,30 @@ export default function InnerCircleApplicationPage() {
         </div>
       </div>
 
+      <div className="panel" style={{ maxWidth: 1100, border: '1px solid #334155', background: 'linear-gradient(180deg,#0a1324 0%, #081427 100%)' }}>
+        <h3 style={{ marginTop: 0, color: '#fff' }}>Projected Inner Circle Economics</h3>
+        <p style={{ marginTop: -4, color: '#cbd5e1' }}>
+          Based on current real performance, a 60-lead cycle typically projects in the <strong style={{ color: '#f8fafc' }}>5x to 7x gross return range</strong> depending on follow-up execution.
+        </p>
+        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+          <div style={{ border: '1px solid #1e293b', borderRadius: 10, padding: 12, background: '#020617' }}>
+            <small style={{ color: '#94a3b8' }}>Conservative Model</small>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#e2e8f0' }}>~$6,000 Gross</div>
+            <small style={{ color: '#94a3b8' }}>~12 people moving forward from 60 leads</small>
+          </div>
+          <div style={{ border: '1px solid #1e293b', borderRadius: 10, padding: 12, background: '#020617' }}>
+            <small style={{ color: '#94a3b8' }}>Based on Current Output</small>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#e2e8f0' }}>~$9,150 Gross</div>
+            <small style={{ color: '#94a3b8' }}>Scaled from current month-to-date performance</small>
+          </div>
+          <div style={{ border: '1px solid #1e293b', borderRadius: 10, padding: 12, background: '#020617' }}>
+            <small style={{ color: '#94a3b8' }}>Return Expectation</small>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#e2e8f0' }}>~5x to ~7x Gross</div>
+            <small style={{ color: '#94a3b8' }}>Results vary with consistency, follow-up, and execution.</small>
+          </div>
+        </div>
+      </div>
+
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1f2937', background: '#060d1a' }}>
         <h3 style={{ marginTop: 0, color: '#fff' }}>What You Get Inside Inner Circle</h3>
         <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 8 }}>
