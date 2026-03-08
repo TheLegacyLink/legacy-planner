@@ -31,6 +31,7 @@ const tabs = [
   { href: '/payout-queue', label: 'Payout Queue' },
   { href: '/kimora-access', label: 'Kimora Access' },
   { href: '/inner-circle-links', label: 'Inner Circle Links' },
+  { href: '/inner-circle-bookings', label: 'IC Bookings' },
   { href: '/contract-agreement', label: 'Contract Agreement' },
   { href: '/sponsorship-booking', label: 'Booking Hub' },
   { href: '/fng-policies', label: 'F&G Policies' },

@@ -31,11 +31,15 @@ const INITIAL = {
 
 function Field({ label, required = false, children }) {
   return (
-    <label style={{ display: 'grid', gap: 8, color: '#cbd5e1', alignSelf: 'start' }}>
+    <label style={{ display: 'grid', gap: 8, color: '#cbd5e1', alignSelf: 'start', padding: 10, border: '1px solid #172032', borderRadius: 10, background: '#030a17' }}>
       <strong style={{ fontSize: 14, lineHeight: 1.35, color: '#e5e7eb' }}>{label}{required ? ' *' : ''}</strong>
       {children}
     </label>
   );
+}
+
+function Divider() {
+  return <div style={{ maxWidth: 1100, height: 1, background: 'linear-gradient(90deg,transparent,#334155,transparent)', margin: '8px auto' }} />;
 }
 
 export default function InnerCircleApplicationPage() {
@@ -49,6 +53,13 @@ export default function InnerCircleApplicationPage() {
   const canSubmit = useMemo(() => {
     return Object.values(form).every((v) => String(v || '').trim());
   }, [form]);
+
+  const answeredCount = useMemo(
+    () => Object.values(form).filter((v) => String(v || '').trim()).length,
+    [form]
+  );
+  const totalQuestions = Object.keys(INITIAL).length;
+  const progressPct = Math.round((answeredCount / totalQuestions) * 100);
 
   async function submit(e) {
     e.preventDefault();
@@ -113,6 +124,8 @@ export default function InnerCircleApplicationPage() {
         </div>
       </div>
 
+      <Divider />
+
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #334155', background: 'linear-gradient(180deg,#0a1324 0%, #081427 100%)' }}>
         <h3 style={{ marginTop: 0, color: '#fff' }}>Projected Inner Circle Economics</h3>
         <p style={{ marginTop: -4, color: '#cbd5e1' }}>
@@ -137,6 +150,8 @@ export default function InnerCircleApplicationPage() {
         </div>
       </div>
 
+      <Divider />
+
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1f2937', background: '#060d1a' }}>
         <h3 style={{ marginTop: 0, color: '#fff' }}>What You Get Inside Inner Circle</h3>
         <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 8 }}>
@@ -156,12 +171,24 @@ export default function InnerCircleApplicationPage() {
         <p style={{ marginTop: 12, color: '#93c5fd', fontWeight: 600 }}>Only qualified applicants are invited to a one-on-one strategy call with Kimora.</p>
       </div>
 
+      <Divider />
+
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1f2937', background: '#060d1a' }}>
         <h3 style={{ marginTop: 0, color: '#fff' }}>Inner Circle Qualification Application</h3>
         <p style={{ marginTop: -4, color: '#94a3b8' }}>Complete all questions. This is reviewed for fit, readiness, and execution capacity.</p>
         <p style={{ marginTop: 0, color: '#94a3b8' }}>Every submission is saved in the system, including applicants not yet qualified.</p>
 
-        <form className="settingsGrid" style={{ rowGap: 16, columnGap: 16, alignItems: 'start' }} onSubmit={submit}>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <small style={{ color: '#93c5fd', fontWeight: 700 }}>Application Progress</small>
+            <small style={{ color: '#cbd5e1' }}>{answeredCount}/{totalQuestions} completed • {progressPct}%</small>
+          </div>
+          <div style={{ height: 10, borderRadius: 999, background: '#0f172a', border: '1px solid #1f2937', overflow: 'hidden' }}>
+            <div style={{ width: `${progressPct}%`, height: '100%', background: 'linear-gradient(90deg,#2563eb,#22c55e)', transition: 'width .25s ease' }} />
+          </div>
+        </div>
+
+        <form className="settingsGrid" style={{ rowGap: 18, columnGap: 18, alignItems: 'start' }} onSubmit={submit}>
           <Field label="Full Name" required>
             <input value={form.fullName} onChange={(e) => update('fullName', e.target.value)} placeholder="Your full name" />
           </Field>
@@ -264,6 +291,12 @@ export default function InnerCircleApplicationPage() {
             <textarea rows={4} value={form.whatChanges} onChange={(e) => update('whatChanges', e.target.value)} placeholder="Expected impact" />
           </Field>
 
+          <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <span className="pill" style={{ background: '#0f172a', color: '#cbd5e1' }}>Private application</span>
+            <span className="pill" style={{ background: '#0f172a', color: '#cbd5e1' }}>Reviewed within 24 hours</span>
+            <span className="pill" style={{ background: '#0f172a', color: '#cbd5e1' }}>No spam</span>
+          </div>
+
           <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
             <button type="submit" className="publicPrimaryBtn" disabled={!canSubmit || submitting}>
               {submitting ? 'Submitting Application...' : 'See If You Qualify'}
@@ -280,11 +313,30 @@ export default function InnerCircleApplicationPage() {
             </h4>
             <p style={{ margin: 0, color: '#e5e7eb' }}>
               {result.qualified
-                ? 'You are qualified for one-on-one strategy call review with Kimora. Book your call now.'
+                ? 'You are qualified for one-on-one strategy call review with Kimora. Book your call now to lock your spot.'
                 : 'You are not qualified for one-on-one yet. We saved your information and can route you into a preparation track.'}
             </p>
             <small style={{ color: '#d1d5db', display: 'block', marginTop: 6 }}>Qualification score: {result.score}/8</small>
             <small style={{ color: '#d1d5db', display: 'block', marginTop: 2 }}>{result.reason}</small>
+
+            <div style={{ marginTop: 10, padding: 10, border: '1px solid rgba(255,255,255,0.16)', borderRadius: 8 }}>
+              <strong style={{ color: '#fff', fontSize: 13 }}>Next steps</strong>
+              <ul style={{ margin: '6px 0 0 16px', color: '#e5e7eb' }}>
+                {result.qualified ? (
+                  <>
+                    <li>Book your Inner Circle strategy call now.</li>
+                    <li>Watch for confirmation details after booking.</li>
+                    <li>Come prepared with your 90-day target and action plan.</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Start the preparation track to strengthen readiness.</li>
+                    <li>Maintain consistency and improve follow-up capacity.</li>
+                    <li>Reapply after completing preparation milestones.</li>
+                  </>
+                )}
+              </ul>
+            </div>
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
               {result.qualified ? (

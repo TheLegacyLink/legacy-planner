@@ -70,6 +70,29 @@ export async function POST(req) {
 
   const rows = await loadJsonStore(STORE_PATH, []);
 
+  if (mode === 'update_status') {
+    const id = clean(body?.id);
+    const bookingStatus = clean(body?.bookingStatus || '').toLowerCase();
+    const ownerNotes = clean(body?.ownerNotes || '');
+
+    if (!id) return Response.json({ ok: false, error: 'missing_id' }, { status: 400 });
+    const idx = rows.findIndex((r) => clean(r?.id) === id);
+    if (idx < 0) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
+
+    const allowed = new Set(['booked', 'confirmed', 'completed', 'no_show', 'rescheduled', 'canceled']);
+    const nextStatus = allowed.has(bookingStatus) ? bookingStatus : clean(rows[idx]?.booking_status || 'booked').toLowerCase();
+
+    rows[idx] = {
+      ...rows[idx],
+      booking_status: nextStatus,
+      owner_notes: ownerNotes,
+      updated_at: nowIso()
+    };
+
+    await saveJsonStore(STORE_PATH, rows);
+    return Response.json({ ok: true, row: rows[idx] });
+  }
+
   if (mode !== 'upsert') {
     return Response.json({ ok: false, error: 'unsupported_mode' }, { status: 400 });
   }
@@ -80,6 +103,8 @@ export async function POST(req) {
 
   const next = {
     booking_type: 'inner_circle',
+    booking_status: clean(booking?.booking_status || 'booked').toLowerCase(),
+    owner_notes: clean(booking?.owner_notes || ''),
     ...booking,
     id,
     updated_at: nowIso()
