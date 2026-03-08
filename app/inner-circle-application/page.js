@@ -155,17 +155,24 @@ export default function InnerCircleApplicationPage() {
       <Divider />
 
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1f2937', background: '#060d1a' }}>
-        <h3 style={{ marginTop: 0, color: '#fff' }}>What You Get Inside Inner Circle</h3>
+        <h3 style={{ marginTop: 0, color: '#fff' }}>What You Actually Get Inside Inner Circle</h3>
+        <p style={{ marginTop: -2, color: '#cbd5e1' }}>
+          This isn’t just leads. It’s a full growth system built to help serious people move faster, stay organized, and create real revenue.
+        </p>
         <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 8 }}>
           {[
-            '60 leads each month',
-            'Your own CRM system + lead pipeline structure',
-            'Your own business phone number',
-            'AI support for follow-up and objection handling',
-            'Automation that keeps conversations moving',
-            'Strategy support, accountability, and producer-level guidance',
-            'Social media / branding direction',
-            'A real system to submit referrals and track production'
+            '60 referral leads',
+            'Your own CRM (lead pipeline + visibility)',
+            'Business phone number',
+            'AI follow-up + automation',
+            'Mentorship + strategy support',
+            'Social media direction',
+            '$500 referral bonus potential',
+            'Built-out business infrastructure',
+            'Scripts + follow-up support',
+            'Accountability + execution structure',
+            'Pipeline visibility to track wins/leaks',
+            'Appointment-booking momentum support'
           ].map((item) => (
             <li key={item} style={{ color: '#e2e8f0', lineHeight: 1.5 }}>{item}</li>
           ))}
