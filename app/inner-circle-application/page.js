@@ -28,8 +28,8 @@ const INITIAL = {
 
 function Field({ label, required = false, children }) {
   return (
-    <label style={{ display: 'grid', gap: 6 }}>
-      <strong style={{ fontSize: 14 }}>{label}{required ? ' *' : ''}</strong>
+    <label style={{ display: 'grid', gap: 6, color: '#cbd5e1' }}>
+      <strong style={{ fontSize: 14, color: '#e5e7eb' }}>{label}{required ? ' *' : ''}</strong>
       {children}
     </label>
   );
@@ -111,22 +111,26 @@ export default function InnerCircleApplicationPage() {
 
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1f2937', background: '#060d1a' }}>
         <h3 style={{ marginTop: 0, color: '#fff' }}>What You Get Inside Inner Circle</h3>
-        <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 6, color: '#d1d5db' }}>
-          <li>60 leads each month</li>
-          <li>Your own CRM system + lead pipeline structure</li>
-          <li>Your own business phone number</li>
-          <li>AI support for follow-up and objection handling</li>
-          <li>Automation that keeps conversations moving</li>
-          <li>Strategy support, accountability, and producer-level guidance</li>
-          <li>Social media / branding direction</li>
-          <li>A real system to submit referrals and track production</li>
+        <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 8 }}>
+          {[
+            '60 leads each month',
+            'Your own CRM system + lead pipeline structure',
+            'Your own business phone number',
+            'AI support for follow-up and objection handling',
+            'Automation that keeps conversations moving',
+            'Strategy support, accountability, and producer-level guidance',
+            'Social media / branding direction',
+            'A real system to submit referrals and track production'
+          ].map((item) => (
+            <li key={item} style={{ color: '#e2e8f0', lineHeight: 1.5 }}>{item}</li>
+          ))}
         </ul>
-        <p className="muted" style={{ marginTop: 10 }}>Only qualified applicants are invited to a one-on-one strategy call with Kimora.</p>
+        <p style={{ marginTop: 12, color: '#93c5fd', fontWeight: 600 }}>Only qualified applicants are invited to a one-on-one strategy call with Kimora.</p>
       </div>
 
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1f2937', background: '#060d1a' }}>
         <h3 style={{ marginTop: 0, color: '#fff' }}>Inner Circle Qualification Application</h3>
-        <p className="muted" style={{ marginTop: -4 }}>Complete all questions. This is reviewed for fit, readiness, and execution capacity.</p>
+        <p style={{ marginTop: -4, color: '#94a3b8' }}>Complete all questions. This is reviewed for fit, readiness, and execution capacity.</p>
 
         <form className="settingsGrid" onSubmit={submit}>
           <Field label="Full Name" required>
