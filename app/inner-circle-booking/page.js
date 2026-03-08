@@ -140,14 +140,14 @@ export default function InnerCircleBookingPage() {
     <main className="publicPage">
       <div className="panel" style={{ maxWidth: 860 }}>
         <h2 style={{ marginTop: 0 }}>Book Your Inner Circle Strategy Call</h2>
-        <p className="muted">Qualified applicants only • Monday–Saturday • 9:00 AM–8:00 PM EST</p>
+        <p className="muted">Inner Circle strategy call • Monday–Saturday • 9:00 AM–8:00 PM EST</p>
 
         <div style={{ border: '1px solid #bfdbfe', borderRadius: 12, background: '#eff6ff', padding: 12, marginBottom: 12 }}>
           <strong>Before You Book</strong>
           <ul style={{ marginBottom: 0 }}>
             <li>This call is for qualified applicants ready to execute.</li>
             <li>Have your schedule, goals, and next-90-day target ready.</li>
-            <li>This booking is separate from Sponsorship booking and tracked as Inner Circle.</li>
+            <li>This is your Inner Circle one-on-one strategy call.</li>
           </ul>
         </div>
 

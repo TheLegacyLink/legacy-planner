@@ -352,7 +352,7 @@ export default function InnerCircleApplicationPage() {
                   Start Preparation Track
                 </a>
               )}
-              <a href="/sponsorship-program" className="ghost" style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 8 }}>
+              <a href="/inner-circle-program" className="ghost" style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 8 }}>
                 View Program Details
               </a>
             </div>
