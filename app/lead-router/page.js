@@ -89,6 +89,16 @@ export default function LeadRouterPage() {
       setGhlSyncSummary(data.ghlSyncSummary || { total: 0, success: 0, failed: 0, recentAttempts: [], recentFailures: [] });
       if (!bulkTargetAgent) setBulkTargetAgent((data.settings?.overflowAgent || data.settings?.agents?.[0]?.name || ''));
     }
+
+    const onboardRes = await fetch('/api/agent-onboarding', { cache: 'no-store' });
+    const onboardData = await onboardRes.json().catch(() => ({}));
+    if (onboardRes.ok && onboardData?.ok) {
+      const rows = onboardData.rows || [];
+      setOnboardingRows(rows);
+      const innerNames = rows.filter((r) => String(r?.group || '').toLowerCase() === 'inner').map((r) => String(r?.name || '').trim()).filter(Boolean);
+      setInnerCircleNames(innerNames);
+    }
+
     setLoading(false);
   }
 
@@ -119,6 +129,12 @@ export default function LeadRouterPage() {
   }
 
   const agentRows = useMemo(() => settings?.agents || [], [settings]);
+
+  const innerCircleSet = useMemo(() => new Set((innerCircleNames || []).map((n) => String(n || '').trim().toLowerCase())), [innerCircleNames]);
+  const innerCircleAgentRows = useMemo(() => agentRows.filter((a) => innerCircleSet.has(String(a?.name || '').trim().toLowerCase())), [agentRows, innerCircleSet]);
+  const nonInnerCircleAgentRows = useMemo(() => agentRows.filter((a) => !innerCircleSet.has(String(a?.name || '').trim().toLowerCase())), [agentRows, innerCircleSet]);
+
+  const tinyBtn = { padding: '5px 10px', fontSize: 12, lineHeight: 1.2, borderRadius: 8 };
 
   async function saveOutboundSettings() {
     await savePatch({
