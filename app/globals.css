@@ -481,16 +481,22 @@ textarea { min-height: 180px; margin-top: 8px; }
   box-shadow: 0 8px 20px rgba(15,23,42,0.12);
 }
 
-.publicStickyBar button {
+.publicStickyBar button,
+.publicStickyBar a {
   background: linear-gradient(180deg, #2563eb, #1d4ed8);
   color: #fff;
   border: 1px solid #1e40af;
   border-radius: 10px;
   padding: 10px 14px;
   font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.publicStickyBar button:hover { cursor: pointer; }
+.publicStickyBar button:hover,
+.publicStickyBar a:hover { cursor: pointer; }
 
 @media (max-width: 700px) {
   .publicStickyBar {

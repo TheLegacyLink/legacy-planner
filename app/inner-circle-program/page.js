@@ -15,7 +15,7 @@ export default function InnerCircleProgramPage() {
             <span className="pill" style={{ background: '#9a3412', color: '#ffedd5' }}>Execution Focused</span>
           </div>
 
-          <h1 style={{ margin: 0, fontSize: 40, lineHeight: 1.08, color: '#fff' }}>Inner Circle Program Details</h1>
+          <h1 style={{ margin: 0, fontSize: 'clamp(30px, 7vw, 40px)', lineHeight: 1.08, color: '#fff' }}>Inner Circle Program Details</h1>
           <p style={{ margin: 0, color: '#cbd5e1', fontSize: 18, maxWidth: 860 }}>
             This is a growth system for serious people ready to build with structure, speed, and accountability.
             You are not buying random leads — you are plugging into infrastructure.
@@ -100,6 +100,14 @@ export default function InnerCircleProgramPage() {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
           <a href="/inner-circle-application" className="publicPrimaryBtn" style={{ textDecoration: 'none' }}>Apply / Continue Application</a>
           <a href="/inner-circle-booking" className="ghost" style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 8 }}>Book Inner Circle Call</a>
+        </div>
+      </div>
+
+      <div className="publicStickyBar" style={{ maxWidth: 1100 }}>
+        <strong style={{ color: '#0f172a', fontSize: 13 }}>Ready to move?</strong>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <a href="/inner-circle-application">Apply</a>
+          <a href="/inner-circle-booking">Book Call</a>
         </div>
       </div>
     </main>

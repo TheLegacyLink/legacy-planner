@@ -139,7 +139,7 @@ export default function InnerCircleBookingPage() {
   return (
     <main className="publicPage">
       <div className="panel" style={{ maxWidth: 860 }}>
-        <h2 style={{ marginTop: 0 }}>Book Your Inner Circle Strategy Call</h2>
+        <h2 style={{ marginTop: 0, fontSize: 'clamp(26px, 6vw, 32px)' }}>Book Your Inner Circle Strategy Call</h2>
         <p className="muted">Inner Circle strategy call • Monday–Saturday • 9:00 AM–8:00 PM EST</p>
 
         <div style={{ border: '1px solid #bfdbfe', borderRadius: 12, background: '#eff6ff', padding: 12, marginBottom: 12 }}>
@@ -199,7 +199,7 @@ export default function InnerCircleBookingPage() {
 
           <label style={{ gridColumn: '1 / -1' }}>
             Notes (optional)
-            <textarea rows={3} value={form.notes} onChange={(e) => update('notes', e.target.value)} />
+            <textarea rows={3} style={{ minHeight: 110 }} value={form.notes} onChange={(e) => update('notes', e.target.value)} />
           </label>
 
           <div className="rowActions" style={{ gridColumn: '1 / -1' }}>

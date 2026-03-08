@@ -29,6 +29,8 @@ const INITIAL = {
   whatChanges: ''
 };
 
+const TEXTAREA_STYLE = { minHeight: 120 };
+
 function Field({ label, required = false, children }) {
   return (
     <label style={{ display: 'grid', gap: 8, color: '#cbd5e1', alignSelf: 'start', padding: 10, border: '1px solid #172032', borderRadius: 10, background: '#030a17' }}>
@@ -108,7 +110,7 @@ export default function InnerCircleApplicationPage() {
             <span className="pill" style={{ background: '#7c2d12', color: '#ffedd5' }}>Serious People Only</span>
           </div>
 
-          <h1 style={{ fontSize: 42, lineHeight: 1.05, margin: 0, color: '#ffffff' }}>
+          <h1 style={{ fontSize: 'clamp(30px, 7vw, 42px)', lineHeight: 1.05, margin: 0, color: '#ffffff' }}>
             Plug Into a Real Growth System
           </h1>
           <p style={{ margin: 0, color: '#cbd5e1', maxWidth: 820, fontSize: 18 }}>
@@ -276,7 +278,7 @@ export default function InnerCircleApplicationPage() {
           </Field>
 
           <Field label="10) Why is now the right time for you to take this seriously?" required>
-            <textarea rows={4} value={form.whyNow} onChange={(e) => update('whyNow', e.target.value)} placeholder="Your reason" />
+            <textarea rows={4} style={TEXTAREA_STYLE} value={form.whyNow} onChange={(e) => update('whyNow', e.target.value)} placeholder="Your reason" />
           </Field>
 
           <Field label="11) What is your income goal over the next 90 days?" required>
@@ -284,11 +286,11 @@ export default function InnerCircleApplicationPage() {
           </Field>
 
           <Field label="12) What has been stopping you from reaching that goal on your own?" required>
-            <textarea rows={4} value={form.whatStopping} onChange={(e) => update('whatStopping', e.target.value)} placeholder="Biggest current blockers" />
+            <textarea rows={4} style={TEXTAREA_STYLE} value={form.whatStopping} onChange={(e) => update('whatStopping', e.target.value)} placeholder="Biggest current blockers" />
           </Field>
 
           <Field label="13) What would change in your life if you had real systems and support behind you?" required>
-            <textarea rows={4} value={form.whatChanges} onChange={(e) => update('whatChanges', e.target.value)} placeholder="Expected impact" />
+            <textarea rows={4} style={TEXTAREA_STYLE} value={form.whatChanges} onChange={(e) => update('whatChanges', e.target.value)} placeholder="Expected impact" />
           </Field>
 
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
