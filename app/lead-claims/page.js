@@ -84,6 +84,7 @@ export default function LeadClaimsPortalPage() {
   const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState('');
+  const [rescheduleEmailingId, setRescheduleEmailingId] = useState('');
   const [message, setMessage] = useState('');
   const [query, setQuery] = useState('');
   const [view, setView] = useState('available');
@@ -311,6 +312,35 @@ export default function LeadClaimsPortalPage() {
       await loadRows(true);
     } finally {
       setSavingId('');
+    }
+  };
+
+  const sendRescheduleEmail = async (leadId) => {
+    if (!isManager || !leadId) return;
+    setRescheduleEmailingId(leadId);
+    setMessage('');
+
+    try {
+      const res = await fetch('/api/lead-claims', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send_reschedule_email', bookingId: leadId, actorName: auth.name })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        const msg = data?.error === 'not_expired_unclaimed'
+          ? 'This lead is not expired + unclaimed yet.'
+          : data?.error === 'missing_applicant_email'
+            ? 'No applicant email on file for this lead.'
+            : data?.error || 'Reschedule email failed';
+        setMessage(msg);
+        return;
+      }
+
+      setMessage('Reschedule email sent.');
+      await loadRows(true);
+    } finally {
+      setRescheduleEmailingId('');
     }
   };
 
@@ -550,6 +580,11 @@ export default function LeadClaimsPortalPage() {
                 {isPendingConfirmation ? <p className="muted" style={{ margin: '4px 0 0', color: '#92400e' }}>🟨 Waiting for confirmation from {row.claimed_by || 'assigned agent'}.</p> : null}
                 {isClaimedView ? <p className="muted" style={{ margin: '4px 0 0' }}>Claimed by: {row.claimed_by || '—'} • {fmtDate(row.claimed_at)}</p> : null}
                 {isExpiredQueue && expired ? <p className="muted" style={{ margin: '4px 0 0', color: '#b45309' }}>⚠️ Appointment time passed with no claim. Needs reschedule outreach.</p> : null}
+                {isExpiredQueue && row.reschedule_email_sent_at ? (
+                  <p className="muted" style={{ margin: '4px 0 0', color: '#166534' }}>
+                    ✅ Reschedule email sent by {row.reschedule_email_sent_by || 'Team'} on {fmtDate(row.reschedule_email_sent_at)}
+                  </p>
+                ) : null}
 
                 <div className="claimPrivate" style={{ marginTop: 10 }}>
                   <p><strong>Phone:</strong> {maskedPhone}</p>
@@ -577,6 +612,18 @@ export default function LeadClaimsPortalPage() {
                               ? 'Claim Locked'
                               : 'Unavailable'}
                     </button>
+
+                    {isManager && isExpiredQueue ? (
+                      <button
+                        type="button"
+                        className="ghost publicBtnBlock"
+                        disabled={rescheduleEmailingId === row.id}
+                        onClick={() => sendRescheduleEmail(row.id)}
+                        style={{ marginTop: 8 }}
+                      >
+                        {rescheduleEmailingId === row.id ? 'Sending Reschedule Email...' : 'Send Reschedule Email'}
+                      </button>
+                    ) : null}
 
                     {isManager ? (
                       <div style={{ display: 'grid', gap: 6, marginTop: 8 }} className={isPendingConfirmation ? 'pendingAssignBox' : ''}>

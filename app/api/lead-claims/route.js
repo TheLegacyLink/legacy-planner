@@ -141,6 +141,12 @@ function isDeleteEligible(row = {}, nowMs = Date.now()) {
   return nowMs - whenMs >= 24 * 60 * 60 * 1000;
 }
 
+function isExpiredUnclaimed(row = {}, nowMs = Date.now()) {
+  const whenMs = bookingUtcMs(row);
+  if (Number.isNaN(whenMs)) return false;
+  return !clean(row?.claimed_by) && whenMs < nowMs;
+}
+
 function formatHourMinute(hour24 = 0, minute = 0) {
   const suffix = hour24 >= 12 ? 'PM' : 'AM';
   let h = hour24 % 12;
@@ -236,6 +242,63 @@ async function sendAssignmentEmail({ assignedTo = '', assignedBy = '', row = {},
       html
     });
     return { ok: true, messageId: info.messageId };
+  } catch (error) {
+    return { ok: false, error: error?.message || 'send_failed' };
+  }
+}
+
+async function sendRescheduleEmail({ actorName = '', row = {} }) {
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  const to = clean(row?.applicant_email || '');
+  if (!to || !user || !pass) return { ok: false, error: !to ? 'missing_applicant_email' : 'email_not_configured' };
+
+  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+
+  const applicantName = clean(row?.applicant_name) || 'there';
+  const referredBy = clean(row?.referred_by || '');
+  const referredByEmail = findUserEmailByName(referredBy);
+  const sourceId = clean(row?.source_application_id || '');
+  const bookingLink = sourceId
+    ? `https://innercirclelink.com/sponsorship-booking?id=${encodeURIComponent(sourceId)}`
+    : 'https://innercirclelink.com/sponsorship-booking';
+
+  const subject = `Please Reschedule Your Sponsorship Appointment: ${applicantName}`;
+  const text = [
+    `Hi ${applicantName},`,
+    '',
+    'We noticed your scheduled sponsorship appointment was missed and was never claimed by an agent.',
+    'Please use the link below to reschedule your appointment at your earliest convenience:',
+    bookingLink,
+    '',
+    'If you need help booking, reply to this email and our team will assist you.',
+    '',
+    'Thank you,',
+    'The Legacy Link'
+  ].join('\n');
+
+  const html = emailFrame(
+    'Reschedule Needed',
+    `<p>Hi <strong>${applicantName}</strong>,</p>
+     <p>We noticed your scheduled sponsorship appointment was missed and was never claimed by an agent.</p>
+     <p>Please use the link below to reschedule your appointment at your earliest convenience:</p>
+     <p><a href="${bookingLink}">${bookingLink}</a></p>
+     <p>If you need help booking, reply to this email and our team will assist you.</p>`
+  );
+
+  const ccList = [referredByEmail, 'support@thelegacylink.com'].filter(Boolean);
+
+  try {
+    const info = await tx.sendMail({
+      from,
+      to,
+      cc: [...new Set(ccList)].join(', '),
+      subject,
+      text,
+      html
+    });
+    return { ok: true, messageId: info.messageId, bookingLink, sentBy: actorName };
   } catch (error) {
     return { ok: false, error: error?.message || 'send_failed' };
   }
@@ -889,6 +952,44 @@ export async function POST(req) {
     }
 
     return Response.json({ ok: true, row: toPortalRow(next, actor.name, actor.role) });
+  }
+
+  if (action === 'send_reschedule_email') {
+    if (!isManagerRole(actor.role)) {
+      return Response.json({ ok: false, error: 'manager_only' }, { status: 403 });
+    }
+
+    if (!isExpiredUnclaimed(row)) {
+      return Response.json({ ok: false, error: 'not_expired_unclaimed' }, { status: 409 });
+    }
+
+    const emailResult = await sendRescheduleEmail({ actorName: actor.name, row });
+    if (!emailResult?.ok) {
+      return Response.json({ ok: false, error: emailResult?.error || 'send_failed' }, { status: 500 });
+    }
+
+    const sentAt = nowIso();
+    const next = {
+      ...row,
+      reschedule_email_sent_at: sentAt,
+      reschedule_email_sent_by: actor.name,
+      updated_at: sentAt
+    };
+
+    if (targetStore === 'sponsor') {
+      sponsorRows[sponsorIdx] = next;
+      await saveJsonStore(SPONSORSHIP_BOOKINGS_PATH, sponsorRows);
+    } else {
+      bonusRows[bonusIdx] = {
+        ...bonusRows[bonusIdx],
+        reschedule_email_sent_at: sentAt,
+        reschedule_email_sent_by: actor.name,
+        updated_at: sentAt
+      };
+      await saveJsonStore(BONUS_BOOKINGS_PATH, bonusRows);
+    }
+
+    return Response.json({ ok: true, row: toPortalRow(next, actor.name, actor.role), sentAt, sentBy: actor.name });
   }
 
   if (action === 'release') {
