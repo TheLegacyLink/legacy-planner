@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-const SESSION_KEY = 'legacy_lead_claim_portal_user_v1';
+const SESSION_KEY = 'legacy_lead_claim_manager_portal_user_v1';
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -16,6 +16,39 @@ function fmtDate(iso = '') {
   const d = new Date(iso || 0);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleString();
+}
+
+const ZONE_OFFSET = { ET: -5, CT: -6, MT: -7, PT: -8, AKT: -9, HT: -10, AT: -4 };
+
+function parseRequested(raw = '') {
+  const m = String(raw || '').trim().match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return null;
+  const [, date, hhRaw, mmRaw, apRaw] = m;
+  let hh = Number(hhRaw || 0);
+  const ap = String(apRaw || '').toUpperCase();
+  if (ap === 'PM' && hh !== 12) hh += 12;
+  if (ap === 'AM' && hh === 12) hh = 0;
+  return { date, hh, mm: Number(mmRaw || 0) };
+}
+
+function bookingUtcMs(row = {}) {
+  const parsed = parseRequested(row?.requested_at_est || '');
+  if (!parsed) return NaN;
+
+  const zone = String(row?.booking_timezone || 'ET').trim().toUpperCase();
+  const offset = Number(ZONE_OFFSET[zone] ?? -5);
+  const [y, mo, d] = String(parsed.date || '').split('-').map((n) => Number(n));
+  if (!y || !mo || !d) return NaN;
+
+  return Date.UTC(y, mo - 1, d, parsed.hh, parsed.mm, 0, 0) - offset * 60 * 60 * 1000;
+}
+
+function isExpiredUnclaimed(row = {}) {
+  const isClaimed = Boolean(clean(row?.claimed_by));
+  if (isClaimed) return false;
+  const whenMs = bookingUtcMs(row);
+  if (Number.isNaN(whenMs)) return false;
+  return whenMs < Date.now();
 }
 
 function sourceLabel(row = {}) {
@@ -51,6 +84,7 @@ export default function LeadClaimsPortalPage() {
   const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState('');
+  const [rescheduleEmailingId, setRescheduleEmailingId] = useState('');
   const [message, setMessage] = useState('');
   const [query, setQuery] = useState('');
   const [view, setView] = useState('available');
@@ -281,33 +315,102 @@ export default function LeadClaimsPortalPage() {
     }
   };
 
-  const availableRows = useMemo(() => rows.filter((r) => !clean(r.claimed_by) || clean(r.assignment_status) === 'pending_confirmation'), [rows]);
+  const sendRescheduleEmail = async (leadId) => {
+    if (!isManager || !leadId) return;
+    setRescheduleEmailingId(leadId);
+    setMessage('');
 
-  const filteredRows = useMemo(() => {
+    try {
+      const res = await fetch('/api/lead-claims', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send_reschedule_email', bookingId: leadId, actorName: auth.name })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        const msg = data?.error === 'not_expired_unclaimed'
+          ? 'This lead is not expired + unclaimed yet.'
+          : data?.error === 'missing_applicant_email'
+            ? 'No applicant email on file for this lead.'
+            : data?.error || 'Reschedule email failed';
+        setMessage(msg);
+        return;
+      }
+
+      setMessage('Reschedule email sent.');
+      await loadRows(true);
+    } finally {
+      setRescheduleEmailingId('');
+    }
+  };
+
+  const filterRowsByQuery = useCallback((list = []) => {
     const q = normalize(query);
-    if (!q) return availableRows;
-    return availableRows.filter((r) => {
-      const blob = [r.applicant_name, r.applicant_state, r.referred_by, sourceLabel(r)].map((x) => normalize(x)).join(' ');
+    if (!q) return list;
+    return list.filter((r) => {
+      const blob = [
+        r.applicant_name,
+        r.applicant_state,
+        r.referred_by,
+        r.claimed_by,
+        r.assignment_status,
+        sourceLabel(r)
+      ].map((x) => normalize(x)).join(' ');
       return blob.includes(q);
     });
-  }, [availableRows, query]);
+  }, [query]);
 
-  const myClaims = useMemo(() => rows.filter((r) => normalize(r.claimed_by) === normalize(auth.name)), [rows, auth.name]);
-  const pendingConfirmRows = useMemo(() => rows.filter((r) => clean(r.assignment_status) === 'pending_confirmation'), [rows]);
-  const availableToClaimRows = useMemo(() => filteredRows.filter((r) => clean(r.assignment_status) !== 'pending_confirmation'), [filteredRows]);
+  const pendingConfirmRows = useMemo(
+    () => rows.filter((r) => clean(r.assignment_status) === 'pending_confirmation'),
+    [rows]
+  );
+
+  const availableRows = useMemo(
+    () => rows.filter((r) => !clean(r.claimed_by) || clean(r.assignment_status) === 'pending_confirmation'),
+    [rows]
+  );
+
+  const availableToClaimRows = useMemo(
+    () => filterRowsByQuery(availableRows.filter((r) => clean(r.assignment_status) !== 'pending_confirmation')),
+    [availableRows, filterRowsByQuery]
+  );
+
+  const myClaims = useMemo(
+    () => filterRowsByQuery(rows.filter((r) => normalize(r.claimed_by) === normalize(auth.name))),
+    [rows, auth.name, filterRowsByQuery]
+  );
+
+  const pendingConfirmFilteredRows = useMemo(
+    () => filterRowsByQuery(pendingConfirmRows),
+    [pendingConfirmRows, filterRowsByQuery]
+  );
+
+  const teamClaimedRows = useMemo(
+    () => filterRowsByQuery(rows.filter((r) => clean(r.claimed_by))),
+    [rows, filterRowsByQuery]
+  );
+
+  const expiredUnclaimedRows = useMemo(
+    () => filterRowsByQuery(rows.filter((r) => isExpiredUnclaimed(r))),
+    [rows, filterRowsByQuery]
+  );
 
   const displayedRows = view === 'claimed'
     ? myClaims
     : view === 'pending'
-      ? pendingConfirmRows
-      : availableToClaimRows;
+      ? pendingConfirmFilteredRows
+      : view === 'team'
+        ? teamClaimedRows
+        : view === 'expired'
+          ? expiredUnclaimedRows
+          : availableToClaimRows;
 
   if (!auth.name) {
     return (
       <main className="claimsPortal claimsPortalMarketplace">
         <section className="claimsAuthCard">
           <h2 className="claimsWordmark">The Legacy Link</h2>
-          <p className="claimsQuote">Booked Application Claim Queue</p>
+          <p className="claimsQuote">Booked Appointment Queue • Manager View</p>
           <input placeholder="Full name" value={loginName} onChange={(e) => setLoginName(e.target.value)} />
           <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && login()} />
           <button type="button" className="publicPrimaryBtn" onClick={login}>Enter Marketplace</button>
@@ -321,7 +424,7 @@ export default function LeadClaimsPortalPage() {
     <main className="claimsPortal claimsPortalMarketplace">
       <section className="claimsHeader marketplaceHeader">
         <div>
-          <h1>Booked Appointment Queue</h1>
+          <h1>Booked Appointment Queue — Manager</h1>
           <p>These are booked appointments waiting for an agent to complete the sponsorship application through F&G. {auth.name} • {auth.role}</p>
         </div>
         <button type="button" className="ghost" onClick={() => loadRows()}>Refresh</button>
@@ -367,6 +470,16 @@ export default function LeadClaimsPortalPage() {
             <button type="button" className={view === 'claimed' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setView('claimed')}>
               My Claimed Leads ({myClaims.length})
             </button>
+            {isManager ? (
+              <button type="button" className={view === 'team' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setView('team')}>
+                Team Claimed ({teamClaimedRows.length})
+              </button>
+            ) : null}
+            {isManager ? (
+              <button type="button" className={view === 'expired' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setView('expired')}>
+                Expired • Never Claimed ({expiredUnclaimedRows.length})
+              </button>
+            ) : null}
           </div>
           {myClaims.length ? (
             <div className="claimsMiniClaimed">
@@ -388,8 +501,28 @@ export default function LeadClaimsPortalPage() {
         {!displayedRows.length && !loading ? (
           <div className="claimsEmptyState">
             <div className="icon">🛍️</div>
-            <h3>{view === 'claimed' ? 'No claimed leads yet' : view === 'pending' ? 'No pending confirmations' : 'No available leads'}</h3>
-            <p className="muted">{view === 'claimed' ? 'Once you claim leads, they will show here.' : view === 'pending' ? 'Assignments waiting for agent confirmation will appear here.' : (isManager ? 'Add new leads in admin tools to populate the queue.' : 'Check back soon for fresh booked appointments.')}</p>
+            <h3>
+              {view === 'claimed'
+                ? 'No claimed leads yet'
+                : view === 'pending'
+                  ? 'No pending confirmations'
+                  : view === 'team'
+                    ? 'No team-claimed leads yet'
+                    : view === 'expired'
+                      ? 'No expired unclaimed leads'
+                      : 'No available leads'}
+            </h3>
+            <p className="muted">
+              {view === 'claimed'
+                ? 'Once you claim leads, they will show here.'
+                : view === 'pending'
+                  ? 'Assignments waiting for agent confirmation will appear here.'
+                  : view === 'team'
+                    ? 'When agents claim booked appointments, they will show here.'
+                    : view === 'expired'
+                      ? 'If a lead was never claimed and the appointment time passed, it will appear here for reschedule.'
+                      : (isManager ? 'Add new leads in admin tools to populate the queue.' : 'Check back soon for fresh booked appointments.')}
+            </p>
           </div>
         ) : null}
 
@@ -397,9 +530,11 @@ export default function LeadClaimsPortalPage() {
           {displayedRows.map((row) => {
             const inPriority = Boolean(row.is_priority_window_open && !row.claimed_by);
             const canClaim = Boolean(row.can_claim);
-            const isClaimedView = view === 'claimed';
+            const isClaimedView = view === 'claimed' || view === 'team';
             const isPendingConfirmation = clean(row.assignment_status) === 'pending_confirmation';
             const isClaimOwner = normalize(row.claimed_by) === normalize(auth.name);
+            const isExpiredQueue = view === 'expired';
+            const expired = isExpiredUnclaimed(row);
             const maskedPhone = isClaimedView ? clean(row.applicant_phone || '—') : maskPhone(row.applicant_phone);
             const maskedEmail = isClaimedView ? clean(row.applicant_email || '—') : maskEmail(row.applicant_email);
             const isVip = Boolean(row.is_vip);
@@ -443,7 +578,13 @@ export default function LeadClaimsPortalPage() {
                 <p className="muted" style={{ margin: '6px 0 0' }}>{row.applicant_state || '—'} • {clean(row.requested_at_est) || 'No booking time yet'}</p>
                 {inPriority && isMyReferral ? <p className="muted" style={{ margin: '4px 0 0', color: '#92400e' }}>24h priority lock is active for your referral.</p> : null}
                 {isPendingConfirmation ? <p className="muted" style={{ margin: '4px 0 0', color: '#92400e' }}>🟨 Waiting for confirmation from {row.claimed_by || 'assigned agent'}.</p> : null}
-                {isClaimedView ? <p className="muted" style={{ margin: '4px 0 0' }}>Claimed at: {fmtDate(row.claimed_at)}</p> : null}
+                {isClaimedView ? <p className="muted" style={{ margin: '4px 0 0' }}>Claimed by: {row.claimed_by || '—'} • {fmtDate(row.claimed_at)}</p> : null}
+                {isExpiredQueue && expired ? <p className="muted" style={{ margin: '4px 0 0', color: '#b45309' }}>⚠️ Appointment time passed with no claim. Needs reschedule outreach.</p> : null}
+                {isExpiredQueue && row.reschedule_email_sent_at ? (
+                  <p className="muted" style={{ margin: '4px 0 0', color: '#166534' }}>
+                    ✅ Reschedule email sent by {row.reschedule_email_sent_by || 'Team'} on {fmtDate(row.reschedule_email_sent_at)}
+                  </p>
+                ) : null}
 
                 <div className="claimPrivate" style={{ marginTop: 10 }}>
                   <p><strong>Phone:</strong> {maskedPhone}</p>
@@ -461,8 +602,28 @@ export default function LeadClaimsPortalPage() {
                       disabled={!canClaim || isPendingConfirmation || savingId === row.id}
                       onClick={() => claimLead(row.id)}
                     >
-                      {savingId === row.id ? 'Claiming...' : isPendingConfirmation ? 'Awaiting Confirmation' : canClaim ? 'Claim Appointment' : inPriority ? 'Claim Locked' : 'Unavailable'}
+                      {savingId === row.id
+                        ? 'Claiming...'
+                        : isPendingConfirmation
+                          ? 'Awaiting Confirmation'
+                          : canClaim
+                            ? (isExpiredQueue && expired ? 'Claim + Reschedule' : 'Claim Appointment')
+                            : inPriority
+                              ? 'Claim Locked'
+                              : 'Unavailable'}
                     </button>
+
+                    {isManager && isExpiredQueue ? (
+                      <button
+                        type="button"
+                        className="ghost publicBtnBlock"
+                        disabled={rescheduleEmailingId === row.id}
+                        onClick={() => sendRescheduleEmail(row.id)}
+                        style={{ marginTop: 8 }}
+                      >
+                        {rescheduleEmailingId === row.id ? 'Sending Reschedule Email...' : 'Send Reschedule Email'}
+                      </button>
+                    ) : null}
 
                     {isManager ? (
                       <div style={{ display: 'grid', gap: 6, marginTop: 8 }} className={isPendingConfirmation ? 'pendingAssignBox' : ''}>
