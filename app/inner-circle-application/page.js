@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 
-const CALENDAR_URL = process.env.NEXT_PUBLIC_INNER_CIRCLE_CALENDAR_URL || '/sponsorship-booking';
+const CALENDAR_URL = process.env.NEXT_PUBLIC_INNER_CIRCLE_CALENDAR_URL || '/inner-circle-booking';
 const PREP_TRACK_URL = '/sponsorship-signup';
 
 const INITIAL = {
@@ -73,7 +73,8 @@ export default function InnerCircleApplicationPage() {
       setResult({
         qualified: Boolean(data?.qualified),
         score: Number(data?.score || 0),
-        reason: data?.reason || ''
+        reason: data?.reason || '',
+        applicationId: data?.id || ''
       });
 
       if (Boolean(data?.qualified)) {
@@ -158,6 +159,7 @@ export default function InnerCircleApplicationPage() {
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1f2937', background: '#060d1a' }}>
         <h3 style={{ marginTop: 0, color: '#fff' }}>Inner Circle Qualification Application</h3>
         <p style={{ marginTop: -4, color: '#94a3b8' }}>Complete all questions. This is reviewed for fit, readiness, and execution capacity.</p>
+        <p style={{ marginTop: 0, color: '#94a3b8' }}>Every submission is saved in the system, including applicants not yet qualified.</p>
 
         <form className="settingsGrid" style={{ rowGap: 16, columnGap: 16, alignItems: 'start' }} onSubmit={submit}>
           <Field label="Full Name" required>
@@ -286,7 +288,11 @@ export default function InnerCircleApplicationPage() {
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
               {result.qualified ? (
-                <a href={CALENDAR_URL} className="publicPrimaryBtn" style={{ textDecoration: 'none' }}>
+                <a
+                  href={`${CALENDAR_URL}${result?.applicationId ? `${String(CALENDAR_URL).includes('?') ? '&' : '?'}id=${encodeURIComponent(result.applicationId)}` : ''}`}
+                  className="publicPrimaryBtn"
+                  style={{ textDecoration: 'none' }}
+                >
                   Book 1-on-1 Strategy Call
                 </a>
               ) : (

@@ -108,8 +108,16 @@ async function sendQualifiedAlert(app = {}, qualification = {}) {
   }
 }
 
-export async function GET() {
+export async function GET(req) {
   const rows = await loadJsonStore(STORE_PATH, []);
+  const { searchParams } = new URL(req.url);
+  const id = clean(searchParams.get('id'));
+
+  if (id) {
+    const row = rows.find((r) => clean(r?.id) === id) || null;
+    return Response.json({ ok: true, row });
+  }
+
   return Response.json({ ok: true, count: rows.length, rows: rows.slice(0, 200) });
 }
 
