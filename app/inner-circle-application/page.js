@@ -14,6 +14,11 @@ const TESTIMONIALS = [
     name: 'Jamal',
     embed: 'https://www.loom.com/embed/d2a24146f39e4cdda4d34cee71f9a58d',
     quote: 'The Inner Circle gives you 24-hour support, constant leads, and the training to become an elite insurance agent.'
+  },
+  {
+    name: 'Leticia',
+    embed: 'https://www.loom.com/embed/736bfca8f02048b788dbd9a6cc6eb0d9',
+    quote: 'The support, structure, and execution focus inside Inner Circle helped me move with confidence.'
   }
 ];
 
