@@ -3,6 +3,7 @@
 import Image from 'next/image';
 
 const KIMORA_IMAGE = process.env.NEXT_PUBLIC_KIMORA_PROGRAM_IMAGE || '/kimora-profile.png';
+const BREANNA_TESTIMONIAL_EMBED = 'https://www.loom.com/embed/9242feaac8f1468da2db14ca57110f43';
 
 export default function InnerCircleProgramPage() {
   return (
@@ -109,6 +110,20 @@ export default function InnerCircleProgramPage() {
           This is not just an idea. This is a working system. The combination of lead flow, AI-assisted follow-up,
           automation, and real support is helping serious people move faster.
         </p>
+      </div>
+
+      <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1e293b', background: '#071126' }}>
+        <h3 style={{ marginTop: 0, color: '#fff' }}>Real Testimonial — Dr. Breanna</h3>
+        <p style={{ marginTop: -2, color: '#cbd5e1' }}>Proof from the field. Real experience, real movement.</p>
+        <div style={{ position: 'relative', paddingTop: '56.25%', borderRadius: 12, overflow: 'hidden', border: '1px solid #1f2937' }}>
+          <iframe
+            src={BREANNA_TESTIMONIAL_EMBED}
+            title="Dr. Breanna Testimonial"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: '0' }}
+          />
+        </div>
       </div>
 
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #854d0e', background: 'linear-gradient(180deg,#1f1302 0%, #140d02 100%)' }}>

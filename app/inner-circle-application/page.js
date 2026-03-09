@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 
 const CALENDAR_URL = process.env.NEXT_PUBLIC_INNER_CIRCLE_CALENDAR_URL || '/inner-circle-booking';
 const PREP_TRACK_URL = '/sponsorship-signup';
+const BREANNA_TESTIMONIAL_EMBED = 'https://www.loom.com/embed/9242feaac8f1468da2db14ca57110f43';
 
 const INITIAL = {
   fullName: '',
@@ -178,6 +179,22 @@ export default function InnerCircleApplicationPage() {
           ))}
         </ul>
         <p style={{ marginTop: 12, color: '#93c5fd', fontWeight: 600 }}>Only qualified applicants are invited to a one-on-one strategy call with Kimora.</p>
+      </div>
+
+      <Divider />
+
+      <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1f2937', background: '#060d1a' }}>
+        <h3 style={{ marginTop: 0, color: '#fff' }}>Real Testimonial — Dr. Breanna</h3>
+        <p style={{ marginTop: -2, color: '#cbd5e1' }}>Proof from the field. Real experience, real movement.</p>
+        <div style={{ position: 'relative', paddingTop: '56.25%', borderRadius: 12, overflow: 'hidden', border: '1px solid #1f2937' }}>
+          <iframe
+            src={BREANNA_TESTIMONIAL_EMBED}
+            title="Dr. Breanna Testimonial"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: '0' }}
+          />
+        </div>
       </div>
 
       <Divider />
