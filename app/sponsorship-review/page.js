@@ -15,6 +15,14 @@ const REF_CODE_TO_SPONSOR = {
   latricia_wright: 'Leticia Wright'
 };
 
+function clean(v = '') {
+  return String(v || '').trim();
+}
+
+function normalize(v = '') {
+  return clean(v).toLowerCase().replace(/\s+/g, ' ');
+}
+
 function fmt(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
