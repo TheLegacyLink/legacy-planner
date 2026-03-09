@@ -69,6 +69,7 @@ export default function SponsorshipReviewPage() {
   const [loading, setLoading] = useState(true);
   const [reviewRow, setReviewRow] = useState(null);
   const [bookedSet, setBookedSet] = useState(new Set());
+  const [bookingRows, setBookingRows] = useState([]);
 
   async function load() {
     try {
@@ -83,8 +84,10 @@ export default function SponsorshipReviewPage() {
       if (appsRes.ok && appsData?.ok) setRows(appsData.rows || []);
 
       if (bookingsRes.ok && bookingsData?.ok) {
+        const rows = Array.isArray(bookingsData.rows) ? bookingsData.rows : [];
+        setBookingRows(rows);
         const set = new Set();
-        for (const b of (bookingsData.rows || [])) {
+        for (const b of rows) {
           const sourceId = clean(b?.source_application_id);
           const name = normalize(b?.applicant_name || '');
           const email = normalize(b?.applicant_email || '');
@@ -143,12 +146,21 @@ export default function SponsorshipReviewPage() {
   }
 
   const bookedCount = rows.filter((r) => isBooked(r)).length;
+  const bookedTodayCount = useMemo(() => {
+    const now = new Date();
+    return (bookingRows || []).filter((b) => {
+      const ts = new Date(b?.created_at || b?.booked_at || b?.updated_at || 0);
+      if (Number.isNaN(ts.getTime())) return false;
+      return ts.toDateString() === now.toDateString();
+    }).length;
+  }, [bookingRows]);
 
   return (
     <AppShell title="Sponsorship Review Queue">
       <div className="panelRow" style={{ marginBottom: 10 }}>
         <span className="pill atrisk">Pending Review: {pending.length}</span>
         <span className="pill onpace">Approved: {approved.length}</span>
+        <span className="pill" style={{ background: '#dcfce7', color: '#166534' }}>📅 Booked Today: {bookedTodayCount}</span>
         <span className="pill" style={{ background: '#fef3c7', color: '#92400e' }}>⭐ Booked: {bookedCount}</span>
       </div>
 
