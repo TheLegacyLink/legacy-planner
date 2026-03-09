@@ -71,18 +71,22 @@ export default function SponsorshipReviewPage() {
   const [bookedSet, setBookedSet] = useState(new Set());
   const [fgSubmittedSet, setFgSubmittedSet] = useState(new Set());
   const [bookingRows, setBookingRows] = useState([]);
+  const [touchMap, setTouchMap] = useState({});
+  const [savingTouchKey, setSavingTouchKey] = useState('');
 
   async function load() {
     try {
-      const [appsRes, bookingsRes, policyRes] = await Promise.all([
+      const [appsRes, bookingsRes, policyRes, touchesRes] = await Promise.all([
         fetch('/api/sponsorship-applications', { cache: 'no-store' }),
         fetch('/api/sponsorship-bookings', { cache: 'no-store' }),
-        fetch('/api/policy-submissions', { cache: 'no-store' })
+        fetch('/api/policy-submissions', { cache: 'no-store' }),
+        fetch('/api/sponsorship-review-touches', { cache: 'no-store' })
       ]);
 
       const appsData = await appsRes.json().catch(() => ({}));
       const bookingsData = await bookingsRes.json().catch(() => ({}));
       const policyData = await policyRes.json().catch(() => ({}));
+      const touchesData = await touchesRes.json().catch(() => ({}));
 
       if (appsRes.ok && appsData?.ok) setRows(appsData.rows || []);
 
@@ -115,6 +119,16 @@ export default function SponsorshipReviewPage() {
           if (phone) submitted.add(`p:${phone}`);
         }
         setFgSubmittedSet(submitted);
+      }
+
+      if (touchesRes.ok && touchesData?.ok) {
+        const map = {};
+        for (const t of (touchesData.rows || [])) {
+          const k = clean(t?.key);
+          if (!k) continue;
+          map[k] = t;
+        }
+        setTouchMap(map);
       }
     } finally {
       setLoading(false);
@@ -197,6 +211,40 @@ export default function SponsorshipReviewPage() {
       || (phone && fgSubmittedSet.has(`p:${phone}`));
   }
 
+  function touchKeyFor(r = {}) {
+    const id = clean(r?.id || '');
+    if (id) return `id:${id}`;
+    const email = normalize(r?.email || '');
+    if (email) return `e:${email}`;
+    const phone = normalizePhone(r?.phone || '');
+    if (phone) return `p:${phone}`;
+    const name = normalize(`${r?.firstName || ''} ${r?.lastName || ''}`);
+    return name ? `n:${name}` : '';
+  }
+
+  function canTrackTouches(r = {}) {
+    const approvedStatus = normalize(r?.status || '').includes('approved');
+    return approvedStatus && !isBooked(r) && !isFgSubmitted(r);
+  }
+
+  async function markTouch(r = {}, channel = 'text') {
+    const key = touchKeyFor(r);
+    if (!key) return;
+    setSavingTouchKey(key);
+    try {
+      const res = await fetch('/api/sponsorship-review-touches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'increment', key, channel })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok || !data?.row) return;
+      setTouchMap((prev) => ({ ...prev, [key]: data.row }));
+    } finally {
+      setSavingTouchKey('');
+    }
+  }
+
   const bookedCount = displayRows.filter((r) => isBooked(r)).length;
   const submittedCount = displayRows.filter((r) => isFgSubmitted(r)).length;
   const bookedTodayCount = useMemo(() => {
@@ -236,6 +284,9 @@ export default function SponsorshipReviewPage() {
           {displayRows.map((r) => {
             const booked = isBooked(r);
             const submitted = isFgSubmitted(r);
+            const trackable = canTrackTouches(r);
+            const touchKey = touchKeyFor(r);
+            const touch = touchMap[touchKey] || { textCount: 0, emailCount: 0 };
             const approvedBg = String(r.status).toLowerCase().includes('approved') ? { background: 'rgba(34,197,94,0.12)' } : {};
             const bookedGlow = booked ? { boxShadow: 'inset 0 0 0 2px rgba(250,204,21,0.55)', background: 'rgba(251,191,36,0.14)' } : {};
             const submittedGlow = submitted ? { boxShadow: 'inset 0 0 0 2px rgba(59,130,246,0.55)', background: 'rgba(59,130,246,0.10)' } : {};
@@ -247,6 +298,30 @@ export default function SponsorshipReviewPage() {
                   <strong>{booked ? '⭐ ' : submitted ? '💙⭐⭐⭐ ' : ''}{r.firstName} {r.lastName}</strong>
                   {booked ? <small style={{ color: '#a16207', fontWeight: 700 }}>Booked Appointment</small> : null}
                   {!booked && submitted ? <small style={{ color: '#1d4ed8', fontWeight: 700 }}>F&G Application Submitted</small> : null}
+                  {trackable ? (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 2 }}>
+                      <small style={{ color: '#0f172a', fontWeight: 700 }}>SMS {Number(touch.textCount || 0)}/5</small>
+                      <small style={{ color: '#334155' }}>Email {Number(touch.emailCount || 0)}</small>
+                      <button
+                        type="button"
+                        className="ghost"
+                        style={{ padding: '2px 8px', fontSize: 12 }}
+                        disabled={savingTouchKey === touchKey || Number(touch.textCount || 0) >= 5}
+                        onClick={() => markTouch(r, 'text')}
+                      >
+                        +Text
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost"
+                        style={{ padding: '2px 8px', fontSize: 12 }}
+                        disabled={savingTouchKey === touchKey}
+                        onClick={() => markTouch(r, 'email')}
+                      >
+                        +Email
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </td>
               <td>{r.email || '—'}</td>
