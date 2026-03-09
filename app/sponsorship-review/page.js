@@ -69,20 +69,20 @@ export default function SponsorshipReviewPage() {
   const [loading, setLoading] = useState(true);
   const [reviewRow, setReviewRow] = useState(null);
   const [bookedSet, setBookedSet] = useState(new Set());
-  const [submittedSet, setSubmittedSet] = useState(new Set());
+  const [fgSubmittedSet, setFgSubmittedSet] = useState(new Set());
   const [bookingRows, setBookingRows] = useState([]);
 
   async function load() {
     try {
-      const [appsRes, bookingsRes, callerRes] = await Promise.all([
+      const [appsRes, bookingsRes, policyRes] = await Promise.all([
         fetch('/api/sponsorship-applications', { cache: 'no-store' }),
         fetch('/api/sponsorship-bookings', { cache: 'no-store' }),
-        fetch('/api/caller-leads', { cache: 'no-store' })
+        fetch('/api/policy-submissions', { cache: 'no-store' })
       ]);
 
       const appsData = await appsRes.json().catch(() => ({}));
       const bookingsData = await bookingsRes.json().catch(() => ({}));
-      const callerData = await callerRes.json().catch(() => ({}));
+      const policyData = await policyRes.json().catch(() => ({}));
 
       if (appsRes.ok && appsData?.ok) setRows(appsData.rows || []);
 
@@ -103,21 +103,18 @@ export default function SponsorshipReviewPage() {
         setBookedSet(set);
       }
 
-      if (callerRes.ok && callerData?.ok) {
+      if (policyRes.ok && policyData?.ok) {
         const submitted = new Set();
-        const rows = Array.isArray(callerData.rows) ? callerData.rows : [];
-        for (const c of rows) {
-          const stage = normalize(c?.stage || '');
-          const submittedStage = ['form completed', 'policy started', 'approved', 'onboarding started', 'moved forward'].some((s) => stage.includes(s));
-          if (!submittedStage) continue;
-          const name = normalize(c?.name || `${c?.firstName || ''} ${c?.lastName || ''}`);
-          const email = normalize(c?.email || '');
-          const phone = normalizePhone(c?.phone || '');
+        const rows = Array.isArray(policyData.rows) ? policyData.rows : [];
+        for (const p of rows) {
+          const name = normalize(p?.applicantName || p?.applicant_name || '');
+          const email = normalize(p?.applicantEmail || p?.applicant_email || p?.email || '');
+          const phone = normalizePhone(p?.applicantPhone || p?.applicant_phone || p?.phone || '');
           if (name) submitted.add(`n:${name}`);
           if (email) submitted.add(`e:${email}`);
           if (phone) submitted.add(`p:${phone}`);
         }
-        setSubmittedSet(submitted);
+        setFgSubmittedSet(submitted);
       }
     } finally {
       setLoading(false);
@@ -163,9 +160,10 @@ export default function SponsorshipReviewPage() {
       const email = normalize(r?.email || '');
       const phone = normalizePhone(r?.phone || '');
 
-      if (name && seenNames.has(name)) continue;
-      if (!name && email && seenEmails.has(email)) continue;
-      if (!name && !email && phone && seenPhones.has(phone)) continue;
+      // Deduplicate if ANY of name/email/phone already exists.
+      if ((name && seenNames.has(name)) || (email && seenEmails.has(email)) || (phone && seenPhones.has(phone))) {
+        continue;
+      }
 
       if (name) seenNames.add(name);
       if (email) seenEmails.add(email);
@@ -190,17 +188,17 @@ export default function SponsorshipReviewPage() {
       || (phone && bookedSet.has(`p:${phone}`));
   }
 
-  function isSubmitted(r = {}) {
+  function isFgSubmitted(r = {}) {
     const name = normalize(`${r?.firstName || ''} ${r?.lastName || ''}`);
     const email = normalize(r?.email || '');
     const phone = normalizePhone(r?.phone || '');
-    return (name && submittedSet.has(`n:${name}`))
-      || (email && submittedSet.has(`e:${email}`))
-      || (phone && submittedSet.has(`p:${phone}`));
+    return (name && fgSubmittedSet.has(`n:${name}`))
+      || (email && fgSubmittedSet.has(`e:${email}`))
+      || (phone && fgSubmittedSet.has(`p:${phone}`));
   }
 
   const bookedCount = displayRows.filter((r) => isBooked(r)).length;
-  const submittedCount = displayRows.filter((r) => isSubmitted(r)).length;
+  const submittedCount = displayRows.filter((r) => isFgSubmitted(r)).length;
   const bookedTodayCount = useMemo(() => {
     const now = new Date();
     return (bookingRows || []).filter((b) => {
@@ -215,7 +213,7 @@ export default function SponsorshipReviewPage() {
       <div className="panelRow" style={{ marginBottom: 10 }}>
         <span className="pill atrisk">Pending Review: {pending.length}</span>
         <span className="pill onpace">Approved: {approved.length}</span>
-        <span className="pill" style={{ background: '#dbeafe', color: '#1e40af' }}>💙⭐⭐⭐ Submitted: {submittedCount}</span>
+        <span className="pill" style={{ background: '#dbeafe', color: '#1e40af' }}>💙⭐⭐⭐ F&G App Submitted: {submittedCount}</span>
         <span className="pill" style={{ background: '#dcfce7', color: '#166534' }}>📅 Booked Today: {bookedTodayCount}</span>
         <span className="pill" style={{ background: '#fef3c7', color: '#92400e' }}>⭐ Booked: {bookedCount}</span>
       </div>
@@ -237,7 +235,7 @@ export default function SponsorshipReviewPage() {
         <tbody>
           {displayRows.map((r) => {
             const booked = isBooked(r);
-            const submitted = isSubmitted(r);
+            const submitted = isFgSubmitted(r);
             const approvedBg = String(r.status).toLowerCase().includes('approved') ? { background: 'rgba(34,197,94,0.12)' } : {};
             const bookedGlow = booked ? { boxShadow: 'inset 0 0 0 2px rgba(250,204,21,0.55)', background: 'rgba(251,191,36,0.14)' } : {};
             const submittedGlow = submitted ? { boxShadow: 'inset 0 0 0 2px rgba(59,130,246,0.55)', background: 'rgba(59,130,246,0.10)' } : {};
@@ -248,7 +246,7 @@ export default function SponsorshipReviewPage() {
                   <small className="muted">Sponsor: {sponsorNameFromRow(r)}</small>
                   <strong>{booked ? '⭐ ' : submitted ? '💙⭐⭐⭐ ' : ''}{r.firstName} {r.lastName}</strong>
                   {booked ? <small style={{ color: '#a16207', fontWeight: 700 }}>Booked Appointment</small> : null}
-                  {!booked && submitted ? <small style={{ color: '#1d4ed8', fontWeight: 700 }}>Application Submitted</small> : null}
+                  {!booked && submitted ? <small style={{ color: '#1d4ed8', fontWeight: 700 }}>F&G Application Submitted</small> : null}
                 </div>
               </td>
               <td>{r.email || '—'}</td>
