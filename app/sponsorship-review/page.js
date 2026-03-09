@@ -52,16 +52,42 @@ function answerFields(row = {}) {
   ];
 }
 
+function normalizePhone(v = '') {
+  return String(v || '').replace(/\D/g, '');
+}
+
 export default function SponsorshipReviewPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reviewRow, setReviewRow] = useState(null);
+  const [bookedSet, setBookedSet] = useState(new Set());
 
   async function load() {
     try {
-      const res = await fetch('/api/sponsorship-applications', { cache: 'no-store' });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data?.ok) setRows(data.rows || []);
+      const [appsRes, bookingsRes] = await Promise.all([
+        fetch('/api/sponsorship-applications', { cache: 'no-store' }),
+        fetch('/api/sponsorship-bookings', { cache: 'no-store' })
+      ]);
+
+      const appsData = await appsRes.json().catch(() => ({}));
+      const bookingsData = await bookingsRes.json().catch(() => ({}));
+
+      if (appsRes.ok && appsData?.ok) setRows(appsData.rows || []);
+
+      if (bookingsRes.ok && bookingsData?.ok) {
+        const set = new Set();
+        for (const b of (bookingsData.rows || [])) {
+          const sourceId = clean(b?.source_application_id);
+          const name = normalize(b?.applicant_name || '');
+          const email = normalize(b?.applicant_email || '');
+          const phone = normalizePhone(b?.applicant_phone || '');
+          if (sourceId) set.add(`id:${sourceId}`);
+          if (name) set.add(`n:${name}`);
+          if (email) set.add(`e:${email}`);
+          if (phone) set.add(`p:${phone}`);
+        }
+        setBookedSet(set);
+      }
     } finally {
       setLoading(false);
     }
@@ -97,11 +123,25 @@ export default function SponsorshipReviewPage() {
   const pending = useMemo(() => rows.filter((r) => String(r.decision_bucket).toLowerCase() === 'manual_review'), [rows]);
   const approved = useMemo(() => rows.filter((r) => String(r.status).toLowerCase().includes('approved')), [rows]);
 
+  function isBooked(r = {}) {
+    const id = clean(r?.id || '');
+    const name = normalize(`${r?.firstName || ''} ${r?.lastName || ''}`);
+    const email = normalize(r?.email || '');
+    const phone = normalizePhone(r?.phone || '');
+    return (id && bookedSet.has(`id:${id}`))
+      || (name && bookedSet.has(`n:${name}`))
+      || (email && bookedSet.has(`e:${email}`))
+      || (phone && bookedSet.has(`p:${phone}`));
+  }
+
+  const bookedCount = rows.filter((r) => isBooked(r)).length;
+
   return (
     <AppShell title="Sponsorship Review Queue">
       <div className="panelRow" style={{ marginBottom: 10 }}>
         <span className="pill atrisk">Pending Review: {pending.length}</span>
         <span className="pill onpace">Approved: {approved.length}</span>
+        <span className="pill" style={{ background: '#fef3c7', color: '#92400e' }}>⭐ Booked: {bookedCount}</span>
       </div>
 
       {loading ? <p className="muted">Loading review queue…</p> : null}
@@ -119,12 +159,17 @@ export default function SponsorshipReviewPage() {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} style={String(r.status).toLowerCase().includes('approved') ? { background: 'rgba(34,197,94,0.12)' } : undefined}>
+          {rows.map((r) => {
+            const booked = isBooked(r);
+            const approvedBg = String(r.status).toLowerCase().includes('approved') ? { background: 'rgba(34,197,94,0.12)' } : {};
+            const bookedGlow = booked ? { boxShadow: 'inset 0 0 0 2px rgba(250,204,21,0.55)', background: 'rgba(251,191,36,0.14)' } : {};
+            return (
+            <tr key={r.id} style={{ ...approvedBg, ...bookedGlow }}>
               <td>
                 <div style={{ display: 'grid', gap: 3 }}>
                   <small className="muted">Sponsor: {sponsorNameFromRow(r)}</small>
-                  <strong>{r.firstName} {r.lastName}</strong>
+                  <strong>{booked ? '⭐ ' : ''}{r.firstName} {r.lastName}</strong>
+                  {booked ? <small style={{ color: '#a16207', fontWeight: 700 }}>Booked Appointment</small> : null}
                 </div>
               </td>
               <td>{r.email || '—'}</td>
@@ -140,7 +185,8 @@ export default function SponsorshipReviewPage() {
                 </div>
               </td>
             </tr>
-          ))}
+            );
+          })}
           {!rows.length ? (
             <tr><td colSpan={7} className="muted">No applications in server review queue yet.</td></tr>
           ) : null}
