@@ -11,9 +11,9 @@ const TESTIMONIALS = [
     quote: 'Inner Circle gave me structure, support, and momentum. I stopped guessing and started executing.'
   },
   {
-    name: 'Testimonial #2',
+    name: 'Jamal',
     embed: 'https://www.loom.com/embed/d2a24146f39e4cdda4d34cee71f9a58d',
-    quote: 'Real support. Real execution. Real movement.'
+    quote: 'The Inner Circle gives you 24-hour support, constant leads, and the training to become an elite insurance agent.'
   }
 ];
 
