@@ -128,13 +128,14 @@ export default function InnerCircleProgramPage() {
       </div>
 
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #854d0e', background: 'linear-gradient(180deg,#1f1302 0%, #140d02 100%)' }}>
-        <h3 style={{ marginTop: 0, color: '#fff' }}>3 Referral Break-Even Guarantee</h3>
+        <h3 style={{ marginTop: 0, color: '#fff' }}>First Policy Payback Bonus</h3>
         <p style={{ margin: 0, color: '#fde68a', fontWeight: 700, fontSize: 17 }}>
-          If you complete onboarding, stay active, follow the Inner Circle process, and do what’s required on your end,
-          and you do not generate at least 3 paid referral bonuses, we will continue working with you at no additional cost until you do.
+          Close your first personally produced, paid-and-placed policy and earn $1,200. Every paid-and-placed policy after that earns $500.
+          One close can cover your full entry.
         </p>
         <small style={{ display: 'block', marginTop: 8, color: '#fcd34d' }}>
-          Stay active = consistent follow-up, attendance on core coaching calls, and execution of assigned action steps.
+          Active member status requires consistent follow-up, attendance on core coaching calls, and execution of assigned action steps.
+          Bonus applies only to active members in good standing. Incomplete, canceled, charged-back, or non-placed business does not qualify.
         </small>
       </div>
 
