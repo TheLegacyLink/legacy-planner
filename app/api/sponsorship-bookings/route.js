@@ -38,6 +38,68 @@ function rowTimestamp(row = {}) {
   return Number.isFinite(ts) ? ts : 0;
 }
 
+function phoneKey(v = '') {
+  return clean(v).replace(/\D/g, '');
+}
+
+function isClaimedRow(row = {}) {
+  return normalize(row?.claim_status).startsWith('claimed') || Boolean(clean(row?.claimed_by));
+}
+
+function dedupeKey(row = {}) {
+  const sourceId = clean(row?.source_application_id);
+  if (sourceId) return `source:${sourceId}`;
+
+  const email = normalize(row?.applicant_email);
+  if (email) return `email:${email}`;
+
+  const phone = phoneKey(row?.applicant_phone);
+  if (phone) return `phone:${phone}`;
+
+  const name = normalize(row?.applicant_name);
+  if (name) return `name:${name}`;
+
+  return '';
+}
+
+function bookingMoment(row = {}) {
+  // We prefer explicit requested slot if present, else fallback to created/updated timestamps.
+  const ts = rowTimestamp(row);
+  return Number.isFinite(ts) ? ts : 0;
+}
+
+function dedupeReschedules(rows = []) {
+  const seen = new Set();
+  let changed = false;
+
+  const sorted = [...rows].sort((a, b) => bookingMoment(b) - bookingMoment(a));
+  const out = [];
+
+  for (const row of sorted) {
+    const key = dedupeKey(row);
+    if (!key) {
+      out.push(row);
+      continue;
+    }
+
+    // Keep all claimed rows for history/accountability.
+    if (isClaimedRow(row)) {
+      out.push(row);
+      continue;
+    }
+
+    if (seen.has(key)) {
+      changed = true;
+      continue;
+    }
+
+    seen.add(key);
+    out.push(row);
+  }
+
+  return { rows: out, changed };
+}
+
 function olderThanHours(row = {}, hours = 24) {
   const ts = rowTimestamp(row);
   if (!ts) return false;
@@ -77,7 +139,9 @@ function refreshExpired(rows = []) {
 
 async function getStore() {
   const loaded = await loadJsonStore(STORE_PATH, []);
-  return refreshExpired(loaded);
+  const refreshed = refreshExpired(loaded);
+  const deduped = dedupeReschedules(refreshed.rows || []);
+  return { rows: deduped.rows, changed: Boolean(refreshed.changed || deduped.changed) };
 }
 
 async function writeStore(rows) {
@@ -123,8 +187,12 @@ export async function POST(req) {
     if (idx >= 0) store[idx] = next;
     else store.unshift(next);
 
-    await writeStore(store);
-    return Response.json({ ok: true, row: next });
+    const deduped = dedupeReschedules(store);
+    const finalRows = deduped.rows;
+    await writeStore(finalRows);
+
+    const savedRow = finalRows.find((r) => clean(r.id) === id) || next;
+    return Response.json({ ok: true, row: savedRow, deduped: deduped.changed });
   }
 
   if (mode === 'claim') {
