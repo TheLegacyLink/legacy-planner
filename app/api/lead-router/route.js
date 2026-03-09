@@ -47,7 +47,9 @@ function clean(v = '') {
 
 const AGENT_NAME_ALIASES = {
   'latricia wright': 'Leticia Wright',
-  'latrisha wright': 'Leticia Wright'
+  'latrisha wright': 'Leticia Wright',
+  'donyellrichardson': 'Donyell Richardson',
+  'donyell richardson': 'Donyell Richardson'
 };
 
 function normalizeAgentLabel(name = '') {
@@ -201,11 +203,13 @@ async function sendLeadAssignedEmail({ assignedTo = '', previousOwner = '', row 
 }
 
 function resolveOwnerUserId(assignedToName = '', directory = null) {
+  const normalizedName = normalizeAgentLabel(assignedToName);
   const map = safeJsonParse(process.env.GHL_USER_ID_MAP_JSON || '{}', {});
-  const direct = map?.[assignedToName];
+
+  const direct = map?.[normalizedName] || map?.[assignedToName] || map?.[normalize(normalizedName)] || map?.[normalize(assignedToName)];
   if (direct) return String(direct);
 
-  const mappedDir = clean(directory?.byName?.get(normalize(assignedToName))?.ghlUserId || '');
+  const mappedDir = clean(directory?.byName?.get(normalize(normalizedName))?.ghlUserId || directory?.byName?.get(normalize(assignedToName))?.ghlUserId || '');
   if (mappedDir) return mappedDir;
 
   const fallback = clean(process.env.GHL_FALLBACK_USER_ID || '');
