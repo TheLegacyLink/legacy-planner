@@ -1393,10 +1393,11 @@ export async function PATCH(req) {
       weekKey: cstWeekKey(now),
       monthKey: cstMonthKey(now)
     };
+    const currentMonth = keys.monthKey;
     const counts = buildAgentCounts(settings, events, keys);
 
     const candidates = (leads || [])
-      .filter((r) => cstWeekKeyFromIso(r?.createdAt || r?.updatedAt || '') === keys.weekKey)
+      .filter((r) => cstMonthKeyFromIso(r?.createdAt || r?.updatedAt || '') === currentMonth)
       .filter((r) => !hasSponsorshipFormSubmitted(r))
       .filter((r) => !hasLeadResponded(r))
       .filter((r) => !isBlockedBySubmittedCrossCheck(r, submittedBlockLookup))
