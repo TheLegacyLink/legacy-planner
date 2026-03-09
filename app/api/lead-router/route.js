@@ -331,6 +331,13 @@ function cstWeekKeyFromIso(iso = '') {
   return cstWeekKey(d);
 }
 
+function cstMonthKeyFromIso(iso = '') {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return cstMonthKey(d);
+}
+
 function isoWeekKeyFromParts(year, month, day) {
   const d = new Date(Date.UTC(year, month - 1, day));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
@@ -1125,9 +1132,9 @@ async function runDelayedReleasePass({ settings, leads, events, submittedBlockLo
 }
 
 function buildWeekUnsubmittedLeads(leads = [], submittedBlockLookup = new Set(), now = new Date()) {
-  const currentWeek = cstWeekKey(now);
+  const currentMonth = cstMonthKey(now);
   return (leads || [])
-    .filter((r) => cstWeekKeyFromIso(r?.createdAt || r?.updatedAt || '') === currentWeek)
+    .filter((r) => cstMonthKeyFromIso(r?.createdAt || r?.updatedAt || '') === currentMonth)
     .sort((a, b) => new Date(b?.createdAt || b?.updatedAt || 0).getTime() - new Date(a?.createdAt || a?.updatedAt || 0).getTime())
     .slice(0, 500)
     .map((r) => ({

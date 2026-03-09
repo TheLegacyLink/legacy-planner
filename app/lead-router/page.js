@@ -584,10 +584,10 @@ export default function LeadRouterPage() {
       </div>
 
       <div className="panel" style={{ marginBottom: 10 }}>
-        <h3 style={{ marginTop: 0 }}>This Week: All Leads</h3>
-        <small className="muted" style={{ display: 'block', marginBottom: 8 }}>Showing all leads for visibility. Use Reply Filter to view replied vs not replied.</small>
+        <h3 style={{ marginTop: 0 }}>This Month: All Leads</h3>
+        <small className="muted" style={{ display: 'block', marginBottom: 8 }}>Showing all leads for this month. Use Reply Filter to view replied vs not replied.</small>
         <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-          <span className="pill">Total this week: {weekReplyCounts.total}</span>
+          <span className="pill">Total this month: {weekReplyCounts.total}</span>
           <span className="pill">Submitted: {weekReplyCounts.submitted}</span>
           <span className="pill">Replied: {weekReplyCounts.replied}</span>
           <span className="pill">Not replied: {weekReplyCounts.notReplied}</span>
@@ -666,7 +666,7 @@ export default function LeadRouterPage() {
                 </td>
               </tr>
             ))}
-            {!(weekUnsubmittedLeads || []).length ? <tr><td colSpan={9} className="muted">No leads found this week.</td></tr> : null}
+            {!(weekUnsubmittedLeads || []).length ? <tr><td colSpan={9} className="muted">No leads found this month.</td></tr> : null}
           </tbody>
         </table>
       </div>
