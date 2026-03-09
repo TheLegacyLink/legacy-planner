@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 const CALENDAR_URL = process.env.NEXT_PUBLIC_INNER_CIRCLE_CALENDAR_URL || '/inner-circle-booking';
 const PREP_TRACK_URL = '/sponsorship-signup';
@@ -61,6 +61,8 @@ export default function InnerCircleApplicationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [showApplication, setShowApplication] = useState(false);
+  const applicationFormRef = useRef(null);
 
   const update = (key, value) => setForm((s) => ({ ...s, [key]: value }));
 
@@ -75,10 +77,23 @@ export default function InnerCircleApplicationPage() {
   const totalQuestions = Object.keys(INITIAL).length;
   const progressPct = Math.round((answeredCount / totalQuestions) * 100);
 
+  function toggleApplication() {
+    setShowApplication((prev) => {
+      const next = !prev;
+      if (next) {
+        setTimeout(() => {
+          applicationFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 40);
+      }
+      return next;
+    });
+  }
+
   async function submit(e) {
     e.preventDefault();
     if (!canSubmit || submitting) return;
 
+    setShowApplication(true);
     setSubmitting(true);
     setError('');
     setResult(null);
@@ -219,12 +234,25 @@ export default function InnerCircleApplicationPage() {
 
       <Divider />
 
-      <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1f2937', background: '#060d1a' }}>
+      <div ref={applicationFormRef} className="panel" style={{ maxWidth: 1100, border: '1px solid #1f2937', background: '#060d1a' }}>
         <h3 style={{ marginTop: 0, color: '#fff' }}>Inner Circle Qualification Application</h3>
         <p style={{ marginTop: -4, color: '#94a3b8' }}>Complete all questions. This is reviewed for fit, readiness, and execution capacity.</p>
         <p style={{ marginTop: 0, color: '#94a3b8' }}>Every submission is saved in the system, including applicants not yet qualified.</p>
 
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+          <button type="button" className="publicPrimaryBtn" onClick={toggleApplication}>
+            {showApplication ? 'Hide Application' : 'Apply Now'}
+          </button>
+          {!showApplication ? (
+            <span className="pill" style={{ background: '#0f172a', color: '#cbd5e1' }}>
+              Tap “Apply Now” to open the full application.
+            </span>
+          ) : null}
+        </div>
+
+        {showApplication ? (
+          <>
+            <div style={{ marginBottom: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <small style={{ color: '#93c5fd', fontWeight: 700 }}>Application Progress</small>
             <small style={{ color: '#cbd5e1' }}>{answeredCount}/{totalQuestions} completed • {progressPct}%</small>
@@ -348,7 +376,9 @@ export default function InnerCircleApplicationPage() {
               {submitting ? 'Submitting Application...' : 'See If You Qualify'}
             </button>
           </div>
-        </form>
+            </form>
+          </>
+        ) : null}
 
         {error ? <p className="red">{error}</p> : null}
 
