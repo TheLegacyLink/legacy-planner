@@ -4,6 +4,7 @@ const APPLICATIONS_PATH = 'stores/sponsorship-applications.json';
 const BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
 const CALLER_LEADS_PATH = 'stores/caller-leads.json';
 const MARKETPLACE_PATH = 'stores/lead-marketplace.json';
+const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
 
 const DEFAULT_SETTINGS = {
   sponsorshipTier1Price: 50,
@@ -33,6 +34,25 @@ function leadKey(row = {}) {
   const id = clean(row.id);
   if (id) return id;
   return `${normalize(row.applicant)}|${normalize(row.email)}|${normalize(row.phone)}`;
+}
+
+function normalizePhone(v = '') {
+  return String(v || '').replace(/\D/g, '');
+}
+
+function hasFormOrPolicyProgress(row = {}) {
+  if (clean(row?.formCompletedAt || row?.policyStartedAt || row?.approvedAt || row?.onboardingStartedAt || row?.movedForwardAt || row?.bookedAt || row?.requested_at_est)) return true;
+  const stage = normalize(row?.stage || '');
+  return [
+    'form completed',
+    'policy started',
+    'approved',
+    'onboarding started',
+    'moved forward',
+    'booked',
+    'appointment set',
+    'appointment booked'
+  ].some((s) => stage.includes(s));
 }
 
 function maskName(value = '') {
@@ -81,16 +101,45 @@ function isOwnedByMarketplace(app = {}, ownerTagRaw = 'link') {
   return referral.includes(ownerTag) || reviewedBy.includes(ownerTag);
 }
 
-function buildApprovedNotBooked(apps = [], bookings = [], ownerTag = 'link') {
+function buildApprovedNotBooked(apps = [], bookings = [], callerRows = [], policyRows = [], ownerTag = 'link') {
   const bookingBySourceId = new Map();
-  const bookingByName = new Map();
+  const bookedByName = new Set();
+  const bookedByEmail = new Set();
+  const bookedByPhone = new Set();
 
   for (const b of bookings || []) {
     const sourceId = clean(b?.source_application_id);
     if (sourceId) bookingBySourceId.set(sourceId, b);
 
     const name = normalize(b?.applicant_name);
-    if (name && !bookingByName.has(name)) bookingByName.set(name, b);
+    const email = normalize(b?.applicant_email);
+    const phone = normalizePhone(b?.applicant_phone);
+    if (name) bookedByName.add(name);
+    if (email) bookedByEmail.add(email);
+    if (phone) bookedByPhone.add(phone);
+  }
+
+  const progressedByName = new Set();
+  const progressedByEmail = new Set();
+  const progressedByPhone = new Set();
+
+  for (const c of callerRows || []) {
+    if (!hasFormOrPolicyProgress(c)) continue;
+    const name = normalize(c?.name || `${c?.firstName || ''} ${c?.lastName || ''}`);
+    const email = normalize(c?.email || '');
+    const phone = normalizePhone(c?.phone || '');
+    if (name) progressedByName.add(name);
+    if (email) progressedByEmail.add(email);
+    if (phone) progressedByPhone.add(phone);
+  }
+
+  for (const p of policyRows || []) {
+    const name = normalize(p?.applicantName || p?.applicant_name || p?.name || `${p?.firstName || ''} ${p?.lastName || ''}`);
+    const email = normalize(p?.email || p?.applicant_email || '');
+    const phone = normalizePhone(p?.phone || p?.applicant_phone || '');
+    if (name) progressedByName.add(name);
+    if (email) progressedByEmail.add(email);
+    if (phone) progressedByPhone.add(phone);
   }
 
   const list = [];
@@ -102,9 +151,14 @@ function buildApprovedNotBooked(apps = [], bookings = [], ownerTag = 'link') {
 
     const applicant = fullName(app);
     const sourceId = clean(app?.id);
+    const email = normalize(app?.email || '');
+    const phone = normalizePhone(app?.phone || '');
+    const nameNorm = normalize(applicant);
+
     const hasBookingById = sourceId && bookingBySourceId.has(sourceId);
-    const hasBookingByName = applicant && bookingByName.has(normalize(applicant));
-    if (hasBookingById || hasBookingByName) continue;
+    const hasBookingMatch = (nameNorm && bookedByName.has(nameNorm)) || (email && bookedByEmail.has(email)) || (phone && bookedByPhone.has(phone));
+    const hasProgressMatch = (nameNorm && progressedByName.has(nameNorm)) || (email && progressedByEmail.has(email)) || (phone && progressedByPhone.has(phone));
+    if (hasBookingById || hasBookingMatch || hasProgressMatch) continue;
 
     const row = {
       id: sourceId,
@@ -129,10 +183,6 @@ function isOlderThanDays(iso = '', days = 14) {
   const t = new Date(iso || 0).getTime();
   if (!t) return false;
   return Date.now() - t >= days * 24 * 60 * 60 * 1000;
-}
-
-function normalizePhone(v = '') {
-  return String(v || '').replace(/\D/g, '');
 }
 
 function isRepliedSignalFromCaller(row = {}) {
@@ -267,15 +317,16 @@ export async function GET(req) {
     role: clean(searchParams.get('viewerRole') || '')
   };
 
-  const [apps, bookings, callerLeads, rawMarket] = await Promise.all([
+  const [apps, bookings, callerLeads, policySubmissions, rawMarket] = await Promise.all([
     loadJsonStore(APPLICATIONS_PATH, []),
     loadJsonStore(BOOKINGS_PATH, []),
     loadJsonStore(CALLER_LEADS_PATH, []),
+    loadJsonStore(POLICY_SUBMISSIONS_PATH, []),
     loadJsonFile(MARKETPLACE_PATH, {})
   ]);
 
   const market = normalizeStore(rawMarket);
-  const baseRows = buildApprovedNotBooked(apps, bookings, market?.settings?.marketplaceOwnerTag || 'link');
+  const baseRows = buildApprovedNotBooked(apps, bookings, callerLeads, policySubmissions, market?.settings?.marketplaceOwnerTag || 'link');
   const autoEngagementByLeadId = buildAutoEngagementByLeadId(baseRows, callerLeads);
   const rows = withTier(baseRows, market, autoEngagementByLeadId);
 
