@@ -22,6 +22,38 @@ const TESTIMONIALS = [
   }
 ];
 
+const PROOF_STATS = [
+  ['32', 'Referral bonuses this month'],
+  ['6', 'Applications submitted this week'],
+  ['$500K+', 'Produced in recent months']
+];
+
+const BENEFITS = [
+  '60 Referral Leads',
+  'Your Own CRM with Full Pipeline Visibility',
+  'Business Phone Number',
+  'AI Follow-Up + Automation',
+  'Mentorship + Strategy Support',
+  'Social Media Direction',
+  'First Policy Payback Bonus — earn $1,200 on your first personally produced, paid-and-placed policy, then $500 on every paid-and-placed policy after that',
+  'Built-Out Business Infrastructure',
+  'Scripts + Follow-Up Support',
+  'Accountability + Execution Structure',
+  'Pipeline Visibility to Track Opportunities and Leaks',
+  'Appointment-Booking Momentum Support'
+];
+
+const HOW_IT_WORKS = ['Apply', 'Qualify', 'Strategy Call', 'Plug In + Execute'];
+
+const FAQS = [
+  ['Who is Inner Circle for?', 'Inner Circle is for serious people who want structure, support, and a real system behind them.'],
+  ['Is Inner Circle for licensed and unlicensed people?', 'Yes. It is built for both licensed and unlicensed individuals ready to move with a proven process.'],
+  ['How does the application process work?', 'You submit your application first. Qualified applicants are invited to a one-on-one strategy call with Kimora.'],
+  ['Does everyone who applies get accepted?', 'No. Inner Circle is not for everybody. It is designed for serious people ready to execute.'],
+  ['How does the First Policy Payback Bonus work?', 'Your first personally produced, paid-and-placed policy earns $1,200. Every paid-and-placed policy after that earns $500.'],
+  ['What does active member status mean?', 'Consistent follow-up, attendance on core coaching calls, and execution of assigned action steps.']
+];
+
 const INITIAL = {
   fullName: '',
   email: '',
@@ -150,10 +182,19 @@ export default function InnerCircleApplicationPage() {
             mentorship, and accountability — built for people who are ready to execute.
           </p>
 
-          <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))' }}>
-            <div className="pill" style={{ justifyContent: 'center', padding: 10, background: '#111827', color: '#f9fafb' }}>32 referral bonuses this month</div>
-            <div className="pill" style={{ justifyContent: 'center', padding: 10, background: '#111827', color: '#f9fafb' }}>6 applications submitted this week</div>
-            <div className="pill" style={{ justifyContent: 'center', padding: 10, background: '#111827', color: '#f9fafb' }}>Over $500K produced in recent months</div>
+          <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))' }}>
+            {PROOF_STATS.map(([value, label]) => (
+              <div key={label} style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+                <strong style={{ display: 'block', color: '#f8fafc', fontSize: 26, lineHeight: 1 }}>{value}</strong>
+                <small style={{ color: '#94a3b8' }}>{label}</small>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <button type="button" className="publicPrimaryBtn publicPrimaryBtnXL" onClick={() => { setShowApplication(true); setTimeout(() => applicationFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40); }}>
+              Apply Now
+            </button>
           </div>
         </div>
       </div>
@@ -165,22 +206,41 @@ export default function InnerCircleApplicationPage() {
         <p style={{ marginTop: -4, color: '#cbd5e1' }}>
           Based on current real performance, a 60-lead cycle typically projects in the <strong style={{ color: '#f8fafc' }}>5x to 7x gross return range</strong> depending on follow-up execution.
         </p>
-        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
-          <div style={{ border: '1px solid #1e293b', borderRadius: 10, padding: 12, background: '#020617' }}>
+        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+          <div style={{ border: '1px solid #1e293b', borderRadius: 12, padding: 14, background: '#020617' }}>
             <small style={{ color: '#94a3b8' }}>Conservative Model</small>
             <div style={{ fontSize: 24, fontWeight: 800, color: '#e2e8f0' }}>$6,000 Gross</div>
             <small style={{ color: '#94a3b8' }}>About 12 people moving forward from 60 leads</small>
           </div>
-          <div style={{ border: '1px solid #1e293b', borderRadius: 10, padding: 12, background: '#020617' }}>
+          <div style={{ border: '1px solid #1e293b', borderRadius: 12, padding: 14, background: '#020617' }}>
             <small style={{ color: '#94a3b8' }}>Based on Current Output</small>
             <div style={{ fontSize: 24, fontWeight: 800, color: '#e2e8f0' }}>$9,150 Gross</div>
             <small style={{ color: '#94a3b8' }}>Scaled from current month-to-date performance</small>
           </div>
-          <div style={{ border: '1px solid #1e293b', borderRadius: 10, padding: 12, background: '#020617' }}>
+          <div style={{ border: '1px solid #1e293b', borderRadius: 12, padding: 14, background: '#020617' }}>
             <small style={{ color: '#94a3b8' }}>Return Expectation</small>
             <div style={{ fontSize: 24, fontWeight: 800, color: '#e2e8f0' }}>5x to 7x Gross</div>
             <small style={{ color: '#94a3b8' }}>Results vary with consistency, follow-up, and execution.</small>
           </div>
+        </div>
+
+        <div style={{ marginTop: 12, border: '1px solid #334155', borderRadius: 10, padding: 10, background: 'rgba(15,23,42,.45)' }}>
+          <small style={{ color: '#93c5fd' }}>Results vary note:</small>
+          <small style={{ display: 'block', color: '#cbd5e1' }}>Projected economics are based on current internal numbers and are not a guarantee of earnings.</small>
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          <small style={{ color: '#94a3b8' }}>Gross potential comparison</small>
+          <div style={{ marginTop: 6, display: 'grid', gap: 8 }}>
+            <div style={{ height: 8, borderRadius: 999, overflow: 'hidden', background: '#0f172a' }}><div style={{ width: '66%', height: '100%', background: 'linear-gradient(90deg,#3b82f6,#60a5fa)' }} /></div>
+            <div style={{ height: 8, borderRadius: 999, overflow: 'hidden', background: '#0f172a' }}><div style={{ width: '100%', height: '100%', background: 'linear-gradient(90deg,#22c55e,#86efac)' }} /></div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          <button type="button" className="publicPrimaryBtn" onClick={() => { setShowApplication(true); setTimeout(() => applicationFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40); }}>
+            Apply Now
+          </button>
         </div>
       </div>
 
@@ -191,24 +251,13 @@ export default function InnerCircleApplicationPage() {
         <p style={{ marginTop: -2, color: '#cbd5e1' }}>
           This isn’t just leads. It’s a full growth system built to help serious people move faster, stay organized, and create real revenue.
         </p>
-        <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 8 }}>
-          {[
-            '60 Referral Leads',
-            'Your Own CRM with Full Pipeline Visibility',
-            'Business Phone Number',
-            'AI Follow-Up + Automation',
-            'Mentorship + Strategy Support',
-            'Social Media Direction',
-            'First Policy Payback Bonus — earn $1,200 on your first personally produced, paid-and-placed policy, then $500 on every paid-and-placed policy after that',
-            'Built-Out Business Infrastructure',
-            'Scripts + Follow-Up Support',
-            'Accountability + Execution Structure',
-            'Pipeline Visibility to Track Opportunities and Leaks',
-            'Appointment-Booking Momentum Support'
-          ].map((item) => (
-            <li key={item} style={{ color: '#e2e8f0', lineHeight: 1.5 }}>{item}</li>
+        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))' }}>
+          {BENEFITS.map((item) => (
+            <div key={item} style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#030a17', color: '#e2e8f0' }}>
+              {item}
+            </div>
           ))}
-        </ul>
+        </div>
         <p style={{ marginTop: 12, color: '#93c5fd', fontWeight: 600 }}>Qualified applicants will be invited to a one-on-one strategy call with Kimora.</p>
       </div>
 
@@ -233,6 +282,40 @@ export default function InnerCircleApplicationPage() {
                 “{t.quote}” — <strong>{t.name}</strong>
               </blockquote>
             </div>
+          ))}
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          <button type="button" className="publicPrimaryBtn" onClick={() => { setShowApplication(true); setTimeout(() => applicationFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40); }}>
+            Apply Now
+          </button>
+        </div>
+      </div>
+
+      <Divider />
+
+      <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1f2937', background: '#060d1a' }}>
+        <h3 style={{ marginTop: 0, color: '#fff' }}>How It Works</h3>
+        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))' }}>
+          {HOW_IT_WORKS.map((step, idx) => (
+            <div key={step} style={{ border: '1px solid #1f2937', borderRadius: 12, background: '#030a17', padding: 12 }}>
+              <small style={{ color: '#93c5fd' }}>Step {idx + 1}</small>
+              <div style={{ color: '#e5e7eb', fontWeight: 700 }}>{step}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <Divider />
+
+      <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1f2937', background: '#060d1a' }}>
+        <h3 style={{ marginTop: 0, color: '#fff' }}>Frequently Asked Questions</h3>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {FAQS.map(([q, a]) => (
+            <details key={q} style={{ border: '1px solid #1f2937', borderRadius: 10, background: '#030a17', padding: 10 }}>
+              <summary style={{ color: '#f8fafc', fontWeight: 700, cursor: 'pointer' }}>{q}</summary>
+              <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>{a}</p>
+            </details>
           ))}
         </div>
       </div>
