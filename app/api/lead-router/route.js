@@ -49,7 +49,13 @@ const AGENT_NAME_ALIASES = {
   'latricia wright': 'Leticia Wright',
   'latrisha wright': 'Leticia Wright',
   'donyellrichardson': 'Donyell Richardson',
-  'donyell richardson': 'Donyell Richardson'
+  'donyell richardson': 'Donyell Richardson',
+  'danielle': 'Donyell Richardson',
+  'danielle richardson': 'Donyell Richardson'
+};
+
+const FIXED_GHL_USER_IDS = {
+  'donyell richardson': 'XomuaFggTAZ1hmEOxE8J'
 };
 
 function normalizeAgentLabel(name = '') {
@@ -208,6 +214,9 @@ function resolveOwnerUserId(assignedToName = '', directory = null) {
 
   const direct = map?.[normalizedName] || map?.[assignedToName] || map?.[normalize(normalizedName)] || map?.[normalize(assignedToName)];
   if (direct) return String(direct);
+
+  const fixed = clean(FIXED_GHL_USER_IDS[normalize(normalizedName)] || FIXED_GHL_USER_IDS[normalize(assignedToName)] || '');
+  if (fixed) return fixed;
 
   const mappedDir = clean(directory?.byName?.get(normalize(normalizedName))?.ghlUserId || directory?.byName?.get(normalize(assignedToName))?.ghlUserId || '');
   if (mappedDir) return mappedDir;
