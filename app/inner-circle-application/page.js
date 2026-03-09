@@ -195,6 +195,9 @@ export default function InnerCircleApplicationPage() {
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: '0' }}
           />
         </div>
+        <blockquote style={{ margin: '10px 0 0', color: '#dbeafe', borderLeft: '3px solid #3b82f6', paddingLeft: 10 }}>
+          “Inner Circle gave me structure, support, and momentum. I stopped guessing and started executing.” — <strong>Dr. Breanna</strong>
+        </blockquote>
       </div>
 
       <Divider />
