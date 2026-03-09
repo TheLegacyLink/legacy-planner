@@ -4,7 +4,18 @@ import { useMemo, useState } from 'react';
 
 const CALENDAR_URL = process.env.NEXT_PUBLIC_INNER_CIRCLE_CALENDAR_URL || '/inner-circle-booking';
 const PREP_TRACK_URL = '/sponsorship-signup';
-const BREANNA_TESTIMONIAL_EMBED = 'https://www.loom.com/embed/9242feaac8f1468da2db14ca57110f43';
+const TESTIMONIALS = [
+  {
+    name: 'Dr. Breanna',
+    embed: 'https://www.loom.com/embed/9242feaac8f1468da2db14ca57110f43',
+    quote: 'Inner Circle gave me structure, support, and momentum. I stopped guessing and started executing.'
+  },
+  {
+    name: 'Testimonial #2',
+    embed: 'https://www.loom.com/embed/d2a24146f39e4cdda4d34cee71f9a58d',
+    quote: 'Real support. Real execution. Real movement.'
+  }
+];
 
 const INITIAL = {
   fullName: '',
@@ -184,20 +195,26 @@ export default function InnerCircleApplicationPage() {
       <Divider />
 
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1f2937', background: '#060d1a' }}>
-        <h3 style={{ marginTop: 0, color: '#fff' }}>Real Testimonial — Dr. Breanna</h3>
+        <h3 style={{ marginTop: 0, color: '#fff' }}>Real Results. Real People.</h3>
         <p style={{ marginTop: -2, color: '#cbd5e1' }}>Proof from the field. Real experience, real movement.</p>
-        <div style={{ position: 'relative', paddingTop: '56.25%', borderRadius: 12, overflow: 'hidden', border: '1px solid #1f2937' }}>
-          <iframe
-            src={BREANNA_TESTIMONIAL_EMBED}
-            title="Dr. Breanna Testimonial"
-            allow="autoplay; fullscreen; picture-in-picture"
-            allowFullScreen
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: '0' }}
-          />
+        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))' }}>
+          {TESTIMONIALS.map((t) => (
+            <div key={t.embed} style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 10, background: '#030a17' }}>
+              <div style={{ position: 'relative', paddingTop: '56.25%', borderRadius: 10, overflow: 'hidden', border: '1px solid #1f2937' }}>
+                <iframe
+                  src={t.embed}
+                  title={`${t.name} Testimonial`}
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowFullScreen
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: '0' }}
+                />
+              </div>
+              <blockquote style={{ margin: '10px 0 0', color: '#dbeafe', borderLeft: '3px solid #3b82f6', paddingLeft: 10 }}>
+                “{t.quote}” — <strong>{t.name}</strong>
+              </blockquote>
+            </div>
+          ))}
         </div>
-        <blockquote style={{ margin: '10px 0 0', color: '#dbeafe', borderLeft: '3px solid #3b82f6', paddingLeft: 10 }}>
-          “Inner Circle gave me structure, support, and momentum. I stopped guessing and started executing.” — <strong>Dr. Breanna</strong>
-        </blockquote>
       </div>
 
       <Divider />
