@@ -484,8 +484,9 @@ export default function LeadRouterPage() {
           <span className="pill">Waiting eligible agent: {releaseRun?.waitingEligibleAgent ?? 0}</span>
           <span className="pill">Manual hold: {releaseRun?.blockedManualHold ?? 0}</span>
           <span className="pill">Submitted/blocked: {releaseRun?.blockedSubmitted ?? 0}</span>
+          <span className="pill">Responded/in-house: {releaseRun?.blockedResponded ?? 0}</span>
         </div>
-        <small className="muted">Delayed mode rule: lead stays owner-only until hold window expires. At/after hold time, if no form submission and not manual hold, it routes to the next eligible active (unpaused) agent. This 24h auto-release runs independently from Instant Routing ON/OFF.</small>
+        <small className="muted">Delayed mode rule: lead stays owner-only until hold window expires. At/after hold time, if no form submission, no prospect response, and not manual hold, it routes to the next eligible active (unpaused) agent. Responded leads are held in-house. This 24h auto-release runs independently from Instant Routing ON/OFF.</small>
       </div>
 
       <div className="panel" style={{ marginBottom: 10 }}>
@@ -534,6 +535,7 @@ export default function LeadRouterPage() {
               <th>Owner</th>
               <th>Release At</th>
               <th>Status</th>
+              <th>Responded</th>
               <th>Manual Hold</th>
             </tr>
           </thead>
@@ -547,6 +549,7 @@ export default function LeadRouterPage() {
                 <td>{r.owner || '—'}</td>
                 <td>{fmt(r.releaseEligibleAt)}</td>
                 <td>{r.releaseStatus || 'owner_window'}</td>
+                <td>{r.responded ? 'Yes (in-house)' : 'No'}</td>
                 <td>
                   <input
                     type="checkbox"
@@ -556,7 +559,7 @@ export default function LeadRouterPage() {
                 </td>
               </tr>
             ))}
-            {!(delayedQueue || []).length ? <tr><td colSpan={5} className="muted">No delayed leads waiting right now.</td></tr> : null}
+            {!(delayedQueue || []).length ? <tr><td colSpan={6} className="muted">No delayed leads waiting right now.</td></tr> : null}
           </tbody>
         </table>
       </div>
@@ -599,6 +602,7 @@ export default function LeadRouterPage() {
               <th>Created</th>
               <th>Stage</th>
               <th>Release Status</th>
+              <th>Responded</th>
               <th>Manual Hold</th>
             </tr>
           </thead>
@@ -620,6 +624,7 @@ export default function LeadRouterPage() {
                 <td>{fmt(r.createdAt)}</td>
                 <td>{r.stage || 'New'}</td>
                 <td>{r.releaseStatus || '—'}</td>
+                <td>{r.responded ? 'Yes (in-house)' : 'No'}</td>
                 <td>
                   <input
                     type="checkbox"
@@ -629,7 +634,7 @@ export default function LeadRouterPage() {
                 </td>
               </tr>
             ))}
-            {!(weekUnsubmittedLeads || []).length ? <tr><td colSpan={7} className="muted">No unsubmitted leads found this week.</td></tr> : null}
+            {!(weekUnsubmittedLeads || []).length ? <tr><td colSpan={8} className="muted">No unsubmitted leads found this week.</td></tr> : null}
           </tbody>
         </table>
       </div>
