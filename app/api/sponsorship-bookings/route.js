@@ -68,8 +68,40 @@ function bookingMoment(row = {}) {
   return Number.isFinite(ts) ? ts : 0;
 }
 
+function appendRescheduleAudit(kept = {}, replaced = {}, key = '') {
+  const already = Array.isArray(kept?.reschedule_history) ? kept.reschedule_history : [];
+  const replacedId = clean(replaced?.id);
+  if (!replacedId || already.some((e) => clean(e?.replaced_booking_id) === replacedId)) return kept;
+
+  const entry = {
+    replaced_booking_id: replacedId,
+    replaced_requested_at_est: clean(replaced?.requested_at_est || ''),
+    replaced_created_at: clean(replaced?.created_at || ''),
+    dedupe_key: key,
+    merged_at: nowIso()
+  };
+
+  const nextHistory = [entry, ...already].slice(0, 20);
+
+  const existingNotes = clean(kept?.notes || '');
+  const noteTag = '[Auto-Reschedule]';
+  const noteLine = `${noteTag} kept latest slot ${clean(kept?.requested_at_est || '—')} and removed older slot ${entry.replaced_requested_at_est || '—'} (${replacedId}).`;
+  const notes = existingNotes.includes(noteLine)
+    ? existingNotes
+    : [existingNotes, noteLine].filter(Boolean).join(' | ');
+
+  return {
+    ...kept,
+    rescheduled_count: Number(kept?.rescheduled_count || 0) + 1,
+    reschedule_history: nextHistory,
+    notes,
+    updated_at: nowIso()
+  };
+}
+
 function dedupeReschedules(rows = []) {
   const seen = new Set();
+  const keyToIndex = new Map();
   let changed = false;
 
   const sorted = [...rows].sort((a, b) => bookingMoment(b) - bookingMoment(a));
@@ -90,11 +122,16 @@ function dedupeReschedules(rows = []) {
 
     if (seen.has(key)) {
       changed = true;
+      const keepIdx = keyToIndex.get(key);
+      if (Number.isInteger(keepIdx) && out[keepIdx]) {
+        out[keepIdx] = appendRescheduleAudit(out[keepIdx], row, key);
+      }
       continue;
     }
 
     seen.add(key);
-    out.push(row);
+    keyToIndex.set(key, out.length);
+    out.push({ ...row });
   }
 
   return { rows: out, changed };
