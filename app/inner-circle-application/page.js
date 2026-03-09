@@ -162,23 +162,23 @@ export default function InnerCircleApplicationPage() {
         </p>
         <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 8 }}>
           {[
-            '60 referral leads',
-            'Your own CRM (lead pipeline + visibility)',
-            'Business phone number',
-            'AI follow-up + automation',
-            'Mentorship + strategy support',
-            'Social media direction',
-            '$500 referral bonus potential',
-            'Built-out business infrastructure',
-            'Scripts + follow-up support',
-            'Accountability + execution structure',
-            'Pipeline visibility to track wins/leaks',
-            'Appointment-booking momentum support'
+            '60 Referral Leads',
+            'Your Own CRM with Full Pipeline Visibility',
+            'Business Phone Number',
+            'AI Follow-Up + Automation',
+            'Mentorship + Strategy Support',
+            'Social Media Direction',
+            'First Policy Payback Bonus — earn $1,200 on your first personally produced, paid-and-placed policy, then $500 on every paid-and-placed policy after that',
+            'Built-Out Business Infrastructure',
+            'Scripts + Follow-Up Support',
+            'Accountability + Execution Structure',
+            'Pipeline Visibility to Track Opportunities and Leaks',
+            'Appointment-Booking Momentum Support'
           ].map((item) => (
             <li key={item} style={{ color: '#e2e8f0', lineHeight: 1.5 }}>{item}</li>
           ))}
         </ul>
-        <p style={{ marginTop: 12, color: '#93c5fd', fontWeight: 600 }}>Only qualified applicants are invited to a one-on-one strategy call with Kimora.</p>
+        <p style={{ marginTop: 12, color: '#93c5fd', fontWeight: 600 }}>Qualified applicants will be invited to a one-on-one strategy call with Kimora.</p>
       </div>
 
       <Divider />

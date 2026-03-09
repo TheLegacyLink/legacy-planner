@@ -64,27 +64,25 @@ export default function InnerCircleProgramPage() {
         <p style={{ marginTop: -2, color: '#cbd5e1' }}>
           This isn’t just leads. It’s a full growth system built to help serious people move faster, stay organized, and create real revenue.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: 12 }}>
+        <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 8 }}>
           {[
-            ['60 Referral Leads', 'Consistent opportunity flow designed to keep your pipeline active and producing.'],
-            ['Your Own CRM', 'Track every lead, every conversation, and every opportunity in one place.'],
-            ['Business Phone Number', 'A professional business line for cleaner communication and stronger follow-up.'],
-            ['AI Follow-Up + Automation', 'Use AI and automation to keep momentum high and improve speed-to-conversation.'],
-            ['Mentorship + Strategy', 'Direct support and strategic guidance from people who understand production.'],
-            ['Social Media Direction', 'Position yourself better online with support around branding, messaging, and content direction.'],
-            ['$500 Referral Bonus Potential', 'Turn qualified activity into real revenue through the Inner Circle referral structure.'],
-            ['Built-Out Business Infrastructure', 'Plug into systems, workflows, and backend support already set up to help you move faster.'],
-            ['Scripts + Follow-Up Support', 'Know what to say, how to respond, and how to move conversations toward action.'],
-            ['Accountability + Execution', 'Stay focused, stay active, and stay moving with a structure built for consistency.'],
-            ['Pipeline Visibility', 'See where your opportunities stand and quickly identify where money is being won or lost.'],
-            ['Appointment-Booking Momentum', 'Increase the number of real conversations inside your pipeline with smarter follow-up.']
-          ].map(([title, desc]) => (
-            <div key={title} style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 12, background: '#030a17' }}>
-              <strong style={{ color: '#f8fafc', display: 'block', marginBottom: 4 }}>{title}</strong>
-              <small style={{ color: '#94a3b8' }}>{desc}</small>
-            </div>
+            '60 Referral Leads',
+            'Your Own CRM with Full Pipeline Visibility',
+            'Business Phone Number',
+            'AI Follow-Up + Automation',
+            'Mentorship + Strategy Support',
+            'Social Media Direction',
+            'First Policy Payback Bonus — earn $1,200 on your first personally produced, paid-and-placed policy, then $500 on every paid-and-placed policy after that',
+            'Built-Out Business Infrastructure',
+            'Scripts + Follow-Up Support',
+            'Accountability + Execution Structure',
+            'Pipeline Visibility to Track Opportunities and Leaks',
+            'Appointment-Booking Momentum Support'
+          ].map((item) => (
+            <li key={item} style={{ color: '#e2e8f0', lineHeight: 1.5 }}>{item}</li>
           ))}
-        </div>
+        </ul>
+        <p style={{ marginTop: 12, color: '#93c5fd', fontWeight: 600 }}>Qualified applicants will be invited to a one-on-one strategy call with Kimora.</p>
       </div>
 
       <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1e293b', background: '#071126' }}>
