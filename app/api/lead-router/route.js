@@ -1128,8 +1128,6 @@ function buildWeekUnsubmittedLeads(leads = [], submittedBlockLookup = new Set(),
   const currentWeek = cstWeekKey(now);
   return (leads || [])
     .filter((r) => cstWeekKeyFromIso(r?.createdAt || r?.updatedAt || '') === currentWeek)
-    .filter((r) => !hasSponsorshipFormSubmitted(r))
-    .filter((r) => !isBlockedBySubmittedCrossCheck(r, submittedBlockLookup))
     .sort((a, b) => new Date(b?.createdAt || b?.updatedAt || 0).getTime() - new Date(a?.createdAt || a?.updatedAt || 0).getTime())
     .slice(0, 500)
     .map((r) => ({
@@ -1145,6 +1143,7 @@ function buildWeekUnsubmittedLeads(leads = [], submittedBlockLookup = new Set(),
       releaseStatus: r.releaseStatus || '',
       manualHold: Boolean(r.manualHold),
       responded: hasLeadResponded(r),
+      submitted: hasSponsorshipFormSubmitted(r) || isBlockedBySubmittedCrossCheck(r, submittedBlockLookup),
       releaseEligibleAt: r.releaseEligibleAt || ''
     }));
 }

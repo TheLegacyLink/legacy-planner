@@ -303,10 +303,12 @@ export default function LeadRouterPage() {
   const weekReplyCounts = useMemo(() => {
     const all = weekUnsubmittedLeads || [];
     const replied = all.filter((r) => Boolean(r?.responded)).length;
+    const submitted = all.filter((r) => Boolean(r?.submitted)).length;
     return {
       total: all.length,
       replied,
-      notReplied: all.length - replied
+      notReplied: all.length - replied,
+      submitted
     };
   }, [weekUnsubmittedLeads]);
 
@@ -582,10 +584,11 @@ export default function LeadRouterPage() {
       </div>
 
       <div className="panel" style={{ marginBottom: 10 }}>
-        <h3 style={{ marginTop: 0 }}>This Week: Unsubmitted Leads</h3>
-        <small className="muted" style={{ display: 'block', marginBottom: 8 }}>Per-lead control: switch each lead between Immediate or Delay 24h in the Release Plan column.</small>
+        <h3 style={{ marginTop: 0 }}>This Week: All Leads</h3>
+        <small className="muted" style={{ display: 'block', marginBottom: 8 }}>Showing all leads for visibility. Use Reply Filter to view replied vs not replied.</small>
         <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-          <span className="pill">Unsubmitted this week: {weekReplyCounts.total}</span>
+          <span className="pill">Total this week: {weekReplyCounts.total}</span>
+          <span className="pill">Submitted: {weekReplyCounts.submitted}</span>
           <span className="pill">Replied: {weekReplyCounts.replied}</span>
           <span className="pill">Not replied: {weekReplyCounts.notReplied}</span>
           <span className="pill">Selected: {selectedWeekLeadIds.length}</span>
@@ -628,6 +631,7 @@ export default function LeadRouterPage() {
               <th>Current Owner</th>
               <th>Created</th>
               <th>Stage</th>
+              <th>Submitted</th>
               <th>Release Status</th>
               <th>Responded</th>
               <th>Manual Hold</th>
@@ -650,6 +654,7 @@ export default function LeadRouterPage() {
                 <td>{r.owner || '—'}</td>
                 <td>{fmt(r.createdAt)}</td>
                 <td>{r.stage || 'New'}</td>
+                <td>{r.submitted ? 'Yes' : 'No'}</td>
                 <td>{r.releaseStatus || '—'}</td>
                 <td>{r.responded ? 'Yes (in-house)' : 'No'}</td>
                 <td>
@@ -661,7 +666,7 @@ export default function LeadRouterPage() {
                 </td>
               </tr>
             ))}
-            {!(weekUnsubmittedLeads || []).length ? <tr><td colSpan={8} className="muted">No unsubmitted leads found this week.</td></tr> : null}
+            {!(weekUnsubmittedLeads || []).length ? <tr><td colSpan={9} className="muted">No leads found this week.</td></tr> : null}
           </tbody>
         </table>
       </div>
