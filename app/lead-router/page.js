@@ -47,6 +47,7 @@ export default function LeadRouterPage() {
   const [releaseRun, setReleaseRun] = useState({});
   const [delayedQueue, setDelayedQueue] = useState([]);
   const [weekUnsubmittedLeads, setWeekUnsubmittedLeads] = useState([]);
+  const [weekReplyFilter, setWeekReplyFilter] = useState('all');
   const [bulkTargetAgent, setBulkTargetAgent] = useState('');
   const [selectedWeekLeadIds, setSelectedWeekLeadIds] = useState([]);
   const [innerCircleNames, setInnerCircleNames] = useState([]);
@@ -222,7 +223,7 @@ export default function LeadRouterPage() {
   }
 
   function selectAllWeekLeads() {
-    const ids = (weekUnsubmittedLeads || []).slice(0, 250).map((r) => r.id).filter(Boolean);
+    const ids = (filteredWeekUnsubmittedLeads || []).slice(0, 250).map((r) => r.id).filter(Boolean);
     setSelectedWeekLeadIds(ids);
   }
 
@@ -298,6 +299,22 @@ export default function LeadRouterPage() {
       return true;
     });
   }, [callDrilldown, calledLeadRows]);
+
+  const weekReplyCounts = useMemo(() => {
+    const all = weekUnsubmittedLeads || [];
+    const replied = all.filter((r) => Boolean(r?.responded)).length;
+    return {
+      total: all.length,
+      replied,
+      notReplied: all.length - replied
+    };
+  }, [weekUnsubmittedLeads]);
+
+  const filteredWeekUnsubmittedLeads = useMemo(() => {
+    if (weekReplyFilter === 'replied') return (weekUnsubmittedLeads || []).filter((r) => Boolean(r?.responded));
+    if (weekReplyFilter === 'not_replied') return (weekUnsubmittedLeads || []).filter((r) => !Boolean(r?.responded));
+    return weekUnsubmittedLeads || [];
+  }, [weekUnsubmittedLeads, weekReplyFilter]);
 
   if (loading || !settings) {
     return <AppShell title="Lead Router Control"><p className="muted">Loading router control…</p></AppShell>;
@@ -568,10 +585,20 @@ export default function LeadRouterPage() {
         <h3 style={{ marginTop: 0 }}>This Week: Unsubmitted Leads</h3>
         <small className="muted" style={{ display: 'block', marginBottom: 8 }}>Per-lead control: switch each lead between Immediate or Delay 24h in the Release Plan column.</small>
         <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-          <span className="pill">Unsubmitted this week: {weekUnsubmittedLeads.length}</span>
+          <span className="pill">Unsubmitted this week: {weekReplyCounts.total}</span>
+          <span className="pill">Replied: {weekReplyCounts.replied}</span>
+          <span className="pill">Not replied: {weekReplyCounts.notReplied}</span>
           <span className="pill">Selected: {selectedWeekLeadIds.length}</span>
           <button type="button" className="ghost" style={tinyBtn} onClick={selectAllWeekLeads} disabled={!weekUnsubmittedLeads.length}>Select Visible</button>
           <button type="button" className="ghost" style={tinyBtn} onClick={clearWeekLeadSelection} disabled={!selectedWeekLeadIds.length}>Clear Selection</button>
+          <label>
+            Reply Filter
+            <select value={weekReplyFilter} onChange={(e) => setWeekReplyFilter(e.target.value)} style={{ marginLeft: 6 }}>
+              <option value="all">All</option>
+              <option value="replied">Replied (in-house)</option>
+              <option value="not_replied">Not replied</option>
+            </select>
+          </label>
           <button type="button" style={tinyBtn} onClick={() => bulkReleaseWeekUnsubmitted('auto')} disabled={!weekUnsubmittedLeads.length}>Auto-Assign ALL</button>
           <button type="button" style={tinyBtn} onClick={() => bulkReleaseWeekUnsubmitted('auto', true)} disabled={!selectedWeekLeadIds.length}>Auto-Assign SELECTED</button>
           <label>
@@ -607,7 +634,7 @@ export default function LeadRouterPage() {
             </tr>
           </thead>
           <tbody>
-            {(weekUnsubmittedLeads || []).slice(0, 250).map((r) => (
+            {(filteredWeekUnsubmittedLeads || []).slice(0, 250).map((r) => (
               <tr key={r.id}>
                 <td>
                   <input

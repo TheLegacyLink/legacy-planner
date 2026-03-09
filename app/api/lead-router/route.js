@@ -1129,7 +1129,6 @@ function buildWeekUnsubmittedLeads(leads = [], submittedBlockLookup = new Set(),
   return (leads || [])
     .filter((r) => cstWeekKeyFromIso(r?.createdAt || r?.updatedAt || '') === currentWeek)
     .filter((r) => !hasSponsorshipFormSubmitted(r))
-    .filter((r) => !hasLeadResponded(r))
     .filter((r) => !isBlockedBySubmittedCrossCheck(r, submittedBlockLookup))
     .sort((a, b) => new Date(b?.createdAt || b?.updatedAt || 0).getTime() - new Date(a?.createdAt || a?.updatedAt || 0).getTime())
     .slice(0, 500)
