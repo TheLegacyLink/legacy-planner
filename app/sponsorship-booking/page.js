@@ -220,7 +220,7 @@ export default function SponsorshipBookingPage() {
         <div style={{ border: '1px solid #bfdbfe', borderRadius: 12, background: '#eff6ff', padding: 12, marginBottom: 12 }}>
           <strong>Approved Benefits</strong>
           <ul style={{ marginBottom: 10 }}>
-            <li>Clear sponsorship path with no upfront policy cost for onboarding</li>
+            <li>Clear sponsorship path with no upfront cost for onboarding</li>
             <li>Front-to-close support: training, scripts, onboarding help, and execution coaching</li>
             <li>Beautiful growth community + Skool resources + tutorial library</li>
             <li>{record?.isLicensed === 'yes' ? 'Licensed path: move into contracting and production launch.' : 'Unlicensed path: pre-licensing with Jamal before full activation.'}</li>
