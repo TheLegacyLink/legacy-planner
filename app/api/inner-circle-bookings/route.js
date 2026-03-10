@@ -11,6 +11,17 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function bookingDateKey(row = {}) {
+  const raw = clean(row?.requested_at_est || '');
+  const m = raw.match(/^(\d{4}-\d{2}-\d{2})\s+/);
+  return m ? m[1] : '';
+}
+
+function isActiveBookingStatus(status = '') {
+  const s = clean(status).toLowerCase();
+  return s !== 'canceled';
+}
+
 async function sendInnerCircleBookedEmail(row = {}) {
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
@@ -109,6 +120,18 @@ export async function POST(req) {
     id,
     updated_at: nowIso()
   };
+
+  const nextDateKey = bookingDateKey(next);
+  if (!nextDateKey) return Response.json({ ok: false, error: 'missing_booking_date' }, { status: 400 });
+
+  const conflicting = rows.find((r) => {
+    if (!isActiveBookingStatus(r?.booking_status || 'booked')) return false;
+    if (clean(r?.id) === id) return false;
+    return bookingDateKey(r) === nextDateKey;
+  });
+  if (conflicting) {
+    return Response.json({ ok: false, error: 'date_unavailable', conflictDate: nextDateKey }, { status: 409 });
+  }
 
   const idx = rows.findIndex((r) => clean(r?.id) === id);
   if (idx >= 0) rows[idx] = { ...rows[idx], ...next };

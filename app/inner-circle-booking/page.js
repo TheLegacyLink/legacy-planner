@@ -40,6 +40,7 @@ export default function InnerCircleBookingPage() {
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState('');
   const [error, setError] = useState('');
+  const [unavailableDates, setUnavailableDates] = useState(new Set());
 
   const [form, setForm] = useState({ date: '', time: '', state: '', notes: '' });
 
@@ -56,14 +57,29 @@ export default function InnerCircleBookingPage() {
           setApp(null);
           return;
         }
-        const res = await fetch(`/api/inner-circle-application?id=${encodeURIComponent(id)}`, { cache: 'no-store' });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data?.ok || !data?.row) {
+        const [appRes, bookingsRes] = await Promise.all([
+          fetch(`/api/inner-circle-application?id=${encodeURIComponent(id)}`, { cache: 'no-store' }),
+          fetch('/api/inner-circle-bookings', { cache: 'no-store' })
+        ]);
+
+        const data = await appRes.json().catch(() => ({}));
+        const bookingsData = await bookingsRes.json().catch(() => ({}));
+
+        if (!appRes.ok || !data?.ok || !data?.row) {
           setApp(null);
           return;
         }
         setApp(data.row);
         setForm((prev) => ({ ...prev, state: (data.row?.state || '').toUpperCase() }));
+
+        const set = new Set();
+        for (const b of (bookingsData?.rows || [])) {
+          if (String(b?.booking_status || 'booked').toLowerCase() === 'canceled') continue;
+          const raw = String(b?.requested_at_est || '');
+          const m = raw.match(/^(\d{4}-\d{2}-\d{2})\s+/);
+          if (m?.[1]) set.add(m[1]);
+        }
+        setUnavailableDates(set);
       } finally {
         setLoading(false);
       }
@@ -102,6 +118,11 @@ export default function InnerCircleBookingPage() {
       return;
     }
 
+    if (unavailableDates.has(form.date)) {
+      setError('That day is already booked. Please choose another date.');
+      return;
+    }
+
     const requestedAt12 = `${form.date} ${to12Hour(form.time)}`;
 
     const booking = {
@@ -125,7 +146,10 @@ export default function InnerCircleBookingPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        setError(data?.error || 'Could not save booking. Please retry.');
+        const msg = data?.error === 'date_unavailable'
+          ? 'That day was just taken. Please choose another date.'
+          : (data?.error || 'Could not save booking. Please retry.');
+        setError(msg);
         return;
       }
 
@@ -141,6 +165,7 @@ export default function InnerCircleBookingPage() {
       <div className="panel" style={{ maxWidth: 860 }}>
         <h2 style={{ marginTop: 0, fontSize: 'clamp(26px, 6vw, 32px)' }}>Book Your Inner Circle Strategy Call</h2>
         <p className="muted">Inner Circle strategy call • Monday–Saturday • 9:00 AM–8:00 PM EST</p>
+        <p className="muted" style={{ marginTop: -6 }}>Only one Inner Circle booking is allowed per day.</p>
 
         <div style={{ border: '1px solid #bfdbfe', borderRadius: 12, background: '#eff6ff', padding: 12, marginBottom: 12 }}>
           <strong>Before You Book</strong>
@@ -186,7 +211,11 @@ export default function InnerCircleBookingPage() {
             Date (EST)
             <select value={form.date} onChange={(e) => update('date', e.target.value)}>
               <option value="">Select date</option>
-              {dates.map((d) => <option key={d} value={d}>{d}</option>)}
+              {dates.map((d) => (
+                <option key={d} value={d} disabled={unavailableDates.has(d)}>
+                  {d}{unavailableDates.has(d) ? ' — Unavailable' : ''}
+                </option>
+              ))}
             </select>
           </label>
           <label>
