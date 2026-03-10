@@ -33,6 +33,10 @@ function cstDayKey(iso = '') {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(d);
 }
 
+function clean(v = '') {
+  return String(v || '').trim();
+}
+
 export default function LeadRouterPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -300,23 +304,41 @@ export default function LeadRouterPage() {
     });
   }, [callDrilldown, calledLeadRows]);
 
+  const distributionEligibleLeads = useMemo(() => {
+    return (weekUnsubmittedLeads || []).filter((r) => {
+      const owner = clean(r?.owner || '').toLowerCase();
+      const isUnknownOwner = !owner || owner === 'unknown' || owner.includes('unknown');
+      return !Boolean(r?.submitted) && !Boolean(r?.responded) && !isUnknownOwner;
+    });
+  }, [weekUnsubmittedLeads]);
+
   const weekReplyCounts = useMemo(() => {
     const all = weekUnsubmittedLeads || [];
     const replied = all.filter((r) => Boolean(r?.responded)).length;
     const submitted = all.filter((r) => Boolean(r?.submitted)).length;
+    const unknownOwner = all.filter((r) => {
+      const owner = clean(r?.owner || '').toLowerCase();
+      return !owner || owner === 'unknown' || owner.includes('unknown');
+    }).length;
     return {
       total: all.length,
       replied,
       notReplied: all.length - replied,
-      submitted
+      submitted,
+      unknownOwner,
+      eligible: distributionEligibleLeads.length
     };
-  }, [weekUnsubmittedLeads]);
+  }, [weekUnsubmittedLeads, distributionEligibleLeads]);
 
   const filteredWeekUnsubmittedLeads = useMemo(() => {
-    if (weekReplyFilter === 'replied') return (weekUnsubmittedLeads || []).filter((r) => Boolean(r?.responded));
-    if (weekReplyFilter === 'not_replied') return (weekUnsubmittedLeads || []).filter((r) => !Boolean(r?.responded));
-    return weekUnsubmittedLeads || [];
-  }, [weekUnsubmittedLeads, weekReplyFilter]);
+    if (weekReplyFilter === 'not_replied') return distributionEligibleLeads.filter((r) => !Boolean(r?.responded));
+    return distributionEligibleLeads;
+  }, [distributionEligibleLeads, weekReplyFilter]);
+
+  useEffect(() => {
+    const valid = new Set((filteredWeekUnsubmittedLeads || []).map((r) => r.id));
+    setSelectedWeekLeadIds((prev) => prev.filter((id) => valid.has(id)));
+  }, [filteredWeekUnsubmittedLeads]);
 
   if (loading || !settings) {
     return <AppShell title="Lead Router Control"><p className="muted">Loading router control…</p></AppShell>;
@@ -584,25 +606,25 @@ export default function LeadRouterPage() {
       </div>
 
       <div className="panel" style={{ marginBottom: 10 }}>
-        <h3 style={{ marginTop: 0 }}>This Month: All Leads</h3>
-        <small className="muted" style={{ display: 'block', marginBottom: 8 }}>Showing all leads for this month. Use Reply Filter to view replied vs not replied.</small>
+        <h3 style={{ marginTop: 0 }}>This Month: Distribution Leads</h3>
+        <small className="muted" style={{ display: 'block', marginBottom: 8 }}>Showing only leads eligible for distribution (submitted/in-house/unknown-owner removed).</small>
         <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
           <span className="pill">Total this month: {weekReplyCounts.total}</span>
-          <span className="pill">Submitted: {weekReplyCounts.submitted}</span>
-          <span className="pill">Replied: {weekReplyCounts.replied}</span>
-          <span className="pill">Not replied: {weekReplyCounts.notReplied}</span>
+          <span className="pill">Eligible to distribute: {weekReplyCounts.eligible}</span>
+          <span className="pill">Removed (Submitted): {weekReplyCounts.submitted}</span>
+          <span className="pill">Removed (In-house replied): {weekReplyCounts.replied}</span>
+          <span className="pill">Removed (Unknown owner/new): {weekReplyCounts.unknownOwner}</span>
           <span className="pill">Selected: {selectedWeekLeadIds.length}</span>
-          <button type="button" className="ghost" style={tinyBtn} onClick={selectAllWeekLeads} disabled={!weekUnsubmittedLeads.length}>Select Visible</button>
+          <button type="button" className="ghost" style={tinyBtn} onClick={selectAllWeekLeads} disabled={!filteredWeekUnsubmittedLeads.length}>Select Visible</button>
           <button type="button" className="ghost" style={tinyBtn} onClick={clearWeekLeadSelection} disabled={!selectedWeekLeadIds.length}>Clear Selection</button>
           <label>
             Reply Filter
             <select value={weekReplyFilter} onChange={(e) => setWeekReplyFilter(e.target.value)} style={{ marginLeft: 6 }}>
-              <option value="all">All</option>
-              <option value="replied">Replied (in-house)</option>
-              <option value="not_replied">Not replied</option>
+              <option value="all">All eligible</option>
+              <option value="not_replied">Not replied (eligible)</option>
             </select>
           </label>
-          <button type="button" style={tinyBtn} onClick={() => bulkReleaseWeekUnsubmitted('auto')} disabled={!weekUnsubmittedLeads.length}>Auto-Assign ALL</button>
+          <button type="button" style={tinyBtn} onClick={() => bulkReleaseWeekUnsubmitted('auto')} disabled={!filteredWeekUnsubmittedLeads.length}>Auto-Assign ALL</button>
           <button type="button" style={tinyBtn} onClick={() => bulkReleaseWeekUnsubmitted('auto', true)} disabled={!selectedWeekLeadIds.length}>Auto-Assign SELECTED</button>
           <label>
             Target Agent
@@ -619,7 +641,7 @@ export default function LeadRouterPage() {
               </optgroup>
             </select>
           </label>
-          <button type="button" className="ghost" style={tinyBtn} onClick={() => bulkReleaseWeekUnsubmitted('agent')} disabled={!weekUnsubmittedLeads.length || !bulkTargetAgent}>Assign ALL To Target</button>
+          <button type="button" className="ghost" style={tinyBtn} onClick={() => bulkReleaseWeekUnsubmitted('agent')} disabled={!filteredWeekUnsubmittedLeads.length || !bulkTargetAgent}>Assign ALL To Target</button>
           <button type="button" className="ghost" style={tinyBtn} onClick={() => bulkReleaseWeekUnsubmitted('agent', true)} disabled={!selectedWeekLeadIds.length || !bulkTargetAgent}>Assign SELECTED To Target</button>
         </div>
 
@@ -666,7 +688,7 @@ export default function LeadRouterPage() {
                 </td>
               </tr>
             ))}
-            {!(weekUnsubmittedLeads || []).length ? <tr><td colSpan={9} className="muted">No leads found this month.</td></tr> : null}
+            {!(filteredWeekUnsubmittedLeads || []).length ? <tr><td colSpan={9} className="muted">No eligible distribution leads right now.</td></tr> : null}
           </tbody>
         </table>
       </div>

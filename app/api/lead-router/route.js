@@ -68,6 +68,11 @@ function normalize(v = '') {
   return clean(v).toLowerCase().replace(/\s+/g, ' ');
 }
 
+function isUnknownOwnerLabel(owner = '') {
+  const s = normalize(owner);
+  return !s || s === 'unknown' || s.includes('unknown');
+}
+
 function safeJsonParse(raw, fallback = {}) {
   try {
     return JSON.parse(raw);
@@ -1414,6 +1419,7 @@ export async function PATCH(req) {
       .filter((r) => !hasSponsorshipFormSubmitted(r))
       .filter((r) => !hasLeadResponded(r))
       .filter((r) => !isBlockedBySubmittedCrossCheck(r, submittedBlockLookup))
+      .filter((r) => !isUnknownOwnerLabel(r?.owner || ''))
       .filter((r) => !Boolean(r?.manualHold))
       .filter((r) => leadIdSet.size ? leadIdSet.has(clean(r?.id)) : true)
       .sort((a, b) => new Date(a?.createdAt || 0).getTime() - new Date(b?.createdAt || 0).getTime());
