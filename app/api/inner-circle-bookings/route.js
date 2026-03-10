@@ -11,10 +11,16 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function bookingDateKey(row = {}) {
-  const raw = clean(row?.requested_at_est || '');
-  const m = raw.match(/^(\d{4}-\d{2}-\d{2})\s+/);
-  return m ? m[1] : '';
+function parseRequestedAtEst(raw = '') {
+  const m = clean(raw).match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return null;
+  const [, dateKey, hRaw, minRaw, apRaw] = m;
+  let h = Number(hRaw || 0);
+  const mm = Number(minRaw || 0);
+  const ap = String(apRaw || '').toUpperCase();
+  if (ap === 'PM' && h !== 12) h += 12;
+  if (ap === 'AM' && h === 12) h = 0;
+  return { dateKey, minutes: h * 60 + mm };
 }
 
 function isActiveBookingStatus(status = '') {
@@ -121,16 +127,22 @@ export async function POST(req) {
     updated_at: nowIso()
   };
 
-  const nextDateKey = bookingDateKey(next);
-  if (!nextDateKey) return Response.json({ ok: false, error: 'missing_booking_date' }, { status: 400 });
+  const nextSlot = parseRequestedAtEst(next?.requested_at_est || '');
+  if (!nextSlot) return Response.json({ ok: false, error: 'missing_booking_date' }, { status: 400 });
 
   const conflicting = rows.find((r) => {
     if (!isActiveBookingStatus(r?.booking_status || 'booked')) return false;
     if (clean(r?.id) === id) return false;
-    return bookingDateKey(r) === nextDateKey;
+
+    const existing = parseRequestedAtEst(r?.requested_at_est || '');
+    if (!existing) return false;
+    if (existing.dateKey !== nextSlot.dateKey) return false;
+
+    // Block 45-minute meeting + 15-minute buffer => 60-minute lock window.
+    return Math.abs(existing.minutes - nextSlot.minutes) < 60;
   });
   if (conflicting) {
-    return Response.json({ ok: false, error: 'date_unavailable', conflictDate: nextDateKey }, { status: 409 });
+    return Response.json({ ok: false, error: 'timeslot_unavailable', conflictDate: nextSlot.dateKey }, { status: 409 });
   }
 
   const idx = rows.findIndex((r) => clean(r?.id) === id);

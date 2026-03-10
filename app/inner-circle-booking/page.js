@@ -20,9 +20,20 @@ function buildSlots(startHour = 9, endHour = 20) {
   const slots = [];
   for (let h = Number(startHour); h < Number(endHour); h += 1) {
     slots.push(`${String(h).padStart(2, '0')}:00`);
-    slots.push(`${String(h).padStart(2, '0')}:30`);
   }
   return slots;
+}
+
+function parseRequestedAtEst(raw = '') {
+  const m = String(raw || '').trim().match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return null;
+  const [, dateKey, hRaw, minRaw, apRaw] = m;
+  let h = Number(hRaw || 0);
+  const mm = Number(minRaw || 0);
+  const ap = String(apRaw || '').toUpperCase();
+  if (ap === 'PM' && h !== 12) h += 12;
+  if (ap === 'AM' && h === 12) h = 0;
+  return { dateKey, minutes: h * 60 + mm };
 }
 
 function to12Hour(time24 = '') {
@@ -40,7 +51,7 @@ export default function InnerCircleBookingPage() {
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState('');
   const [error, setError] = useState('');
-  const [unavailableDates, setUnavailableDates] = useState(new Set());
+  const [unavailableByDate, setUnavailableByDate] = useState({});
 
   const [form, setForm] = useState({ date: '', time: '', state: '', notes: '' });
 
@@ -72,14 +83,23 @@ export default function InnerCircleBookingPage() {
         setApp(data.row);
         setForm((prev) => ({ ...prev, state: (data.row?.state || '').toUpperCase() }));
 
-        const set = new Set();
+        const byDate = {};
         for (const b of (bookingsData?.rows || [])) {
           if (String(b?.booking_status || 'booked').toLowerCase() === 'canceled') continue;
-          const raw = String(b?.requested_at_est || '');
-          const m = raw.match(/^(\d{4}-\d{2}-\d{2})\s+/);
-          if (m?.[1]) set.add(m[1]);
+          const parsed = parseRequestedAtEst(String(b?.requested_at_est || ''));
+          if (!parsed) continue;
+          if (!byDate[parsed.dateKey]) byDate[parsed.dateKey] = new Set();
+
+          // block 60 minutes: meeting + buffer
+          for (const slot of buildSlots(9, 20)) {
+            const [hh, mm] = String(slot).split(':').map((n) => Number(n));
+            const slotMinutes = hh * 60 + mm;
+            if (Math.abs(slotMinutes - parsed.minutes) < 60) {
+              byDate[parsed.dateKey].add(slot);
+            }
+          }
         }
-        setUnavailableDates(set);
+        setUnavailableByDate(byDate);
       } finally {
         setLoading(false);
       }
@@ -92,6 +112,10 @@ export default function InnerCircleBookingPage() {
 
   const dates = useMemo(() => nextBookingDates(24, 10), []);
   const slots = useMemo(() => buildSlots(9, 20), []);
+  const unavailableSlots = useMemo(() => {
+    const set = unavailableByDate?.[form.date];
+    return set instanceof Set ? set : new Set();
+  }, [unavailableByDate, form.date]);
 
   async function submitBooking(e) {
     e.preventDefault();
@@ -118,8 +142,8 @@ export default function InnerCircleBookingPage() {
       return;
     }
 
-    if (unavailableDates.has(form.date)) {
-      setError('That day is already booked. Please choose another date.');
+    if (unavailableSlots.has(form.time)) {
+      setError('That time slot is unavailable. Please choose another time.');
       return;
     }
 
@@ -146,8 +170,8 @@ export default function InnerCircleBookingPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        const msg = data?.error === 'date_unavailable'
-          ? 'That day was just taken. Please choose another date.'
+        const msg = data?.error === 'timeslot_unavailable'
+          ? 'That time slot was just taken. Please choose another time.'
           : (data?.error || 'Could not save booking. Please retry.');
         setError(msg);
         return;
@@ -165,7 +189,7 @@ export default function InnerCircleBookingPage() {
       <div className="panel" style={{ maxWidth: 860 }}>
         <h2 style={{ marginTop: 0, fontSize: 'clamp(26px, 6vw, 32px)' }}>Book Your Inner Circle Strategy Call</h2>
         <p className="muted">Inner Circle strategy call • Monday–Saturday • 9:00 AM–8:00 PM EST</p>
-        <p className="muted" style={{ marginTop: -6 }}>Only one Inner Circle booking is allowed per day.</p>
+        <p className="muted" style={{ marginTop: -6 }}>Each booking blocks that time slot with a 15-minute buffer (hourly cadence).</p>
 
         <div style={{ border: '1px solid #bfdbfe', borderRadius: 12, background: '#eff6ff', padding: 12, marginBottom: 12 }}>
           <strong>Before You Book</strong>
@@ -212,8 +236,8 @@ export default function InnerCircleBookingPage() {
             <select value={form.date} onChange={(e) => update('date', e.target.value)}>
               <option value="">Select date</option>
               {dates.map((d) => (
-                <option key={d} value={d} disabled={unavailableDates.has(d)}>
-                  {d}{unavailableDates.has(d) ? ' — Unavailable' : ''}
+                <option key={d} value={d}>
+                  {d}
                 </option>
               ))}
             </select>
@@ -222,7 +246,11 @@ export default function InnerCircleBookingPage() {
             Time (EST)
             <select value={form.time} onChange={(e) => update('time', e.target.value)}>
               <option value="">Select time</option>
-              {slots.map((t) => <option key={t} value={t}>{to12Hour(t)}</option>)}
+              {slots.map((t) => (
+                <option key={t} value={t} disabled={unavailableSlots.has(t)}>
+                  {to12Hour(t)}{unavailableSlots.has(t) ? ' — Unavailable' : ''}
+                </option>
+              ))}
             </select>
           </label>
 
