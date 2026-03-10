@@ -116,8 +116,24 @@ function smtp() {
   if (!user || !pass || !from) return null;
   return {
     from,
-    tx: nodemailer.createTransport({ service: 'gmail', auth: { user, pass } })
+    tx: nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass },
+      connectionTimeout: 7000,
+      greetingTimeout: 7000,
+      socketTimeout: 10000
+    })
   };
+}
+
+async function sendMailSafe(tx, options = {}, timeoutMs = 10000) {
+  try {
+    const timer = new Promise((_, reject) => setTimeout(() => reject(new Error('mail_timeout')), timeoutMs));
+    const sent = await Promise.race([tx.sendMail(options), timer]);
+    return { ok: true, messageId: sent?.messageId || '' };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
 }
 
 function resolveContactIdForApp(app = {}, callerRows = []) {
@@ -198,12 +214,9 @@ async function sendBrandedEmail({ to = '', subject = '', text = '', htmlBody = '
   if (!mailer) return { ok: false, error: 'missing_gmail_env' };
 
   const html = brandFrame(subject, htmlBody || `<p style="white-space:pre-line;">${clean(text).replace(/\n/g, '<br/>')}</p>`);
-  try {
-    const info = await mailer.tx.sendMail({ from: mailer.from, to, subject, text, html });
-    return { ok: true, messageId: info.messageId };
-  } catch (error) {
-    return { ok: false, error: error?.message || 'send_failed' };
-  }
+  const out = await sendMailSafe(mailer.tx, { from: mailer.from, to, subject, text, html }, 10000);
+  if (out.ok) return { ok: true, messageId: out.messageId };
+  return { ok: false, error: out.error || 'send_failed' };
 }
 
 export async function POST(req) {
@@ -224,6 +237,8 @@ export async function POST(req) {
   const byId = { ...(state?.byId || {}) };
   const now = new Date();
 
+  const maxPerRun = Number(process.env.ABN_MAX_PER_RUN || 40);
+
   let attempted = 0;
   let applicantSent = 0;
   let agentSent = 0;
@@ -234,6 +249,7 @@ export async function POST(req) {
   const errors = [];
 
   for (const app of apps) {
+    if (attempted >= maxPerRun) break;
     if (!isApproved(app)) continue;
     if (isBooked(app, bookings)) continue;
     if (hasSubmittedPolicy(app, policyRows)) continue;
@@ -464,6 +480,7 @@ export async function POST(req) {
   return Response.json({
     ok: true,
     attempted,
+    maxPerRun,
     applicantSent,
     agentSent,
     escalation48hSent,
