@@ -73,6 +73,10 @@ function isUnknownOwnerLabel(owner = '') {
   return !s || s === 'unknown' || s.includes('unknown');
 }
 
+function isKimoraOwner(owner = '') {
+  return normalize(owner) === 'kimora link';
+}
+
 function safeJsonParse(raw, fallback = {}) {
   try {
     return JSON.parse(raw);
@@ -1420,6 +1424,7 @@ export async function PATCH(req) {
       .filter((r) => !hasLeadResponded(r))
       .filter((r) => !isBlockedBySubmittedCrossCheck(r, submittedBlockLookup))
       .filter((r) => !isUnknownOwnerLabel(r?.owner || ''))
+      .filter((r) => isKimoraOwner(r?.owner || ''))
       .filter((r) => !Boolean(r?.manualHold))
       .filter((r) => leadIdSet.size ? leadIdSet.has(clean(r?.id)) : true)
       .sort((a, b) => new Date(a?.createdAt || 0).getTime() - new Date(b?.createdAt || 0).getTime());

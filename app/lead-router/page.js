@@ -308,7 +308,8 @@ export default function LeadRouterPage() {
     return (weekUnsubmittedLeads || []).filter((r) => {
       const owner = clean(r?.owner || '').toLowerCase();
       const isUnknownOwner = !owner || owner === 'unknown' || owner.includes('unknown');
-      return !Boolean(r?.submitted) && !Boolean(r?.responded) && !isUnknownOwner;
+      const isKimoraOwner = owner === 'kimora link';
+      return !Boolean(r?.submitted) && !Boolean(r?.responded) && !isUnknownOwner && isKimoraOwner;
     });
   }, [weekUnsubmittedLeads]);
 
@@ -320,12 +321,17 @@ export default function LeadRouterPage() {
       const owner = clean(r?.owner || '').toLowerCase();
       return !owner || owner === 'unknown' || owner.includes('unknown');
     }).length;
+    const nonKimoraOwner = all.filter((r) => {
+      const owner = clean(r?.owner || '').toLowerCase();
+      return owner && owner !== 'kimora link' && !owner.includes('unknown');
+    }).length;
     return {
       total: all.length,
       replied,
       notReplied: all.length - replied,
       submitted,
       unknownOwner,
+      nonKimoraOwner,
       eligible: distributionEligibleLeads.length
     };
   }, [weekUnsubmittedLeads, distributionEligibleLeads]);
@@ -607,13 +613,14 @@ export default function LeadRouterPage() {
 
       <div className="panel" style={{ marginBottom: 10 }}>
         <h3 style={{ marginTop: 0 }}>This Month: Distribution Leads</h3>
-        <small className="muted" style={{ display: 'block', marginBottom: 8 }}>Showing only leads eligible for distribution (submitted/in-house/unknown-owner removed).</small>
+        <small className="muted" style={{ display: 'block', marginBottom: 8 }}>Showing only leads eligible for distribution (current owner Kimora Link only; submitted/in-house/unknown/non-Kimora removed).</small>
         <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
           <span className="pill">Total this month: {weekReplyCounts.total}</span>
           <span className="pill">Eligible to distribute: {weekReplyCounts.eligible}</span>
           <span className="pill">Removed (Submitted): {weekReplyCounts.submitted}</span>
           <span className="pill">Removed (In-house replied): {weekReplyCounts.replied}</span>
           <span className="pill">Removed (Unknown owner/new): {weekReplyCounts.unknownOwner}</span>
+          <span className="pill">Removed (Not Kimora owner): {weekReplyCounts.nonKimoraOwner}</span>
           <span className="pill">Selected: {selectedWeekLeadIds.length}</span>
           <button type="button" className="ghost" style={tinyBtn} onClick={selectAllWeekLeads} disabled={!filteredWeekUnsubmittedLeads.length}>Select Visible</button>
           <button type="button" className="ghost" style={tinyBtn} onClick={clearWeekLeadSelection} disabled={!selectedWeekLeadIds.length}>Clear Selection</button>
