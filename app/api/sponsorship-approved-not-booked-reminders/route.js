@@ -262,8 +262,8 @@ export async function POST(req) {
 
     attempted += 1;
 
-    // SMS sequence (10m, 30m, 24h) — stops automatically once booked/submitted due to early loop guards.
-    if (contactId && ageMs >= 10 * 60 * 1000 && !record?.sms10mSentAt) {
+    // SMS sequence (1m, 30m, 24h) — stops automatically once booked/submitted due to early loop guards.
+    if (contactId && ageMs >= 1 * 60 * 1000 && !record?.sms10mSentAt) {
       const sms1 = `Hi ${clean(app?.firstName || '') || 'there'}, your sponsorship application is approved. Please book now so we can keep it moving: ${bookingLink}. If you already booked, disregard.`;
       const out = await sendGhlSms({ contactId, message: sms1 });
       if (out.ok) {
