@@ -28,15 +28,62 @@ function isActiveBookingStatus(status = '') {
   return s !== 'canceled';
 }
 
-async function sendInnerCircleBookedEmail(row = {}) {
+function minutesTo12h(minutes = 0) {
+  const m = Number(minutes || 0);
+  const hh24 = Math.floor(m / 60) % 24;
+  const mm = m % 60;
+  const ap = hh24 >= 12 ? 'PM' : 'AM';
+  const hh12 = hh24 % 12 === 0 ? 12 : hh24 % 12;
+  return `${hh12}:${String(mm).padStart(2, '0')} ${ap}`;
+}
+
+function slotLabelsEtCt(row = {}) {
+  const parsed = parseRequestedAtEst(row?.requested_at_est || '');
+  if (!parsed) return { et: clean(row?.requested_at_est || '—'), ct: '—', dateKey: '', start: '', end: '' };
+  const et = `${parsed.dateKey} ${minutesTo12h(parsed.minutes)} ET`;
+  const ctMinutes = parsed.minutes - 60;
+  const ct = `${parsed.dateKey} ${minutesTo12h(ctMinutes < 0 ? parsed.minutes : ctMinutes)} CT`;
+  return { et, ct, dateKey: parsed.dateKey, startMinutes: parsed.minutes, endMinutes: parsed.minutes + 45 };
+}
+
+function buildCalendarLink(row = {}, zoomLink = '') {
+  const parsed = parseRequestedAtEst(row?.requested_at_est || '');
+  if (!parsed) return '';
+  const ymd = parsed.dateKey.replace(/-/g, '');
+  const hh = String(Math.floor(parsed.minutes / 60)).padStart(2, '0');
+  const mm = String(parsed.minutes % 60).padStart(2, '0');
+  const end = parsed.minutes + 45;
+  const eh = String(Math.floor(end / 60)).padStart(2, '0');
+  const em = String(end % 60).padStart(2, '0');
+  const title = `Inner Circle Strategy Call — Kimora Link + ${clean(row?.applicant_name || 'Client')}`;
+  const details = `Your Inner Circle strategy call is confirmed.\n\nZoom: ${zoomLink}`;
+  const url = new URL('https://calendar.google.com/calendar/render');
+  url.searchParams.set('action', 'TEMPLATE');
+  url.searchParams.set('text', title);
+  url.searchParams.set('dates', `${ymd}T${hh}${mm}00/${ymd}T${eh}${em}00`);
+  url.searchParams.set('ctz', 'America/New_York');
+  url.searchParams.set('details', details);
+  url.searchParams.set('location', 'Zoom');
+  return url.toString();
+}
+
+function emailTransport() {
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
   const from = clean(process.env.GMAIL_FROM) || user;
+  if (!user || !pass || !from) return null;
+  return {
+    from,
+    tx: nodemailer.createTransport({ service: 'gmail', auth: { user, pass } })
+  };
+}
+
+async function sendInnerCircleBookedEmail(row = {}) {
+  const mailer = emailTransport();
   const to = clean(process.env.INNER_CIRCLE_BOOKING_NOTIFY_EMAIL || process.env.KIMORA_NOTIFY_EMAIL || 'support@thelegacylink.com');
 
-  if (!user || !pass || !to) return { ok: false, error: 'email_not_configured' };
+  if (!mailer || !to) return { ok: false, error: 'email_not_configured' };
 
-  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
   const subject = `Inner Circle Booking Confirmed: ${clean(row?.applicant_name) || 'Applicant'}`;
 
   const text = [
@@ -53,8 +100,8 @@ async function sendInnerCircleBookedEmail(row = {}) {
   ].join('\n');
 
   try {
-    const info = await tx.sendMail({
-      from,
+    const info = await mailer.tx.sendMail({
+      from: mailer.from,
       to,
       subject,
       text,
@@ -70,6 +117,39 @@ async function sendInnerCircleBookedEmail(row = {}) {
       </div>`
     });
     return { ok: true, messageId: info?.messageId || '' };
+  } catch (error) {
+    return { ok: false, error: error?.message || 'send_failed' };
+  }
+}
+
+async function sendAttendeeConfirmationEmail(row = {}) {
+  const mailer = emailTransport();
+  const to = clean(row?.applicant_email || '');
+  if (!mailer || !to) return { ok: false, skipped: true, error: 'missing_attendee_email_or_mailer' };
+
+  const zoomLink = clean(process.env.INNER_CIRCLE_ZOOM_LINK || process.env.NEXT_PUBLIC_INNER_CIRCLE_ZOOM_LINK || 'https://us06web.zoom.us/j/9574933592?pwd=KiWiYeUNEXTbCIhGvIGGd5M9JKAWkY.1');
+  const labels = slotLabelsEtCt(row);
+  const calLink = buildCalendarLink(row, zoomLink);
+
+  const subject = `Inner Circle Strategy Call Confirmed — ${labels.et}`;
+  const text = [
+    `Hi ${clean(row?.applicant_name || 'there')},`,
+    '',
+    'Your Inner Circle strategy call is confirmed.',
+    '',
+    `Time (ET): ${labels.et}`,
+    `Time (CT): ${labels.ct}`,
+    `Zoom Link: ${zoomLink}`,
+    calLink ? `Add to Google Calendar: ${calLink}` : '',
+    '',
+    'Looking forward to meeting with you.',
+    '',
+    '- Kimora Link'
+  ].filter(Boolean).join('\n');
+
+  try {
+    const info = await mailer.tx.sendMail({ from: mailer.from, to, subject, text });
+    return { ok: true, messageId: info?.messageId || '', calendarLink: calLink };
   } catch (error) {
     return { ok: false, error: error?.message || 'send_failed' };
   }
@@ -151,9 +231,13 @@ export async function POST(req) {
 
   await saveJsonStore(STORE_PATH, rows);
 
-  let notify = { ok: false, skipped: true };
+  let notify = { internal: { ok: false, skipped: true }, attendee: { ok: false, skipped: true } };
   if (idx < 0) {
-    notify = await sendInnerCircleBookedEmail(next);
+    const [internal, attendee] = await Promise.all([
+      sendInnerCircleBookedEmail(next),
+      sendAttendeeConfirmationEmail(next)
+    ]);
+    notify = { internal, attendee };
   }
 
   return Response.json({ ok: true, row: idx >= 0 ? rows[idx] : rows[0], notify });
