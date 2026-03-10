@@ -37,13 +37,33 @@ function minutesTo12h(minutes = 0) {
   return `${hh12}:${String(mm).padStart(2, '0')} ${ap}`;
 }
 
-function slotLabelsEtCt(row = {}) {
+function shiftDateKey(dateKey = '', dayDelta = 0) {
+  const d = new Date(`${dateKey}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return dateKey;
+  d.setUTCDate(d.getUTCDate() + Number(dayDelta || 0));
+  return d.toISOString().slice(0, 10);
+}
+
+function zoneLabelFromEt(dateKey = '', etMinutes = 0, offsetMinutes = 0, zone = 'ET') {
+  let total = Number(etMinutes || 0) + Number(offsetMinutes || 0);
+  let dayDelta = 0;
+  while (total < 0) { total += 1440; dayDelta -= 1; }
+  while (total >= 1440) { total -= 1440; dayDelta += 1; }
+  return `${shiftDateKey(dateKey, dayDelta)} ${minutesTo12h(total)} ${zone}`;
+}
+
+function slotLabelsUsZones(row = {}) {
   const parsed = parseRequestedAtEst(row?.requested_at_est || '');
-  if (!parsed) return { et: clean(row?.requested_at_est || '—'), ct: '—', dateKey: '', start: '', end: '' };
-  const et = `${parsed.dateKey} ${minutesTo12h(parsed.minutes)} ET`;
-  const ctMinutes = parsed.minutes - 60;
-  const ct = `${parsed.dateKey} ${minutesTo12h(ctMinutes < 0 ? parsed.minutes : ctMinutes)} CT`;
-  return { et, ct, dateKey: parsed.dateKey, startMinutes: parsed.minutes, endMinutes: parsed.minutes + 45 };
+  if (!parsed) return { et: clean(row?.requested_at_est || '—'), ct: '—', mt: '—', pt: '—', dateKey: '' };
+  return {
+    et: zoneLabelFromEt(parsed.dateKey, parsed.minutes, 0, 'ET'),
+    ct: zoneLabelFromEt(parsed.dateKey, parsed.minutes, -60, 'CT'),
+    mt: zoneLabelFromEt(parsed.dateKey, parsed.minutes, -120, 'MT'),
+    pt: zoneLabelFromEt(parsed.dateKey, parsed.minutes, -180, 'PT'),
+    dateKey: parsed.dateKey,
+    startMinutes: parsed.minutes,
+    endMinutes: parsed.minutes + 45
+  };
 }
 
 function buildCalendarLink(row = {}, zoomLink = '') {
@@ -128,7 +148,7 @@ async function sendAttendeeConfirmationEmail(row = {}) {
   if (!mailer || !to) return { ok: false, skipped: true, error: 'missing_attendee_email_or_mailer' };
 
   const zoomLink = clean(process.env.INNER_CIRCLE_ZOOM_LINK || process.env.NEXT_PUBLIC_INNER_CIRCLE_ZOOM_LINK || 'https://us06web.zoom.us/j/9574933592?pwd=KiWiYeUNEXTbCIhGvIGGd5M9JKAWkY.1');
-  const labels = slotLabelsEtCt(row);
+  const labels = slotLabelsUsZones(row);
   const calLink = buildCalendarLink(row, zoomLink);
 
   const subject = `Inner Circle Strategy Call Confirmed — ${labels.et}`;
@@ -139,6 +159,8 @@ async function sendAttendeeConfirmationEmail(row = {}) {
     '',
     `Time (ET): ${labels.et}`,
     `Time (CT): ${labels.ct}`,
+    `Time (MT): ${labels.mt}`,
+    `Time (PT): ${labels.pt}`,
     `Zoom Link: ${zoomLink}`,
     calLink ? `Add to Google Calendar: ${calLink}` : '',
     '',
