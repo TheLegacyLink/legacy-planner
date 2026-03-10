@@ -146,6 +146,7 @@ function resolveContactIdForApp(app = {}, callerRows = []) {
 
 async function sendGhlSms({ contactId = '', message = '' } = {}) {
   const token = clean(process.env.GHL_API_TOKEN || '');
+  const locationId = clean(process.env.GHL_LOCATION_ID || process.env.GHL_SUBACCOUNT_ID || '');
   if (!token || !contactId || !message) return { ok: false, reason: 'missing_ghl_sms_config_or_payload' };
 
   const headers = {
@@ -160,32 +161,32 @@ async function sendGhlSms({ contactId = '', message = '' } = {}) {
     'https://rest.gohighlevel.com'
   ].filter(Boolean);
 
-  const paths = ['/conversations/messages', '/v1/conversations/messages'];
-  const payloads = [
-    { type: 'SMS', contactId, message },
-    { contactId, message, type: 'SMS', direction: 'outbound' },
-    { contactId, message }
+  const endpoints = [
+    { path: '/conversations/messages', body: { type: 'SMS', contactId, message, ...(locationId ? { locationId } : {}) } },
+    { path: '/conversations/messages', body: { contactId, message, type: 'SMS', direction: 'outbound', ...(locationId ? { locationId } : {}) } },
+    { path: '/conversations/messages', body: { contactId, message, ...(locationId ? { locationId } : {}) } },
+    { path: `/contacts/${encodeURIComponent(contactId)}/messages`, body: { type: 'SMS', message, ...(locationId ? { locationId } : {}) } },
+    { path: `/v1/contacts/${encodeURIComponent(contactId)}/messages`, body: { type: 'SMS', message, ...(locationId ? { locationId } : {}) } },
+    { path: '/v1/conversations/messages', body: { type: 'SMS', contactId, message, ...(locationId ? { locationId } : {}) } }
   ];
 
   let lastError = 'unknown';
 
   for (const base of bases) {
-    for (const path of paths) {
+    for (const { path, body } of endpoints) {
       const url = `${base.replace(/\/$/, '')}${path}`;
-      for (const bodyObj of payloads) {
-        try {
-          const res = await fetch(url, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(bodyObj),
-            cache: 'no-store'
-          });
-          if (res.ok) return { ok: true, url, status: res.status };
-          const text = await res.text().catch(() => '');
-          lastError = `${url} -> ${res.status} ${text.slice(0, 220)}`;
-        } catch (error) {
-          lastError = `${url} -> ${String(error?.message || error)}`;
-        }
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+          cache: 'no-store'
+        });
+        if (res.ok) return { ok: true, url, status: res.status };
+        const text = await res.text().catch(() => '');
+        lastError = `${url} -> ${res.status} ${text.slice(0, 220)}`;
+      } catch (error) {
+        lastError = `${url} -> ${String(error?.message || error)}`;
       }
     }
   }
