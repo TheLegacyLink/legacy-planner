@@ -144,54 +144,48 @@ function resolveContactIdForApp(app = {}, callerRows = []) {
   return '';
 }
 
-async function sendGhlSms({ contactId = '', message = '' } = {}) {
-  const token = clean(process.env.GHL_API_TOKEN || '');
-  const locationId = clean(process.env.GHL_LOCATION_ID || process.env.GHL_SUBACCOUNT_ID || '');
-  if (!token || !contactId || !message) return { ok: false, reason: 'missing_ghl_sms_config_or_payload' };
+async function postJsonWithTimeout(url, payload, timeoutMs = 8000, headers = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+      cache: 'no-store'
+    });
+    const text = await res.text().catch(() => '');
+    return { ok: res.ok, status: res.status, text };
+  } catch (error) {
+    return { ok: false, status: 0, text: String(error?.message || error) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json',
-    Version: '2021-07-28'
-  };
+async function sendGhlSms({ contactId = '', message = '', firstName = '', lastName = '', email = '', phone = '', bookingLink = '', appId = '' } = {}) {
+  if (!message) return { ok: false, reason: 'missing_message' };
 
-  const bases = [
-    clean(process.env.GHL_API_BASE_URL || ''),
-    'https://services.leadconnectorhq.com',
-    'https://rest.gohighlevel.com'
-  ].filter(Boolean);
-
-  const endpoints = [
-    { path: '/conversations/messages', body: { type: 'SMS', contactId, message, ...(locationId ? { locationId } : {}) } },
-    { path: '/conversations/messages', body: { contactId, message, type: 'SMS', direction: 'outbound', ...(locationId ? { locationId } : {}) } },
-    { path: '/conversations/messages', body: { contactId, message, ...(locationId ? { locationId } : {}) } },
-    { path: `/contacts/${encodeURIComponent(contactId)}/messages`, body: { type: 'SMS', message, ...(locationId ? { locationId } : {}) } },
-    { path: `/v1/contacts/${encodeURIComponent(contactId)}/messages`, body: { type: 'SMS', message, ...(locationId ? { locationId } : {}) } },
-    { path: '/v1/conversations/messages', body: { type: 'SMS', contactId, message, ...(locationId ? { locationId } : {}) } }
-  ];
-
-  let lastError = 'unknown';
-
-  for (const base of bases) {
-    for (const { path, body } of endpoints) {
-      const url = `${base.replace(/\/$/, '')}${path}`;
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(body),
-          cache: 'no-store'
-        });
-        if (res.ok) return { ok: true, url, status: res.status };
-        const text = await res.text().catch(() => '');
-        lastError = `${url} -> ${res.status} ${text.slice(0, 220)}`;
-      } catch (error) {
-        lastError = `${url} -> ${String(error?.message || error)}`;
-      }
-    }
+  const webhookUrl = clean(process.env.GHL_SMS_WEBHOOK_URL || 'https://services.leadconnectorhq.com/hooks/I7bXOorPHk415nKgsFfa/webhook-trigger/d59c6cb3-8d28-48b7-9cf8-f65998a2bd03');
+  if (webhookUrl) {
+    const webhookPayload = {
+      event: 'approved_not_booked_sms',
+      appId,
+      contactId,
+      firstName,
+      lastName,
+      email,
+      phone,
+      bookingLink,
+      message
+    };
+    const out = await postJsonWithTimeout(webhookUrl, webhookPayload, 8000);
+    if (out.ok) return { ok: true, mode: 'webhook', status: out.status };
+    return { ok: false, reason: 'ghl_webhook_failed', detail: out.text?.slice(0, 220) };
   }
 
-  return { ok: false, reason: 'ghl_sms_failed', detail: lastError };
+  return { ok: false, reason: 'missing_ghl_sms_config_or_payload' };
 }
 
 function brandFrame(title = '', bodyHtml = '') {
@@ -265,7 +259,16 @@ export async function POST(req) {
     // SMS sequence (1m, 30m, 24h) — stops automatically once booked/submitted due to early loop guards.
     if (contactId && ageMs >= 1 * 60 * 1000 && !record?.sms10mSentAt) {
       const sms1 = `Hi ${clean(app?.firstName || '') || 'there'}, your sponsorship application is approved. Please book now so we can keep it moving: ${bookingLink}. If you already booked, disregard.`;
-      const out = await sendGhlSms({ contactId, message: sms1 });
+      const out = await sendGhlSms({
+        contactId,
+        message: sms1,
+        appId,
+        firstName: clean(app?.firstName || ''),
+        lastName: clean(app?.lastName || ''),
+        email,
+        phone,
+        bookingLink
+      });
       if (out.ok) {
         sms10mSent += 1;
         record.sms10mSentAt = nowIso();
@@ -276,7 +279,16 @@ export async function POST(req) {
 
     if (contactId && ageMs >= 30 * 60 * 1000 && !record?.sms30mSentAt) {
       const sms2 = `Quick reminder: we still do not see your sponsorship appointment booked. Lock your time here: ${bookingLink}. If you already booked, disregard.`;
-      const out = await sendGhlSms({ contactId, message: sms2 });
+      const out = await sendGhlSms({
+        contactId,
+        message: sms2,
+        appId,
+        firstName: clean(app?.firstName || ''),
+        lastName: clean(app?.lastName || ''),
+        email,
+        phone,
+        bookingLink
+      });
       if (out.ok) {
         sms30mSent += 1;
         record.sms30mSentAt = nowIso();
@@ -287,7 +299,16 @@ export async function POST(req) {
 
     if (contactId && ageMs >= 24 * 60 * 60 * 1000 && !record?.sms24hSentAt) {
       const sms3 = `Final reminder: your sponsorship application is approved but still not booked. Book here now: ${bookingLink}. Need help? Reply HELP. If you already booked, disregard.`;
-      const out = await sendGhlSms({ contactId, message: sms3 });
+      const out = await sendGhlSms({
+        contactId,
+        message: sms3,
+        appId,
+        firstName: clean(app?.firstName || ''),
+        lastName: clean(app?.lastName || ''),
+        email,
+        phone,
+        bookingLink
+      });
       if (out.ok) {
         sms24hSent += 1;
         record.sms24hSentAt = nowIso();
