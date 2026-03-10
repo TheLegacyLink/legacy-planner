@@ -5,6 +5,7 @@ import { loadJsonFile, saveJsonFile, loadJsonStore } from '../../../lib/blobJson
 const APPS_PATH = 'stores/sponsorship-applications.json';
 const BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
 const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
+const CALLER_LEADS_PATH = 'stores/caller-leads.json';
 const REMINDER_STATE_PATH = 'stores/sponsorship-approved-not-booked-reminders.json';
 
 const REF_CODE_MAP = {
@@ -33,6 +34,10 @@ function nowIso() {
 
 function normalizeNameKey(v = '') {
   return clean(v).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function normalizePhone(v = '') {
+  return String(v || '').replace(/\D/g, '');
 }
 
 function isApproved(app = {}) {
@@ -115,6 +120,79 @@ function smtp() {
   };
 }
 
+function resolveContactIdForApp(app = {}, callerRows = []) {
+  const appId = clean(app?.id);
+  const appName = normalizeNameKey(applicantName(app));
+  const appEmail = normalize(app?.email || app?.applicant_email || '');
+  const appPhone = normalizePhone(app?.phone || app?.applicant_phone || '');
+
+  for (const c of callerRows || []) {
+    const cId = clean(c?.externalId || c?.contactId || c?.id || c?.contact_id || '');
+    if (!cId) continue;
+
+    const cExt = clean(c?.externalId || c?.id || c?.contactId || c?.contact_id || '');
+    const cName = normalizeNameKey(c?.name || `${c?.firstName || ''} ${c?.lastName || ''}`);
+    const cEmail = normalize(c?.email || '');
+    const cPhone = normalizePhone(c?.phone || '');
+
+    if (appId && cExt && appId === cExt) return cId;
+    if (appEmail && cEmail && appEmail === cEmail) return cId;
+    if (appPhone && cPhone && appPhone === cPhone) return cId;
+    if (appName && cName && appName === cName) return cId;
+  }
+
+  return '';
+}
+
+async function sendGhlSms({ contactId = '', message = '' } = {}) {
+  const token = clean(process.env.GHL_API_TOKEN || '');
+  if (!token || !contactId || !message) return { ok: false, reason: 'missing_ghl_sms_config_or_payload' };
+
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+    Version: '2021-07-28'
+  };
+
+  const bases = [
+    clean(process.env.GHL_API_BASE_URL || ''),
+    'https://services.leadconnectorhq.com',
+    'https://rest.gohighlevel.com'
+  ].filter(Boolean);
+
+  const paths = ['/conversations/messages', '/v1/conversations/messages'];
+  const payloads = [
+    { type: 'SMS', contactId, message },
+    { contactId, message, type: 'SMS', direction: 'outbound' },
+    { contactId, message }
+  ];
+
+  let lastError = 'unknown';
+
+  for (const base of bases) {
+    for (const path of paths) {
+      const url = `${base.replace(/\/$/, '')}${path}`;
+      for (const bodyObj of payloads) {
+        try {
+          const res = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(bodyObj),
+            cache: 'no-store'
+          });
+          if (res.ok) return { ok: true, url, status: res.status };
+          const text = await res.text().catch(() => '');
+          lastError = `${url} -> ${res.status} ${text.slice(0, 220)}`;
+        } catch (error) {
+          lastError = `${url} -> ${String(error?.message || error)}`;
+        }
+      }
+    }
+  }
+
+  return { ok: false, reason: 'ghl_sms_failed', detail: lastError };
+}
+
 function brandFrame(title = '', bodyHtml = '') {
   const royalBlue = '#0047AB';
   return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;"><div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:${royalBlue};padding:18px 18px;text-align:center;"><div style="color:#ffffff;font-weight:800;font-size:32px;letter-spacing:.8px;line-height:1;">THE LEGACY LINK</div></div><div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">${title}</h2>${bodyHtml}<p style="margin:18px 0 0;color:#475569;">— The Legacy Link Support Team</p></div></div></div>`;
@@ -133,10 +211,19 @@ async function sendBrandedEmail({ to = '', subject = '', text = '', htmlBody = '
   }
 }
 
-export async function POST() {
+export async function POST(req) {
+  const body = await req.json().catch(() => ({}));
+  if (clean(body?.mode).toLowerCase() === 'test_sms') {
+    const contactId = clean(body?.contactId || process.env.KIMORA_GHL_CONTACT_ID || '');
+    const message = clean(body?.message || 'Test SMS from Legacy Planner approved-not-booked flow.');
+    const out = await sendGhlSms({ contactId, message });
+    return Response.json({ ok: Boolean(out?.ok), test: true, contactId, result: out });
+  }
+
   const apps = await loadJsonStore(APPS_PATH, []);
   const bookings = await loadJsonStore(BOOKINGS_PATH, []);
   const policyRows = await loadJsonStore(POLICY_SUBMISSIONS_PATH, []);
+  const callerRows = await loadJsonStore(CALLER_LEADS_PATH, []);
   const state = await loadJsonFile(REMINDER_STATE_PATH, { byId: {}, updatedAt: '' });
 
   const byId = { ...(state?.byId || {}) };
@@ -146,6 +233,9 @@ export async function POST() {
   let applicantSent = 0;
   let agentSent = 0;
   let escalation48hSent = 0;
+  let sms10mSent = 0;
+  let sms30mSent = 0;
+  let sms24hSent = 0;
   const errors = [];
 
   for (const app of apps) {
@@ -157,20 +247,68 @@ export async function POST() {
     if (!anchor) continue;
 
     const ageMs = now.getTime() - anchor.getTime();
-    if (ageMs < 24 * 60 * 60 * 1000) continue;
 
     const appId = clean(app?.id);
     if (!appId) continue;
 
     const record = byId[appId] || {};
-    if (record?.followup24hSentAt && record?.agent24hSentAt && record?.escalation48hSentAt) continue;
 
     const fullName = applicantName(app) || 'Applicant';
     const email = clean(app?.email || app?.applicant_email || '');
     const phone = clean(app?.phone || app?.applicant_phone || 'N/A');
     const bookingLink = `https://innercirclelink.com/sponsorship-booking?id=${encodeURIComponent(appId)}`;
+    const contactId = resolveContactIdForApp(app, callerRows);
 
     attempted += 1;
+
+    // SMS sequence (10m, 30m, 24h) — stops automatically once booked/submitted due to early loop guards.
+    if (contactId && ageMs >= 10 * 60 * 1000 && !record?.sms10mSentAt) {
+      const sms1 = `Hi ${clean(app?.firstName || '') || 'there'}, your sponsorship application is approved. Please book now so we can keep it moving: ${bookingLink}. If you already booked, disregard.`;
+      const out = await sendGhlSms({ contactId, message: sms1 });
+      if (out.ok) {
+        sms10mSent += 1;
+        record.sms10mSentAt = nowIso();
+      } else {
+        errors.push({ appId, type: 'sms10m', error: out?.detail || out?.reason || 'send_failed' });
+      }
+    }
+
+    if (contactId && ageMs >= 30 * 60 * 1000 && !record?.sms30mSentAt) {
+      const sms2 = `Quick reminder: we still do not see your sponsorship appointment booked. Lock your time here: ${bookingLink}. If you already booked, disregard.`;
+      const out = await sendGhlSms({ contactId, message: sms2 });
+      if (out.ok) {
+        sms30mSent += 1;
+        record.sms30mSentAt = nowIso();
+      } else {
+        errors.push({ appId, type: 'sms30m', error: out?.detail || out?.reason || 'send_failed' });
+      }
+    }
+
+    if (contactId && ageMs >= 24 * 60 * 60 * 1000 && !record?.sms24hSentAt) {
+      const sms3 = `Final reminder: your sponsorship application is approved but still not booked. Book here now: ${bookingLink}. Need help? Reply HELP. If you already booked, disregard.`;
+      const out = await sendGhlSms({ contactId, message: sms3 });
+      if (out.ok) {
+        sms24hSent += 1;
+        record.sms24hSentAt = nowIso();
+      } else {
+        errors.push({ appId, type: 'sms24h', error: out?.detail || out?.reason || 'send_failed' });
+      }
+    }
+
+    if (ageMs < 24 * 60 * 60 * 1000) {
+      if (record.sms10mSentAt || record.sms30mSentAt || record.sms24hSentAt) {
+        record.lastTouchedAt = nowIso();
+        byId[appId] = record;
+      }
+      continue;
+    }
+
+    if (record?.followup24hSentAt && record?.agent24hSentAt && record?.escalation48hSentAt) {
+      if (record.sms10mSentAt || record.sms30mSentAt || record.sms24hSentAt) {
+        byId[appId] = record;
+      }
+      continue;
+    }
 
     if (email && !record?.followup24hSentAt) {
       const applicantSubject = 'Reminder: Your Sponsorship Approval is Active — Book Your Call';
@@ -293,7 +431,7 @@ export async function POST() {
       }
     }
 
-    if (record.followup24hSentAt || record.agent24hSentAt || record.escalation48hSentAt) {
+    if (record.followup24hSentAt || record.agent24hSentAt || record.escalation48hSentAt || record.sms10mSentAt || record.sms30mSentAt || record.sms24hSentAt) {
       record.lastTouchedAt = nowIso();
       byId[appId] = record;
     }
@@ -307,6 +445,9 @@ export async function POST() {
     applicantSent,
     agentSent,
     escalation48hSent,
+    sms10mSent,
+    sms30mSent,
+    sms24hSent,
     errorsCount: errors.length,
     errors
   });
