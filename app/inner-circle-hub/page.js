@@ -63,7 +63,7 @@ export default function InnerCircleHubPage() {
   const [trackerPeriod, setTrackerPeriod] = useState('daily');
   const [activityType, setActivityType] = useState('all');
   const [activityRows, setActivityRows] = useState([]);
-  const [activitySummary, setActivitySummary] = useState({ submitted: 0, approved: 0, booked: 0, fng: 0 });
+  const [activitySummary, setActivitySummary] = useState({ submitted: 0, approved: 0, declined: 0, booked: 0, fng: 0, completed: 0 });
   const [activityStats, setActivityStats] = useState({
     daily: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 },
     weekly: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 },
@@ -102,6 +102,7 @@ export default function InnerCircleHubPage() {
 
   const filteredActivityRows = useMemo(() => {
     if (activityType === 'all') return activityRows;
+    if (activityType === 'decision') return (activityRows || []).filter((r) => clean(r?.type) === 'decision');
     return (activityRows || []).filter((r) => clean(r?.type) === activityType);
   }, [activityRows, activityType]);
 
@@ -207,7 +208,7 @@ export default function InnerCircleHubPage() {
         if (!canceled && vaultRes.ok && vaultData?.ok) setVault(vaultData.vault || { content: [], calls: [], onboarding: [] });
         if (!canceled && activityRes.ok && activityData?.ok) {
           setActivityRows(Array.isArray(activityData.rows) ? activityData.rows : []);
-          setActivitySummary(activityData.summary || { submitted: 0, approved: 0, booked: 0, fng: 0 });
+          setActivitySummary(activityData.summary || { submitted: 0, approved: 0, declined: 0, booked: 0, fng: 0, completed: 0 });
           setActivityStats(activityData.stats || {
             daily: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 },
             weekly: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 },
@@ -365,35 +366,50 @@ export default function InnerCircleHubPage() {
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
                   <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                     <strong style={{ color: '#fff' }}>Activity Flow</strong>
-                    <a href="/inner-circle-app-submit" className="publicPrimaryBtn" style={{ textDecoration: 'none' }}>Submit FNG App</a>
                   </div>
 
                   <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                     <button type="button" className={activityType === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('all')}>All</button>
-                    <button type="button" className={activityType === 'submitted' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('submitted')}>Submitted ({activitySummary.submitted || 0})</button>
                     <button type="button" className={activityType === 'booked' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('booked')}>Booked ({activitySummary.booked || 0})</button>
-                    <button type="button" className={activityType === 'approved' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('approved')}>Approved ({activitySummary.approved || 0})</button>
+                    <button type="button" className={activityType === 'decision' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('decision')}>Decision ({(activitySummary.approved || 0) + (activitySummary.declined || 0)})</button>
                     <button type="button" className={activityType === 'fng' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('fng')}>FNG ({activitySummary.fng || 0})</button>
+                    <button type="button" className={activityType === 'completed' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('completed')}>Completed ({activitySummary.completed || 0})</button>
+                  </div>
+
+                  <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                    <small className="muted">Legend:</small>
+                    <span className="pill onpace">Booked</span>
+                    <span className="pill" style={{ background: '#1e3a8a', color: '#dbeafe', border: '1px solid #1d4ed8' }}>Decision</span>
+                    <span className="pill offpace">FNG</span>
+                    <span className="pill onpace">Completed ⭐⭐⭐</span>
                   </div>
 
                   <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
-                    {(filteredActivityRows || []).slice(0, 8).map((row, idx) => {
-                      const toneClass = row?.type === 'booked' || row?.type === 'approved'
+                    {(filteredActivityRows || []).slice(0, 10).map((row, idx) => {
+                      const toneClass = row?.type === 'booked' || row?.type === 'completed'
                         ? 'onpace'
-                        : row?.type === 'submitted'
-                          ? 'atrisk'
+                        : row?.type === 'decision'
+                          ? ''
                           : 'offpace';
                       const label = row?.type === 'booked'
                         ? 'Booked'
-                        : row?.type === 'approved'
-                          ? 'Approved'
-                          : row?.type === 'submitted'
-                            ? 'Submitted'
+                        : row?.type === 'decision'
+                          ? (row?.decision === 'declined' ? 'Declined' : 'Approved')
+                          : row?.type === 'completed'
+                            ? 'Completed ⭐⭐⭐'
                             : 'FNG';
+                      const fngHref = `/inner-circle-app-submit?name=${encodeURIComponent(row?.name || '')}&email=${encodeURIComponent(row?.email || '')}&phone=${encodeURIComponent(row?.phone || '')}&referredBy=${encodeURIComponent(member?.applicantName || '')}`;
                       return (
-                        <div key={`${row?.type}_${row?.name}_${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid #1f2937', borderRadius: 8, padding: '8px 10px', background: '#030a17' }}>
-                          <span className={`pill ${toneClass}`}>{label}</span>
-                          <div style={{ color: '#e2e8f0', fontSize: 14, flex: 1 }}>{row?.name || 'Unknown'} — {row?.detail || ''}</div>
+                        <div key={`${row?.type}_${row?.name}_${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 8, border: row?.type === 'booked' ? '1px solid #22c55e' : '1px solid #1f2937', boxShadow: row?.type === 'booked' ? '0 0 0 1px rgba(34,197,94,0.25), 0 0 14px rgba(34,197,94,0.20)' : 'none', borderRadius: 8, padding: '8px 10px', background: '#030a17' }}>
+                          {row?.type === 'decision' ? (
+                            <span className="pill" style={{ background: '#1e3a8a', color: '#dbeafe', border: '1px solid #1d4ed8' }}>{label}</span>
+                          ) : (
+                            <span className={`pill ${toneClass}`}>{label}</span>
+                          )}
+                          <div style={{ color: '#e2e8f0', fontSize: 14, flex: 1 }}>{row?.name || 'Unknown'}</div>
+                          {row?.showFngButton ? (
+                            <a href={fngHref} className="ghost" style={{ textDecoration: 'none', marginLeft: 'auto', fontSize: 12 }}>Submit FNG</a>
+                          ) : null}
                         </div>
                       );
                     })}
