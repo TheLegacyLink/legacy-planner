@@ -148,13 +148,17 @@ export async function POST(req) {
     if (!matchIdx.length) return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
 
     const activeRows = matchIdx.map((i) => rows[i]).filter((r) => Boolean(r?.active));
-    if (!activeRows.length) return Response.json({ ok: false, error: 'onboarding_locked' }, { status: 403 });
 
     const hashed = hashPassword(password);
-    const found = activeRows.find((r) => clean(r?.passwordHash) === hashed);
-    if (!found) return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
+    const foundActive = activeRows.find((r) => clean(r?.passwordHash) === hashed);
+    if (foundActive) return Response.json({ ok: true, member: { ...safeMember(foundActive) } });
 
-    return Response.json({ ok: true, member: { ...safeMember(found) } });
+    // Fallback for legacy duplicated rows where active flags drifted across records.
+    const foundAny = matchIdx.map((i) => rows[i]).find((r) => clean(r?.passwordHash) === hashed);
+    if (foundAny) return Response.json({ ok: true, member: { ...safeMember({ ...foundAny, active: true }) } });
+
+    if (!activeRows.length) return Response.json({ ok: false, error: 'onboarding_locked' }, { status: 403 });
+    return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
   }
 
   if (action === 'upsert_from_booking') {
@@ -309,6 +313,32 @@ export async function POST(req) {
 
     await saveJsonStore(STORE_PATH, rows);
     return Response.json({ ok: true });
+  }
+
+
+  if (action === 'set_password_by_email') {
+    const email = clean(body?.email).toLowerCase();
+    const password = clean(body?.password);
+    if (!email || !password) return Response.json({ ok: false, error: 'missing_email_or_password' }, { status: 400 });
+
+    const idxs = matchingIndexesByEmail(rows, email);
+    if (!idxs.length) return Response.json({ ok: false, error: 'member_not_found' }, { status: 404 });
+
+    const hashed = hashPassword(password);
+    for (const idx of idxs) {
+      rows[idx] = {
+        ...rows[idx],
+        passwordHash: hashed,
+        resetTokenHash: '',
+        resetTokenExpiresAt: '',
+        active: rows[idx]?.active === false ? true : rows[idx]?.active,
+        onboardingUnlockedAt: rows[idx]?.onboardingUnlockedAt || nowIso(),
+        updatedAt: nowIso()
+      };
+    }
+
+    await saveJsonStore(STORE_PATH, rows);
+    return Response.json({ ok: true, updated: idxs.length });
   }
   return Response.json({ ok: false, error: 'unsupported_action' }, { status: 400 });
 }
