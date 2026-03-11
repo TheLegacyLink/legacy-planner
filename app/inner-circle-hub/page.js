@@ -79,6 +79,7 @@ export default function InnerCircleHubPage() {
     }
   });
   const [savingTracker, setSavingTracker] = useState(false);
+  const [copiedKey, setCopiedKey] = useState('');
 
   const gate = useMemo(() => onboardingState(member || {}), [member]);
   const unlocked = gate.active;
@@ -88,6 +89,11 @@ export default function InnerCircleHubPage() {
     if (scriptFilter === 'all') return scripts;
     return (scripts || []).filter((s) => clean(s?.category).toLowerCase() === scriptFilter);
   }, [scripts, scriptFilter]);
+
+  const checklistDoneCount = useMemo(() => {
+    const c = tracker?.checklist || {};
+    return [c.workNewLeads, c.followUpWarmLeads, c.bookOneConversation, c.postContent, c.updateTracker].filter(Boolean).length;
+  }, [tracker?.checklist]);
 
   const sponsorshipLink = useMemo(() => {
     const base = process.env.NEXT_PUBLIC_SPONSORSHIP_LINK_BASE || '/sponsorship-signup';
@@ -204,6 +210,17 @@ export default function InnerCircleHubPage() {
     localStorage.removeItem(SESSION_KEY);
   }
 
+  async function copyLink(value = '', key = '') {
+    try {
+      if (!value) return;
+      await navigator.clipboard.writeText(value);
+      setCopiedKey(key || value);
+      setTimeout(() => setCopiedKey(''), 1500);
+    } catch {
+      setCopiedKey('');
+    }
+  }
+
   async function saveTracker() {
     if (!member?.email || !tracker.dateKey) return;
     setSavingTracker(true);
@@ -303,19 +320,21 @@ export default function InnerCircleHubPage() {
             ) : null}
 
             {tab === 'faststart' ? (
-              <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
+              <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 14, background: '#071022' }}>
                 <strong style={{ color: '#fff', fontSize: 16 }}>First 14 Days Fast Track</strong>
-                <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#e2e8f0', display: 'grid', gap: 6, fontWeight: 500 }}>
-                  <li>Day 1–2: CRM setup, profile setup, scripts setup</li>
-                  <li>Day 3–5: Start 50+ outbound conversations</li>
-                  <li>Day 6–9: Book discovery calls and run appointment flow</li>
-                  <li>Day 10–14: Submit first apps and tighten follow-up cadence</li>
+                <p style={{ color: '#cbd5e1', marginTop: 6, marginBottom: 8 }}>Move in sequence. Execute daily. Keep momentum high.</p>
+                <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#f1f5f9', display: 'grid', gap: 8, fontWeight: 600, lineHeight: 1.45 }}>
+                  <li><span style={{ color: '#93c5fd' }}>Day 1–2:</span> CRM setup, profile setup, scripts setup</li>
+                  <li><span style={{ color: '#93c5fd' }}>Day 3–5:</span> Start 50+ outbound conversations</li>
+                  <li><span style={{ color: '#93c5fd' }}>Day 6–9:</span> Book discovery calls and run appointment flow</li>
+                  <li><span style={{ color: '#93c5fd' }}>Day 10–14:</span> Submit first apps and tighten follow-up cadence</li>
                 </ul>
               </div>
             ) : null}
 
             {tab === 'scripts' ? (
               <div style={{ display: 'grid', gap: 10 }}>
+                <p style={{ color: '#cbd5e1', margin: 0 }}>Filter scripts by conversation type.</p>
                 <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
                   <button type="button" className={scriptFilter === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setScriptFilter('all')}>All</button>
                   <button type="button" className={scriptFilter === 'sponsorship' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setScriptFilter('sponsorship')}>Sponsorship</button>
@@ -334,9 +353,10 @@ export default function InnerCircleHubPage() {
             ) : null}
 
             {tab === 'execution' ? (
-              <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+              <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 12, background: '#071022' }}>
                 <strong style={{ color: '#fff' }}>Today Action Checklist</strong>
-                <p style={{ color: '#dbeafe', marginTop: 6 }}>Date: {tracker.dateKey || todayDateKey()}</p>
+                <p style={{ color: '#dbeafe', marginTop: 6, marginBottom: 6 }}>Date: {tracker.dateKey || todayDateKey()}</p>
+                <p style={{ color: '#93c5fd', marginTop: 0, fontWeight: 600 }}>Progress: {checklistDoneCount}/5 complete</p>
                 <div style={{ display: 'grid', gap: 8 }}>
                   {[
                     ['workNewLeads', 'Work new leads'],
@@ -345,7 +365,7 @@ export default function InnerCircleHubPage() {
                     ['postContent', 'Post content for lead generation'],
                     ['updateTracker', 'Update tracker before end of day']
                   ].map(([key, label]) => (
-                    <label key={key} style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#e2e8f0' }}>
+                    <label key={key} style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#f1f5f9', fontWeight: 600 }}>
                       <input
                         type="checkbox"
                         checked={Boolean(tracker?.checklist?.[key])}
@@ -418,15 +438,21 @@ export default function InnerCircleHubPage() {
               <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))' }}>
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
                   <strong style={{ color: '#fff' }}>Personal Sponsorship Link</strong>
-                  <p className="muted" style={{ wordBreak: 'break-all' }}>{sponsorshipLink}</p>
-                  <img src={qrUrl(sponsorshipLink)} alt="Sponsorship QR" width={160} height={160} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
+                  <a href={sponsorshipLink} target="_blank" rel="noreferrer" style={{ color: '#93c5fd', display: 'block', marginTop: 8, wordBreak: 'break-all' }}>{sponsorshipLink}</a>
+                  <button type="button" className="ghost" onClick={() => copyLink(sponsorshipLink, 'sponsor')} style={{ marginTop: 8 }}>
+                    {copiedKey === 'sponsor' ? 'Copied' : 'Copy Link'}
+                  </button>
+                  <img src={qrUrl(sponsorshipLink)} alt="Sponsorship QR" width={160} height={160} style={{ marginTop: 8, borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
                 </div>
 
                 {contractLinks.map((item) => (
                   <div key={item.name} style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
                     <strong style={{ color: '#fff' }}>{item.name}</strong>
-                    <p className="muted" style={{ wordBreak: 'break-all' }}>{item.url}</p>
-                    <img src={qrUrl(item.url)} alt={`${item.name} QR`} width={160} height={160} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
+                    <a href={item.url} target="_blank" rel="noreferrer" style={{ color: '#93c5fd', display: 'block', marginTop: 8, wordBreak: 'break-all' }}>{item.url}</a>
+                    <button type="button" className="ghost" onClick={() => copyLink(item.url, item.name)} style={{ marginTop: 8 }}>
+                      {copiedKey === item.name ? 'Copied' : 'Copy Link'}
+                    </button>
+                    <img src={qrUrl(item.url)} alt={`${item.name} QR`} width={160} height={160} style={{ marginTop: 8, borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
                   </div>
                 ))}
               </div>
