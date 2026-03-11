@@ -53,6 +53,12 @@ export default function InnerCircleHubPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+  const [resetToken, setResetToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetDone, setResetDone] = useState(false);
 
   const [kpi, setKpi] = useState(null);
   const [scripts, setScripts] = useState([]);
@@ -238,6 +244,18 @@ export default function InnerCircleHubPage() {
     if (!tabs.find((t) => t.key === tab) && tabs[0]) setTab(tabs[0].key);
   }, [tabs, tab]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || member) return;
+    const params = new URLSearchParams(window.location.search || '');
+    const token = clean(params.get('reset'));
+    const mail = clean(params.get('email'));
+    if (token) {
+      setForgotMode(true);
+      setResetToken(token);
+      if (mail) setEmail(mail);
+    }
+  }, [member]);
+
   async function login(e) {
     e.preventDefault();
     setError('');
@@ -256,6 +274,59 @@ export default function InnerCircleHubPage() {
       }
       setMember(data.member);
       localStorage.setItem(SESSION_KEY, JSON.stringify(data.member));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function requestPasswordReset(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    setForgotSent(false);
+    try {
+      await fetch('/api/inner-circle-hub-members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'request_password_reset', email, origin: window?.location?.origin || '' })
+      });
+      setForgotSent(true);
+    } catch {
+      setError('Could not send reset email right now. Try again in a minute.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitPasswordReset(e) {
+    e.preventDefault();
+    setError('');
+    if (!newPassword || newPassword.length < 8) {
+      setError('Use at least 8 characters for your new password.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/inner-circle-hub-members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset_password', email, token: resetToken, password: newPassword })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setError('Reset link is invalid or expired. Tap Forgot Password to request a new one.');
+        return;
+      }
+      setResetDone(true);
+      setForgotMode(false);
+      setResetToken('');
+      setNewPassword('');
+      setConfirmPassword('');
     } finally {
       setLoading(false);
     }
@@ -312,12 +383,41 @@ export default function InnerCircleHubPage() {
           <p style={{ margin: 0, color: '#93c5fd', fontWeight: 700 }}>THE LEGACY LINK</p>
           <h2 style={{ marginTop: 8, marginBottom: 6, color: '#fff' }}>Inner Circle Production Hub</h2>
           <p style={{ marginTop: 0, color: '#cbd5e1' }}>Member Login</p>
-          <form onSubmit={login} className="settingsGrid" style={{ rowGap: 12 }}>
-            <label style={{ color: '#e2e8f0' }}>Email<input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
-            <label style={{ color: '#e2e8f0' }}>Password<input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
-            <button type="submit" className="publicPrimaryBtn" disabled={loading}>{loading ? 'Signing in...' : 'Enter Hub'}</button>
-            {error ? <p className="red" style={{ marginTop: 4 }}>{error}</p> : null}
-          </form>
+          {!forgotMode ? (
+            <form onSubmit={login} className="settingsGrid" style={{ rowGap: 12 }}>
+              <label style={{ color: '#e2e8f0' }}>Email<input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
+              <label style={{ color: '#e2e8f0' }}>Password<input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
+              <button type="submit" className="publicPrimaryBtn" disabled={loading}>{loading ? 'Signing in...' : 'Enter Hub'}</button>
+              <button type="button" className="ghost" onClick={() => { setForgotMode(true); setError(''); setForgotSent(false); setResetDone(false); }}>
+                Forgot Password?
+              </button>
+              {resetDone ? <p style={{ marginTop: 4, color: '#86efac' }}>Password updated. You can now sign in with your new password.</p> : null}
+              {error ? <p className="red" style={{ marginTop: 4 }}>{error}</p> : null}
+            </form>
+          ) : (
+            <form onSubmit={resetToken ? submitPasswordReset : requestPasswordReset} className="settingsGrid" style={{ rowGap: 12 }}>
+              <label style={{ color: '#e2e8f0' }}>Email<input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
+
+              {resetToken ? (
+                <>
+                  <label style={{ color: '#e2e8f0' }}>New Password<input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
+                  <label style={{ color: '#e2e8f0' }}>Confirm Password<input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type="password" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
+                  <button type="submit" className="publicPrimaryBtn" disabled={loading}>{loading ? 'Updating...' : 'Set New Password'}</button>
+                </>
+              ) : (
+                <>
+                  <button type="submit" className="publicPrimaryBtn" disabled={loading}>{loading ? 'Sending...' : 'Email Reset Link'}</button>
+                  <p className="muted" style={{ marginTop: 4 }}>We’ll send a secure reset link to your email.</p>
+                  {forgotSent ? <p style={{ marginTop: 4, color: '#86efac' }}>Check your inbox for the reset email.</p> : null}
+                </>
+              )}
+
+              <button type="button" className="ghost" onClick={() => { setForgotMode(false); setResetToken(''); setError(''); }}>
+                Back to Login
+              </button>
+              {error ? <p className="red" style={{ marginTop: 4 }}>{error}</p> : null}
+            </form>
+          )}
         </div>
       </main>
     );

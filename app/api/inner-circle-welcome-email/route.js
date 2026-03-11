@@ -175,7 +175,7 @@ function buildHtml({ name, telegramUrl, hubUrl, tempPassword, playbookUrl }) {
           <ol style="margin:0 0 0 18px;padding:0;">
             <li style="margin-bottom:10px;">Log in to your Inner Circle Hub:<br/><a href="${safeHub}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeHub}</a></li>
             <li style="margin-bottom:10px;"><strong>HUB Login Temporary Password:</strong><br/><span style="display:inline-block;background:#F58426;color:#0B1020;padding:6px 10px;border-radius:8px;font-weight:800;">${safePassword}</span></li>
-            <li style="margin-bottom:10px;">After first login, update your HUB password for security.</li>
+            <li style="margin-bottom:10px;">To set your own password: log out → click <strong>Forgot Password</strong> on the login page → use the email reset link.</li>
             <li>Join the Telegram group:<br/><a href="${safeTelegram}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeTelegram}</a></li>
           </ol>
         </div>
@@ -235,7 +235,7 @@ export async function POST(req) {
     'Where to find it in the Hub: Dashboard → Onboarding Playbook',
     'Note: The temporary password above is specifically for your HUB login.',
     '',
-    'After first login, update your password for security.',
+    'To set your own password: log out, click Forgot Password on the login page, then use the email reset link.',
     '',
     'Welcome to the movement,',
     'The Legacy Link Team'
