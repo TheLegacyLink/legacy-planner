@@ -504,7 +504,7 @@ export default function InnerCircleHubPage() {
                   </div>
 
                   <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
-                    {(filteredActivityRows || []).slice(0, 10).map((row, idx) => {
+                    {(filteredActivityRows || []).map((row, idx) => {
                       const toneClass = row?.type === 'booked' || row?.type === 'completed'
                         ? 'onpace'
                         : row?.type === 'decision'

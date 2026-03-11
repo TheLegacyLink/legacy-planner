@@ -266,7 +266,6 @@ export async function GET(req) {
 
   const rows = [...booked, ...decisions, ...fng, ...completed]
     .sort((a, b) => asTs(b.at) - asTs(a.at))
-    .slice(0, 40)
     .map((r) => ({
       ...r,
       showFngButton: r.type === 'booked' || (r.type === 'decision' && r.decision === 'approved')
