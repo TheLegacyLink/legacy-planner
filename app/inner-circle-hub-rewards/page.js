@@ -500,7 +500,7 @@ export default function InnerCircleHubRewardsPage() {
   ];
 
   return (
-    <main className="publicPage" style={{ minHeight: "100vh", background: "#020617", color: "#e5e7eb" }}>
+    <main className="publicPage hubRewards" style={{ minHeight: "100vh", background: "#020617", color: "#e5e7eb" }}>
       <div className="panel" style={{ maxWidth: 1100, border: "1px solid #1f2937", background: "#030a17" }}>
       <div className="panel" style={{ borderColor: '#1d4ed8', background: '#0b1730' }}>
         <h3 style={{ marginTop: 0 }}>Welcome to Inner Circle Activity Rewards.</h3>
@@ -657,6 +657,34 @@ export default function InnerCircleHubRewardsPage() {
         <small className="muted">Footer Note: All rewards are subject to verification, compliance review, and active member status. Invalid, duplicate, incomplete, fake, canceled, or non-qualifying activity does not count. Approved, paid-and-placed business is required for the $500 producer reward.</small>
         <small className="muted" style={{ display: 'block', marginTop: 6 }}>Payout Status Labels: {PAYOUT_LABELS.join(' • ')}</small>
       </div>
+
+      <style jsx global>{`
+        .hubRewards .panel {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          color: #f8fafc;
+          border-radius: 14px;
+        }
+        .hubRewards .muted {
+          color: #cbd5e1 !important;
+        }
+        .hubRewards h1,
+        .hubRewards h2,
+        .hubRewards h3,
+        .hubRewards strong,
+        .hubRewards th,
+        .hubRewards td {
+          color: #f8fafc;
+        }
+        .hubRewards table th,
+        .hubRewards table td {
+          padding: 8px 10px;
+          border-bottom: 1px solid #1f2937;
+        }
+        .hubRewards table tbody tr:hover {
+          background: #0f172a;
+        }
+      `}</style>
       </div>
     </main>
   );
