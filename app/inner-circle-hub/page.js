@@ -364,10 +364,11 @@ export default function InnerCircleHubPage() {
 
                   <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
                     {(filteredActivityRows || []).slice(0, 8).map((row, idx) => {
-                      const dot = row?.type === 'submitted' ? '#f59e0b' : row?.type === 'booked' ? '#22c55e' : '#3b82f6';
+                      const toneClass = row?.type === 'booked' ? 'onpace' : row?.type === 'submitted' ? 'atrisk' : 'offpace';
+                      const label = row?.type === 'booked' ? 'Booked' : row?.type === 'submitted' ? 'Submitted' : 'FNG';
                       return (
                         <div key={`${row?.type}_${row?.name}_${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid #1f2937', borderRadius: 8, padding: '8px 10px', background: '#030a17' }}>
-                          <span style={{ width: 8, height: 8, borderRadius: 999, background: dot }} />
+                          <span className={`pill ${toneClass}`}>{label}</span>
                           <div style={{ color: '#e2e8f0', fontSize: 14, flex: 1 }}>{row?.name || 'Unknown'} — {row?.detail || ''}</div>
                         </div>
                       );
