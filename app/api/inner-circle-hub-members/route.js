@@ -8,6 +8,21 @@ function clean(v = '') { return String(v || '').trim(); }
 function nowIso() { return new Date().toISOString(); }
 function hashPassword(v = '') { return createHash('sha256').update(clean(v)).digest('hex'); }
 
+function rowTs(row = {}) {
+  const t = new Date(row?.updatedAt || row?.createdAt || 0).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+function matchingIndexesByEmail(rows = [], email = '') {
+  const target = clean(email).toLowerCase();
+  return (Array.isArray(rows) ? rows : [])
+    .map((r, idx) => ({ r, idx }))
+    .filter(({ r }) => clean(r?.email).toLowerCase() === target)
+    .sort((a, b) => rowTs(b.r) - rowTs(a.r))
+    .map((x) => x.idx);
+}
+
+
 function mailer() {
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
@@ -129,10 +144,15 @@ export async function POST(req) {
       });
     }
 
-    const found = rows.find((r) => clean(r?.email).toLowerCase() === email);
+    const matchIdx = matchingIndexesByEmail(rows, email);
+    if (!matchIdx.length) return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
+
+    const activeRows = matchIdx.map((i) => rows[i]).filter((r) => Boolean(r?.active));
+    if (!activeRows.length) return Response.json({ ok: false, error: 'onboarding_locked' }, { status: 403 });
+
+    const hashed = hashPassword(password);
+    const found = activeRows.find((r) => clean(r?.passwordHash) === hashed);
     if (!found) return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
-    if (!found?.active) return Response.json({ ok: false, error: 'onboarding_locked' }, { status: 403 });
-    if (clean(found?.passwordHash) !== hashPassword(password)) return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
 
     return Response.json({ ok: true, member: { ...safeMember(found) } });
   }
@@ -228,26 +248,29 @@ export async function POST(req) {
     const email = clean(body?.email).toLowerCase();
     if (!email) return Response.json({ ok: true });
 
-    const idx = rows.findIndex((r) => clean(r?.email).toLowerCase() === email);
-    if (idx < 0) return Response.json({ ok: true });
+    const idxs = matchingIndexesByEmail(rows, email);
+    if (!idxs.length) return Response.json({ ok: true });
 
     const token = generateResetToken();
     const tokenHash = hashPassword(token);
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
-    rows[idx] = {
-      ...rows[idx],
-      resetTokenHash: tokenHash,
-      resetTokenExpiresAt: expiresAt,
-      updatedAt: nowIso()
-    };
+    for (const idx of idxs) {
+      rows[idx] = {
+        ...rows[idx],
+        resetTokenHash: tokenHash,
+        resetTokenExpiresAt: expiresAt,
+        updatedAt: nowIso()
+      };
+    }
     await saveJsonStore(STORE_PATH, rows);
 
+    const primary = rows[idxs[0]] || {};
     const origin = clean(body?.origin || process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
     const resetLink = `${origin}/inner-circle-hub?reset=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
 
     try {
-      await sendPasswordResetEmail({ to: email, applicantName: rows[idx]?.applicantName || '', resetLink });
+      await sendPasswordResetEmail({ to: email, applicantName: primary?.applicantName || '', resetLink });
     } catch {
       // keep response generic for safety
     }
@@ -261,21 +284,29 @@ export async function POST(req) {
     const password = clean(body?.password);
     if (!email || !token || !password) return Response.json({ ok: false, error: 'missing_fields' }, { status: 400 });
 
-    const idx = rows.findIndex((r) => clean(r?.email).toLowerCase() === email);
-    if (idx < 0) return Response.json({ ok: false, error: 'invalid_or_expired_token' }, { status: 400 });
+    const idxs = matchingIndexesByEmail(rows, email);
+    if (!idxs.length) return Response.json({ ok: false, error: 'invalid_or_expired_token' }, { status: 400 });
 
-    const row = rows[idx] || {};
-    const expires = new Date(row?.resetTokenExpiresAt || 0).getTime();
-    const valid = clean(row?.resetTokenHash) && clean(row?.resetTokenHash) === hashPassword(token) && Number.isFinite(expires) && expires > Date.now();
-    if (!valid) return Response.json({ ok: false, error: 'invalid_or_expired_token' }, { status: 400 });
+    const hashedToken = hashPassword(token);
+    const validIdx = idxs.find((idx) => {
+      const row = rows[idx] || {};
+      const expires = new Date(row?.resetTokenExpiresAt || 0).getTime();
+      return clean(row?.resetTokenHash) && clean(row?.resetTokenHash) === hashedToken && Number.isFinite(expires) && expires > Date.now();
+    });
 
-    rows[idx] = {
-      ...row,
-      passwordHash: hashPassword(password),
-      resetTokenHash: '',
-      resetTokenExpiresAt: '',
-      updatedAt: nowIso()
-    };
+    if (validIdx == null) return Response.json({ ok: false, error: 'invalid_or_expired_token' }, { status: 400 });
+
+    const hashedPassword = hashPassword(password);
+    for (const idx of idxs) {
+      rows[idx] = {
+        ...rows[idx],
+        passwordHash: hashedPassword,
+        resetTokenHash: '',
+        resetTokenExpiresAt: '',
+        updatedAt: nowIso()
+      };
+    }
+
     await saveJsonStore(STORE_PATH, rows);
     return Response.json({ ok: true });
   }
