@@ -144,7 +144,7 @@ export default function InnerCircleHubPage() {
   }, [member?.email, member?.id]);
 
   const onboardingPlaybookUrl = useMemo(() => {
-    return process.env.NEXT_PUBLIC_INNER_CIRCLE_PLAYBOOK_URL || '/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook.pdf';
+    return process.env.NEXT_PUBLIC_INNER_CIRCLE_PLAYBOOK_URL || '/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v2.pdf';
   }, []);
 
   const contractLinks = useMemo(() => {

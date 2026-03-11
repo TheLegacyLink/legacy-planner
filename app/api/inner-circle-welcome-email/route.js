@@ -80,7 +80,7 @@ export async function POST(req) {
   const telegramUrl = clean(body?.telegramUrl || 'https://t.me/+9GyGIETNM1QxZWRh');
   const hubUrl = clean(body?.hubUrl || process.env.NEXT_PUBLIC_INNER_CIRCLE_HUB_URL || 'https://innercirclelink.com/inner-circle-hub');
   const tempPassword = clean(body?.tempPassword || 'LegacyLink!2026');
-  const playbookUrl = clean(body?.playbookUrl || 'https://innercirclelink.com/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook.pdf');
+  const playbookUrl = clean(body?.playbookUrl || 'https://innercirclelink.com/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v2.pdf');
 
   if (!to || !telegramUrl || !hubUrl || !tempPassword || !playbookUrl) {
     return Response.json({ ok: false, error: 'missing_required_fields' }, { status: 400 });
@@ -110,7 +110,7 @@ export async function POST(req) {
   const html = buildHtml({ name, telegramUrl, hubUrl, tempPassword, playbookUrl });
 
   try {
-    const playbookPath = path.join(process.cwd(), 'public', 'docs', 'inner-circle', 'legacy-link-inner-circle-onboarding-playbook.pdf');
+    const playbookPath = path.join(process.cwd(), 'public', 'docs', 'inner-circle', 'legacy-link-inner-circle-onboarding-playbook-v2.pdf');
     const attachments = fs.existsSync(playbookPath)
       ? [{ filename: 'Legacy-Link-Inner-Circle-Onboarding-Playbook.pdf', path: playbookPath }]
       : [{ filename: 'Legacy-Link-Inner-Circle-Onboarding-Playbook.pdf', path: playbookUrl }];
