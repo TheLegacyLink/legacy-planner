@@ -134,6 +134,21 @@ function countPeriod(rows = [], period = 'daily') {
   return (rows || []).filter((r) => inPeriod(asTs(r?.at), period)).length;
 }
 
+function rowMatchesOwner(row = {}, ownerName = '', ownerEmail = '', ownerRefCode = '') {
+  if (isOwnerMatch(row, ownerName, ownerEmail)) return true;
+  const refCandidates = [
+    row?.refCode,
+    row?.ref_code,
+    row?.referralCode,
+    row?.referral_code,
+    row?.referredByCode,
+    row?.referred_by_code,
+    row?.source_ref_code,
+    row?.agent_ref_code
+  ].map((v) => clean(v).toLowerCase());
+  return Boolean(ownerRefCode && refCandidates.some((r) => r && r === ownerRefCode));
+}
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const ownerName = clean(searchParams.get('name') || '');
@@ -150,13 +165,10 @@ export async function GET(req) {
   ]);
 
   const ownerRefCode = refCodeFromName(ownerName);
+  const appById = new Map((sponsorshipApps || []).map((a) => [clean(a?.id), a]));
 
   const submittedRaw = (sponsorshipApps || [])
-    .filter((r) => {
-      const appRef = clean(r?.refCode || r?.ref_code || '').toLowerCase();
-      if (ownerRefCode && appRef && appRef === ownerRefCode) return true;
-      return isOwnerMatch(r, ownerName, ownerEmail);
-    })
+    .filter((r) => rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode))
     .map((r) => ({
       type: 'submitted',
       name: clean(`${r?.firstName || ''} ${r?.lastName || ''}` || r?.name || 'Unknown'),
@@ -169,11 +181,9 @@ export async function GET(req) {
 
   const decisionsRaw = (sponsorshipApps || [])
     .filter((r) => {
-      const appRef = clean(r?.refCode || r?.ref_code || '').toLowerCase();
       const status = normalize(r?.status || '');
       if (!(status.includes('approved') || status.includes('declined'))) return false;
-      if (ownerRefCode && appRef && appRef === ownerRefCode) return true;
-      return isOwnerMatch(r, ownerName, ownerEmail);
+      return rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode);
     })
     .map((r) => {
       const status = normalize(r?.status || '');
@@ -194,7 +204,11 @@ export async function GET(req) {
   }));
 
   const booked = dedupePeopleRows((bookingRows || [])
-    .filter((r) => isOwnerMatch(r, ownerName, ownerEmail))
+    .filter((r) => {
+      if (rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode)) return true;
+      const app = appById.get(clean(r?.source_application_id || ''));
+      return app ? rowMatchesOwner(app, ownerName, ownerEmail, ownerRefCode) : false;
+    })
     .filter((r) => ['booked', 'confirmed', 'completed'].includes(normalize(r?.booking_status || 'booked')))
     .map((r) => ({
       type: 'booked',
@@ -206,7 +220,7 @@ export async function GET(req) {
     })));
 
   const fng = dedupePeopleRows((policyRows || [])
-    .filter((r) => isOwnerMatch(r, ownerName, ownerEmail))
+    .filter((r) => rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode))
     .map((r) => ({
       type: 'fng',
       name: clean(r?.applicantName || r?.name || r?.fullName || r?.insuredName || 'Unknown'),
