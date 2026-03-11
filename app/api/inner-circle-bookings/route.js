@@ -87,6 +87,23 @@ function buildCalendarLink(row = {}, zoomLink = '') {
   return url.toString();
 }
 
+function mergeRowsById(baseRows = [], incomingRows = []) {
+  const map = new Map();
+  for (const r of (baseRows || [])) {
+    const id = clean(r?.id);
+    if (!id) continue;
+    map.set(id, { ...r });
+  }
+  for (const r of (incomingRows || [])) {
+    const id = clean(r?.id);
+    if (!id) continue;
+    map.set(id, { ...(map.get(id) || {}), ...r });
+  }
+  const out = Array.from(map.values());
+  out.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  return out;
+}
+
 function emailTransport() {
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
@@ -208,8 +225,11 @@ export async function POST(req) {
       updated_at: nowIso()
     };
 
-    await saveJsonStore(STORE_PATH, rows);
-    return Response.json({ ok: true, row: rows[idx] });
+    const latest = await loadJsonStore(STORE_PATH, []);
+    const merged = mergeRowsById(latest, rows);
+    await saveJsonStore(STORE_PATH, merged);
+    const saved = merged.find((r) => clean(r?.id) === id) || rows[idx];
+    return Response.json({ ok: true, row: saved });
   }
 
   if (mode !== 'upsert') {
@@ -251,7 +271,9 @@ export async function POST(req) {
   if (idx >= 0) rows[idx] = { ...rows[idx], ...next };
   else rows.unshift({ ...next, created_at: clean(next?.created_at || nowIso()) });
 
-  await saveJsonStore(STORE_PATH, rows);
+  const latest = await loadJsonStore(STORE_PATH, []);
+  const merged = mergeRowsById(latest, rows);
+  await saveJsonStore(STORE_PATH, merged);
 
   let notify = { internal: { ok: false, skipped: true }, attendee: { ok: false, skipped: true } };
   if (idx < 0) {
@@ -262,5 +284,6 @@ export async function POST(req) {
     notify = { internal, attendee };
   }
 
-  return Response.json({ ok: true, row: idx >= 0 ? rows[idx] : rows[0], notify });
+  const saved = merged.find((r) => clean(r?.id) === id) || next;
+  return Response.json({ ok: true, row: saved, notify });
 }
