@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const SESSION_KEY = 'inner_circle_hub_member_v1';
 
@@ -21,8 +21,29 @@ export default function InnerCircleHubPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [kpi, setKpi] = useState(null);
 
   const unlocked = useMemo(() => Boolean(member?.active), [member]);
+
+  useEffect(() => {
+    if (!member?.email && !member?.applicantName) return;
+    let canceled = false;
+
+    async function loadKpi() {
+      try {
+        const url = `/api/inner-circle-hub-kpi?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}`;
+        const res = await fetch(url, { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.ok || canceled) return;
+        setKpi(data.kpi || null);
+      } catch {
+        if (!canceled) setKpi(null);
+      }
+    }
+
+    loadKpi();
+    return () => { canceled = true; };
+  }, [member?.email, member?.applicantName]);
 
   async function login(e) {
     e.preventDefault();
@@ -95,6 +116,30 @@ export default function InnerCircleHubPage() {
           </div>
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
+            <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
+              <strong style={{ color: '#fff', fontSize: 16 }}>KPI Dashboard (This Month)</strong>
+              <div style={{ display: 'grid', gap: 10, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
+                <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}>
+                  <small className="muted">Leads Received</small>
+                  <div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.leadsReceived ?? 0}</div>
+                  <small className="muted">Target: 60 • Remaining: {kpi?.remainingToTarget ?? 60}</small>
+                </div>
+                <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}>
+                  <small className="muted">Appointments Booked</small>
+                  <div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.bookingsThisMonth ?? 0}</div>
+                </div>
+                <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}>
+                  <small className="muted">Closes</small>
+                  <div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.closesThisMonth ?? 0}</div>
+                  <small className="muted">Close Rate: {kpi?.closeRate ?? 0}%</small>
+                </div>
+                <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}>
+                  <small className="muted">Estimated Gross Earned</small>
+                  <div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>${kpi?.grossEarned ?? 0}</div>
+                </div>
+              </div>
+            </div>
+
             <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
               <strong style={{ color: '#fff', fontSize: 16 }}>Start Here (Phase 1)</strong>
               <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#cbd5e1', display: 'grid', gap: 4 }}>
