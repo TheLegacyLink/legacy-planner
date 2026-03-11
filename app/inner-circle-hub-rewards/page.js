@@ -508,9 +508,9 @@ export default function InnerCircleHubRewardsPage() {
         <p className="muted" style={{ margin: 0 }}>This system rewards activity, consistency, quality, and real production — not random motion.</p>
       </div>
 
-      <div className="panel" style={{ borderColor: '#1e40af', background: 'linear-gradient(135deg,#0a1837 0%, #08142c 100%)' }}>
-        <strong>Scoring Scope</strong>
-        <p className="muted" style={{ margin: '6px 0 0' }}>Leaderboard, agent ranking, streaks, and winner callouts are calculated from current month validated activity only (duplicates excluded).</p>
+      <div className="panel" style={{ borderColor: '#3b82f6', background: 'linear-gradient(135deg, rgba(44,99,173,0.96) 0%, rgba(18,53,96,0.92) 100%)' }}>
+        <strong style={{ color: '#ffffff' }}>Scoring Scope</strong>
+        <p style={{ margin: '6px 0 0', color: '#eff6ff' }}>Leaderboard, agent ranking, streaks, and winner callouts are calculated from current month validated activity only (duplicates excluded).</p>
       </div>
 
       <div className="panel" style={{ display: 'grid', gap: 8 }}>
