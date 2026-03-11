@@ -559,7 +559,13 @@ export default function InnerCircleHubPage() {
             ) : null}
 
             {tab === 'links' ? (
-              <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 12, background: '#071022' }}>
+                  <strong style={{ color: '#fff' }}>Quick Access</strong>
+                  <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>Your onboarding PDF is in the first card below: <strong>Onboarding Playbook PDF</strong>.</p>
+                </div>
+
+                <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617', display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8 }}>
                   <strong style={{ color: '#fff' }}>Personal Sponsorship Link</strong>
                   <img src={qrUrl(sponsorshipLink)} alt="Sponsorship QR" width={118} height={118} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
@@ -585,6 +591,7 @@ export default function InnerCircleHubPage() {
                     </button>
                   </div>
                 ))}
+                </div>
               </div>
             ) : null}
           </div>
