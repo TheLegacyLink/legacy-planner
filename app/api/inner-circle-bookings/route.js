@@ -52,18 +52,22 @@ function zoneLabelFromEt(dateKey = '', etMinutes = 0, offsetMinutes = 0, zone = 
   return `${shiftDateKey(dateKey, dayDelta)} ${minutesTo12h(total)} ${zone}`;
 }
 
-function slotLabelsUsZones(row = {}) {
+function timezoneForState(state = '') {
+  const s = clean(state).toUpperCase();
+  const PT = new Set(['CA','WA','OR','NV']);
+  const MT = new Set(['AZ','CO','ID','MT','NM','UT','WY']);
+  const CT = new Set(['TX','IL','WI','MN','IA','MO','AR','LA','MS','AL','TN','KY','OK','KS','NE','SD','ND']);
+  if (PT.has(s)) return { zone: 'PT', offsetMinutes: -180 };
+  if (MT.has(s)) return { zone: 'MT', offsetMinutes: -120 };
+  if (CT.has(s)) return { zone: 'CT', offsetMinutes: -60 };
+  return { zone: 'ET', offsetMinutes: 0 };
+}
+
+function localSlotLabel(row = {}) {
   const parsed = parseRequestedAtEst(row?.requested_at_est || '');
-  if (!parsed) return { et: clean(row?.requested_at_est || '—'), ct: '—', mt: '—', pt: '—', dateKey: '' };
-  return {
-    et: zoneLabelFromEt(parsed.dateKey, parsed.minutes, 0, 'ET'),
-    ct: zoneLabelFromEt(parsed.dateKey, parsed.minutes, -60, 'CT'),
-    mt: zoneLabelFromEt(parsed.dateKey, parsed.minutes, -120, 'MT'),
-    pt: zoneLabelFromEt(parsed.dateKey, parsed.minutes, -180, 'PT'),
-    dateKey: parsed.dateKey,
-    startMinutes: parsed.minutes,
-    endMinutes: parsed.minutes + 45
-  };
+  if (!parsed) return clean(row?.requested_at_est || '—');
+  const tz = timezoneForState(row?.applicant_state || '');
+  return zoneLabelFromEt(parsed.dateKey, parsed.minutes, tz.offsetMinutes, tz.zone);
 }
 
 function buildCalendarLink(row = {}, zoomLink = '') {
@@ -165,29 +169,44 @@ async function sendAttendeeConfirmationEmail(row = {}) {
   if (!mailer || !to) return { ok: false, skipped: true, error: 'missing_attendee_email_or_mailer' };
 
   const zoomLink = clean(process.env.INNER_CIRCLE_ZOOM_LINK || process.env.NEXT_PUBLIC_INNER_CIRCLE_ZOOM_LINK || 'https://us06web.zoom.us/j/9574933592?pwd=KiWiYeUNEXTbCIhGvIGGd5M9JKAWkY.1');
-  const labels = slotLabelsUsZones(row);
+  const localTime = localSlotLabel(row);
   const calLink = buildCalendarLink(row, zoomLink);
 
-  const subject = `Inner Circle Strategy Call Confirmed — ${labels.et}`;
+  const subject = 'Inner Circle Strategy Call Confirmation';
+  const applicant = clean(row?.applicant_name || 'there');
   const text = [
-    `Hi ${clean(row?.applicant_name || 'there')},`,
+    `Hi ${applicant},`,
     '',
     'Your Inner Circle strategy call is confirmed.',
     '',
-    `Time (ET): ${labels.et}`,
-    `Time (CT): ${labels.ct}`,
-    `Time (MT): ${labels.mt}`,
-    `Time (PT): ${labels.pt}`,
+    `Time: ${localTime}`,
     `Zoom Link: ${zoomLink}`,
     calLink ? `Add to Google Calendar: ${calLink}` : '',
     '',
-    'Looking forward to meeting with you.',
+    'If you need to reschedule, please reply to this email in advance.',
     '',
-    '- Kimora Link'
+    'Best regards,',
+    'Kimora Link',
+    'The Legacy Link'
   ].filter(Boolean).join('\n');
 
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;max-width:640px;margin:0 auto;">
+      <h2 style="margin:0 0 10px;color:#111827;">Inner Circle Strategy Call Confirmation</h2>
+      <p>Hi <strong>${applicant}</strong>,</p>
+      <p>Your Inner Circle strategy call is confirmed.</p>
+      <div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;background:#f8fafc;">
+        <p style="margin:0 0 6px;"><strong>Time:</strong> ${localTime}</p>
+        <p style="margin:0;"><strong>Zoom Link:</strong> <a href="${zoomLink}">Join Meeting</a></p>
+      </div>
+      ${calLink ? `<p style="margin-top:12px;"><a href="${calLink}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;">Add to Google Calendar</a></p>` : ''}
+      <p>If you need to reschedule, please reply to this email in advance.</p>
+      <p style="margin-top:16px;">Best regards,<br/><strong>Kimora Link</strong><br/>The Legacy Link</p>
+    </div>
+  `;
+
   try {
-    const info = await mailer.tx.sendMail({ from: mailer.from, to, subject, text });
+    const info = await mailer.tx.sendMail({ from: mailer.from, to, subject, text, html });
     return { ok: true, messageId: info?.messageId || '', calendarLink: calLink };
   } catch (error) {
     return { ok: false, error: error?.message || 'send_failed' };
