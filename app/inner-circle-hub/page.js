@@ -435,24 +435,22 @@ export default function InnerCircleHubPage() {
             ) : null}
 
             {tab === 'links' ? (
-              <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))' }}>
-                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+              <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
+                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617', display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8 }}>
                   <strong style={{ color: '#fff' }}>Personal Sponsorship Link</strong>
-                  <a href={sponsorshipLink} target="_blank" rel="noreferrer" style={{ color: '#93c5fd', display: 'block', marginTop: 8, wordBreak: 'break-all' }}>{sponsorshipLink}</a>
-                  <button type="button" className="ghost" onClick={() => copyLink(sponsorshipLink, 'sponsor')} style={{ marginTop: 8 }}>
+                  <img src={qrUrl(sponsorshipLink)} alt="Sponsorship QR" width={118} height={118} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
+                  <button type="button" className="ghost" onClick={() => copyLink(sponsorshipLink, 'sponsor')}>
                     {copiedKey === 'sponsor' ? 'Copied' : 'Copy Link'}
                   </button>
-                  <img src={qrUrl(sponsorshipLink)} alt="Sponsorship QR" width={160} height={160} style={{ marginTop: 8, borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
                 </div>
 
                 {contractLinks.map((item) => (
-                  <div key={item.name} style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+                  <div key={item.name} style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617', display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8 }}>
                     <strong style={{ color: '#fff' }}>{item.name}</strong>
-                    <a href={item.url} target="_blank" rel="noreferrer" style={{ color: '#93c5fd', display: 'block', marginTop: 8, wordBreak: 'break-all' }}>{item.url}</a>
-                    <button type="button" className="ghost" onClick={() => copyLink(item.url, item.name)} style={{ marginTop: 8 }}>
+                    <img src={qrUrl(item.url)} alt={`${item.name} QR`} width={118} height={118} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
+                    <button type="button" className="ghost" onClick={() => copyLink(item.url, item.name)}>
                       {copiedKey === item.name ? 'Copied' : 'Copy Link'}
                     </button>
-                    <img src={qrUrl(item.url)} alt={`${item.name} QR`} width={160} height={160} style={{ marginTop: 8, borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
                   </div>
                 ))}
               </div>
