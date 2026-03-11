@@ -60,16 +60,16 @@ export default function InnerCircleHubPage() {
 
   const [tab, setTab] = useState('dashboard');
   const [dailyRows, setDailyRows] = useState([]);
-  const [dailyTotals, setDailyTotals] = useState({ calls: 0, texts: 0, followUps: 0, bookings: 0, sponsorshipApps: 0, fngSubmittedApps: 0, appsTotal: 0 });
+  const [trackerPeriod, setTrackerPeriod] = useState('daily');
+  const [activityType, setActivityType] = useState('all');
+  const [activityRows, setActivityRows] = useState([]);
+  const [activitySummary, setActivitySummary] = useState({ submitted: 0, booked: 0, fng: 0 });
   const [tracker, setTracker] = useState({
     dateKey: todayDateKey(),
     calls: 0,
-    texts: 0,
-    followUps: 0,
     bookings: 0,
     sponsorshipApps: 0,
     fngSubmittedApps: 0,
-    notes: '',
     checklist: {
       workNewLeads: false,
       followUpWarmLeads: false,
@@ -94,6 +94,36 @@ export default function InnerCircleHubPage() {
     const c = tracker?.checklist || {};
     return [c.workNewLeads, c.followUpWarmLeads, c.bookOneConversation, c.postContent, c.updateTracker].filter(Boolean).length;
   }, [tracker?.checklist]);
+
+  const filteredActivityRows = useMemo(() => {
+    if (activityType === 'all') return activityRows;
+    return (activityRows || []).filter((r) => clean(r?.type) === activityType);
+  }, [activityRows, activityType]);
+
+  const periodTotals = useMemo(() => {
+    const now = new Date();
+    const today = todayDateKey();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - 6);
+    weekStart.setHours(0, 0, 0, 0);
+
+    const safeRows = Array.isArray(dailyRows) ? dailyRows : [];
+    const inDaily = safeRows.filter((r) => clean(r?.dateKey) === today);
+    const inWeekly = safeRows.filter((r) => {
+      const d = new Date(`${clean(r?.dateKey)}T00:00:00`);
+      return !Number.isNaN(d.getTime()) && d >= weekStart;
+    });
+    const inMonthly = safeRows;
+
+    const src = trackerPeriod === 'weekly' ? inWeekly : trackerPeriod === 'monthly' ? inMonthly : inDaily;
+    return src.reduce((acc, r) => ({
+      calls: acc.calls + toNum(r?.calls),
+      bookings: acc.bookings + toNum(r?.bookings),
+      sponsorshipApps: acc.sponsorshipApps + toNum(r?.sponsorshipApps),
+      fngSubmittedApps: acc.fngSubmittedApps + toNum(r?.fngSubmittedApps),
+      appsTotal: acc.appsTotal + toNum(r?.sponsorshipApps) + toNum(r?.fngSubmittedApps)
+    }), { calls: 0, bookings: 0, sponsorshipApps: 0, fngSubmittedApps: 0, appsTotal: 0 });
+  }, [dailyRows, trackerPeriod]);
 
   const sponsorshipLink = useMemo(() => {
     const base = process.env.NEXT_PUBLIC_SPONSORSHIP_LINK_BASE || '/sponsorship-signup';
@@ -123,35 +153,35 @@ export default function InnerCircleHubPage() {
         const kpiUrl = `/api/inner-circle-hub-kpi?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}`;
         const dailyUrl = `/api/inner-circle-hub-daily?memberId=${encodeURIComponent(member?.id || '')}&email=${encodeURIComponent(member?.email || '')}`;
 
-        const [kpiRes, dailyRes, scriptsRes, vaultRes] = await Promise.all([
+        const activityUrl = `/api/inner-circle-hub-activity?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}`;
+
+        const [kpiRes, dailyRes, scriptsRes, vaultRes, activityRes] = await Promise.all([
           fetch(kpiUrl, { cache: 'no-store' }),
           fetch(dailyUrl, { cache: 'no-store' }),
           fetch('/api/inner-circle-hub-scripts', { cache: 'no-store' }),
-          fetch('/api/inner-circle-hub-vault', { cache: 'no-store' })
+          fetch('/api/inner-circle-hub-vault', { cache: 'no-store' }),
+          fetch(activityUrl, { cache: 'no-store' })
         ]);
 
         const kpiData = await kpiRes.json().catch(() => ({}));
         const dailyData = await dailyRes.json().catch(() => ({}));
         const scriptsData = await scriptsRes.json().catch(() => ({}));
         const vaultData = await vaultRes.json().catch(() => ({}));
+        const activityData = await activityRes.json().catch(() => ({}));
 
         if (!canceled && kpiRes.ok && kpiData?.ok) setKpi(kpiData.kpi || null);
         if (!canceled && dailyRes.ok && dailyData?.ok) {
           const rows = Array.isArray(dailyData.rows) ? dailyData.rows : [];
           setDailyRows(rows);
-          setDailyTotals(dailyData.totals || { calls: 0, texts: 0, followUps: 0, bookings: 0, sponsorshipApps: 0, fngSubmittedApps: 0, appsTotal: 0 });
           const today = rows.find((r) => clean(r?.dateKey) === todayDateKey());
           if (today) {
             setTracker((p) => ({
               ...p,
               dateKey: today.dateKey || p.dateKey,
               calls: today.calls ?? p.calls,
-              texts: today.texts ?? p.texts,
-              followUps: today.followUps ?? p.followUps,
               bookings: today.bookings ?? p.bookings,
               sponsorshipApps: today.sponsorshipApps ?? p.sponsorshipApps,
               fngSubmittedApps: today.fngSubmittedApps ?? p.fngSubmittedApps,
-              notes: today.notes || p.notes,
               checklist: {
                 workNewLeads: Boolean(today?.checklist?.workNewLeads),
                 followUpWarmLeads: Boolean(today?.checklist?.followUpWarmLeads),
@@ -164,6 +194,10 @@ export default function InnerCircleHubPage() {
         }
         if (!canceled && scriptsRes.ok && scriptsData?.ok) setScripts(Array.isArray(scriptsData.rows) ? scriptsData.rows : []);
         if (!canceled && vaultRes.ok && vaultData?.ok) setVault(vaultData.vault || { content: [], calls: [], onboarding: [] });
+        if (!canceled && activityRes.ok && activityData?.ok) {
+          setActivityRows(Array.isArray(activityData.rows) ? activityData.rows : []);
+          setActivitySummary(activityData.summary || { submitted: 0, booked: 0, fng: 0 });
+        }
       } catch {
         if (!canceled) {
           setKpi(null);
@@ -234,12 +268,9 @@ export default function InnerCircleHubPage() {
           email: member?.email || '',
           dateKey: tracker.dateKey,
           calls: toNum(tracker.calls),
-          texts: toNum(tracker.texts),
-          followUps: toNum(tracker.followUps),
           bookings: toNum(tracker.bookings),
           sponsorshipApps: toNum(tracker.sponsorshipApps),
           fngSubmittedApps: toNum(tracker.fngSubmittedApps),
-          notes: tracker.notes || '',
           checklist: tracker.checklist || {}
         })
       });
@@ -249,7 +280,6 @@ export default function InnerCircleHubPage() {
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.ok) {
         setDailyRows(Array.isArray(data.rows) ? data.rows : []);
-        setDailyTotals(data.totals || { calls: 0, texts: 0, followUps: 0, bookings: 0, sponsorshipApps: 0, fngSubmittedApps: 0, appsTotal: 0 });
       }
     } finally {
       setSavingTracker(false);
@@ -308,13 +338,42 @@ export default function InnerCircleHubPage() {
             </div>
 
             {tab === 'dashboard' ? (
-              <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
-                <strong style={{ color: '#fff', fontSize: 16 }}>KPI Dashboard (This Month)</strong>
-                <div style={{ display: 'grid', gap: 10, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
-                  <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Leads</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.leadsReceived ?? 0}</div></div>
-                  <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Bookings</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.bookingsThisMonth ?? 0}</div></div>
-                  <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Closes</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.closesThisMonth ?? 0}</div><small className="muted">Close Rate: {kpi?.closeRate ?? 0}%</small></div>
-                  <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Gross</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>${kpi?.grossEarned ?? 0}</div></div>
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
+                  <strong style={{ color: '#fff', fontSize: 16 }}>KPI Dashboard (This Month)</strong>
+                  <div style={{ display: 'grid', gap: 10, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
+                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Leads</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.leadsReceived ?? 0}</div></div>
+                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Bookings</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.bookingsThisMonth ?? 0}</div></div>
+                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Closes</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.closesThisMonth ?? 0}</div><small className="muted">Close Rate: {kpi?.closeRate ?? 0}%</small></div>
+                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Gross</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>${kpi?.grossEarned ?? 0}</div></div>
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+                  <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ color: '#fff' }}>Activity Flow</strong>
+                    <a href="/inner-circle-app-submit" className="publicPrimaryBtn" style={{ textDecoration: 'none' }}>Submit FNG App</a>
+                  </div>
+
+                  <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                    <button type="button" className={activityType === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('all')}>All</button>
+                    <button type="button" className={activityType === 'submitted' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('submitted')}>Submitted ({activitySummary.submitted || 0})</button>
+                    <button type="button" className={activityType === 'booked' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('booked')}>Booked ({activitySummary.booked || 0})</button>
+                    <button type="button" className={activityType === 'fng' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('fng')}>FNG ({activitySummary.fng || 0})</button>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
+                    {(filteredActivityRows || []).slice(0, 8).map((row, idx) => {
+                      const dot = row?.type === 'submitted' ? '#f59e0b' : row?.type === 'booked' ? '#22c55e' : '#3b82f6';
+                      return (
+                        <div key={`${row?.type}_${row?.name}_${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid #1f2937', borderRadius: 8, padding: '8px 10px', background: '#030a17' }}>
+                          <span style={{ width: 8, height: 8, borderRadius: 999, background: dot }} />
+                          <div style={{ color: '#e2e8f0', fontSize: 14, flex: 1 }}>{row?.name || 'Unknown'} — {row?.detail || ''}</div>
+                        </div>
+                      );
+                    })}
+                    {!filteredActivityRows.length ? <small className="muted">No activity yet.</small> : null}
+                  </div>
                 </div>
               </div>
             ) : null}
@@ -407,26 +466,34 @@ export default function InnerCircleHubPage() {
             {tab === 'tracker' ? (
               <div style={{ display: 'grid', gap: 12 }}>
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
-                  <strong style={{ color: '#fff', fontSize: 17 }}>Daily Production Tracker</strong>
+                  <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                    <strong style={{ color: '#fff', fontSize: 17 }}>Production Tracker</strong>
+                    <div className="panelRow" style={{ gap: 6, flexWrap: 'wrap' }}>
+                      <button type="button" className={trackerPeriod === 'daily' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setTrackerPeriod('daily')}>Daily</button>
+                      <button type="button" className={trackerPeriod === 'weekly' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setTrackerPeriod('weekly')}>Weekly</button>
+                      <button type="button" className={trackerPeriod === 'monthly' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setTrackerPeriod('monthly')}>Monthly</button>
+                    </div>
+                  </div>
+
                   <div style={{ display: 'grid', gap: 10, marginTop: 12, gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))' }}>
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>Date<input type="date" value={tracker.dateKey} onChange={(e) => setTracker((p) => ({ ...p, dateKey: e.target.value }))} style={{ background: '#0b1220', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>Calls<input type="number" min="0" value={tracker.calls} onChange={(e) => setTracker((p) => ({ ...p, calls: e.target.value }))} style={{ background: '#0b1220', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
-                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Bookings (Auto)<input type="number" min="0" value={tracker.bookings} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
-                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Sponsorship Apps (Auto)<input type="number" min="0" value={tracker.sponsorshipApps} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
-                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>FNG Submitted Apps (Auto)<input type="number" min="0" value={tracker.fngSubmittedApps} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Bookings (Auto)<input type="number" min="0" value={periodTotals.bookings} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Sponsorship Apps (Auto)<input type="number" min="0" value={periodTotals.sponsorshipApps} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>FNG Submitted Apps (Auto)<input type="number" min="0" value={periodTotals.fngSubmittedApps} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
                   </div>
-                  <button type="button" className="publicPrimaryBtn" onClick={saveTracker} disabled={savingTracker} style={{ marginTop: 10 }}>{savingTracker ? 'Saving...' : 'Save Daily Metrics'}</button>
+                  <button type="button" className="publicPrimaryBtn" onClick={saveTracker} disabled={savingTracker} style={{ marginTop: 10 }}>{savingTracker ? 'Saving...' : 'Save Daily Calls'}</button>
                 </div>
 
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
-                  <strong style={{ color: '#fff' }}>This Month Totals</strong>
+                  <strong style={{ color: '#fff' }}>{trackerPeriod === 'daily' ? 'Daily Totals' : trackerPeriod === 'weekly' ? 'Weekly Totals' : 'Monthly Totals'}</strong>
                   <p className="muted" style={{ marginBottom: 8 }}>
-                    Calls: {dailyTotals.calls} • Bookings: {dailyTotals.bookings}
+                    Calls: {periodTotals.calls} • Bookings: {periodTotals.bookings}
                   </p>
                   <p className="muted" style={{ marginTop: 0 }}>
-                    Sponsorship Apps: {dailyTotals.sponsorshipApps} • FNG Submitted Apps: {dailyTotals.fngSubmittedApps} • App Total: {dailyTotals.appsTotal}
+                    Sponsorship Apps: {periodTotals.sponsorshipApps} • FNG Submitted Apps: {periodTotals.fngSubmittedApps} • App Total: {periodTotals.appsTotal}
                   </p>
-                  <small className="muted">Recent Entries: {dailyRows.length}</small>
+                  <small className="muted">Entries Loaded: {dailyRows.length}</small>
                 </div>
               </div>
             ) : null}
