@@ -45,10 +45,63 @@ function refCodeFromName(name = '') {
   return clean(name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
 
-function personKey({ name = '', email = '' } = {}) {
-  const em = clean(email).toLowerCase();
-  if (em) return `e:${em}`;
-  return `n:${normalize(name).replace(/[^a-z0-9]/g, '')}`;
+function normalizePhone(v = '') {
+  return clean(v).replace(/\D/g, '');
+}
+
+function nameSignature(name = '') {
+  const tokens = normalize(name).replace(/[^a-z0-9 ]/g, ' ').split(' ').filter(Boolean);
+  if (!tokens.length) return '';
+  if (tokens.length === 1) return tokens[0];
+  return `${tokens[0]}_${tokens[tokens.length - 1]}`;
+}
+
+function personKeys(row = {}) {
+  const keys = [];
+  const em = clean(row?.email).toLowerCase();
+  const ph = normalizePhone(row?.phone || '');
+  const full = normalize(row?.name || '').replace(/[^a-z0-9]/g, '');
+  const sig = nameSignature(row?.name || '');
+  if (em) keys.push(`e:${em}`);
+  if (ph) keys.push(`p:${ph}`);
+  if (sig) keys.push(`s:${sig}`);
+  if (full) keys.push(`n:${full}`);
+  return keys;
+}
+
+function personPrimaryKey(row = {}) {
+  const keys = personKeys(row);
+  return keys[0] || `u:${normalize(row?.name || 'unknown')}`;
+}
+
+function dedupePeopleRows(rows = []) {
+  const sorted = [...(rows || [])].sort((a, b) => asTs(b?.at) - asTs(a?.at));
+  const keyToIdx = new Map();
+  const out = [];
+
+  for (const row of sorted) {
+    const keys = personKeys(row);
+    const existingIdx = keys.map((k) => keyToIdx.get(k)).find((v) => Number.isInteger(v));
+
+    if (!Number.isInteger(existingIdx)) {
+      const idx = out.push({ ...row }) - 1;
+      for (const k of keys) keyToIdx.set(k, idx);
+      continue;
+    }
+
+    const existing = out[existingIdx] || {};
+    out[existingIdx] = {
+      ...existing,
+      name: clean(existing?.name || row?.name),
+      email: clean(existing?.email || row?.email),
+      phone: clean(existing?.phone || row?.phone),
+      at: clean(existing?.at || row?.at),
+      detail: clean(existing?.detail || row?.detail)
+    };
+    for (const k of keys) keyToIdx.set(k, existingIdx);
+  }
+
+  return out;
 }
 
 function inPeriod(ts = 0, period = 'daily') {
@@ -92,7 +145,7 @@ export async function GET(req) {
 
   const ownerRefCode = refCodeFromName(ownerName);
 
-  const submitted = (sponsorshipApps || [])
+  const submittedRaw = (sponsorshipApps || [])
     .filter((r) => {
       const appRef = clean(r?.refCode || r?.ref_code || '').toLowerCase();
       if (ownerRefCode && appRef && appRef === ownerRefCode) return true;
@@ -106,8 +159,9 @@ export async function GET(req) {
       detail: 'Submitted',
       at: clean(r?.submitted_at || r?.createdAt || r?.updatedAt || '')
     }));
+  const submitted = dedupePeopleRows(submittedRaw);
 
-  const decisions = (sponsorshipApps || [])
+  const decisionsRaw = (sponsorshipApps || [])
     .filter((r) => {
       const appRef = clean(r?.refCode || r?.ref_code || '').toLowerCase();
       const status = normalize(r?.status || '');
@@ -128,8 +182,12 @@ export async function GET(req) {
         at: clean(r?.approved_at || r?.reviewedAt || r?.updatedAt || r?.submitted_at || '')
       };
     });
+  const decisions = dedupePeopleRows(decisionsRaw).map((r) => ({
+    ...r,
+    decision: normalize(r?.detail).includes('declined') ? 'declined' : 'approved'
+  }));
 
-  const booked = (bookingRows || [])
+  const booked = dedupePeopleRows((bookingRows || [])
     .filter((r) => isOwnerMatch(r, ownerName, ownerEmail))
     .filter((r) => ['booked', 'confirmed', 'completed'].includes(normalize(r?.booking_status || 'booked')))
     .map((r) => ({
@@ -139,9 +197,9 @@ export async function GET(req) {
       phone: clean(r?.applicant_phone || r?.phone || ''),
       detail: 'Booked',
       at: clean(r?.updated_at || r?.created_at || '')
-    }));
+    })));
 
-  const fng = (policyRows || [])
+  const fng = dedupePeopleRows((policyRows || [])
     .filter((r) => isOwnerMatch(r, ownerName, ownerEmail))
     .map((r) => ({
       type: 'fng',
@@ -150,15 +208,14 @@ export async function GET(req) {
       phone: clean(r?.applicantPhone || r?.phone || ''),
       detail: 'FNG Submitted',
       at: clean(r?.submittedAt || r?.createdAt || r?.created_at || '')
-    }));
+    })));
 
-  const approvedKeys = new Set(decisions.filter((r) => r.decision === 'approved').map((r) => personKey(r)));
-  const bookedKeys = new Set(booked.map((r) => personKey(r)));
-  const fngKeys = new Set(fng.map((r) => personKey(r)));
+  const approvedKeys = new Set(decisions.filter((r) => r.decision === 'approved').map((r) => personPrimaryKey(r)));
+  const bookedKeys = new Set(booked.map((r) => personPrimaryKey(r)));
 
   const completed = [];
   for (const row of fng) {
-    const k = personKey(row);
+    const k = personPrimaryKey(row);
     if (approvedKeys.has(k) && bookedKeys.has(k)) {
       completed.push({
         type: 'completed',
