@@ -53,20 +53,25 @@ export default function InnerCircleBookingsPage() {
   const [savingId, setSavingId] = useState('');
   const [sendingContractId, setSendingContractId] = useState('');
   const [sendingMeetingId, setSendingMeetingId] = useState('');
+  const [hubMembers, setHubMembers] = useState([]);
+  const [savingHubId, setSavingHubId] = useState('');
 
   async function load() {
     setLoading(true);
     try {
-      const [appsRes, bookingsRes] = await Promise.all([
+      const [appsRes, bookingsRes, hubRes] = await Promise.all([
         fetch('/api/inner-circle-application', { cache: 'no-store' }),
-        fetch('/api/inner-circle-bookings', { cache: 'no-store' })
+        fetch('/api/inner-circle-bookings', { cache: 'no-store' }),
+        fetch('/api/inner-circle-hub-members', { cache: 'no-store' })
       ]);
 
       const appsData = await appsRes.json().catch(() => ({}));
       const bookingData = await bookingsRes.json().catch(() => ({}));
+      const hubData = await hubRes.json().catch(() => ({}));
 
       if (appsRes.ok && appsData?.ok) setApps(Array.isArray(appsData.rows) ? appsData.rows : []);
       if (bookingsRes.ok && bookingData?.ok) setBookings(Array.isArray(bookingData.rows) ? bookingData.rows : []);
+      if (hubRes.ok && hubData?.ok) setHubMembers(Array.isArray(hubData.rows) ? hubData.rows : []);
     } finally {
       setLoading(false);
     }
@@ -106,6 +111,15 @@ export default function InnerCircleBookingsPage() {
     if (statusFilter === 'all') return bookings;
     return bookings.filter((b) => clean(b?.booking_status || 'booked').toLowerCase() === statusFilter);
   }, [bookings, statusFilter]);
+
+  const memberByBookingId = useMemo(() => {
+    const m = new Map();
+    for (const row of (hubMembers || [])) {
+      const key = clean(row?.bookingId || '');
+      if (key) m.set(key, row);
+    }
+    return m;
+  }, [hubMembers]);
 
   async function updateBookingStatus(id, bookingStatus, ownerNotes = '') {
     if (!id) return;
@@ -155,6 +169,63 @@ export default function InnerCircleBookingsPage() {
       await load();
     } finally {
       setSendingMeetingId('');
+    }
+  }
+
+  async function ensureHubMember(booking = {}) {
+    const bookingId = clean(booking?.id || '');
+    if (!bookingId) return;
+    setSavingHubId(bookingId);
+    try {
+      await fetch('/api/inner-circle-hub-members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'upsert_from_booking',
+          bookingId,
+          applicantName: booking?.applicant_name || '',
+          email: booking?.applicant_email || ''
+        })
+      });
+      await load();
+    } finally {
+      setSavingHubId('');
+    }
+  }
+
+  async function setHubPassword(memberId = '') {
+    const pwd = typeof window !== 'undefined' ? window.prompt('Set temporary password for this member:') : '';
+    if (!memberId || !clean(pwd)) return;
+    setSavingHubId(memberId);
+    try {
+      await fetch('/api/inner-circle-hub-members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_password', memberId, password: pwd })
+      });
+      await load();
+    } finally {
+      setSavingHubId('');
+    }
+  }
+
+  async function setHubFlags(member = {}, patch = {}) {
+    const memberId = clean(member?.id || '');
+    if (!memberId) return;
+    const contractSigned = 'contractSigned' in patch ? Boolean(patch.contractSigned) : Boolean(member?.contractSignedAt);
+    const paymentReceived = 'paymentReceived' in patch ? Boolean(patch.paymentReceived) : Boolean(member?.paymentReceivedAt);
+    const active = 'active' in patch ? Boolean(patch.active) : Boolean(member?.active);
+
+    setSavingHubId(memberId);
+    try {
+      await fetch('/api/inner-circle-hub-members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_flags', memberId, contractSigned, paymentReceived, active })
+      });
+      await load();
+    } finally {
+      setSavingHubId('');
     }
   }
 
@@ -244,6 +315,7 @@ export default function InnerCircleBookingsPage() {
                 <th>Call Time</th>
                 <th>Status</th>
                 <th>Contract</th>
+                <th>Hub Access</th>
                 <th>Owner Notes</th>
               </tr>
             </thead>
@@ -309,6 +381,57 @@ export default function InnerCircleBookingsPage() {
                     </div>
                   </td>
                   <td>
+                    {(() => {
+                      const member = memberByBookingId.get(clean(b.id));
+                      if (!member) {
+                        return (
+                          <button
+                            type="button"
+                            className="ghost"
+                            disabled={savingHubId === b.id}
+                            onClick={() => ensureHubMember(b)}
+                          >
+                            {savingHubId === b.id ? 'Creating...' : 'Create Hub Member'}
+                          </button>
+                        );
+                      }
+                      return (
+                        <div style={{ display: 'grid', gap: 6 }}>
+                          <small className="muted">{member.email}</small>
+                          <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(member.contractSignedAt)}
+                              onChange={(e) => setHubFlags(member, { contractSigned: e.target.checked })}
+                            /> Contract Signed
+                          </label>
+                          <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(member.paymentReceivedAt)}
+                              onChange={(e) => setHubFlags(member, { paymentReceived: e.target.checked })}
+                            /> Payment Received
+                          </label>
+                          <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(member.active)}
+                              onChange={(e) => setHubFlags(member, { active: e.target.checked })}
+                            /> Hub Active
+                          </label>
+                          <button
+                            type="button"
+                            className="ghost"
+                            disabled={savingHubId === member.id}
+                            onClick={() => setHubPassword(member.id)}
+                          >
+                            Set Password
+                          </button>
+                        </div>
+                      );
+                    })()}
+                  </td>
+                  <td>
                     <textarea
                       rows={2}
                       defaultValue={b.owner_notes || ''}
@@ -318,7 +441,7 @@ export default function InnerCircleBookingsPage() {
                   </td>
                 </tr>
               ))}
-              {!filteredBookings.length ? <tr><td colSpan={6} className="muted">No bookings in this view.</td></tr> : null}
+              {!filteredBookings.length ? <tr><td colSpan={7} className="muted">No bookings in this view.</td></tr> : null}
             </tbody>
           </table>
         </div>
