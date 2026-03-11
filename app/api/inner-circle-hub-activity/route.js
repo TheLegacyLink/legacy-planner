@@ -19,7 +19,11 @@ function isOwnerMatch(row = {}, ownerName = '', ownerEmail = '') {
     row?.agentName,
     row?.producer,
     row?.referredBy,
-    row?.referred_by
+    row?.referred_by,
+    row?.referredByName,
+    row?.policyWriterName,
+    row?.submittedBy,
+    row?.submitted_by
   ].map(normalize);
 
   const emailCandidates = [
@@ -28,7 +32,9 @@ function isOwnerMatch(row = {}, ownerName = '', ownerEmail = '') {
     row?.ownerEmail,
     row?.agentEmail,
     row?.email,
-    row?.producerEmail
+    row?.producerEmail,
+    row?.submittedByEmail,
+    row?.submitted_by_email
   ].map(normalize);
 
   if (n && candidates.some((c) => c === n)) return true;
