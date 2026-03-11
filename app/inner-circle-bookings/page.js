@@ -491,6 +491,23 @@ export default function InnerCircleBookingsPage() {
                             {member?.hasPassword ? 'Reset Password' : 'Set Password'}
                           </button>
                           <div style={{ display: 'grid', gap: 4 }}>
+                            <small className="muted">Module Access</small>
+                            {[
+                              ['dashboard', 'Dashboard'],
+                              ['faststart', 'Fast Start'],
+                              ['scripts', 'Scripts'],
+                              ['execution', 'Execution'],
+                              ['vault', 'Vault'],
+                              ['tracker', 'Tracker']
+                            ].map(([key, label]) => (
+                              <label key={key} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={member?.modules?.[key] !== false}
+                                  onChange={(e) => setHubModules(member, { ...(member?.modules || {}), [key]: e.target.checked })}
+                                /> {label}
+                              </label>
+                            ))}
                             <button
                               type="button"
                               className="ghost"

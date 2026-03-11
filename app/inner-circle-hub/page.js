@@ -19,17 +19,13 @@ function onboardingState(member = {}) {
   const payment = Boolean(member?.paymentReceivedAt);
   const password = Boolean(member?.hasPassword);
   const active = Boolean(member?.active);
-  const completed = [contract, payment, password].filter(Boolean).length;
-  const pct = Math.round((completed / 3) * 100);
+  const pct = Math.round(([contract, payment, password].filter(Boolean).length / 3) * 100);
   return { contract, payment, password, active, pct };
 }
 
 function todayDateKey() {
   const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function toNum(v = 0) {
@@ -50,6 +46,34 @@ function availableTabs(member = {}) {
   return all.filter((t) => modules?.[t.key] !== false);
 }
 
+function ScriptCard({ item = {} }) {
+  return (
+    <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+      <strong style={{ color: '#fff' }}>{item?.title || 'Untitled'}</strong>
+      <small className="muted" style={{ display: 'block', marginTop: 4, textTransform: 'uppercase' }}>{item?.category || 'general'}</small>
+      <p className="muted" style={{ marginBottom: 0 }}>{item?.text || ''}</p>
+    </div>
+  );
+}
+
+function VaultSection({ title = '', items = [] }) {
+  return (
+    <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+      <strong style={{ color: '#fff' }}>{title}</strong>
+      <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+        {(items || []).map((item) => (
+          <div key={item?.id} style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}>
+            <div style={{ color: '#fff', fontWeight: 700 }}>{item?.title || 'Untitled'}</div>
+            <small className="muted" style={{ textTransform: 'uppercase' }}>{item?.tag || 'general'}</small>
+            <p className="muted" style={{ marginBottom: 0 }}>{item?.body || ''}</p>
+          </div>
+        ))}
+        {!items?.length ? <small className="muted">No items yet.</small> : null}
+      </div>
+    </div>
+  );
+}
+
 export default function InnerCircleHubPage() {
   const [member, setMember] = useState(() => readSession());
   const [email, setEmail] = useState('');
@@ -57,8 +81,11 @@ export default function InnerCircleHubPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [kpi, setKpi] = useState(null);
-
   const [tab, setTab] = useState('dashboard');
+
+  const [scripts, setScripts] = useState([]);
+  const [vault, setVault] = useState({ content: [], calls: [], onboarding: [] });
+
   const [dailyRows, setDailyRows] = useState([]);
   const [dailyTotals, setDailyTotals] = useState({ calls: 0, texts: 0, followUps: 0, bookings: 0, apps: 0 });
   const [tracker, setTracker] = useState({ dateKey: todayDateKey(), calls: 0, texts: 0, followUps: 0, bookings: 0, apps: 0, notes: '' });
@@ -72,37 +99,41 @@ export default function InnerCircleHubPage() {
     if (!member?.email && !member?.applicantName) return;
     let canceled = false;
 
-    async function loadKpi() {
+    async function loadAll() {
       try {
-        const url = `/api/inner-circle-hub-kpi?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}`;
-        const res = await fetch(url, { cache: 'no-store' });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data?.ok || canceled) return;
-        setKpi(data.kpi || null);
-      } catch {
-        if (!canceled) setKpi(null);
-      }
-    }
+        const kpiUrl = `/api/inner-circle-hub-kpi?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}`;
+        const dailyUrl = `/api/inner-circle-hub-daily?memberId=${encodeURIComponent(member?.id || '')}&email=${encodeURIComponent(member?.email || '')}`;
 
-    async function loadDaily() {
-      try {
-        const url = `/api/inner-circle-hub-daily?memberId=${encodeURIComponent(member?.id || '')}&email=${encodeURIComponent(member?.email || '')}`;
-        const res = await fetch(url, { cache: 'no-store' });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data?.ok || canceled) return;
-        setDailyRows(Array.isArray(data.rows) ? data.rows : []);
-        setDailyTotals(data.totals || { calls: 0, texts: 0, followUps: 0, bookings: 0, apps: 0 });
+        const [kpiRes, dailyRes, scriptsRes, vaultRes] = await Promise.all([
+          fetch(kpiUrl, { cache: 'no-store' }),
+          fetch(dailyUrl, { cache: 'no-store' }),
+          fetch('/api/inner-circle-hub-scripts', { cache: 'no-store' }),
+          fetch('/api/inner-circle-hub-vault', { cache: 'no-store' })
+        ]);
+
+        const kpiData = await kpiRes.json().catch(() => ({}));
+        const dailyData = await dailyRes.json().catch(() => ({}));
+        const scriptsData = await scriptsRes.json().catch(() => ({}));
+        const vaultData = await vaultRes.json().catch(() => ({}));
+
+        if (!canceled && kpiRes.ok && kpiData?.ok) setKpi(kpiData.kpi || null);
+        if (!canceled && dailyRes.ok && dailyData?.ok) {
+          setDailyRows(Array.isArray(dailyData.rows) ? dailyData.rows : []);
+          setDailyTotals(dailyData.totals || { calls: 0, texts: 0, followUps: 0, bookings: 0, apps: 0 });
+        }
+        if (!canceled && scriptsRes.ok && scriptsData?.ok) setScripts(Array.isArray(scriptsData.rows) ? scriptsData.rows : []);
+        if (!canceled && vaultRes.ok && vaultData?.ok) setVault(vaultData.vault || { content: [], calls: [], onboarding: [] });
       } catch {
         if (!canceled) {
+          setKpi(null);
           setDailyRows([]);
-          setDailyTotals({ calls: 0, texts: 0, followUps: 0, bookings: 0, apps: 0 });
+          setScripts([]);
+          setVault({ content: [], calls: [], onboarding: [] });
         }
       }
     }
 
-    loadKpi();
-    loadDaily();
-
+    loadAll();
     return () => { canceled = true; };
   }, [member?.id, member?.email, member?.applicantName]);
 
@@ -123,9 +154,7 @@ export default function InnerCircleHubPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
         const reason = String(data?.error || '').toLowerCase();
-        setError(reason === 'onboarding_locked'
-          ? 'Your hub is not active yet. Complete contract + payment + password setup with your advisor.'
-          : 'Invalid login. Check email/password.');
+        setError(reason === 'onboarding_locked' ? 'Your hub is not active yet. Complete contract + payment + password setup with your advisor.' : 'Invalid login. Check email/password.');
         return;
       }
       setMember(data.member);
@@ -138,6 +167,8 @@ export default function InnerCircleHubPage() {
   function logout() {
     setMember(null);
     setKpi(null);
+    setScripts([]);
+    setVault({ content: [], calls: [], onboarding: [] });
     setDailyRows([]);
     localStorage.removeItem(SESSION_KEY);
   }
@@ -163,8 +194,8 @@ export default function InnerCircleHubPage() {
         })
       });
 
-      const url = `/api/inner-circle-hub-daily?memberId=${encodeURIComponent(member?.id || '')}&email=${encodeURIComponent(member?.email || '')}`;
-      const res = await fetch(url, { cache: 'no-store' });
+      const dailyUrl = `/api/inner-circle-hub-daily?memberId=${encodeURIComponent(member?.id || '')}&email=${encodeURIComponent(member?.email || '')}`;
+      const res = await fetch(dailyUrl, { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.ok) {
         setDailyRows(Array.isArray(data.rows) ? data.rows : []);
@@ -184,14 +215,8 @@ export default function InnerCircleHubPage() {
           <p style={{ marginTop: 0, color: '#cbd5e1' }}>Member Login</p>
 
           <form onSubmit={login} className="settingsGrid" style={{ rowGap: 12 }}>
-            <label style={{ color: '#e2e8f0' }}>
-              Email
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@email.com" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} />
-            </label>
-            <label style={{ color: '#e2e8f0' }}>
-              Password
-              <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="••••••••" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} />
-            </label>
+            <label style={{ color: '#e2e8f0' }}>Email<input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
+            <label style={{ color: '#e2e8f0' }}>Password<input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
             <button type="submit" className="publicPrimaryBtn" disabled={loading}>{loading ? 'Signing in...' : 'Enter Hub'}</button>
             {error ? <p className="red" style={{ marginTop: 4 }}>{error}</p> : null}
           </form>
@@ -230,58 +255,18 @@ export default function InnerCircleHubPage() {
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
             <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
-              {tabs.map((t) => (
-                <button key={t.key} type="button" className={tab === t.key ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setTab(t.key)}>{t.label}</button>
-              ))}
+              {tabs.map((t) => <button key={t.key} type="button" className={tab === t.key ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setTab(t.key)}>{t.label}</button>)}
             </div>
 
-            {tab === 'dashboard' ? (
-              <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
-                <strong style={{ color: '#fff', fontSize: 16 }}>KPI Dashboard (This Month)</strong>
-                <div style={{ display: 'grid', gap: 10, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
-                  <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Leads Received</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.leadsReceived ?? 0}</div></div>
-                  <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Appointments Booked</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.bookingsThisMonth ?? 0}</div></div>
-                  <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Closes</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.closesThisMonth ?? 0}</div><small className="muted">Close Rate: {kpi?.closeRate ?? 0}%</small></div>
-                  <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Estimated Gross Earned</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>${kpi?.grossEarned ?? 0}</div></div>
-                </div>
-              </div>
-            ) : null}
+            {tab === 'dashboard' ? <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}><strong style={{ color: '#fff', fontSize: 16 }}>KPI Dashboard (This Month)</strong><div style={{ display: 'grid', gap: 10, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}><div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Leads</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.leadsReceived ?? 0}</div></div><div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Bookings</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.bookingsThisMonth ?? 0}</div></div><div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Closes</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.closesThisMonth ?? 0}</div><small className="muted">Close Rate: {kpi?.closeRate ?? 0}%</small></div><div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Gross</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>${kpi?.grossEarned ?? 0}</div></div></div></div> : null}
 
-            {tab === 'faststart' ? (
-              <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
-                <strong style={{ color: '#fff', fontSize: 16 }}>First 14 Days Fast Start</strong>
-                <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#cbd5e1', display: 'grid', gap: 5 }}>
-                  <li>Day 1–2: CRM, phone line, profile, and scripts setup</li>
-                  <li>Day 3–5: 50+ outbound conversations started</li>
-                  <li>Day 6–9: Book first appointments and run discovery calls</li>
-                  <li>Day 10–14: Submit first applications and tighten follow-up rhythm</li>
-                </ul>
-              </div>
-            ) : null}
+            {tab === 'faststart' ? <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}><strong style={{ color: '#fff', fontSize: 16 }}>First 14 Days Fast Start</strong><ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#cbd5e1', display: 'grid', gap: 5 }}><li>Day 1-2: CRM, profile, scripts</li><li>Day 3-5: 50+ conversations started</li><li>Day 6-9: Book discovery calls</li><li>Day 10-14: Submit first apps and tighten follow-up</li></ul></div> : null}
 
-            {tab === 'scripts' ? (
-              <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
-                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}><strong style={{ color: '#fff' }}>Opener Script</strong><p className="muted" style={{ marginBottom: 0 }}>Hey [Name], quick question — are you open to making an extra $2k-$5k this month helping families with coverage?</p></div>
-                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}><strong style={{ color: '#fff' }}>Follow-Up Script</strong><p className="muted" style={{ marginBottom: 0 }}>Wanted to circle back. I can show you exactly how our producers are booking and closing this week. Want details?</p></div>
-                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}><strong style={{ color: '#fff' }}>Objection: I’m busy</strong><p className="muted" style={{ marginBottom: 0 }}>Totally get it. That’s exactly why this works — we run a simple repeatable system in small daily blocks.</p></div>
-              </div>
-            ) : null}
+            {tab === 'scripts' ? <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>{(scripts || []).map((item) => <ScriptCard key={item.id} item={item} />)}{!scripts.length ? <p className="muted">No scripts available.</p> : null}</div> : null}
 
-            {tab === 'execution' ? (
-              <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
-                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}><strong style={{ color: '#fff' }}>Today’s Action Plan</strong><p className="muted" style={{ marginBottom: 0 }}>1) Work new leads • 2) Follow up warm leads • 3) Book at least 1 conversation</p></div>
-                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}><strong style={{ color: '#fff' }}>Daily Production Checklist</strong><p className="muted" style={{ marginBottom: 0 }}>Calls/texts, follow-up count, one post, objection handling, CRM update.</p></div>
-                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}><strong style={{ color: '#fff' }}>Scoreboard</strong><p className="muted" style={{ marginBottom: 0 }}>Track: leads worked, bookings, applications, paid bonuses, consistency streak.</p></div>
-              </div>
-            ) : null}
+            {tab === 'execution' ? <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}><div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}><strong style={{ color: '#fff' }}>Today Action Plan</strong><p className="muted" style={{ marginBottom: 0 }}>1) Work new leads 2) Follow up warm leads 3) Book at least 1 call</p></div><div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}><strong style={{ color: '#fff' }}>Checklist</strong><p className="muted" style={{ marginBottom: 0 }}>Calls/texts, follow-ups, one post, objections, CRM update.</p></div></div> : null}
 
-            {tab === 'vault' ? (
-              <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
-                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}><strong style={{ color: '#fff' }}>Content Vault</strong><p className="muted" style={{ marginBottom: 0 }}>Daily post prompts, story templates, and CTA frameworks.</p></div>
-                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}><strong style={{ color: '#fff' }}>Call Vault</strong><p className="muted" style={{ marginBottom: 0 }}>Discovery structure, objection rebuttals, and close transitions.</p></div>
-                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}><strong style={{ color: '#fff' }}>Onboarding Vault</strong><p className="muted" style={{ marginBottom: 0 }}>CRM setup checklist, profile standards, and production SOP links.</p></div>
-              </div>
-            ) : null}
+            {tab === 'vault' ? <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))' }}><VaultSection title="Content Vault" items={vault?.content || []} /><VaultSection title="Call Vault" items={vault?.calls || []} /><VaultSection title="Onboarding Vault" items={vault?.onboarding || []} /></div> : null}
 
             {tab === 'tracker' ? (
               <div style={{ display: 'grid', gap: 10 }}>
@@ -298,7 +283,6 @@ export default function InnerCircleHubPage() {
                   <label style={{ marginTop: 8, display: 'block' }}>Notes<textarea rows={2} value={tracker.notes} onChange={(e) => setTracker((p) => ({ ...p, notes: e.target.value }))} /></label>
                   <button type="button" className="publicPrimaryBtn" onClick={saveTracker} disabled={savingTracker}>{savingTracker ? 'Saving...' : 'Save Daily Metrics'}</button>
                 </div>
-
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
                   <strong style={{ color: '#fff' }}>This Month Totals</strong>
                   <p className="muted" style={{ marginBottom: 8 }}>Calls: {dailyTotals.calls} • Texts: {dailyTotals.texts} • Follow-Ups: {dailyTotals.followUps} • Bookings: {dailyTotals.bookings} • Apps: {dailyTotals.apps}</p>
