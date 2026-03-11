@@ -37,6 +37,7 @@ function availableTabs(member = {}) {
     { key: 'execution', label: 'Execution' },
     { key: 'vault', label: 'Vault' },
     { key: 'tracker', label: 'Tracker' },
+    { key: 'rewards', label: 'Activity Rewards' },
     { key: 'links', label: 'My Links' }
   ];
   return all.filter((t) => modules?.[t.key] !== false);
@@ -554,6 +555,23 @@ export default function InnerCircleHubPage() {
                     Sponsorship Submitted: {periodTotals.sponsorshipApps} • Sponsorship Approved: {periodTotals.sponsorshipApproved} • FNG Submitted Apps: {periodTotals.fngSubmittedApps} • App Total: {periodTotals.appsTotal}
                   </p>
                   <small className="muted">Entries Loaded: {dailyRows.length}</small>
+                </div>
+              </div>
+            ) : null}
+
+            {tab === 'rewards' ? (
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 12, background: '#071022' }}>
+                  <strong style={{ color: '#fff' }}>Inner Circle Activity Rewards</strong>
+                  <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>This is your live point system and leaderboard inside the Production Hub back office.</p>
+                </div>
+
+                <div style={{ border: '1px solid #1f2937', borderRadius: 12, overflow: 'hidden', background: '#020617' }}>
+                  <iframe
+                    title="Inner Circle Activity Rewards"
+                    src="/inner-circle-activity-rewards"
+                    style={{ width: '100%', minHeight: '1200px', border: 0, background: '#020617' }}
+                  />
                 </div>
               </div>
             ) : null}
