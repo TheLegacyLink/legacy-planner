@@ -107,6 +107,15 @@ function kpiForMember(events = [], policyRows = [], bookingRows = [], sponsorshi
   const ownerEmail = clean(member?.email);
   const ownerRefCode = refCodeFromName(ownerName);
   const appById = new Map((sponsorshipApps || []).map((a) => [clean(a?.id), a]));
+  const ownerAppKeys = new Set(
+    (sponsorshipApps || [])
+      .filter((a) => rowMatchesOwner(a, ownerName, ownerEmail, ownerRefCode))
+      .map((a) => personKey({
+        name: clean(`${a?.firstName || ''} ${a?.lastName || ''}` || a?.name || ''),
+        email: clean(a?.email || ''),
+        phone: clean(a?.phone || '')
+      }))
+  );
 
   const assignedThisMonth = (events || []).filter((r) => {
     const type = normalize(r?.type || '');
@@ -133,7 +142,14 @@ function kpiForMember(events = [], policyRows = [], bookingRows = [], sponsorshi
     if (!bookingQualified) return false;
     if (rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode)) return true;
     const app = appById.get(clean(r?.source_application_id || ''));
-    return app ? rowMatchesOwner(app, ownerName, ownerEmail, ownerRefCode) : false;
+    if (app && rowMatchesOwner(app, ownerName, ownerEmail, ownerRefCode)) return true;
+
+    const bookingPersonKey = personKey({
+      name: clean(r?.applicant_name || r?.name || ''),
+      email: clean(r?.applicant_email || r?.email || ''),
+      phone: clean(r?.applicant_phone || r?.phone || '')
+    });
+    return ownerAppKeys.has(bookingPersonKey);
   }).map((r) => ({
     name: clean(r?.applicant_name || r?.name || ''),
     email: clean(r?.applicant_email || r?.email || ''),

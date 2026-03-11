@@ -166,6 +166,15 @@ export async function GET(req) {
 
   const ownerRefCode = refCodeFromName(ownerName);
   const appById = new Map((sponsorshipApps || []).map((a) => [clean(a?.id), a]));
+  const ownerAppKeys = new Set(
+    (sponsorshipApps || [])
+      .filter((a) => rowMatchesOwner(a, ownerName, ownerEmail, ownerRefCode))
+      .map((a) => personPrimaryKey({
+        name: clean(`${a?.firstName || ''} ${a?.lastName || ''}` || a?.name || ''),
+        email: clean(a?.email || ''),
+        phone: clean(a?.phone || '')
+      }))
+  );
 
   const submittedRaw = (sponsorshipApps || [])
     .filter((r) => rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode))
@@ -207,7 +216,14 @@ export async function GET(req) {
     .filter((r) => {
       if (rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode)) return true;
       const app = appById.get(clean(r?.source_application_id || ''));
-      return app ? rowMatchesOwner(app, ownerName, ownerEmail, ownerRefCode) : false;
+      if (app && rowMatchesOwner(app, ownerName, ownerEmail, ownerRefCode)) return true;
+
+      const bookingKey = personPrimaryKey({
+        name: clean(r?.applicant_name || r?.name || ''),
+        email: clean(r?.applicant_email || r?.email || ''),
+        phone: clean(r?.applicant_phone || r?.phone || '')
+      });
+      return ownerAppKeys.has(bookingKey);
     })
     .filter((r) => ['booked', 'confirmed', 'completed'].includes(normalize(r?.booking_status || 'booked')))
     .map((r) => ({

@@ -115,6 +115,15 @@ export async function GET(req) {
 
   const ownerRefCode = refCodeFromName(ownerName);
   const appById = new Map((sponsorshipApps || []).map((a) => [clean(a?.id), a]));
+  const ownerAppKeys = new Set(
+    (sponsorshipApps || [])
+      .filter((a) => rowMatchesOwner(a, ownerName, ownerEmail, ownerRefCode))
+      .map((a) => personKey({
+        name: clean(`${a?.firstName || ''} ${a?.lastName || ''}` || a?.name || ''),
+        email: clean(a?.email || ''),
+        phone: clean(a?.phone || '')
+      }))
+  );
 
   const currentMonth = monthKey(new Date());
 
@@ -147,7 +156,14 @@ export async function GET(req) {
     if (rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode)) return true;
     const srcId = clean(r?.source_application_id || '');
     const app = appById.get(srcId);
-    return app ? rowMatchesOwner(app, ownerName, ownerEmail, ownerRefCode) : false;
+    if (app && rowMatchesOwner(app, ownerName, ownerEmail, ownerRefCode)) return true;
+
+    const bookingPersonKey = personKey({
+      name: clean(r?.applicant_name || r?.name || ''),
+      email: clean(r?.applicant_email || r?.email || ''),
+      phone: clean(r?.applicant_phone || r?.phone || '')
+    });
+    return ownerAppKeys.has(bookingPersonKey);
   }).map((r) => ({
     name: clean(r?.applicant_name || r?.name || ''),
     email: clean(r?.applicant_email || r?.email || ''),
