@@ -14,6 +14,36 @@ function clean(v = '') {
   return String(v || '').trim();
 }
 
+function parseRequestedAtEst(raw = '') {
+  const m = clean(raw).match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return null;
+  const [, dateKey, hRaw, minRaw, apRaw] = m;
+  let h = Number(hRaw || 0);
+  const mm = Number(minRaw || 0);
+  const ap = String(apRaw || '').toUpperCase();
+  if (ap === 'PM' && h !== 12) h += 12;
+  if (ap === 'AM' && h === 12) h = 0;
+  return { dateKey, minutes: h * 60 + mm };
+}
+
+function minutesTo12h(minutes = 0) {
+  const m = Number(minutes || 0);
+  const hh24 = ((Math.floor(m / 60) % 24) + 24) % 24;
+  const mm = ((m % 60) + 60) % 60;
+  const ap = hh24 >= 12 ? 'PM' : 'AM';
+  const hh12 = hh24 % 12 === 0 ? 12 : hh24 % 12;
+  return `${hh12}:${String(mm).padStart(2, '0')} ${ap}`;
+}
+
+function callTimeEtCt(raw = '') {
+  const parsed = parseRequestedAtEst(raw);
+  if (!parsed) return { et: raw || '—', ct: '—' };
+  return {
+    et: `${parsed.dateKey} ${minutesTo12h(parsed.minutes)} ET`,
+    ct: `${parsed.dateKey} ${minutesTo12h(parsed.minutes - 60)} CT`
+  };
+}
+
 export default function InnerCircleBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [apps, setApps] = useState([]);
@@ -22,6 +52,7 @@ export default function InnerCircleBookingsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [savingId, setSavingId] = useState('');
   const [sendingContractId, setSendingContractId] = useState('');
+  const [sendingMeetingId, setSendingMeetingId] = useState('');
 
   async function load() {
     setLoading(true);
@@ -107,6 +138,23 @@ export default function InnerCircleBookingsPage() {
       await load();
     } finally {
       setSendingContractId('');
+    }
+  }
+
+  async function sendMeetingEmail(bookingId = '') {
+    if (!bookingId) return;
+    setSendingMeetingId(bookingId);
+    try {
+      const res = await fetch('/api/inner-circle-bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'send_attendee_confirmation', id: bookingId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) return;
+      await load();
+    } finally {
+      setSendingMeetingId('');
     }
   }
 
@@ -207,7 +255,17 @@ export default function InnerCircleBookingsPage() {
                     <div>{b.applicant_name || '—'}</div>
                     <small className="muted">{b.applicant_email || '—'} • {b.applicant_phone || '—'}</small>
                   </td>
-                  <td>{b.requested_at_est || '—'}</td>
+                  <td>
+                    {(() => {
+                      const t = callTimeEtCt(b.requested_at_est || '');
+                      return (
+                        <div>
+                          <div>{t.et || '—'}</div>
+                          <small className="muted">{t.ct}</small>
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td>
                     <select
                       value={clean(b.booking_status || 'booked').toLowerCase()}
@@ -227,14 +285,26 @@ export default function InnerCircleBookingsPage() {
                       <button
                         type="button"
                         className="ghost"
+                        disabled={sendingMeetingId === b.id}
+                        onClick={() => sendMeetingEmail(b.id)}
+                      >
+                        {sendingMeetingId === b.id ? 'Sending...' : 'Send Meeting Email'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost"
                         disabled={sendingContractId === b.id}
                         onClick={() => sendContractInvite(b.id)}
                       >
                         {sendingContractId === b.id ? 'Sending...' : 'Send Contract'}
                       </button>
                       <small className="muted">
-                        Sent: {b.contract_invite_count || 0}
+                        Contract Sent: {b.contract_invite_count || 0}
                         {b.contract_invite_sent_at ? ` • ${fmt(b.contract_invite_sent_at)}` : ''}
+                      </small>
+                      <small className="muted">
+                        Meeting Email: {b.meeting_email_sent_count || 0}
+                        {b.meeting_email_sent_at ? ` • ${fmt(b.meeting_email_sent_at)}` : ''}
                       </small>
                     </div>
                   </td>

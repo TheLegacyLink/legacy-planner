@@ -232,6 +232,34 @@ export async function POST(req) {
     return Response.json({ ok: true, row: saved });
   }
 
+  if (mode === 'send_attendee_confirmation') {
+    const id = clean(body?.id);
+    if (!id) return Response.json({ ok: false, error: 'missing_id' }, { status: 400 });
+    const idx = rows.findIndex((r) => clean(r?.id) === id);
+    if (idx < 0) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
+
+    const row = rows[idx] || {};
+    const sent = await sendAttendeeConfirmationEmail(row);
+    if (!sent?.ok) {
+      return Response.json({ ok: false, error: sent?.error || 'send_failed' }, { status: 500 });
+    }
+
+    const sentAt = nowIso();
+    rows[idx] = {
+      ...row,
+      meeting_email_sent_at: sentAt,
+      meeting_email_sent_count: Number(row?.meeting_email_sent_count || 0) + 1,
+      updated_at: sentAt
+    };
+
+    const latest = await loadJsonStore(STORE_PATH, []);
+    const merged = mergeRowsById(latest, rows);
+    await saveJsonStore(STORE_PATH, merged);
+    const saved = merged.find((r) => clean(r?.id) === id) || rows[idx];
+
+    return Response.json({ ok: true, row: saved, sent });
+  }
+
   if (mode !== 'upsert') {
     return Response.json({ ok: false, error: 'unsupported_mode' }, { status: 400 });
   }
