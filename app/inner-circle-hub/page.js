@@ -411,11 +411,9 @@ export default function InnerCircleHubPage() {
                   <div style={{ display: 'grid', gap: 10, marginTop: 12, gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))' }}>
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>Date<input type="date" value={tracker.dateKey} onChange={(e) => setTracker((p) => ({ ...p, dateKey: e.target.value }))} /></label>
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>Calls<input type="number" min="0" value={tracker.calls} onChange={(e) => setTracker((p) => ({ ...p, calls: e.target.value }))} /></label>
-                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Texts<input type="number" min="0" value={tracker.texts} onChange={(e) => setTracker((p) => ({ ...p, texts: e.target.value }))} /></label>
-                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Follow-Ups<input type="number" min="0" value={tracker.followUps} onChange={(e) => setTracker((p) => ({ ...p, followUps: e.target.value }))} /></label>
-                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Bookings<input type="number" min="0" value={tracker.bookings} onChange={(e) => setTracker((p) => ({ ...p, bookings: e.target.value }))} /></label>
-                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Sponsorship Apps<input type="number" min="0" value={tracker.sponsorshipApps} onChange={(e) => setTracker((p) => ({ ...p, sponsorshipApps: e.target.value }))} /></label>
-                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>FNG Submitted Apps<input type="number" min="0" value={tracker.fngSubmittedApps} onChange={(e) => setTracker((p) => ({ ...p, fngSubmittedApps: e.target.value }))} /></label>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Bookings (Auto)<input type="number" min="0" value={tracker.bookings} disabled readOnly /></label>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Sponsorship Apps (Auto)<input type="number" min="0" value={tracker.sponsorshipApps} disabled readOnly /></label>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>FNG Submitted Apps (Auto)<input type="number" min="0" value={tracker.fngSubmittedApps} disabled readOnly /></label>
                   </div>
                   <label style={{ marginTop: 10, display: 'block', color: '#dbeafe', fontWeight: 700, fontSize: 15 }}>Notes<textarea rows={2} value={tracker.notes} onChange={(e) => setTracker((p) => ({ ...p, notes: e.target.value }))} /></label>
                   <button type="button" className="publicPrimaryBtn" onClick={saveTracker} disabled={savingTracker}>{savingTracker ? 'Saving...' : 'Save Daily Metrics'}</button>
@@ -424,7 +422,7 @@ export default function InnerCircleHubPage() {
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
                   <strong style={{ color: '#fff' }}>This Month Totals</strong>
                   <p className="muted" style={{ marginBottom: 8 }}>
-                    Calls: {dailyTotals.calls} • Texts: {dailyTotals.texts} • Follow-Ups: {dailyTotals.followUps} • Bookings: {dailyTotals.bookings}
+                    Calls: {dailyTotals.calls} • Bookings: {dailyTotals.bookings}
                   </p>
                   <p className="muted" style={{ marginTop: 0 }}>
                     Sponsorship Apps: {dailyTotals.sponsorshipApps} • FNG Submitted Apps: {dailyTotals.fngSubmittedApps} • App Total: {dailyTotals.appsTotal}
