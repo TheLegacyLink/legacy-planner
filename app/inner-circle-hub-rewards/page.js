@@ -503,9 +503,9 @@ export default function InnerCircleHubRewardsPage() {
     <main className="publicPage hubRewards" style={{ minHeight: "100vh", background: "#020617", color: "#e5e7eb" }}>
       <div className="panel" style={{ maxWidth: 1120, margin: '22px auto', padding: 10, border: "1px solid #1e3a8a", background: "linear-gradient(180deg,#020617 0%, #030b1a 100%)", boxShadow: '0 20px 60px rgba(2,6,23,.65)' }}>
       <div className="panel" style={{ borderColor: '#2563eb', background: 'linear-gradient(135deg,#0b1f4a 0%, #0b1730 60%, #0a1020 100%)' }}>
-        <h3 style={{ marginTop: 0 }}>Welcome to Inner Circle Activity Rewards.</h3>
-        <p style={{ marginBottom: 8 }}>Every valid action creates momentum. Every clean submission counts. Every real result gets rewarded. Stay active, stay compliant, and stay moving.</p>
-        <p className="muted" style={{ margin: 0 }}>This system rewards activity, consistency, quality, and real production — not random motion.</p>
+        <h3 style={{ marginTop: 0, color: '#ffffff' }}>Welcome to Inner Circle Activity Rewards.</h3>
+        <p style={{ marginBottom: 8, color: '#ffffff' }}>Every valid action creates momentum. Every clean submission counts. Every real result gets rewarded. Stay active, stay compliant, and stay moving.</p>
+        <p style={{ margin: 0, color: '#ffffff' }}>This system rewards activity, consistency, quality, and real production — not random motion.</p>
       </div>
 
       <div className="panel" style={{ borderColor: '#3b82f6', background: 'linear-gradient(135deg, rgba(44,99,173,0.96) 0%, rgba(18,53,96,0.92) 100%)' }}>
@@ -514,11 +514,11 @@ export default function InnerCircleHubRewardsPage() {
       </div>
 
       <div className="panel" style={{ display: 'grid', gap: 8 }}>
-        <strong>Internal Reward Summary</strong>
-        <p style={{ margin: 0 }}>• $1 per complete sponsorship app</p>
-        <p style={{ margin: 0 }}>• $5 per booked sponsorship appointment</p>
-        <p style={{ margin: 0 }}>• $10 per clean insurance app submitted in good order</p>
-        <p style={{ margin: 0 }}>• $500 per approved, paid-and-placed case</p>
+        <strong style={{ color: '#ffffff' }}>Internal Reward Summary</strong>
+        <p style={{ margin: 0, color: '#ffffff' }}>• $1 per complete sponsorship app</p>
+        <p style={{ margin: 0, color: '#ffffff' }}>• $5 per booked sponsorship appointment</p>
+        <p style={{ margin: 0, color: '#ffffff' }}>• $10 per clean insurance app submitted in good order</p>
+        <p style={{ margin: 0, color: '#ffffff' }}>• $500 per approved, paid-and-placed case</p>
       </div>
 
 
