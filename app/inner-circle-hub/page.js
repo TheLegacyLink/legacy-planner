@@ -51,16 +51,16 @@ export default function InnerCircleHubPage() {
         <div className="panel" style={{ maxWidth: 460, border: '1px solid #1f2937', background: '#020617' }}>
           <p style={{ margin: 0, color: '#93c5fd', fontWeight: 700 }}>THE LEGACY LINK</p>
           <h2 style={{ marginTop: 8, marginBottom: 6, color: '#fff' }}>Inner Circle Production Hub</h2>
-          <p className="muted" style={{ marginTop: 0 }}>Member Login</p>
+          <p style={{ marginTop: 0, color: '#cbd5e1' }}>Member Login</p>
 
           <form onSubmit={login} className="settingsGrid" style={{ rowGap: 12 }}>
-            <label>
+            <label style={{ color: '#e2e8f0' }}>
               Email
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@email.com" required />
+              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@email.com" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} />
             </label>
-            <label>
+            <label style={{ color: '#e2e8f0' }}>
               Password
-              <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="••••••••" required />
+              <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="••••••••" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} />
             </label>
             <button type="submit" className="publicPrimaryBtn" disabled={loading}>{loading ? 'Signing in...' : 'Enter Hub'}</button>
             {error ? <p className="red" style={{ marginTop: 4 }}>{error}</p> : null}
