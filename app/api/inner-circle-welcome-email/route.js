@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import fs from 'fs';
 import path from 'path';
+import { createHash, randomBytes } from 'crypto';
 import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 
 function clean(v = '') { return String(v || '').trim(); }
@@ -25,6 +26,40 @@ function escapeHtml(value = '') {
 
 const ONBOARDING_PATH = 'stores/agent-onboarding.json';
 const LEAD_ROUTER_SETTINGS_PATH = 'stores/lead-router-settings.json';
+const HUB_MEMBERS_PATH = 'stores/inner-circle-hub-members.json';
+
+function hashPassword(v = '') { return createHash('sha256').update(clean(v)).digest('hex'); }
+function nowIso() { return new Date().toISOString(); }
+
+function defaultHubModules() {
+  return {
+    dashboard: true,
+    faststart: true,
+    scripts: true,
+    execution: true,
+    vault: true,
+    tracker: true,
+    links: true
+  };
+}
+
+function normalizedHubModules(raw = {}) {
+  const base = defaultHubModules();
+  return {
+    dashboard: raw?.dashboard !== false && base.dashboard,
+    faststart: raw?.faststart !== false && base.faststart,
+    scripts: raw?.scripts !== false && base.scripts,
+    execution: raw?.execution !== false && base.execution,
+    vault: raw?.vault !== false && base.vault,
+    tracker: raw?.tracker !== false && base.tracker,
+    links: raw?.links !== false && base.links
+  };
+}
+
+function generateTempPassword() {
+  return `LL-${randomBytes(6).toString('base64url')}!`;
+}
+
 
 function normalize(v = '') { return clean(v).toLowerCase(); }
 
@@ -81,6 +116,39 @@ async function wireInnerCircleAgentOnWelcome({ name = '', email = '', ghlUserId 
 
   await saveJsonFile(LEAD_ROUTER_SETTINGS_PATH, { ...settings, agents });
   return { ok: true, wired: { name: agentName, email: next.email, hasGhlUserId: Boolean(next.ghlUserId) } };
+}
+
+
+async function upsertHubMemberAccessOnWelcome({ name = '', email = '', tempPassword = '' } = {}) {
+  const applicantName = clean(name);
+  const memberEmail = clean(email).toLowerCase();
+  const password = clean(tempPassword);
+  if (!memberEmail || !password) return { ok: false, skipped: true, reason: 'missing_email_or_password' };
+
+  const rows = await loadJsonStore(HUB_MEMBERS_PATH, []);
+  const list = Array.isArray(rows) ? rows : [];
+  const idx = list.findIndex((r) => clean(r?.email).toLowerCase() === memberEmail);
+  const base = idx >= 0 ? list[idx] : { id: `ich_${Date.now()}`, createdAt: nowIso() };
+
+  const next = {
+    ...base,
+    bookingId: clean(base?.bookingId || `welcome_${Date.now()}`),
+    applicantName: applicantName || clean(base?.applicantName || ''),
+    email: memberEmail,
+    passwordHash: hashPassword(password),
+    active: true,
+    contractSignedAt: clean(base?.contractSignedAt || nowIso()),
+    paymentReceivedAt: clean(base?.paymentReceivedAt || nowIso()),
+    onboardingUnlockedAt: clean(base?.onboardingUnlockedAt || nowIso()),
+    modules: normalizedHubModules(base?.modules || {}),
+    updatedAt: nowIso()
+  };
+
+  if (idx >= 0) list[idx] = next;
+  else list.unshift(next);
+
+  await saveJsonStore(HUB_MEMBERS_PATH, list);
+  return { ok: true, memberId: clean(next.id), email: memberEmail };
 }
 
 function buildHtml({ name, telegramUrl, hubUrl, tempPassword, playbookUrl }) {
@@ -141,7 +209,8 @@ export async function POST(req) {
   const name = clean(body?.name || 'Kimora');
   const telegramUrl = clean(body?.telegramUrl || 'https://t.me/+9GyGIETNM1QxZWRh');
   const hubUrl = clean(body?.hubUrl || process.env.NEXT_PUBLIC_INNER_CIRCLE_HUB_URL || 'https://innercirclelink.com/inner-circle-hub');
-  const tempPassword = clean(body?.tempPassword || 'LegacyLink!2026');
+  const requestedTempPassword = clean(body?.tempPassword || '');
+  const tempPassword = requestedTempPassword || generateTempPassword();
   const playbookUrl = clean(body?.playbookUrl || 'https://innercirclelink.com/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v2.pdf');
   const ghlUserId = clean(body?.ghlUserId || '');
   const autoWireOnWelcome = body?.autoWireOnWelcome !== false;
@@ -190,11 +259,18 @@ export async function POST(req) {
     });
 
     let autoWire = { ok: false, skipped: true, reason: 'disabled' };
+    let hubAccess = { ok: false, skipped: true, reason: 'disabled' };
     if (autoWireOnWelcome) {
       try {
         autoWire = await wireInnerCircleAgentOnWelcome({ name, email: to, ghlUserId });
       } catch (wireErr) {
         autoWire = { ok: false, error: String(wireErr?.message || wireErr) };
+      }
+
+      try {
+        hubAccess = await upsertHubMemberAccessOnWelcome({ name, email: to, tempPassword });
+      } catch (hubErr) {
+        hubAccess = { ok: false, error: String(hubErr?.message || hubErr) };
       }
     }
 
@@ -202,7 +278,8 @@ export async function POST(req) {
       ok: true,
       messageId: info?.messageId || '',
       accepted: info?.accepted || [],
-      autoWire
+      autoWire,
+      hubAccess
     });
   } catch (error) {
     return Response.json({ ok: false, error: String(error?.message || error) }, { status: 500 });

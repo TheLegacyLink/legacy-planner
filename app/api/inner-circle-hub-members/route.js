@@ -66,8 +66,8 @@ export async function POST(req) {
 
     // Emergency fallback for owner preview access.
     const ownerEmail = 'kimora@thelegacylink.com';
-    const ownerPass = clean(process.env.INNER_CIRCLE_HUB_OWNER_PASSWORD || 'KimoraHub2026');
-    if (email === ownerEmail && password === ownerPass) {
+    const ownerPass = clean(process.env.INNER_CIRCLE_HUB_OWNER_PASSWORD || '');
+    if (ownerPass && email === ownerEmail && password === ownerPass) {
       return Response.json({
         ok: true,
         member: {
