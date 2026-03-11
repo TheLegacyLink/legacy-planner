@@ -10,6 +10,10 @@ function normalizeEmail(v = '') {
   return clean(v).toLowerCase();
 }
 
+function normalizeName(v = '') {
+  return clean(v).toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -17,13 +21,26 @@ function nowIso() {
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const email = normalizeEmail(searchParams.get('email') || '');
-  if (!email) return Response.json({ ok: false, error: 'missing_email' }, { status: 400 });
+  const name = normalizeName(searchParams.get('name') || '');
+  if (!email && !name) return Response.json({ ok: false, error: 'missing_email_or_name' }, { status: 400 });
 
   const rows = await loadJsonStore(STORE_PATH, []);
   const list = Array.isArray(rows) ? rows : [];
-  const row = list.find((r) => normalizeEmail(r?.email) === email) || null;
 
-  return Response.json({ ok: true, signed: Boolean(row?.signedAt), row });
+  let row = null;
+  let matchedBy = '';
+
+  if (email) {
+    row = list.find((r) => normalizeEmail(r?.email) === email) || null;
+    if (row) matchedBy = 'email';
+  }
+
+  if (!row && name) {
+    row = list.find((r) => normalizeName(r?.name) === name) || null;
+    if (row) matchedBy = 'name';
+  }
+
+  return Response.json({ ok: true, signed: Boolean(row?.signedAt), row, matchedBy });
 }
 
 export async function POST(req) {

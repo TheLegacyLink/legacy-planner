@@ -164,31 +164,35 @@ export default function InnerCircleAppSubmitPage() {
     }
   }
 
-  async function checkContractSignature(email = '') {
+  async function checkContractSignature(email = '', applicantName = '') {
     const em = String(email || '').trim().toLowerCase();
-    if (!em) {
+    const nm = String(applicantName || '').trim();
+    if (!em && !nm) {
       setContractStatus({ loading: false, checkedEmail: '', signed: false, signedAt: '' });
       return;
     }
 
-    setContractStatus((s) => ({ ...s, loading: true, checkedEmail: em }));
+    setContractStatus((s) => ({ ...s, loading: true, checkedEmail: em || nm }));
     try {
-      const res = await fetch(`/api/contract-signatures?email=${encodeURIComponent(em)}`, { cache: 'no-store' });
+      const qs = new URLSearchParams();
+      if (em) qs.set('email', em);
+      if (nm) qs.set('name', nm);
+      const res = await fetch(`/api/contract-signatures?${qs.toString()}`, { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        setContractStatus({ loading: false, checkedEmail: em, signed: false, signedAt: '' });
+        setContractStatus({ loading: false, checkedEmail: em || nm, signed: false, signedAt: '' });
         setContractLastCheckedAt(new Date().toISOString());
         return;
       }
       setContractStatus({
         loading: false,
-        checkedEmail: em,
+        checkedEmail: em || nm,
         signed: Boolean(data?.signed),
         signedAt: data?.row?.signedAt || ''
       });
       setContractLastCheckedAt(new Date().toISOString());
     } catch {
-      setContractStatus({ loading: false, checkedEmail: em, signed: false, signedAt: '' });
+      setContractStatus({ loading: false, checkedEmail: em || nm, signed: false, signedAt: '' });
       setContractLastCheckedAt(new Date().toISOString());
     }
   }
@@ -211,27 +215,28 @@ export default function InnerCircleAppSubmitPage() {
 
   useEffect(() => {
     const t = setTimeout(() => {
-      if (form.applicantEmail.trim()) {
-        checkContractSignature(form.applicantEmail);
-        loadContractLinkInfo(form.applicantEmail);
+      if (form.applicantEmail.trim() || form.applicantName.trim()) {
+        checkContractSignature(form.applicantEmail, form.applicantName);
+        if (form.applicantEmail.trim()) loadContractLinkInfo(form.applicantEmail);
       } else {
         setContractStatus({ loading: false, checkedEmail: '', signed: false, signedAt: '' });
         setContractLinkInfo({ loading: false, sentAt: '', requestedByName: '' });
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [form.applicantEmail]);
+  }, [form.applicantEmail, form.applicantName]);
 
   useEffect(() => {
     const email = String(form.applicantEmail || '').trim();
-    if (!email || contractStatus.signed) return;
+    const name = String(form.applicantName || '').trim();
+    if ((!email && !name) || contractStatus.signed) return;
 
     const timer = setInterval(() => {
-      checkContractSignature(email);
+      checkContractSignature(email, name);
     }, 60 * 60 * 1000);
 
     return () => clearInterval(timer);
-  }, [form.applicantEmail, contractStatus.signed]);
+  }, [form.applicantEmail, form.applicantName, contractStatus.signed]);
 
   useEffect(() => {
     const prev = signedRef.current;
