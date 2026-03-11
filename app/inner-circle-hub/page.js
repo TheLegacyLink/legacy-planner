@@ -143,6 +143,10 @@ export default function InnerCircleHubPage() {
     return base.includes('?') ? `${base}&ref=${ref}` : `${base}?ref=${ref}`;
   }, [member?.email, member?.id]);
 
+  const onboardingPlaybookUrl = useMemo(() => {
+    return process.env.NEXT_PUBLIC_INNER_CIRCLE_PLAYBOOK_URL || '/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook.pdf';
+  }, []);
+
   const contractLinks = useMemo(() => {
     return [
       {
@@ -363,6 +367,20 @@ export default function InnerCircleHubPage() {
                   </div>
                 </div>
 
+                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#061126' }}>
+                  <strong style={{ color: '#fff', fontSize: 16 }}>Onboarding Playbook</strong>
+                  <p style={{ color: '#cbd5e1', marginTop: 8, marginBottom: 10 }}>Download your Inner Circle onboarding PDF anytime.</p>
+                  <a
+                    href={onboardingPlaybookUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="publicPrimaryBtn"
+                    style={{ display: 'inline-block', textDecoration: 'none' }}
+                  >
+                    Download Playbook PDF
+                  </a>
+                </div>
+
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
                   <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                     <strong style={{ color: '#fff' }}>Activity Flow</strong>
@@ -547,6 +565,14 @@ export default function InnerCircleHubPage() {
                   <img src={qrUrl(sponsorshipLink)} alt="Sponsorship QR" width={118} height={118} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
                   <button type="button" className="ghost" onClick={() => copyLink(sponsorshipLink, 'sponsor')}>
                     {copiedKey === 'sponsor' ? 'Copied' : 'Copy Link'}
+                  </button>
+                </div>
+
+                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617', display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8 }}>
+                  <strong style={{ color: '#fff' }}>Onboarding Playbook PDF</strong>
+                  <img src={qrUrl(onboardingPlaybookUrl)} alt="Onboarding Playbook QR" width={118} height={118} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
+                  <button type="button" className="ghost" onClick={() => copyLink(onboardingPlaybookUrl, 'playbook')}>
+                    {copiedKey === 'playbook' ? 'Copied' : 'Copy Link'}
                   </button>
                 </div>
 

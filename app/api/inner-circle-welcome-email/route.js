@@ -1,4 +1,6 @@
 import nodemailer from 'nodemailer';
+import fs from 'fs';
+import path from 'path';
 
 function clean(v = '') { return String(v || '').trim(); }
 
@@ -19,11 +21,12 @@ function escapeHtml(value = '') {
     .replace(/'/g, '&#39;');
 }
 
-function buildHtml({ name, telegramUrl, hubUrl, tempPassword }) {
+function buildHtml({ name, telegramUrl, hubUrl, tempPassword, playbookUrl }) {
   const safeName = escapeHtml(name || 'there');
   const safeTelegram = escapeHtml(telegramUrl);
   const safeHub = escapeHtml(hubUrl);
   const safePassword = escapeHtml(tempPassword);
+  const safePlaybook = escapeHtml(playbookUrl);
 
   return `
   <div style="margin:0;padding:24px;background:#0B1020;font-family:Arial,Helvetica,sans-serif;color:#F8FAFC;">
@@ -57,6 +60,12 @@ function buildHtml({ name, telegramUrl, hubUrl, tempPassword }) {
           </ul>
         </div>
 
+        <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
+          <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Onboarding Playbook (PDF)</div>
+          <p style="margin:0 0 10px;">Attached to this email and always downloadable from the hub:</p>
+          <a href="${safePlaybook}" style="display:inline-block;background:#F58426;color:#0B1020;padding:10px 14px;border-radius:8px;font-weight:800;text-decoration:none;">Download Playbook PDF</a>
+        </div>
+
         <p style="margin:0;">If you run into any access issue, reply to this email and we’ll get you handled fast.</p>
         <p style="margin:14px 0 0;"><strong>Welcome to the movement,</strong><br/>The Legacy Link Team</p>
       </div>
@@ -71,8 +80,9 @@ export async function POST(req) {
   const telegramUrl = clean(body?.telegramUrl || 'https://t.me/+9GyGIETNM1QxZWRh');
   const hubUrl = clean(body?.hubUrl || process.env.NEXT_PUBLIC_INNER_CIRCLE_HUB_URL || 'https://innercirclelink.com/inner-circle-hub');
   const tempPassword = clean(body?.tempPassword || 'LegacyLink!2026');
+  const playbookUrl = clean(body?.playbookUrl || 'https://innercirclelink.com/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook.pdf');
 
-  if (!to || !telegramUrl || !hubUrl || !tempPassword) {
+  if (!to || !telegramUrl || !hubUrl || !tempPassword || !playbookUrl) {
     return Response.json({ ok: false, error: 'missing_required_fields' }, { status: 400 });
   }
 
@@ -88,6 +98,7 @@ export async function POST(req) {
     `Telegram Group: ${telegramUrl}`,
     `Inner Circle Hub: ${hubUrl}`,
     `Temporary Password: ${tempPassword}`,
+    `Onboarding Playbook (PDF): ${playbookUrl}`,
     '',
     'After first login, update your password for security.',
     '',
@@ -95,15 +106,21 @@ export async function POST(req) {
     'The Legacy Link Team'
   ].join('\n');
 
-  const html = buildHtml({ name, telegramUrl, hubUrl, tempPassword });
+  const html = buildHtml({ name, telegramUrl, hubUrl, tempPassword, playbookUrl });
 
   try {
+    const playbookPath = path.join(process.cwd(), 'public', 'docs', 'inner-circle', 'legacy-link-inner-circle-onboarding-playbook.pdf');
+    const attachments = fs.existsSync(playbookPath)
+      ? [{ filename: 'Legacy-Link-Inner-Circle-Onboarding-Playbook.pdf', path: playbookPath }]
+      : [];
+
     const info = await m.tx.sendMail({
       from: m.from,
       to,
       subject,
       text,
-      html
+      html,
+      attachments
     });
 
     return Response.json({ ok: true, messageId: info?.messageId || '', accepted: info?.accepted || [] });
