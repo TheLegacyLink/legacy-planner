@@ -35,8 +35,7 @@ async function sendPasswordResetEmail({ to = '', applicantName = '', resetLink =
     'If you did not request this, you can ignore this email.',
     '',
     '— The Legacy Link Team'
-  ].join('
-');
+  ].join('\n');
 
   const html = `
     <div style="margin:0;padding:20px;background:#0B1020;font-family:Arial,Helvetica,sans-serif;color:#F8FAFC;">
