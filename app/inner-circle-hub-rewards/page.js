@@ -501,14 +501,14 @@ export default function InnerCircleHubRewardsPage() {
 
   return (
     <main className="publicPage hubRewards" style={{ minHeight: "100vh", background: "#020617", color: "#e5e7eb" }}>
-      <div className="panel" style={{ maxWidth: 1100, border: "1px solid #1f2937", background: "#030a17" }}>
-      <div className="panel" style={{ borderColor: '#1d4ed8', background: '#0b1730' }}>
+      <div className="panel" style={{ maxWidth: 1120, margin: '22px auto', padding: 10, border: "1px solid #1e3a8a", background: "linear-gradient(180deg,#020617 0%, #030b1a 100%)", boxShadow: '0 20px 60px rgba(2,6,23,.65)' }}>
+      <div className="panel" style={{ borderColor: '#2563eb', background: 'linear-gradient(135deg,#0b1f4a 0%, #0b1730 60%, #0a1020 100%)' }}>
         <h3 style={{ marginTop: 0 }}>Welcome to Inner Circle Activity Rewards.</h3>
         <p style={{ marginBottom: 8 }}>Every valid action creates momentum. Every clean submission counts. Every real result gets rewarded. Stay active, stay compliant, and stay moving.</p>
         <p className="muted" style={{ margin: 0 }}>This system rewards activity, consistency, quality, and real production — not random motion.</p>
       </div>
 
-      <div className="panel" style={{ borderColor: '#1f2937', background: '#061126' }}>
+      <div className="panel" style={{ borderColor: '#1e40af', background: 'linear-gradient(135deg,#0a1837 0%, #08142c 100%)' }}>
         <strong>Scoring Scope</strong>
         <p className="muted" style={{ margin: '6px 0 0' }}>Leaderboard, agent ranking, streaks, and winner callouts are calculated from current month validated activity only (duplicates excluded).</p>
       </div>
@@ -522,7 +522,7 @@ export default function InnerCircleHubRewardsPage() {
       </div>
 
 
-      <div className="panel" style={{ borderColor: '#14532d', background: '#052012' }}>
+      <div className="panel" style={{ borderColor: '#15803d', background: 'linear-gradient(135deg,#082516 0%, #052012 100%)' }}>
         <h3 style={{ marginTop: 0, marginBottom: 8 }}>Monthly Payout Window</h3>
         <p className="muted" style={{ margin: '0 0 6px' }}>
           Current Month ({monthLabelFromKey(computed.currentMonthKey)}): <strong>{money(computed.currentMonthPayout.earned)}</strong>
@@ -659,14 +659,28 @@ export default function InnerCircleHubRewardsPage() {
       </div>
 
       <style jsx global>{`
+        .hubRewards {
+          background:
+            radial-gradient(1200px 600px at 15% -10%, rgba(37, 99, 235, 0.20), transparent 60%),
+            radial-gradient(900px 500px at 95% 5%, rgba(14, 165, 233, 0.10), transparent 55%),
+            #020617;
+          padding: 10px 14px 22px;
+        }
         .hubRewards .panel {
-          background: #0b1220;
-          border: 1px solid #1f2937;
+          background: linear-gradient(180deg, #0c1426 0%, #0a1222 100%);
+          border: 1px solid #243244;
           color: #f8fafc;
           border-radius: 14px;
+          box-shadow: 0 10px 30px rgba(2, 6, 23, 0.35);
+          transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .hubRewards .panel:hover {
+          border-color: #334b66;
+          transform: translateY(-1px);
+          box-shadow: 0 14px 34px rgba(2, 6, 23, 0.45);
         }
         .hubRewards .muted {
-          color: #cbd5e1 !important;
+          color: #c1cde1 !important;
         }
         .hubRewards h1,
         .hubRewards h2,
@@ -676,13 +690,32 @@ export default function InnerCircleHubRewardsPage() {
         .hubRewards td {
           color: #f8fafc;
         }
+        .hubRewards h3 {
+          letter-spacing: 0.2px;
+        }
+        .hubRewards .kpiGrid .panel h3 {
+          color: #dbeafe;
+        }
+        .hubRewards table {
+          border-radius: 10px;
+          overflow: hidden;
+        }
+        .hubRewards table th {
+          font-size: 12px;
+          letter-spacing: 0.35px;
+          text-transform: uppercase;
+          color: #bfdbfe;
+        }
         .hubRewards table th,
         .hubRewards table td {
-          padding: 8px 10px;
-          border-bottom: 1px solid #1f2937;
+          padding: 10px;
+          border-bottom: 1px solid #243244;
         }
         .hubRewards table tbody tr:hover {
-          background: #0f172a;
+          background: #0f1b32;
+        }
+        .hubRewards ol li {
+          margin: 4px 0;
         }
       `}</style>
       </div>
