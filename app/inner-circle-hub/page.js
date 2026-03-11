@@ -320,10 +320,10 @@ export default function InnerCircleHubPage() {
             ) : null}
 
             {tab === 'faststart' ? (
-              <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 14, background: '#071022' }}>
-                <strong style={{ color: '#fff', fontSize: 16 }}>First 14 Days Fast Track</strong>
-                <p style={{ color: '#cbd5e1', marginTop: 6, marginBottom: 8 }}>Move in sequence. Execute daily. Keep momentum high.</p>
-                <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#f1f5f9', display: 'grid', gap: 8, fontWeight: 600, lineHeight: 1.45 }}>
+              <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 16, background: '#071022' }}>
+                <strong style={{ color: '#fff', fontSize: 18 }}>First 14 Days Fast Track</strong>
+                <p style={{ color: '#cbd5e1', marginTop: 8, marginBottom: 10, fontSize: 15 }}>Move in sequence. Execute daily. Keep momentum high.</p>
+                <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#f1f5f9', display: 'grid', gap: 10, fontWeight: 600, lineHeight: 1.5, fontSize: 15 }}>
                   <li><span style={{ color: '#93c5fd' }}>Day 1–2:</span> CRM setup, profile setup, scripts setup</li>
                   <li><span style={{ color: '#93c5fd' }}>Day 3–5:</span> Start 50+ outbound conversations</li>
                   <li><span style={{ color: '#93c5fd' }}>Day 6–9:</span> Book discovery calls and run appointment flow</li>
@@ -353,10 +353,10 @@ export default function InnerCircleHubPage() {
             ) : null}
 
             {tab === 'execution' ? (
-              <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 12, background: '#071022' }}>
-                <strong style={{ color: '#fff' }}>Today Action Checklist</strong>
-                <p style={{ color: '#dbeafe', marginTop: 6, marginBottom: 6 }}>Date: {tracker.dateKey || todayDateKey()}</p>
-                <p style={{ color: '#93c5fd', marginTop: 0, fontWeight: 600 }}>Progress: {checklistDoneCount}/5 complete</p>
+              <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 14, background: '#071022' }}>
+                <strong style={{ color: '#fff', fontSize: 17 }}>Today Action Checklist</strong>
+                <p style={{ color: '#dbeafe', marginTop: 8, marginBottom: 6, fontSize: 15 }}>Date: {tracker.dateKey || todayDateKey()}</p>
+                <p style={{ color: '#93c5fd', marginTop: 0, fontWeight: 700, fontSize: 15 }}>Progress: {checklistDoneCount}/5 complete</p>
                 <div style={{ display: 'grid', gap: 8 }}>
                   {[
                     ['workNewLeads', 'Work new leads'],
@@ -365,7 +365,7 @@ export default function InnerCircleHubPage() {
                     ['postContent', 'Post content for lead generation'],
                     ['updateTracker', 'Update tracker before end of day']
                   ].map(([key, label]) => (
-                    <label key={key} style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#f1f5f9', fontWeight: 600 }}>
+                    <label key={key} style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#f1f5f9', fontWeight: 600, fontSize: 15 }}>
                       <input
                         type="checkbox"
                         checked={Boolean(tracker?.checklist?.[key])}
@@ -405,10 +405,10 @@ export default function InnerCircleHubPage() {
             ) : null}
 
             {tab === 'tracker' ? (
-              <div style={{ display: 'grid', gap: 10 }}>
-                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
-                  <strong style={{ color: '#fff' }}>Daily Production Tracker</strong>
-                  <div style={{ display: 'grid', gap: 8, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))' }}>
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
+                  <strong style={{ color: '#fff', fontSize: 17 }}>Daily Production Tracker</strong>
+                  <div style={{ display: 'grid', gap: 10, marginTop: 12, gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))' }}>
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>Date<input type="date" value={tracker.dateKey} onChange={(e) => setTracker((p) => ({ ...p, dateKey: e.target.value }))} /></label>
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>Calls<input type="number" min="0" value={tracker.calls} onChange={(e) => setTracker((p) => ({ ...p, calls: e.target.value }))} /></label>
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>Texts<input type="number" min="0" value={tracker.texts} onChange={(e) => setTracker((p) => ({ ...p, texts: e.target.value }))} /></label>
@@ -417,7 +417,7 @@ export default function InnerCircleHubPage() {
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>Sponsorship Apps<input type="number" min="0" value={tracker.sponsorshipApps} onChange={(e) => setTracker((p) => ({ ...p, sponsorshipApps: e.target.value }))} /></label>
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>FNG Submitted Apps<input type="number" min="0" value={tracker.fngSubmittedApps} onChange={(e) => setTracker((p) => ({ ...p, fngSubmittedApps: e.target.value }))} /></label>
                   </div>
-                  <label style={{ marginTop: 8, display: 'block', color: '#dbeafe', fontWeight: 600 }}>Notes<textarea rows={2} value={tracker.notes} onChange={(e) => setTracker((p) => ({ ...p, notes: e.target.value }))} /></label>
+                  <label style={{ marginTop: 10, display: 'block', color: '#dbeafe', fontWeight: 700, fontSize: 15 }}>Notes<textarea rows={2} value={tracker.notes} onChange={(e) => setTracker((p) => ({ ...p, notes: e.target.value }))} /></label>
                   <button type="button" className="publicPrimaryBtn" onClick={saveTracker} disabled={savingTracker}>{savingTracker ? 'Saving...' : 'Save Daily Metrics'}</button>
                 </div>
 
