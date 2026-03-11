@@ -241,6 +241,7 @@ export default function InnerCircleActivityRewardsPage() {
     }));
 
     const validApps = uniqueBy(validAppsRaw, (r) => r.person || `id:${clean(r?.id)}`);
+    const monthValidApps = validApps.filter((r) => isThisMonth(r.ts));
     const validAppKeySet = new Set(validApps.flatMap((r) => [r.person, `id:${clean(r?.id)}`]).filter(Boolean));
 
     const validBookingsRaw = (bookings || [])
@@ -252,7 +253,8 @@ export default function InnerCircleActivityRewardsPage() {
         agent: mapToAgent(r, config.agents)
       }));
 
-    const validBookings = uniqueBy(validBookingsRaw, (r) => r.person || clean(r?.id));
+    const validBookings = uniqueBy(validBookingsRaw, (r) => `${r.agent}|${r.person || clean(r?.id)}`);
+    const monthValidBookings = validBookings.filter((r) => isThisMonth(r.ts));
 
     const cleanPoliciesRaw = (policies || [])
       .filter(qualifiesCleanInsuranceApp)
@@ -263,10 +265,12 @@ export default function InnerCircleActivityRewardsPage() {
         agent: mapToAgent(r, config.agents)
       }));
 
-    const cleanPolicies = uniqueBy(cleanPoliciesRaw, (r) => r.person || clean(r?.id));
+    const cleanPolicies = uniqueBy(cleanPoliciesRaw, (r) => `${r.agent}|${r.person || clean(r?.id)}`);
+    const monthCleanPolicies = cleanPolicies.filter((r) => isThisMonth(r.ts));
 
     const paidPlacedCasesRaw = cleanPolicies.filter(qualifiesPaidPlaced);
-    const paidPlacedCases = uniqueBy(paidPlacedCasesRaw, (r) => r.person || clean(r?.id));
+    const paidPlacedCases = uniqueBy(paidPlacedCasesRaw, (r) => `${r.agent}|${r.person || clean(r?.id)}`);
+    const monthPaidPlacedCases = paidPlacedCases.filter((r) => isThisMonth(r.ts));
 
     const periodCounts = (filterFn) => {
       const appCount = validApps.filter((r) => filterFn(r.ts)).length;
@@ -294,22 +298,22 @@ export default function InnerCircleActivityRewardsPage() {
       activityDates: []
     }]));
 
-    for (const r of validApps) {
+    for (const r of monthValidApps) {
       if (!baseByAgent[r.agent]) continue;
       baseByAgent[r.agent].apps += 1;
       if (r.ts) baseByAgent[r.agent].activityDates.push(r.ts);
     }
-    for (const r of validBookings) {
+    for (const r of monthValidBookings) {
       if (!baseByAgent[r.agent]) continue;
       baseByAgent[r.agent].bookings += 1;
       if (r.ts) baseByAgent[r.agent].activityDates.push(r.ts);
     }
-    for (const r of cleanPolicies) {
+    for (const r of monthCleanPolicies) {
       if (!baseByAgent[r.agent]) continue;
       baseByAgent[r.agent].cleanApps += 1;
       if (r.ts) baseByAgent[r.agent].activityDates.push(r.ts);
     }
-    for (const r of paidPlacedCases) {
+    for (const r of monthPaidPlacedCases) {
       if (!baseByAgent[r.agent]) continue;
       baseByAgent[r.agent].paidPlaced += 1;
       if (r.ts) baseByAgent[r.agent].activityDates.push(r.ts);
@@ -350,8 +354,8 @@ export default function InnerCircleActivityRewardsPage() {
       a.badges.topProducer = topEarnings > 0 && a.earnings === topEarnings;
     });
 
-    const duplicateApps = Math.max(0, (apps || []).length - validApps.length);
-    const duplicateBookings = Math.max(0, (bookings || []).length - validBookings.length);
+    const duplicateApps = Math.max(0, validAppsRaw.filter((r) => isThisMonth(r.ts)).length - monthValidApps.length);
+    const duplicateBookings = Math.max(0, validBookingsRaw.filter((r) => isThisMonth(r.ts)).length - monthValidBookings.length);
     const pendingReview = (apps || []).filter((r) => normalize(r?.status || '').includes('pending review')).length;
 
     const payoutStatusCounts = { pending: 0, approved: 0, paid: 0, reversed: 0, ineligible: 0 };
@@ -429,6 +433,11 @@ export default function InnerCircleActivityRewardsPage() {
         <p className="muted" style={{ margin: 0 }}>This system rewards activity, consistency, quality, and real production — not random motion.</p>
       </div>
 
+      <div className="panel" style={{ borderColor: '#1f2937', background: '#061126' }}>
+        <strong>Scoring Scope</strong>
+        <p className="muted" style={{ margin: '6px 0 0' }}>Leaderboard, agent ranking, streaks, and winner callouts are calculated from current month validated activity only (duplicates excluded).</p>
+      </div>
+
       <div className="panel" style={{ display: 'grid', gap: 8 }}>
         <strong>Internal Reward Summary</strong>
         <p style={{ margin: 0 }}>• $1 per complete sponsorship app</p>
@@ -450,7 +459,7 @@ export default function InnerCircleActivityRewardsPage() {
             <h3>{block.label}</h3>
             <p className="muted">Sponsorship apps: {block.v.appCount}</p>
             <p className="muted">Bookings: {block.v.bookingCount}</p>
-            <p className="muted">Clean insurance apps: {block.v.cleanCount}</p>
+            <p className="muted">Policies submitted (Closes): {block.v.cleanCount}</p>
             <p className="muted">Approved paid-and-placed cases: {block.v.caseCount}</p>
             <p style={{ marginBottom: 0 }}><strong>Total earned: {money(block.v.earned)}</strong></p>
           </div>
@@ -463,7 +472,7 @@ export default function InnerCircleActivityRewardsPage() {
           {[
             ['Most Sponsorship Apps', leaderboard.mostSponsorshipApps, 'apps'],
             ['Most Booked Appointments', leaderboard.mostBookedAppointments, 'bookings'],
-            ['Most Clean Insurance Apps', leaderboard.mostCleanInsuranceApps, 'cleanApps'],
+            ['Most Clean Insurance Apps (Closes)', leaderboard.mostCleanInsuranceApps, 'cleanApps'],
             ['Most Approved Paid-and-Placed Cases', leaderboard.mostPaidPlacedCases, 'paidPlaced'],
             ['Highest Total Earnings', leaderboard.highestTotalEarnings, 'earnings'],
             ['Highest Activity Streak', leaderboard.highestActivityStreak, 'streak']
@@ -514,7 +523,7 @@ export default function InnerCircleActivityRewardsPage() {
                 <th align="left">Agent</th>
                 <th align="left">Sponsorship Apps</th>
                 <th align="left">Booked</th>
-                <th align="left">Clean Insurance Apps</th>
+                <th align="left">Policies Submitted (Closes)</th>
                 <th align="left">Approved Paid-and-Placed</th>
                 <th align="left">Earned</th>
                 <th align="left">Streak</th>
@@ -553,7 +562,7 @@ export default function InnerCircleActivityRewardsPage() {
       <div className="panel" style={{ borderColor: '#334155' }}>
         <h3 style={{ marginTop: 0 }}>Rules & Qualification</h3>
         <p className="muted">Active and In Good Standing is required. No duplicate submissions. No fake submissions. No self-generated fake traffic. No payout on incomplete or invalid activity. All activity must be legitimate and verifiable. Payout decisions are subject to internal review and may be reversed or offset if paid in error.</p>
-        <p className="muted" style={{ marginBottom: 0 }}>How To Win: Submit valid sponsorship apps, get real appointments booked, turn activity into clean insurance apps, and focus on approved paid-and-placed business.</p>
+        <p className="muted" style={{ marginBottom: 0 }}>How To Win: Submit valid sponsorship apps, get real appointments booked, turn activity into policies submitted (closes), and focus on approved paid-and-placed business.</p>
       </div>
 
       <div className="panel" style={{ borderColor: '#1f2937', background: '#0b1220' }}>
