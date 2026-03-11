@@ -21,6 +21,7 @@ export default function InnerCircleBookingsPage() {
   const [tab, setTab] = useState('overview');
   const [statusFilter, setStatusFilter] = useState('all');
   const [savingId, setSavingId] = useState('');
+  const [sendingContractId, setSendingContractId] = useState('');
 
   async function load() {
     setLoading(true);
@@ -89,6 +90,23 @@ export default function InnerCircleBookingsPage() {
       await load();
     } finally {
       setSavingId('');
+    }
+  }
+
+  async function sendContractInvite(bookingId = '') {
+    if (!bookingId) return;
+    setSendingContractId(bookingId);
+    try {
+      const res = await fetch('/api/inner-circle-contract-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) return;
+      await load();
+    } finally {
+      setSendingContractId('');
     }
   }
 
@@ -177,6 +195,7 @@ export default function InnerCircleBookingsPage() {
                 <th>Applicant</th>
                 <th>Call Time</th>
                 <th>Status</th>
+                <th>Contract</th>
                 <th>Owner Notes</th>
               </tr>
             </thead>
@@ -204,6 +223,22 @@ export default function InnerCircleBookingsPage() {
                     </select>
                   </td>
                   <td>
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      <button
+                        type="button"
+                        className="ghost"
+                        disabled={sendingContractId === b.id}
+                        onClick={() => sendContractInvite(b.id)}
+                      >
+                        {sendingContractId === b.id ? 'Sending...' : 'Send Contract'}
+                      </button>
+                      <small className="muted">
+                        Sent: {b.contract_invite_count || 0}
+                        {b.contract_invite_sent_at ? ` • ${fmt(b.contract_invite_sent_at)}` : ''}
+                      </small>
+                    </div>
+                  </td>
+                  <td>
                     <textarea
                       rows={2}
                       defaultValue={b.owner_notes || ''}
@@ -213,7 +248,7 @@ export default function InnerCircleBookingsPage() {
                   </td>
                 </tr>
               ))}
-              {!filteredBookings.length ? <tr><td colSpan={5} className="muted">No bookings in this view.</td></tr> : null}
+              {!filteredBookings.length ? <tr><td colSpan={6} className="muted">No bookings in this view.</td></tr> : null}
             </tbody>
           </table>
         </div>
