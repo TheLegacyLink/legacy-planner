@@ -63,7 +63,12 @@ export default function InnerCircleHubPage() {
   const [trackerPeriod, setTrackerPeriod] = useState('daily');
   const [activityType, setActivityType] = useState('all');
   const [activityRows, setActivityRows] = useState([]);
-  const [activitySummary, setActivitySummary] = useState({ submitted: 0, booked: 0, fng: 0 });
+  const [activitySummary, setActivitySummary] = useState({ submitted: 0, approved: 0, booked: 0, fng: 0 });
+  const [activityStats, setActivityStats] = useState({
+    daily: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 },
+    weekly: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 },
+    monthly: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 }
+  });
   const [tracker, setTracker] = useState({
     dateKey: todayDateKey(),
     calls: 0,
@@ -101,29 +106,35 @@ export default function InnerCircleHubPage() {
   }, [activityRows, activityType]);
 
   const periodTotals = useMemo(() => {
+    const key = trackerPeriod === 'weekly' ? 'weekly' : trackerPeriod === 'monthly' ? 'monthly' : 'daily';
+    const s = activityStats?.[key] || {};
+
     const now = new Date();
     const today = todayDateKey();
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - 6);
     weekStart.setHours(0, 0, 0, 0);
 
-    const safeRows = Array.isArray(dailyRows) ? dailyRows : [];
-    const inDaily = safeRows.filter((r) => clean(r?.dateKey) === today);
-    const inWeekly = safeRows.filter((r) => {
-      const d = new Date(`${clean(r?.dateKey)}T00:00:00`);
-      return !Number.isNaN(d.getTime()) && d >= weekStart;
-    });
-    const inMonthly = safeRows;
+    const calls = (Array.isArray(dailyRows) ? dailyRows : []).reduce((acc, r) => {
+      const dk = clean(r?.dateKey);
+      if (!dk) return acc;
+      const d = new Date(`${dk}T00:00:00`);
+      if (Number.isNaN(d.getTime())) return acc;
+      if (key === 'daily' && dk !== today) return acc;
+      if (key === 'weekly' && d < weekStart) return acc;
+      if (key === 'monthly' && (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear())) return acc;
+      return acc + toNum(r?.calls);
+    }, 0);
 
-    const src = trackerPeriod === 'weekly' ? inWeekly : trackerPeriod === 'monthly' ? inMonthly : inDaily;
-    return src.reduce((acc, r) => ({
-      calls: acc.calls + toNum(r?.calls),
-      bookings: acc.bookings + toNum(r?.bookings),
-      sponsorshipApps: acc.sponsorshipApps + toNum(r?.sponsorshipApps),
-      fngSubmittedApps: acc.fngSubmittedApps + toNum(r?.fngSubmittedApps),
-      appsTotal: acc.appsTotal + toNum(r?.sponsorshipApps) + toNum(r?.fngSubmittedApps)
-    }), { calls: 0, bookings: 0, sponsorshipApps: 0, fngSubmittedApps: 0, appsTotal: 0 });
-  }, [dailyRows, trackerPeriod]);
+    return {
+      calls,
+      bookings: toNum(s?.bookings),
+      sponsorshipApps: toNum(s?.sponsorshipSubmitted),
+      sponsorshipApproved: toNum(s?.sponsorshipApproved),
+      fngSubmittedApps: toNum(s?.fngSubmitted),
+      appsTotal: toNum(s?.sponsorshipSubmitted) + toNum(s?.fngSubmitted)
+    };
+  }, [activityStats, trackerPeriod, dailyRows]);
 
   const sponsorshipLink = useMemo(() => {
     const base = process.env.NEXT_PUBLIC_SPONSORSHIP_LINK_BASE || '/sponsorship-signup';
@@ -196,7 +207,12 @@ export default function InnerCircleHubPage() {
         if (!canceled && vaultRes.ok && vaultData?.ok) setVault(vaultData.vault || { content: [], calls: [], onboarding: [] });
         if (!canceled && activityRes.ok && activityData?.ok) {
           setActivityRows(Array.isArray(activityData.rows) ? activityData.rows : []);
-          setActivitySummary(activityData.summary || { submitted: 0, booked: 0, fng: 0 });
+          setActivitySummary(activityData.summary || { submitted: 0, approved: 0, booked: 0, fng: 0 });
+          setActivityStats(activityData.stats || {
+            daily: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 },
+            weekly: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 },
+            monthly: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 }
+          });
         }
       } catch {
         if (!canceled) {
@@ -268,9 +284,6 @@ export default function InnerCircleHubPage() {
           email: member?.email || '',
           dateKey: tracker.dateKey,
           calls: toNum(tracker.calls),
-          bookings: toNum(tracker.bookings),
-          sponsorshipApps: toNum(tracker.sponsorshipApps),
-          fngSubmittedApps: toNum(tracker.fngSubmittedApps),
           checklist: tracker.checklist || {}
         })
       });
@@ -359,13 +372,24 @@ export default function InnerCircleHubPage() {
                     <button type="button" className={activityType === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('all')}>All</button>
                     <button type="button" className={activityType === 'submitted' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('submitted')}>Submitted ({activitySummary.submitted || 0})</button>
                     <button type="button" className={activityType === 'booked' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('booked')}>Booked ({activitySummary.booked || 0})</button>
+                    <button type="button" className={activityType === 'approved' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('approved')}>Approved ({activitySummary.approved || 0})</button>
                     <button type="button" className={activityType === 'fng' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('fng')}>FNG ({activitySummary.fng || 0})</button>
                   </div>
 
                   <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
                     {(filteredActivityRows || []).slice(0, 8).map((row, idx) => {
-                      const toneClass = row?.type === 'booked' ? 'onpace' : row?.type === 'submitted' ? 'atrisk' : 'offpace';
-                      const label = row?.type === 'booked' ? 'Booked' : row?.type === 'submitted' ? 'Submitted' : 'FNG';
+                      const toneClass = row?.type === 'booked' || row?.type === 'approved'
+                        ? 'onpace'
+                        : row?.type === 'submitted'
+                          ? 'atrisk'
+                          : 'offpace';
+                      const label = row?.type === 'booked'
+                        ? 'Booked'
+                        : row?.type === 'approved'
+                          ? 'Approved'
+                          : row?.type === 'submitted'
+                            ? 'Submitted'
+                            : 'FNG';
                       return (
                         <div key={`${row?.type}_${row?.name}_${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid #1f2937', borderRadius: 8, padding: '8px 10px', background: '#030a17' }}>
                           <span className={`pill ${toneClass}`}>{label}</span>
@@ -480,7 +504,8 @@ export default function InnerCircleHubPage() {
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>Date<input type="date" value={tracker.dateKey} onChange={(e) => setTracker((p) => ({ ...p, dateKey: e.target.value }))} style={{ background: '#0b1220', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>Calls<input type="number" min="0" value={tracker.calls} onChange={(e) => setTracker((p) => ({ ...p, calls: e.target.value }))} style={{ background: '#0b1220', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>Bookings (Auto)<input type="number" min="0" value={periodTotals.bookings} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
-                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Sponsorship Apps (Auto)<input type="number" min="0" value={periodTotals.sponsorshipApps} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Sponsorship Submitted (Auto)<input type="number" min="0" value={periodTotals.sponsorshipApps} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Sponsorship Approved (Auto)<input type="number" min="0" value={periodTotals.sponsorshipApproved} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>FNG Submitted Apps (Auto)<input type="number" min="0" value={periodTotals.fngSubmittedApps} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
                   </div>
                   <button type="button" className="publicPrimaryBtn" onClick={saveTracker} disabled={savingTracker} style={{ marginTop: 10 }}>{savingTracker ? 'Saving...' : 'Save Daily Calls'}</button>
@@ -492,7 +517,7 @@ export default function InnerCircleHubPage() {
                     Calls: {periodTotals.calls} • Bookings: {periodTotals.bookings}
                   </p>
                   <p className="muted" style={{ marginTop: 0 }}>
-                    Sponsorship Apps: {periodTotals.sponsorshipApps} • FNG Submitted Apps: {periodTotals.fngSubmittedApps} • App Total: {periodTotals.appsTotal}
+                    Sponsorship Submitted: {periodTotals.sponsorshipApps} • Sponsorship Approved: {periodTotals.sponsorshipApproved} • FNG Submitted Apps: {periodTotals.fngSubmittedApps} • App Total: {periodTotals.appsTotal}
                   </p>
                   <small className="muted">Entries Loaded: {dailyRows.length}</small>
                 </div>
