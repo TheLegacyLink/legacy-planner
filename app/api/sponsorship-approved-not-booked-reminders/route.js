@@ -17,6 +17,7 @@ const REF_CODE_MAP = {
   leticia_wright: 'Leticia Wright',
   latricia_wright: 'Leticia Wright',
   breanna_james: 'Breanna James',
+  shannon_maxwell: 'Shannon Maxwell',
   dr_brianna: 'Breanna James'
 };
 

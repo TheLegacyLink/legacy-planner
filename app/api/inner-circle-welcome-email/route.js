@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import fs from 'fs';
 import path from 'path';
+import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 
 function clean(v = '') { return String(v || '').trim(); }
 
@@ -19,6 +20,67 @@ function escapeHtml(value = '') {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+
+const ONBOARDING_PATH = 'stores/agent-onboarding.json';
+const LEAD_ROUTER_SETTINGS_PATH = 'stores/lead-router-settings.json';
+
+function normalize(v = '') { return clean(v).toLowerCase(); }
+
+async function wireInnerCircleAgentOnWelcome({ name = '', email = '', ghlUserId = '' } = {}) {
+  const agentName = clean(name);
+  const agentEmail = clean(email).toLowerCase();
+  const agentGhlId = clean(ghlUserId);
+  if (!agentName) return { ok: false, skipped: true, reason: 'missing_name' };
+
+  const rows = await loadJsonStore(ONBOARDING_PATH, []);
+  const list = Array.isArray(rows) ? rows : [];
+  const idx = list.findIndex((r) => normalize(r?.name) === normalize(agentName));
+  const now = new Date().toISOString();
+
+  const next = {
+    ...(idx >= 0 ? list[idx] : {}),
+    name: agentName,
+    email: agentEmail || clean(list[idx]?.email || '').toLowerCase(),
+    ghlUserId: agentGhlId || clean(list[idx]?.ghlUserId || ''),
+    group: 'inner',
+    active: true,
+    paused: false,
+    delayedReleaseEnabled: true,
+    capPerDay: idx >= 0 ? list[idx]?.capPerDay ?? null : null,
+    capPerWeek: idx >= 0 ? list[idx]?.capPerWeek ?? null : null,
+    capPerMonth: idx >= 0 ? list[idx]?.capPerMonth ?? null : null,
+    updatedAt: now,
+    createdAt: idx >= 0 ? clean(list[idx]?.createdAt || now) : now
+  };
+
+  if (idx >= 0) list[idx] = next;
+  else list.push(next);
+  await saveJsonStore(ONBOARDING_PATH, list);
+
+  const settings = await loadJsonFile(LEAD_ROUTER_SETTINGS_PATH, {});
+  const agents = Array.isArray(settings?.agents) ? settings.agents : [];
+  const aIdx = agents.findIndex((a) => normalize(a?.name) === normalize(agentName));
+
+  const syncedAgent = {
+    ...(aIdx >= 0 ? agents[aIdx] : {}),
+    name: agentName,
+    active: true,
+    paused: false,
+    delayedReleaseEnabled: true,
+    windowStart: clean(agents[aIdx]?.windowStart || '09:00') || '09:00',
+    windowEnd: clean(agents[aIdx]?.windowEnd || '21:00') || '21:00',
+    capPerDay: next.capPerDay,
+    capPerWeek: next.capPerWeek,
+    capPerMonth: next.capPerMonth
+  };
+
+  if (aIdx >= 0) agents[aIdx] = syncedAgent;
+  else agents.push(syncedAgent);
+
+  await saveJsonFile(LEAD_ROUTER_SETTINGS_PATH, { ...settings, agents });
+  return { ok: true, wired: { name: agentName, email: next.email, hasGhlUserId: Boolean(next.ghlUserId) } };
 }
 
 function buildHtml({ name, telegramUrl, hubUrl, tempPassword, playbookUrl }) {
@@ -81,6 +143,8 @@ export async function POST(req) {
   const hubUrl = clean(body?.hubUrl || process.env.NEXT_PUBLIC_INNER_CIRCLE_HUB_URL || 'https://innercirclelink.com/inner-circle-hub');
   const tempPassword = clean(body?.tempPassword || 'LegacyLink!2026');
   const playbookUrl = clean(body?.playbookUrl || 'https://innercirclelink.com/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v2.pdf');
+  const ghlUserId = clean(body?.ghlUserId || '');
+  const autoWireOnWelcome = body?.autoWireOnWelcome !== false;
 
   if (!to || !telegramUrl || !hubUrl || !tempPassword || !playbookUrl) {
     return Response.json({ ok: false, error: 'missing_required_fields' }, { status: 400 });
@@ -125,7 +189,21 @@ export async function POST(req) {
       attachments
     });
 
-    return Response.json({ ok: true, messageId: info?.messageId || '', accepted: info?.accepted || [] });
+    let autoWire = { ok: false, skipped: true, reason: 'disabled' };
+    if (autoWireOnWelcome) {
+      try {
+        autoWire = await wireInnerCircleAgentOnWelcome({ name, email: to, ghlUserId });
+      } catch (wireErr) {
+        autoWire = { ok: false, error: String(wireErr?.message || wireErr) };
+      }
+    }
+
+    return Response.json({
+      ok: true,
+      messageId: info?.messageId || '',
+      accepted: info?.accepted || [],
+      autoWire
+    });
   } catch (error) {
     return Response.json({ ok: false, error: String(error?.message || error) }, { status: 500 });
   }

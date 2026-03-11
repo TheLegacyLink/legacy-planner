@@ -11,6 +11,7 @@ const REF_CODE_TO_SPONSOR = {
   kelin_brown: 'Kelin Brown',
   leticia_wright: 'Leticia Wright',
   breanna_james: 'Breanna James',
+  shannon_maxwell: 'Shannon Maxwell',
   dr_brianna: 'Dr. Breanna James',
   latricia_wright: 'Leticia Wright'
 };

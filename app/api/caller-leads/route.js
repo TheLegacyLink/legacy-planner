@@ -46,6 +46,7 @@ function normalizeOwner(v = '') {
   if (s.includes('mahogany')) return 'Mahogany Burns';
   if (s.includes('madalyn')) return 'Madalyn Adams';
   if (s.includes('breanna') || s.includes('brianna')) return 'Breanna James';
+  if (s.includes('shannon')) return 'Shannon Maxwell';
   return clean(v);
 }
 

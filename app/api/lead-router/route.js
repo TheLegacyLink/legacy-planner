@@ -55,7 +55,8 @@ const AGENT_NAME_ALIASES = {
 };
 
 const FIXED_GHL_USER_IDS = {
-  'donyell richardson': 'lAbJTT3VKc4Zd0PiS7On'
+  'donyell richardson': 'lAbJTT3VKc4Zd0PiS7On',
+  'shannon maxwell': 'NdPZIvVsm7PMfIDS1ZkR'
 };
 
 function normalizeAgentLabel(name = '') {
