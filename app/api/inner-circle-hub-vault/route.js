@@ -88,13 +88,15 @@ export async function POST(req) {
 
     const rows = Array.isArray(vault[section]) ? vault[section] : [];
     const idx = rows.findIndex((r) => clean(r?.id) === itemId);
+    const stamp = nowIso();
     const next = {
       ...(idx >= 0 ? rows[idx] : {}),
       id: itemId,
       title,
       body: bodyText,
       tag,
-      updatedAt: nowIso()
+      createdAt: idx >= 0 ? clean(rows[idx]?.createdAt) || stamp : stamp,
+      updatedAt: stamp
     };
 
     if (idx >= 0) rows[idx] = next;

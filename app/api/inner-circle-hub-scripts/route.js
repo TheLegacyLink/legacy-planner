@@ -54,13 +54,15 @@ export async function POST(req) {
     }
 
     const idx = list.findIndex((r) => clean(r?.id) === id);
+    const stamp = nowIso();
     const next = {
       ...(idx >= 0 ? list[idx] : {}),
       id,
       category,
       title,
       text,
-      updatedAt: nowIso()
+      createdAt: idx >= 0 ? clean(list[idx]?.createdAt) || stamp : stamp,
+      updatedAt: stamp
     };
 
     if (idx >= 0) list[idx] = next;

@@ -66,8 +66,10 @@ export default function InnerCircleBookingsPage() {
   const [vault, setVault] = useState({ content: [], calls: [], onboarding: [] });
   const [savingLibrary, setSavingLibrary] = useState(false);
 
-  const [scriptForm, setScriptForm] = useState({ category: 'opener', title: '', text: '' });
-  const [vaultForm, setVaultForm] = useState({ section: 'content', title: '', body: '', tag: '' });
+  const [scriptForm, setScriptForm] = useState({ id: '', category: 'opener', title: '', text: '' });
+  const [vaultForm, setVaultForm] = useState({ id: '', section: 'content', title: '', body: '', tag: '' });
+  const [scriptSearch, setScriptSearch] = useState('');
+  const [vaultSearch, setVaultSearch] = useState('');
 
   async function load() {
     setLoading(true);
@@ -145,6 +147,28 @@ export default function InnerCircleBookingsPage() {
     }
     return m;
   }, [hubMembers]);
+
+  const filteredScripts = useMemo(() => {
+    const q = clean(scriptSearch).toLowerCase();
+    if (!q) return scripts;
+    return (scripts || []).filter((s) => {
+      const blob = `${clean(s?.category)} ${clean(s?.title)} ${clean(s?.text)}`.toLowerCase();
+      return blob.includes(q);
+    });
+  }, [scripts, scriptSearch]);
+
+  const filteredVaultBySection = useMemo(() => {
+    const q = clean(vaultSearch).toLowerCase();
+    const sections = ['content', 'calls', 'onboarding'];
+    const out = {};
+    for (const section of sections) {
+      const list = Array.isArray(vault?.[section]) ? vault[section] : [];
+      out[section] = !q
+        ? list
+        : list.filter((item) => `${clean(item?.title)} ${clean(item?.tag)} ${clean(item?.body)}`.toLowerCase().includes(q));
+    }
+    return out;
+  }, [vault, vaultSearch]);
 
   async function updateBookingStatus(id, bookingStatus, ownerNotes = '') {
     if (!id) return;
@@ -277,13 +301,26 @@ export default function InnerCircleBookingsPage() {
       await fetch('/api/inner-circle-hub-scripts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'upsert', category: scriptForm.category, title: scriptForm.title, text: scriptForm.text })
+        body: JSON.stringify({ action: 'upsert', id: scriptForm.id || '', category: scriptForm.category, title: scriptForm.title, text: scriptForm.text })
       });
-      setScriptForm({ category: scriptForm.category || 'opener', title: '', text: '' });
+      setScriptForm({ id: '', category: scriptForm.category || 'opener', title: '', text: '' });
       await load();
     } finally {
       setSavingLibrary(false);
     }
+  }
+
+  function editScriptItem(item = {}) {
+    setScriptForm({
+      id: clean(item?.id),
+      category: clean(item?.category) || 'opener',
+      title: clean(item?.title),
+      text: clean(item?.text)
+    });
+  }
+
+  function clearScriptEditor() {
+    setScriptForm({ id: '', category: 'opener', title: '', text: '' });
   }
 
   async function deleteScriptItem(id = '') {
@@ -295,6 +332,7 @@ export default function InnerCircleBookingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete', id })
       });
+      if (clean(scriptForm.id) === clean(id)) clearScriptEditor();
       await load();
     } finally {
       setSavingLibrary(false);
@@ -308,13 +346,27 @@ export default function InnerCircleBookingsPage() {
       await fetch('/api/inner-circle-hub-vault', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'upsert_item', section: vaultForm.section, title: vaultForm.title, body: vaultForm.body, tag: vaultForm.tag })
+        body: JSON.stringify({ action: 'upsert_item', id: vaultForm.id || '', section: vaultForm.section, title: vaultForm.title, body: vaultForm.body, tag: vaultForm.tag })
       });
-      setVaultForm((p) => ({ ...p, title: '', body: '', tag: '' }));
+      setVaultForm((p) => ({ ...p, id: '', title: '', body: '', tag: '' }));
       await load();
     } finally {
       setSavingLibrary(false);
     }
+  }
+
+  function editVaultItem(section = '', item = {}) {
+    setVaultForm({
+      id: clean(item?.id),
+      section: clean(section) || 'content',
+      title: clean(item?.title),
+      body: clean(item?.body),
+      tag: clean(item?.tag)
+    });
+  }
+
+  function clearVaultEditor() {
+    setVaultForm((p) => ({ ...p, id: '', title: '', body: '', tag: '' }));
   }
 
   async function deleteVaultItem(section = '', id = '') {
@@ -326,6 +378,7 @@ export default function InnerCircleBookingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete_item', section, id })
       });
+      if (clean(vaultForm.id) === clean(id)) clearVaultEditor();
       await load();
     } finally {
       setSavingLibrary(false);
@@ -643,22 +696,32 @@ export default function InnerCircleBookingsPage() {
             <label>Script Text
               <textarea rows={3} value={scriptForm.text} onChange={(e) => setScriptForm((p) => ({ ...p, text: e.target.value }))} placeholder="Write script text..." />
             </label>
-            <button type="button" className="publicPrimaryBtn" onClick={saveScriptItem} disabled={savingLibrary}>Save Script</button>
+            <div className="panelRow" style={{ gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="publicPrimaryBtn" onClick={saveScriptItem} disabled={savingLibrary}>{scriptForm.id ? 'Update Script' : 'Save Script'}</button>
+              {scriptForm.id ? <button type="button" className="ghost" onClick={clearScriptEditor}>Cancel Edit</button> : null}
+              <input value={scriptSearch} onChange={(e) => setScriptSearch(e.target.value)} placeholder="Search scripts..." style={{ minWidth: 220 }} />
+            </div>
 
             <table style={{ marginTop: 10 }}>
               <thead>
-                <tr><th>Category</th><th>Title</th><th>Text</th><th>Action</th></tr>
+                <tr><th>Category</th><th>Title</th><th>Text</th><th>Updated</th><th>Action</th></tr>
               </thead>
               <tbody>
-                {scripts.map((s) => (
+                {filteredScripts.map((s) => (
                   <tr key={s.id}>
                     <td>{s.category || '—'}</td>
                     <td>{s.title || '—'}</td>
                     <td>{s.text || '—'}</td>
-                    <td><button type="button" className="ghost" disabled={savingLibrary} onClick={() => deleteScriptItem(s.id)}>Delete</button></td>
+                    <td>{fmt(s.updatedAt || s.createdAt || '')}</td>
+                    <td>
+                      <div style={{ display: 'grid', gap: 6 }}>
+                        <button type="button" className="ghost" disabled={savingLibrary} onClick={() => editScriptItem(s)}>Edit</button>
+                        <button type="button" className="ghost" disabled={savingLibrary} onClick={() => deleteScriptItem(s.id)}>Delete</button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
-                {!scripts.length ? <tr><td colSpan={4} className="muted">No scripts yet.</td></tr> : null}
+                {!filteredScripts.length ? <tr><td colSpan={5} className="muted">No scripts in this view.</td></tr> : null}
               </tbody>
             </table>
           </div>
@@ -683,25 +746,35 @@ export default function InnerCircleBookingsPage() {
             <label>Body
               <textarea rows={3} value={vaultForm.body} onChange={(e) => setVaultForm((p) => ({ ...p, body: e.target.value }))} placeholder="Write vault content..." />
             </label>
-            <button type="button" className="publicPrimaryBtn" onClick={saveVaultItem} disabled={savingLibrary}>Save Vault Item</button>
+            <div className="panelRow" style={{ gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="publicPrimaryBtn" onClick={saveVaultItem} disabled={savingLibrary}>{vaultForm.id ? 'Update Vault Item' : 'Save Vault Item'}</button>
+              {vaultForm.id ? <button type="button" className="ghost" onClick={clearVaultEditor}>Cancel Edit</button> : null}
+              <input value={vaultSearch} onChange={(e) => setVaultSearch(e.target.value)} placeholder="Search vault..." style={{ minWidth: 220 }} />
+            </div>
 
             {['content', 'calls', 'onboarding'].map((section) => (
               <div key={section} style={{ marginTop: 12 }}>
                 <h4 style={{ marginBottom: 6, textTransform: 'capitalize' }}>{section}</h4>
                 <table>
                   <thead>
-                    <tr><th>Title</th><th>Tag</th><th>Body</th><th>Action</th></tr>
+                    <tr><th>Title</th><th>Tag</th><th>Body</th><th>Updated</th><th>Action</th></tr>
                   </thead>
                   <tbody>
-                    {(vault?.[section] || []).map((item) => (
+                    {(filteredVaultBySection?.[section] || []).map((item) => (
                       <tr key={item.id}>
                         <td>{item.title || '—'}</td>
                         <td>{item.tag || '—'}</td>
                         <td>{item.body || '—'}</td>
-                        <td><button type="button" className="ghost" disabled={savingLibrary} onClick={() => deleteVaultItem(section, item.id)}>Delete</button></td>
+                        <td>{fmt(item.updatedAt || item.createdAt || '')}</td>
+                        <td>
+                          <div style={{ display: 'grid', gap: 6 }}>
+                            <button type="button" className="ghost" disabled={savingLibrary} onClick={() => editVaultItem(section, item)}>Edit</button>
+                            <button type="button" className="ghost" disabled={savingLibrary} onClick={() => deleteVaultItem(section, item.id)}>Delete</button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
-                    {!(vault?.[section] || []).length ? <tr><td colSpan={4} className="muted">No items yet.</td></tr> : null}
+                    {!(filteredVaultBySection?.[section] || []).length ? <tr><td colSpan={5} className="muted">No items in this view.</td></tr> : null}
                   </tbody>
                 </table>
               </div>
