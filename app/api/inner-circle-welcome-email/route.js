@@ -43,10 +43,10 @@ function buildHtml({ name, telegramUrl, hubUrl, tempPassword, playbookUrl }) {
         <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
           <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Your onboarding steps</div>
           <ol style="margin:0 0 0 18px;padding:0;">
-            <li style="margin-bottom:10px;">Join the Telegram group:<br/><a href="${safeTelegram}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeTelegram}</a></li>
             <li style="margin-bottom:10px;">Log in to your Inner Circle Hub:<br/><a href="${safeHub}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeHub}</a></li>
-            <li style="margin-bottom:10px;">Use your temporary password:<br/><span style="display:inline-block;background:#F58426;color:#0B1020;padding:6px 10px;border-radius:8px;font-weight:800;">${safePassword}</span></li>
-            <li>After first login, update your password for security.</li>
+            <li style="margin-bottom:10px;"><strong>HUB Login Temporary Password:</strong><br/><span style="display:inline-block;background:#F58426;color:#0B1020;padding:6px 10px;border-radius:8px;font-weight:800;">${safePassword}</span></li>
+            <li style="margin-bottom:10px;">After first login, update your HUB password for security.</li>
+            <li>Join the Telegram group:<br/><a href="${safeTelegram}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeTelegram}</a></li>
           </ol>
         </div>
 
@@ -95,11 +95,12 @@ export async function POST(req) {
     '',
     'Welcome to The Legacy Link Inner Circle! Here is your onboarding access:',
     '',
-    `Telegram Group: ${telegramUrl}`,
     `Inner Circle Hub: ${hubUrl}`,
-    `Temporary Password: ${tempPassword}`,
+    `HUB Login Temporary Password: ${tempPassword}`,
+    `Telegram Group: ${telegramUrl}`,
     `Onboarding Playbook (PDF): ${playbookUrl}`,
     'Where to find it in the Hub: My Links → Onboarding Playbook PDF',
+    'Note: The temporary password above is specifically for your HUB login.',
     '',
     'After first login, update your password for security.',
     '',
