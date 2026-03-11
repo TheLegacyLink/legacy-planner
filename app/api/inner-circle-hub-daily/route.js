@@ -8,6 +8,14 @@ function toNum(v = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
 }
+function toBool(v) { return Boolean(v); }
+
+function rowAppTotal(r = {}) {
+  const sponsorshipApps = toNum(r?.sponsorshipApps);
+  const fngSubmittedApps = toNum(r?.fngSubmittedApps);
+  const legacyApps = toNum(r?.apps);
+  return sponsorshipApps + fngSubmittedApps + legacyApps;
+}
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
@@ -32,8 +40,10 @@ export async function GET(req) {
     texts: acc.texts + toNum(r?.texts),
     followUps: acc.followUps + toNum(r?.followUps),
     bookings: acc.bookings + toNum(r?.bookings),
-    apps: acc.apps + toNum(r?.apps)
-  }), { calls: 0, texts: 0, followUps: 0, bookings: 0, apps: 0 });
+    sponsorshipApps: acc.sponsorshipApps + toNum(r?.sponsorshipApps),
+    fngSubmittedApps: acc.fngSubmittedApps + toNum(r?.fngSubmittedApps),
+    appsTotal: acc.appsTotal + rowAppTotal(r)
+  }), { calls: 0, texts: 0, followUps: 0, bookings: 0, sponsorshipApps: 0, fngSubmittedApps: 0, appsTotal: 0 });
 
   return Response.json({ ok: true, rows: filtered.slice(0, 31), totals });
 }
@@ -69,8 +79,16 @@ export async function POST(req) {
     texts: toNum(body?.texts),
     followUps: toNum(body?.followUps),
     bookings: toNum(body?.bookings),
-    apps: toNum(body?.apps),
+    sponsorshipApps: toNum(body?.sponsorshipApps),
+    fngSubmittedApps: toNum(body?.fngSubmittedApps),
     notes: clean(body?.notes),
+    checklist: {
+      workNewLeads: toBool(body?.checklist?.workNewLeads),
+      followUpWarmLeads: toBool(body?.checklist?.followUpWarmLeads),
+      bookOneConversation: toBool(body?.checklist?.bookOneConversation),
+      postContent: toBool(body?.checklist?.postContent),
+      updateTracker: toBool(body?.checklist?.updateTracker)
+    },
     updatedAt: nowIso()
   };
 

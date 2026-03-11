@@ -66,7 +66,7 @@ export default function InnerCircleBookingsPage() {
   const [vault, setVault] = useState({ content: [], calls: [], onboarding: [] });
   const [savingLibrary, setSavingLibrary] = useState(false);
 
-  const [scriptForm, setScriptForm] = useState({ id: '', category: 'opener', title: '', text: '' });
+  const [scriptForm, setScriptForm] = useState({ id: '', category: 'sponsorship', title: '', text: '' });
   const [vaultForm, setVaultForm] = useState({ id: '', section: 'content', title: '', body: '', tag: '' });
   const [scriptSearch, setScriptSearch] = useState('');
   const [vaultSearch, setVaultSearch] = useState('');
@@ -303,7 +303,7 @@ export default function InnerCircleBookingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'upsert', id: scriptForm.id || '', category: scriptForm.category, title: scriptForm.title, text: scriptForm.text })
       });
-      setScriptForm({ id: '', category: scriptForm.category || 'opener', title: '', text: '' });
+      setScriptForm({ id: '', category: scriptForm.category || 'sponsorship', title: '', text: '' });
       await load();
     } finally {
       setSavingLibrary(false);
@@ -313,14 +313,14 @@ export default function InnerCircleBookingsPage() {
   function editScriptItem(item = {}) {
     setScriptForm({
       id: clean(item?.id),
-      category: clean(item?.category) || 'opener',
+      category: clean(item?.category) || 'sponsorship',
       title: clean(item?.title),
       text: clean(item?.text)
     });
   }
 
   function clearScriptEditor() {
-    setScriptForm({ id: '', category: 'opener', title: '', text: '' });
+    setScriptForm({ id: '', category: 'sponsorship', title: '', text: '' });
   }
 
   async function deleteScriptItem(id = '') {
@@ -623,11 +623,12 @@ export default function InnerCircleBookingsPage() {
                             <small className="muted">Module Access</small>
                             {[
                               ['dashboard', 'Dashboard'],
-                              ['faststart', 'Fast Start'],
+                              ['faststart', 'Fast Track'],
                               ['scripts', 'Scripts'],
                               ['execution', 'Execution'],
                               ['vault', 'Vault'],
-                              ['tracker', 'Tracker']
+                              ['tracker', 'Tracker'],
+                              ['links', 'My Links']
                             ].map(([key, label]) => (
                               <label key={key} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                                 <input
@@ -641,7 +642,7 @@ export default function InnerCircleBookingsPage() {
                               type="button"
                               className="ghost"
                               disabled={savingHubId === member.id}
-                              onClick={() => setHubModules(member, { dashboard: true, faststart: true, scripts: true, execution: true, vault: true, tracker: true })}
+                              onClick={() => setHubModules(member, { dashboard: true, faststart: true, scripts: true, execution: true, vault: true, tracker: true, links: true })}
                             >
                               Set Full Modules
                             </button>
@@ -649,7 +650,7 @@ export default function InnerCircleBookingsPage() {
                               type="button"
                               className="ghost"
                               disabled={savingHubId === member.id}
-                              onClick={() => setHubModules(member, { dashboard: true, faststart: true, scripts: true, execution: true, vault: false, tracker: false })}
+                              onClick={() => setHubModules(member, { dashboard: true, faststart: true, scripts: true, execution: true, vault: false, tracker: false, links: true })}
                             >
                               Set Core Modules
                             </button>
@@ -682,10 +683,10 @@ export default function InnerCircleBookingsPage() {
             <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
               <label>Category
                 <select value={scriptForm.category} onChange={(e) => setScriptForm((p) => ({ ...p, category: e.target.value }))}>
-                  <option value="opener">Opener</option>
+                  <option value="sponsorship">Sponsorship</option>
+                  <option value="life-insurance">Life Insurance</option>
                   <option value="followup">Follow-up</option>
                   <option value="objection">Objection</option>
-                  <option value="close">Close</option>
                   <option value="general">General</option>
                 </select>
               </label>

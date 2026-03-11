@@ -110,8 +110,10 @@ export async function GET() {
       texts: acc.texts + toNum(r?.texts),
       followUps: acc.followUps + toNum(r?.followUps),
       bookings: acc.bookings + toNum(r?.bookings),
-      apps: acc.apps + toNum(r?.apps)
-    }), { calls: 0, texts: 0, followUps: 0, bookings: 0, apps: 0 });
+      sponsorshipApps: acc.sponsorshipApps + toNum(r?.sponsorshipApps),
+      fngSubmittedApps: acc.fngSubmittedApps + toNum(r?.fngSubmittedApps),
+      appsTotal: acc.appsTotal + toNum(r?.sponsorshipApps) + toNum(r?.fngSubmittedApps) + toNum(r?.apps)
+    }), { calls: 0, texts: 0, followUps: 0, bookings: 0, sponsorshipApps: 0, fngSubmittedApps: 0, appsTotal: 0 });
 
     return {
       id: clean(m?.id),

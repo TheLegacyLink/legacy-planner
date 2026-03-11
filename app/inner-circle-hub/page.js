@@ -4,16 +4,14 @@ import { useEffect, useMemo, useState } from 'react';
 
 const SESSION_KEY = 'inner_circle_hub_member_v1';
 
+function clean(v = '') { return String(v || '').trim(); }
 function readSession() {
   if (typeof window === 'undefined') return null;
   try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch { return null; }
 }
-
 function firstNameFromMember(member = {}) {
-  const full = String(member?.applicantName || member?.email || '').trim();
-  return full.split(/\s+/)[0] || 'Member';
+  return clean(member?.applicantName || member?.email).split(/\s+/)[0] || 'Member';
 }
-
 function onboardingState(member = {}) {
   const contract = Boolean(member?.contractSignedAt);
   const payment = Boolean(member?.paymentReceivedAt);
@@ -22,56 +20,30 @@ function onboardingState(member = {}) {
   const pct = Math.round(([contract, payment, password].filter(Boolean).length / 3) * 100);
   return { contract, payment, password, active, pct };
 }
-
 function todayDateKey() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
-
 function toNum(v = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
 }
-
 function availableTabs(member = {}) {
   const modules = member?.modules || {};
   const all = [
     { key: 'dashboard', label: 'Dashboard' },
-    { key: 'faststart', label: 'Fast Start' },
+    { key: 'faststart', label: 'Fast Track' },
     { key: 'scripts', label: 'Scripts' },
     { key: 'execution', label: 'Execution' },
     { key: 'vault', label: 'Vault' },
-    { key: 'tracker', label: 'Tracker' }
+    { key: 'tracker', label: 'Tracker' },
+    { key: 'links', label: 'My Links' }
   ];
   return all.filter((t) => modules?.[t.key] !== false);
 }
-
-function ScriptCard({ item = {} }) {
-  return (
-    <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
-      <strong style={{ color: '#fff' }}>{item?.title || 'Untitled'}</strong>
-      <small className="muted" style={{ display: 'block', marginTop: 4, textTransform: 'uppercase' }}>{item?.category || 'general'}</small>
-      <p className="muted" style={{ marginBottom: 0 }}>{item?.text || ''}</p>
-    </div>
-  );
-}
-
-function VaultSection({ title = '', items = [] }) {
-  return (
-    <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
-      <strong style={{ color: '#fff' }}>{title}</strong>
-      <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
-        {(items || []).map((item) => (
-          <div key={item?.id} style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}>
-            <div style={{ color: '#fff', fontWeight: 700 }}>{item?.title || 'Untitled'}</div>
-            <small className="muted" style={{ textTransform: 'uppercase' }}>{item?.tag || 'general'}</small>
-            <p className="muted" style={{ marginBottom: 0 }}>{item?.body || ''}</p>
-          </div>
-        ))}
-        {!items?.length ? <small className="muted">No items yet.</small> : null}
-      </div>
-    </div>
-  );
+function qrUrl(value = '') {
+  const data = encodeURIComponent(value || '');
+  return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${data}`;
 }
 
 export default function InnerCircleHubPage() {
@@ -80,20 +52,61 @@ export default function InnerCircleHubPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [kpi, setKpi] = useState(null);
-  const [tab, setTab] = useState('dashboard');
 
+  const [kpi, setKpi] = useState(null);
   const [scripts, setScripts] = useState([]);
+  const [scriptFilter, setScriptFilter] = useState('all');
   const [vault, setVault] = useState({ content: [], calls: [], onboarding: [] });
 
+  const [tab, setTab] = useState('dashboard');
   const [dailyRows, setDailyRows] = useState([]);
-  const [dailyTotals, setDailyTotals] = useState({ calls: 0, texts: 0, followUps: 0, bookings: 0, apps: 0 });
-  const [tracker, setTracker] = useState({ dateKey: todayDateKey(), calls: 0, texts: 0, followUps: 0, bookings: 0, apps: 0, notes: '' });
+  const [dailyTotals, setDailyTotals] = useState({ calls: 0, texts: 0, followUps: 0, bookings: 0, sponsorshipApps: 0, fngSubmittedApps: 0, appsTotal: 0 });
+  const [tracker, setTracker] = useState({
+    dateKey: todayDateKey(),
+    calls: 0,
+    texts: 0,
+    followUps: 0,
+    bookings: 0,
+    sponsorshipApps: 0,
+    fngSubmittedApps: 0,
+    notes: '',
+    checklist: {
+      workNewLeads: false,
+      followUpWarmLeads: false,
+      bookOneConversation: false,
+      postContent: false,
+      updateTracker: false
+    }
+  });
   const [savingTracker, setSavingTracker] = useState(false);
 
   const gate = useMemo(() => onboardingState(member || {}), [member]);
   const unlocked = gate.active;
   const tabs = useMemo(() => availableTabs(member || {}), [member]);
+
+  const filteredScripts = useMemo(() => {
+    if (scriptFilter === 'all') return scripts;
+    return (scripts || []).filter((s) => clean(s?.category).toLowerCase() === scriptFilter);
+  }, [scripts, scriptFilter]);
+
+  const sponsorshipLink = useMemo(() => {
+    const base = process.env.NEXT_PUBLIC_SPONSORSHIP_LINK_BASE || '/sponsorship-signup';
+    const ref = encodeURIComponent(member?.email || member?.id || 'member');
+    return base.includes('?') ? `${base}&ref=${ref}` : `${base}?ref=${ref}`;
+  }, [member?.email, member?.id]);
+
+  const contractLinks = useMemo(() => {
+    return [
+      {
+        name: 'Inner Circle Contract (IUL Agreement)',
+        url: process.env.NEXT_PUBLIC_DOCUSIGN_IUL_ICA_URL || '/iul-agreement'
+      },
+      {
+        name: 'Contract Agreement Page',
+        url: '/contract-agreement'
+      }
+    ];
+  }, []);
 
   useEffect(() => {
     if (!member?.email && !member?.applicantName) return;
@@ -118,8 +131,30 @@ export default function InnerCircleHubPage() {
 
         if (!canceled && kpiRes.ok && kpiData?.ok) setKpi(kpiData.kpi || null);
         if (!canceled && dailyRes.ok && dailyData?.ok) {
-          setDailyRows(Array.isArray(dailyData.rows) ? dailyData.rows : []);
-          setDailyTotals(dailyData.totals || { calls: 0, texts: 0, followUps: 0, bookings: 0, apps: 0 });
+          const rows = Array.isArray(dailyData.rows) ? dailyData.rows : [];
+          setDailyRows(rows);
+          setDailyTotals(dailyData.totals || { calls: 0, texts: 0, followUps: 0, bookings: 0, sponsorshipApps: 0, fngSubmittedApps: 0, appsTotal: 0 });
+          const today = rows.find((r) => clean(r?.dateKey) === todayDateKey());
+          if (today) {
+            setTracker((p) => ({
+              ...p,
+              dateKey: today.dateKey || p.dateKey,
+              calls: today.calls ?? p.calls,
+              texts: today.texts ?? p.texts,
+              followUps: today.followUps ?? p.followUps,
+              bookings: today.bookings ?? p.bookings,
+              sponsorshipApps: today.sponsorshipApps ?? p.sponsorshipApps,
+              fngSubmittedApps: today.fngSubmittedApps ?? p.fngSubmittedApps,
+              notes: today.notes || p.notes,
+              checklist: {
+                workNewLeads: Boolean(today?.checklist?.workNewLeads),
+                followUpWarmLeads: Boolean(today?.checklist?.followUpWarmLeads),
+                bookOneConversation: Boolean(today?.checklist?.bookOneConversation),
+                postContent: Boolean(today?.checklist?.postContent),
+                updateTracker: Boolean(today?.checklist?.updateTracker)
+              }
+            }));
+          }
         }
         if (!canceled && scriptsRes.ok && scriptsData?.ok) setScripts(Array.isArray(scriptsData.rows) ? scriptsData.rows : []);
         if (!canceled && vaultRes.ok && vaultData?.ok) setVault(vaultData.vault || { content: [], calls: [], onboarding: [] });
@@ -166,10 +201,6 @@ export default function InnerCircleHubPage() {
 
   function logout() {
     setMember(null);
-    setKpi(null);
-    setScripts([]);
-    setVault({ content: [], calls: [], onboarding: [] });
-    setDailyRows([]);
     localStorage.removeItem(SESSION_KEY);
   }
 
@@ -189,8 +220,10 @@ export default function InnerCircleHubPage() {
           texts: toNum(tracker.texts),
           followUps: toNum(tracker.followUps),
           bookings: toNum(tracker.bookings),
-          apps: toNum(tracker.apps),
-          notes: tracker.notes || ''
+          sponsorshipApps: toNum(tracker.sponsorshipApps),
+          fngSubmittedApps: toNum(tracker.fngSubmittedApps),
+          notes: tracker.notes || '',
+          checklist: tracker.checklist || {}
         })
       });
 
@@ -199,7 +232,7 @@ export default function InnerCircleHubPage() {
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.ok) {
         setDailyRows(Array.isArray(data.rows) ? data.rows : []);
-        setDailyTotals(data.totals || { calls: 0, texts: 0, followUps: 0, bookings: 0, apps: 0 });
+        setDailyTotals(data.totals || { calls: 0, texts: 0, followUps: 0, bookings: 0, sponsorshipApps: 0, fngSubmittedApps: 0, appsTotal: 0 });
       }
     } finally {
       setSavingTracker(false);
@@ -213,7 +246,6 @@ export default function InnerCircleHubPage() {
           <p style={{ margin: 0, color: '#93c5fd', fontWeight: 700 }}>THE LEGACY LINK</p>
           <h2 style={{ marginTop: 8, marginBottom: 6, color: '#fff' }}>Inner Circle Production Hub</h2>
           <p style={{ marginTop: 0, color: '#cbd5e1' }}>Member Login</p>
-
           <form onSubmit={login} className="settingsGrid" style={{ rowGap: 12 }}>
             <label style={{ color: '#e2e8f0' }}>Email<input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
             <label style={{ color: '#e2e8f0' }}>Password<input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
@@ -245,7 +277,7 @@ export default function InnerCircleHubPage() {
             </div>
             <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
               <strong style={{ color: '#fff' }}>Unlock Checklist ({gate.pct}% complete)</strong>
-              <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#cbd5e1', display: 'grid', gap: 6 }}>
+              <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#dbeafe', display: 'grid', gap: 6 }}>
                 <li>{gate.contract ? '✅' : '⬜️'} Contract signed</li>
                 <li>{gate.payment ? '✅' : '⬜️'} Payment received</li>
                 <li>{gate.password ? '✅' : '⬜️'} Password set</li>
@@ -258,36 +290,145 @@ export default function InnerCircleHubPage() {
               {tabs.map((t) => <button key={t.key} type="button" className={tab === t.key ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setTab(t.key)}>{t.label}</button>)}
             </div>
 
-            {tab === 'dashboard' ? <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}><strong style={{ color: '#fff', fontSize: 16 }}>KPI Dashboard (This Month)</strong><div style={{ display: 'grid', gap: 10, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}><div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Leads</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.leadsReceived ?? 0}</div></div><div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Bookings</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.bookingsThisMonth ?? 0}</div></div><div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Closes</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.closesThisMonth ?? 0}</div><small className="muted">Close Rate: {kpi?.closeRate ?? 0}%</small></div><div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Gross</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>${kpi?.grossEarned ?? 0}</div></div></div></div> : null}
+            {tab === 'dashboard' ? (
+              <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
+                <strong style={{ color: '#fff', fontSize: 16 }}>KPI Dashboard (This Month)</strong>
+                <div style={{ display: 'grid', gap: 10, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
+                  <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Leads</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.leadsReceived ?? 0}</div></div>
+                  <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Bookings</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.bookingsThisMonth ?? 0}</div></div>
+                  <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Closes</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.closesThisMonth ?? 0}</div><small className="muted">Close Rate: {kpi?.closeRate ?? 0}%</small></div>
+                  <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Gross</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>${kpi?.grossEarned ?? 0}</div></div>
+                </div>
+              </div>
+            ) : null}
 
-            {tab === 'faststart' ? <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}><strong style={{ color: '#fff', fontSize: 16 }}>First 14 Days Fast Start</strong><ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#cbd5e1', display: 'grid', gap: 5 }}><li>Day 1-2: CRM, profile, scripts</li><li>Day 3-5: 50+ conversations started</li><li>Day 6-9: Book discovery calls</li><li>Day 10-14: Submit first apps and tighten follow-up</li></ul></div> : null}
+            {tab === 'faststart' ? (
+              <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
+                <strong style={{ color: '#fff', fontSize: 16 }}>First 14 Days Fast Track</strong>
+                <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#e2e8f0', display: 'grid', gap: 6, fontWeight: 500 }}>
+                  <li>Day 1–2: CRM setup, profile setup, scripts setup</li>
+                  <li>Day 3–5: Start 50+ outbound conversations</li>
+                  <li>Day 6–9: Book discovery calls and run appointment flow</li>
+                  <li>Day 10–14: Submit first apps and tighten follow-up cadence</li>
+                </ul>
+              </div>
+            ) : null}
 
-            {tab === 'scripts' ? <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>{(scripts || []).map((item) => <ScriptCard key={item.id} item={item} />)}{!scripts.length ? <p className="muted">No scripts available.</p> : null}</div> : null}
+            {tab === 'scripts' ? (
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+                  <button type="button" className={scriptFilter === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setScriptFilter('all')}>All</button>
+                  <button type="button" className={scriptFilter === 'sponsorship' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setScriptFilter('sponsorship')}>Sponsorship</button>
+                  <button type="button" className={scriptFilter === 'life-insurance' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setScriptFilter('life-insurance')}>Life Insurance</button>
+                </div>
+                <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
+                  {(filteredScripts || []).map((item) => (
+                    <div key={item?.id} style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+                      <strong style={{ color: '#fff' }}>{item?.title || 'Untitled'}</strong>
+                      <small className="muted" style={{ display: 'block', textTransform: 'uppercase', marginTop: 4 }}>{item?.category || 'general'}</small>
+                      <p className="muted" style={{ marginBottom: 0 }}>{item?.text || ''}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
-            {tab === 'execution' ? <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}><div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}><strong style={{ color: '#fff' }}>Today Action Plan</strong><p className="muted" style={{ marginBottom: 0 }}>1) Work new leads 2) Follow up warm leads 3) Book at least 1 call</p></div><div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}><strong style={{ color: '#fff' }}>Checklist</strong><p className="muted" style={{ marginBottom: 0 }}>Calls/texts, follow-ups, one post, objections, CRM update.</p></div></div> : null}
+            {tab === 'execution' ? (
+              <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+                <strong style={{ color: '#fff' }}>Today Action Checklist</strong>
+                <p style={{ color: '#dbeafe', marginTop: 6 }}>Date: {tracker.dateKey || todayDateKey()}</p>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {[
+                    ['workNewLeads', 'Work new leads'],
+                    ['followUpWarmLeads', 'Follow up warm leads'],
+                    ['bookOneConversation', 'Book at least one conversation'],
+                    ['postContent', 'Post content for lead generation'],
+                    ['updateTracker', 'Update tracker before end of day']
+                  ].map(([key, label]) => (
+                    <label key={key} style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#e2e8f0' }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(tracker?.checklist?.[key])}
+                        onChange={(e) => setTracker((p) => ({ ...p, checklist: { ...(p?.checklist || {}), [key]: e.target.checked } }))}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <button type="button" className="publicPrimaryBtn" onClick={saveTracker} disabled={savingTracker} style={{ marginTop: 10 }}>
+                  {savingTracker ? 'Saving...' : 'Save Checklist'}
+                </button>
+              </div>
+            ) : null}
 
-            {tab === 'vault' ? <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))' }}><VaultSection title="Content Vault" items={vault?.content || []} /><VaultSection title="Call Vault" items={vault?.calls || []} /><VaultSection title="Onboarding Vault" items={vault?.onboarding || []} /></div> : null}
+            {tab === 'vault' ? (
+              <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))' }}>
+                {[
+                  ['Content Vault', vault?.content || []],
+                  ['Call Vault', vault?.calls || []],
+                  ['Onboarding Vault', vault?.onboarding || []]
+                ].map(([title, items]) => (
+                  <div key={title} style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+                    <strong style={{ color: '#fff' }}>{title}</strong>
+                    <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+                      {(items || []).map((item) => (
+                        <div key={item?.id} style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}>
+                          <div style={{ color: '#fff', fontWeight: 700 }}>{item?.title || 'Untitled'}</div>
+                          <small className="muted" style={{ textTransform: 'uppercase' }}>{item?.tag || 'general'}</small>
+                          <p className="muted" style={{ marginBottom: 0 }}>{item?.body || ''}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
             {tab === 'tracker' ? (
               <div style={{ display: 'grid', gap: 10 }}>
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
                   <strong style={{ color: '#fff' }}>Daily Production Tracker</strong>
-                  <div style={{ display: 'grid', gap: 8, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))' }}>
-                    <label>Date<input type="date" value={tracker.dateKey} onChange={(e) => setTracker((p) => ({ ...p, dateKey: e.target.value }))} /></label>
-                    <label>Calls<input type="number" min="0" value={tracker.calls} onChange={(e) => setTracker((p) => ({ ...p, calls: e.target.value }))} /></label>
-                    <label>Texts<input type="number" min="0" value={tracker.texts} onChange={(e) => setTracker((p) => ({ ...p, texts: e.target.value }))} /></label>
-                    <label>Follow-Ups<input type="number" min="0" value={tracker.followUps} onChange={(e) => setTracker((p) => ({ ...p, followUps: e.target.value }))} /></label>
-                    <label>Bookings<input type="number" min="0" value={tracker.bookings} onChange={(e) => setTracker((p) => ({ ...p, bookings: e.target.value }))} /></label>
-                    <label>Apps<input type="number" min="0" value={tracker.apps} onChange={(e) => setTracker((p) => ({ ...p, apps: e.target.value }))} /></label>
+                  <div style={{ display: 'grid', gap: 8, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))' }}>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Date<input type="date" value={tracker.dateKey} onChange={(e) => setTracker((p) => ({ ...p, dateKey: e.target.value }))} /></label>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Calls<input type="number" min="0" value={tracker.calls} onChange={(e) => setTracker((p) => ({ ...p, calls: e.target.value }))} /></label>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Texts<input type="number" min="0" value={tracker.texts} onChange={(e) => setTracker((p) => ({ ...p, texts: e.target.value }))} /></label>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Follow-Ups<input type="number" min="0" value={tracker.followUps} onChange={(e) => setTracker((p) => ({ ...p, followUps: e.target.value }))} /></label>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Bookings<input type="number" min="0" value={tracker.bookings} onChange={(e) => setTracker((p) => ({ ...p, bookings: e.target.value }))} /></label>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Sponsorship Apps<input type="number" min="0" value={tracker.sponsorshipApps} onChange={(e) => setTracker((p) => ({ ...p, sponsorshipApps: e.target.value }))} /></label>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>FNG Submitted Apps<input type="number" min="0" value={tracker.fngSubmittedApps} onChange={(e) => setTracker((p) => ({ ...p, fngSubmittedApps: e.target.value }))} /></label>
                   </div>
-                  <label style={{ marginTop: 8, display: 'block' }}>Notes<textarea rows={2} value={tracker.notes} onChange={(e) => setTracker((p) => ({ ...p, notes: e.target.value }))} /></label>
+                  <label style={{ marginTop: 8, display: 'block', color: '#dbeafe', fontWeight: 600 }}>Notes<textarea rows={2} value={tracker.notes} onChange={(e) => setTracker((p) => ({ ...p, notes: e.target.value }))} /></label>
                   <button type="button" className="publicPrimaryBtn" onClick={saveTracker} disabled={savingTracker}>{savingTracker ? 'Saving...' : 'Save Daily Metrics'}</button>
                 </div>
+
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
                   <strong style={{ color: '#fff' }}>This Month Totals</strong>
-                  <p className="muted" style={{ marginBottom: 8 }}>Calls: {dailyTotals.calls} • Texts: {dailyTotals.texts} • Follow-Ups: {dailyTotals.followUps} • Bookings: {dailyTotals.bookings} • Apps: {dailyTotals.apps}</p>
+                  <p className="muted" style={{ marginBottom: 8 }}>
+                    Calls: {dailyTotals.calls} • Texts: {dailyTotals.texts} • Follow-Ups: {dailyTotals.followUps} • Bookings: {dailyTotals.bookings}
+                  </p>
+                  <p className="muted" style={{ marginTop: 0 }}>
+                    Sponsorship Apps: {dailyTotals.sponsorshipApps} • FNG Submitted Apps: {dailyTotals.fngSubmittedApps} • App Total: {dailyTotals.appsTotal}
+                  </p>
                   <small className="muted">Recent Entries: {dailyRows.length}</small>
                 </div>
+              </div>
+            ) : null}
+
+            {tab === 'links' ? (
+              <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))' }}>
+                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+                  <strong style={{ color: '#fff' }}>Personal Sponsorship Link</strong>
+                  <p className="muted" style={{ wordBreak: 'break-all' }}>{sponsorshipLink}</p>
+                  <img src={qrUrl(sponsorshipLink)} alt="Sponsorship QR" width={160} height={160} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
+                </div>
+
+                {contractLinks.map((item) => (
+                  <div key={item.name} style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+                    <strong style={{ color: '#fff' }}>{item.name}</strong>
+                    <p className="muted" style={{ wordBreak: 'break-all' }}>{item.url}</p>
+                    <img src={qrUrl(item.url)} alt={`${item.name} QR`} width={160} height={160} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
+                  </div>
+                ))}
               </div>
             ) : null}
           </div>

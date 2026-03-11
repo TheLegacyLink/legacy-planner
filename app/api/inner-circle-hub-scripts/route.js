@@ -4,22 +4,28 @@ const STORE_PATH = 'stores/inner-circle-hub-scripts.json';
 
 const DEFAULT_SCRIPTS = [
   {
-    id: 'script-opener-income',
-    category: 'opener',
-    title: 'Income Opportunity Opener',
-    text: 'Hey [Name], quick question — are you open to adding an extra $2k-$5k this month helping families protect what matters?'
+    id: 'script-sponsor-opener',
+    category: 'sponsorship',
+    title: 'Sponsorship Interest Opener',
+    text: 'Hey [Name], are you still open to earning an extra $2k-$5k this month through our sponsorship path?'
   },
   {
-    id: 'script-followup-2touch',
-    category: 'followup',
-    title: '2nd Touch Follow-Up',
-    text: 'Just circling back — I can break down the exact process our producers are using this week to book and close. Want me to send it?'
+    id: 'script-sponsor-followup',
+    category: 'sponsorship',
+    title: 'Sponsorship Follow-Up',
+    text: 'Quick follow-up: I can send you the exact steps our sponsorship producers are using this week. Want me to send it now?'
   },
   {
-    id: 'script-objection-busy',
-    category: 'objection',
-    title: 'Objection: I am too busy',
-    text: 'That is exactly why this model works. We execute in focused blocks, not all day. If you can commit 60-90 minutes daily, you can still produce.'
+    id: 'script-life-insurance-opener',
+    category: 'life-insurance',
+    title: 'Life Insurance Interest Opener',
+    text: 'Hey [Name], if your family had to use your income tomorrow, would they be fully protected? I can help you build a plan today.'
+  },
+  {
+    id: 'script-life-insurance-objection',
+    category: 'life-insurance',
+    title: 'Life Insurance Objection: Need to think about it',
+    text: 'Totally fair. Most families wait because they are unsure, but waiting is where risk stays high. Let me simplify this into two options right now.'
   }
 ];
 

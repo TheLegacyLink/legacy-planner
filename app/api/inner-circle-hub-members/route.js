@@ -14,7 +14,8 @@ function defaultModules() {
     scripts: true,
     execution: true,
     vault: true,
-    tracker: true
+    tracker: true,
+    links: true
   };
 }
 
@@ -26,7 +27,8 @@ function normalizedModules(raw = {}) {
     scripts: raw?.scripts !== false && base.scripts,
     execution: raw?.execution !== false && base.execution,
     vault: raw?.vault !== false && base.vault,
-    tracker: raw?.tracker !== false && base.tracker
+    tracker: raw?.tracker !== false && base.tracker,
+    links: raw?.links !== false && base.links
   };
 }
 
