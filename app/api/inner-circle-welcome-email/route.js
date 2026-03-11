@@ -62,7 +62,7 @@ function buildHtml({ name, telegramUrl, hubUrl, tempPassword, playbookUrl }) {
 
         <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
           <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Onboarding Playbook (PDF)</div>
-          <p style="margin:0 0 10px;">This PDF is attached to this email. You can also download it after login in the Hub under <strong>My Links → Onboarding Playbook PDF</strong>.</p>
+          <p style="margin:0 0 10px;">This PDF is attached to this email. You can also download it after login from your Hub dashboard under <strong>Onboarding Playbook</strong>.</p>
           <a href="${safePlaybook}" style="display:inline-block;background:#F58426;color:#0B1020;padding:10px 14px;border-radius:8px;font-weight:800;text-decoration:none;">Download Playbook PDF</a>
         </div>
 
@@ -99,7 +99,7 @@ export async function POST(req) {
     `HUB Login Temporary Password: ${tempPassword}`,
     `Telegram Group: ${telegramUrl}`,
     `Onboarding Playbook (PDF): ${playbookUrl}`,
-    'Where to find it in the Hub: My Links → Onboarding Playbook PDF',
+    'Where to find it in the Hub: Dashboard → Onboarding Playbook',
     'Note: The temporary password above is specifically for your HUB login.',
     '',
     'After first login, update your password for security.',

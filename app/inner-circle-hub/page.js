@@ -562,7 +562,7 @@ export default function InnerCircleHubPage() {
               <div style={{ display: 'grid', gap: 10 }}>
                 <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 12, background: '#071022' }}>
                   <strong style={{ color: '#fff' }}>Quick Access</strong>
-                  <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>Your onboarding PDF is in the first card below: <strong>Onboarding Playbook PDF</strong>.</p>
+                  <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>Use the links below to copy and share your key resources.</p>
                 </div>
 
                 <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
@@ -571,14 +571,6 @@ export default function InnerCircleHubPage() {
                   <img src={qrUrl(sponsorshipLink)} alt="Sponsorship QR" width={118} height={118} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
                   <button type="button" className="ghost" onClick={() => copyLink(sponsorshipLink, 'sponsor')}>
                     {copiedKey === 'sponsor' ? 'Copied' : 'Copy Link'}
-                  </button>
-                </div>
-
-                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617', display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8 }}>
-                  <strong style={{ color: '#fff' }}>Onboarding Playbook PDF</strong>
-                  <img src={qrUrl(onboardingPlaybookUrl)} alt="Onboarding Playbook QR" width={118} height={118} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
-                  <button type="button" className="ghost" onClick={() => copyLink(onboardingPlaybookUrl, 'playbook')}>
-                    {copiedKey === 'playbook' ? 'Copied' : 'Copy Link'}
                   </button>
                 </div>
 
