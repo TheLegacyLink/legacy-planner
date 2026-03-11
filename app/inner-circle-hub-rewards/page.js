@@ -73,6 +73,26 @@ function money(n = 0) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(Number(n || 0));
 }
 
+function monthKeyFromTs(ts = 0) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function monthKeyFromOffset(offset = 0) {
+  const d = new Date();
+  d.setMonth(d.getMonth() + Number(offset || 0));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function monthLabelFromKey(key = '') {
+  const [y, m] = String(key || '').split('-').map((v) => Number(v));
+  if (!y || !m) return key || '—';
+  const d = new Date(y, m - 1, 1);
+  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
 function uniqueBy(rows = [], keyFn) {
   const seen = new Set();
   const out = [];
@@ -288,6 +308,56 @@ export default function InnerCircleHubRewardsPage() {
     const week = periodCounts(isThisWeek);
     const month = periodCounts(isThisMonth);
 
+    const currentMonthKey = monthKeyFromOffset(0);
+    const previousMonthKey = monthKeyFromOffset(-1);
+
+    const monthCounts = (monthKey = '') => {
+      const appCount = validApps.filter((r) => monthKeyFromTs(r.ts) === monthKey).length;
+      const bookingCount = validBookings.filter((r) => monthKeyFromTs(r.ts) === monthKey).length;
+      const cleanCount = cleanPolicies.filter((r) => monthKeyFromTs(r.ts) === monthKey).length;
+      const caseCount = paidPlacedCases.filter((r) => monthKeyFromTs(r.ts) === monthKey).length;
+      const earned =
+        appCount * REWARDS.sponsorshipApp +
+        bookingCount * REWARDS.bookedAppointment +
+        cleanCount * REWARDS.cleanInsuranceApp +
+        caseCount * REWARDS.paidPlacedCase;
+      return { appCount, bookingCount, cleanCount, caseCount, earned };
+    };
+
+    const currentMonthPayout = monthCounts(currentMonthKey);
+    const previousMonthPayout = monthCounts(previousMonthKey);
+
+    const previousMonthByAgent = Object.fromEntries((config.agents || []).map((a) => [a, { apps: 0, bookings: 0, cleanApps: 0, paidPlaced: 0, earnings: 0 }]));
+    for (const r of validApps) {
+      if (monthKeyFromTs(r.ts) !== previousMonthKey || !previousMonthByAgent[r.agent]) continue;
+      previousMonthByAgent[r.agent].apps += 1;
+    }
+    for (const r of validBookings) {
+      if (monthKeyFromTs(r.ts) !== previousMonthKey || !previousMonthByAgent[r.agent]) continue;
+      previousMonthByAgent[r.agent].bookings += 1;
+    }
+    for (const r of cleanPolicies) {
+      if (monthKeyFromTs(r.ts) !== previousMonthKey || !previousMonthByAgent[r.agent]) continue;
+      previousMonthByAgent[r.agent].cleanApps += 1;
+    }
+    for (const r of paidPlacedCases) {
+      if (monthKeyFromTs(r.ts) !== previousMonthKey || !previousMonthByAgent[r.agent]) continue;
+      previousMonthByAgent[r.agent].paidPlaced += 1;
+    }
+
+    const previousMonthAgentPayouts = Object.entries(previousMonthByAgent)
+      .map(([agent, v]) => ({
+        agent,
+        ...v,
+        earnings:
+          v.apps * REWARDS.sponsorshipApp +
+          v.bookings * REWARDS.bookedAppointment +
+          v.cleanApps * REWARDS.cleanInsuranceApp +
+          v.paidPlaced * REWARDS.paidPlacedCase
+      }))
+      .filter((r) => r.earnings > 0)
+      .sort((a, b) => b.earnings - a.earnings);
+
     const baseByAgent = Object.fromEntries((config.agents || []).map((a) => [a, {
       apps: 0,
       bookings: 0,
@@ -387,6 +457,11 @@ export default function InnerCircleHubRewardsPage() {
       today,
       week,
       month,
+      currentMonthKey,
+      previousMonthKey,
+      currentMonthPayout,
+      previousMonthPayout,
+      previousMonthAgentPayouts,
       agents: rankedByEarnings,
       admin: {
         pendingReview,
@@ -444,6 +519,30 @@ export default function InnerCircleHubRewardsPage() {
         <p style={{ margin: 0 }}>• $5 per booked sponsorship appointment</p>
         <p style={{ margin: 0 }}>• $10 per clean insurance app submitted in good order</p>
         <p style={{ margin: 0 }}>• $500 per approved, paid-and-placed case</p>
+      </div>
+
+
+      <div className="panel" style={{ borderColor: '#14532d', background: '#052012' }}>
+        <h3 style={{ marginTop: 0, marginBottom: 8 }}>Monthly Payout Window</h3>
+        <p className="muted" style={{ margin: '0 0 6px' }}>
+          Current Month ({monthLabelFromKey(computed.currentMonthKey)}): <strong>{money(computed.currentMonthPayout.earned)}</strong>
+        </p>
+        <p className="muted" style={{ margin: '0 0 6px' }}>
+          Last Month ({monthLabelFromKey(computed.previousMonthKey)}): <strong>{money(computed.previousMonthPayout.earned)}</strong>
+        </p>
+        <p className="muted" style={{ margin: 0 }}>
+          Payout totals reset automatically each new month. Last month totals stay visible here so you can review payout before processing.
+        </p>
+        {(computed.previousMonthAgentPayouts || []).length ? (
+          <div style={{ marginTop: 10 }}>
+            <strong style={{ color: '#fff' }}>Last Month Payout Breakdown</strong>
+            <ol style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+              {(computed.previousMonthAgentPayouts || []).slice(0, 10).map((r) => (
+                <li key={`last-month-${r.agent}`} style={{ color: '#cbd5e1' }}>{r.agent} — {money(r.earnings)}</li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
       </div>
 
       {loading ? <div className="panel"><p>Loading rewards dashboard…</p></div> : null}
