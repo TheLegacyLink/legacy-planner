@@ -58,24 +58,32 @@ export default function InnerCircleBookingsPage() {
   const [sendingContractId, setSendingContractId] = useState('');
   const [sendingMeetingId, setSendingMeetingId] = useState('');
   const [hubMembers, setHubMembers] = useState([]);
+  const [hubProgressRows, setHubProgressRows] = useState([]);
+  const [hubProgressMonth, setHubProgressMonth] = useState('');
   const [savingHubId, setSavingHubId] = useState('');
 
   async function load() {
     setLoading(true);
     try {
-      const [appsRes, bookingsRes, hubRes] = await Promise.all([
+      const [appsRes, bookingsRes, hubRes, progressRes] = await Promise.all([
         fetch('/api/inner-circle-application', { cache: 'no-store' }),
         fetch('/api/inner-circle-bookings', { cache: 'no-store' }),
-        fetch('/api/inner-circle-hub-members', { cache: 'no-store' })
+        fetch('/api/inner-circle-hub-members', { cache: 'no-store' }),
+        fetch('/api/inner-circle-hub-progress', { cache: 'no-store' })
       ]);
 
       const appsData = await appsRes.json().catch(() => ({}));
       const bookingData = await bookingsRes.json().catch(() => ({}));
       const hubData = await hubRes.json().catch(() => ({}));
+      const progressData = await progressRes.json().catch(() => ({}));
 
       if (appsRes.ok && appsData?.ok) setApps(Array.isArray(appsData.rows) ? appsData.rows : []);
       if (bookingsRes.ok && bookingData?.ok) setBookings(Array.isArray(bookingData.rows) ? bookingData.rows : []);
       if (hubRes.ok && hubData?.ok) setHubMembers(Array.isArray(hubData.rows) ? hubData.rows : []);
+      if (progressRes.ok && progressData?.ok) {
+        setHubProgressRows(Array.isArray(progressData.rows) ? progressData.rows : []);
+        setHubProgressMonth(clean(progressData.month || ''));
+      }
     } finally {
       setLoading(false);
     }
@@ -233,6 +241,22 @@ export default function InnerCircleBookingsPage() {
     }
   }
 
+  async function setHubModules(member = {}, modules = {}) {
+    const memberId = clean(member?.id || '');
+    if (!memberId) return;
+    setSavingHubId(memberId);
+    try {
+      await fetch('/api/inner-circle-hub-members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_modules', memberId, modules })
+      });
+      await load();
+    } finally {
+      setSavingHubId('');
+    }
+  }
+
   return (
     <AppShell title="Inner Circle Bookings">
       <div className="panel" style={{ marginBottom: 10 }}>
@@ -255,6 +279,37 @@ export default function InnerCircleBookingsPage() {
             <span className="pill">Bookings: {stats.totalBookings}</span>
             <span className="pill">Completed: {stats.completed}</span>
             <span className="pill atrisk">No Show: {stats.no_show}</span>
+          </div>
+
+          <div style={{ marginTop: 12 }}>
+            <h4 style={{ marginBottom: 6 }}>Hub Progress Snapshot {hubProgressMonth ? `(${hubProgressMonth})` : ''}</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>Member</th>
+                  <th>Hub Active</th>
+                  <th>Leads</th>
+                  <th>Bookings</th>
+                  <th>Closes</th>
+                  <th>Close Rate</th>
+                  <th>Tracker Days</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hubProgressRows.map((r) => (
+                  <tr key={r.id || r.email}>
+                    <td>{r.applicantName || '—'}<br /><small className="muted">{r.email || '—'}</small></td>
+                    <td>{r.active ? 'Active' : 'Locked'}</td>
+                    <td>{r?.kpi?.leadsReceived ?? 0}</td>
+                    <td>{r?.kpi?.bookingsThisMonth ?? 0}</td>
+                    <td>{r?.kpi?.closesThisMonth ?? 0}</td>
+                    <td>{r?.kpi?.closeRate ?? 0}%</td>
+                    <td>{r?.trackerDaysLogged ?? 0}</td>
+                  </tr>
+                ))}
+                {!hubProgressRows.length ? <tr><td colSpan={7} className="muted">No hub members yet.</td></tr> : null}
+              </tbody>
+            </table>
           </div>
         </div>
       ) : null}
@@ -435,6 +490,24 @@ export default function InnerCircleBookingsPage() {
                           >
                             {member?.hasPassword ? 'Reset Password' : 'Set Password'}
                           </button>
+                          <div style={{ display: 'grid', gap: 4 }}>
+                            <button
+                              type="button"
+                              className="ghost"
+                              disabled={savingHubId === member.id}
+                              onClick={() => setHubModules(member, { dashboard: true, faststart: true, scripts: true, execution: true, vault: true, tracker: true })}
+                            >
+                              Set Full Modules
+                            </button>
+                            <button
+                              type="button"
+                              className="ghost"
+                              disabled={savingHubId === member.id}
+                              onClick={() => setHubModules(member, { dashboard: true, faststart: true, scripts: true, execution: true, vault: false, tracker: false })}
+                            >
+                              Set Core Modules
+                            </button>
+                          </div>
                           {!ready ? <small className="muted">Activation requires contract + payment + password.</small> : null}
                         </div>
                       );

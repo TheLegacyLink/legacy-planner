@@ -7,6 +7,29 @@ function clean(v = '') { return String(v || '').trim(); }
 function nowIso() { return new Date().toISOString(); }
 function hashPassword(v = '') { return createHash('sha256').update(clean(v)).digest('hex'); }
 
+function defaultModules() {
+  return {
+    dashboard: true,
+    faststart: true,
+    scripts: true,
+    execution: true,
+    vault: true,
+    tracker: true
+  };
+}
+
+function normalizedModules(raw = {}) {
+  const base = defaultModules();
+  return {
+    dashboard: raw?.dashboard !== false && base.dashboard,
+    faststart: raw?.faststart !== false && base.faststart,
+    scripts: raw?.scripts !== false && base.scripts,
+    execution: raw?.execution !== false && base.execution,
+    vault: raw?.vault !== false && base.vault,
+    tracker: raw?.tracker !== false && base.tracker
+  };
+}
+
 function safeMember(row = {}) {
   return {
     id: clean(row?.id),
@@ -18,6 +41,7 @@ function safeMember(row = {}) {
     contractSignedAt: clean(row?.contractSignedAt),
     paymentReceivedAt: clean(row?.paymentReceivedAt),
     onboardingUnlockedAt: clean(row?.onboardingUnlockedAt),
+    modules: normalizedModules(row?.modules || {}),
     createdAt: clean(row?.createdAt),
     updatedAt: clean(row?.updatedAt)
   };
@@ -52,7 +76,8 @@ export async function POST(req) {
           hasPassword: true,
           contractSignedAt: nowIso(),
           paymentReceivedAt: nowIso(),
-          onboardingUnlockedAt: nowIso()
+          onboardingUnlockedAt: nowIso(),
+          modules: defaultModules()
         }
       });
     }
@@ -62,12 +87,7 @@ export async function POST(req) {
     if (!found?.active) return Response.json({ ok: false, error: 'onboarding_locked' }, { status: 403 });
     if (clean(found?.passwordHash) !== hashPassword(password)) return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
 
-    return Response.json({
-      ok: true,
-      member: {
-        ...safeMember(found)
-      }
-    });
+    return Response.json({ ok: true, member: { ...safeMember(found) } });
   }
 
   if (action === 'upsert_from_booking') {
@@ -77,12 +97,13 @@ export async function POST(req) {
     if (!bookingId || !email) return Response.json({ ok: false, error: 'missing_booking_or_email' }, { status: 400 });
 
     const idx = rows.findIndex((r) => clean(r?.bookingId) === bookingId || clean(r?.email).toLowerCase() === email);
-    const base = idx >= 0 ? rows[idx] : { id: `ich_${Date.now()}`, createdAt: nowIso(), active: false };
+    const base = idx >= 0 ? rows[idx] : { id: `ich_${Date.now()}`, createdAt: nowIso(), active: false, modules: defaultModules() };
     const next = {
       ...base,
       bookingId,
       applicantName: applicantName || base.applicantName || '',
       email,
+      modules: normalizedModules(base?.modules || {}),
       updatedAt: nowIso()
     };
     if (idx >= 0) rows[idx] = next;
@@ -100,6 +121,24 @@ export async function POST(req) {
     rows[idx] = { ...rows[idx], passwordHash: hashPassword(password), updatedAt: nowIso() };
     await saveJsonStore(STORE_PATH, rows);
     return Response.json({ ok: true, row: safeMember(rows[idx]) });
+  }
+
+  if (action === 'set_modules') {
+    const memberId = clean(body?.memberId);
+    if (!memberId) return Response.json({ ok: false, error: 'missing_member_id' }, { status: 400 });
+    const idx = rows.findIndex((r) => clean(r?.id) === memberId);
+    if (idx < 0) return Response.json({ ok: false, error: 'member_not_found' }, { status: 404 });
+
+    const current = rows[idx] || {};
+    const next = {
+      ...current,
+      modules: normalizedModules(body?.modules || current?.modules || {}),
+      updatedAt: nowIso()
+    };
+
+    rows[idx] = next;
+    await saveJsonStore(STORE_PATH, rows);
+    return Response.json({ ok: true, row: safeMember(next) });
   }
 
   if (action === 'set_flags') {
@@ -121,6 +160,7 @@ export async function POST(req) {
       paymentReceivedAt: paymentReceived ? (current.paymentReceivedAt || nowIso()) : '',
       active,
       onboardingUnlockedAt: active ? (current.onboardingUnlockedAt || nowIso()) : '',
+      modules: normalizedModules(current?.modules || {}),
       updatedAt: nowIso()
     };
 
