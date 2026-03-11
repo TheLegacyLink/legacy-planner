@@ -20,6 +20,25 @@ export async function POST(req) {
   if (action === 'authenticate') {
     const email = clean(body?.email).toLowerCase();
     const password = clean(body?.password);
+
+    // Emergency fallback for owner preview access.
+    const ownerEmail = 'kimora@thelegacylink.com';
+    const ownerPass = clean(process.env.INNER_CIRCLE_HUB_OWNER_PASSWORD || 'KimoraHub2026');
+    if (email === ownerEmail && password === ownerPass) {
+      return Response.json({
+        ok: true,
+        member: {
+          id: 'owner_preview',
+          applicantName: 'Kimora Link',
+          email: ownerEmail,
+          active: true,
+          contractSignedAt: nowIso(),
+          paymentReceivedAt: nowIso(),
+          onboardingUnlockedAt: nowIso()
+        }
+      });
+    }
+
     const found = rows.find((r) => clean(r?.email).toLowerCase() === email);
     if (!found || !found?.active) return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
     if (clean(found?.passwordHash) !== hashPassword(password)) return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
