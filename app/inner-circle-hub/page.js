@@ -569,7 +569,7 @@ export default function InnerCircleHubPage() {
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, overflow: 'hidden', background: '#020617' }}>
                   <iframe
                     title="Inner Circle Activity Rewards"
-                    src="/inner-circle-activity-rewards"
+                    src="/inner-circle-hub-rewards"
                     style={{ width: '100%', minHeight: '1200px', border: 0, background: '#020617' }}
                   />
                 </div>
