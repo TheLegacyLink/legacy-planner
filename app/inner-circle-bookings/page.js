@@ -44,6 +44,10 @@ function callTimeEtCt(raw = '') {
   };
 }
 
+function memberReady(member = {}) {
+  return Boolean(member?.contractSignedAt) && Boolean(member?.paymentReceivedAt) && Boolean(member?.hasPassword);
+}
+
 export default function InnerCircleBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [apps, setApps] = useState([]);
@@ -395,9 +399,11 @@ export default function InnerCircleBookingsPage() {
                           </button>
                         );
                       }
+                      const ready = memberReady(member);
                       return (
                         <div style={{ display: 'grid', gap: 6 }}>
                           <small className="muted">{member.email}</small>
+                          <small className="muted">Ready to Activate: {ready ? 'Yes' : 'No'}</small>
                           <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                             <input
                               type="checkbox"
@@ -416,17 +422,20 @@ export default function InnerCircleBookingsPage() {
                             <input
                               type="checkbox"
                               checked={Boolean(member.active)}
+                              disabled={!ready && !member.active}
                               onChange={(e) => setHubFlags(member, { active: e.target.checked })}
                             /> Hub Active
                           </label>
+                          {!member?.hasPassword ? <small className="muted">Password not set yet.</small> : null}
                           <button
                             type="button"
                             className="ghost"
                             disabled={savingHubId === member.id}
                             onClick={() => setHubPassword(member.id)}
                           >
-                            Set Password
+                            {member?.hasPassword ? 'Reset Password' : 'Set Password'}
                           </button>
+                          {!ready ? <small className="muted">Activation requires contract + payment + password.</small> : null}
                         </div>
                       );
                     })()}

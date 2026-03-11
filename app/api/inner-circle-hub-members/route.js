@@ -7,9 +7,26 @@ function clean(v = '') { return String(v || '').trim(); }
 function nowIso() { return new Date().toISOString(); }
 function hashPassword(v = '') { return createHash('sha256').update(clean(v)).digest('hex'); }
 
+function safeMember(row = {}) {
+  return {
+    id: clean(row?.id),
+    bookingId: clean(row?.bookingId),
+    applicantName: clean(row?.applicantName),
+    email: clean(row?.email),
+    active: Boolean(row?.active),
+    hasPassword: Boolean(clean(row?.passwordHash)),
+    contractSignedAt: clean(row?.contractSignedAt),
+    paymentReceivedAt: clean(row?.paymentReceivedAt),
+    onboardingUnlockedAt: clean(row?.onboardingUnlockedAt),
+    createdAt: clean(row?.createdAt),
+    updatedAt: clean(row?.updatedAt)
+  };
+}
+
 export async function GET() {
   const rows = await loadJsonStore(STORE_PATH, []);
-  return Response.json({ ok: true, rows: Array.isArray(rows) ? rows : [] });
+  const safeRows = Array.isArray(rows) ? rows.map((r) => safeMember(r)) : [];
+  return Response.json({ ok: true, rows: safeRows });
 }
 
 export async function POST(req) {
@@ -32,6 +49,7 @@ export async function POST(req) {
           applicantName: 'Kimora Link',
           email: ownerEmail,
           active: true,
+          hasPassword: true,
           contractSignedAt: nowIso(),
           paymentReceivedAt: nowIso(),
           onboardingUnlockedAt: nowIso()
@@ -40,18 +58,14 @@ export async function POST(req) {
     }
 
     const found = rows.find((r) => clean(r?.email).toLowerCase() === email);
-    if (!found || !found?.active) return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
+    if (!found) return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
+    if (!found?.active) return Response.json({ ok: false, error: 'onboarding_locked' }, { status: 403 });
     if (clean(found?.passwordHash) !== hashPassword(password)) return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
+
     return Response.json({
       ok: true,
       member: {
-        id: found.id,
-        applicantName: found.applicantName,
-        email: found.email,
-        active: Boolean(found.active),
-        contractSignedAt: found.contractSignedAt || '',
-        paymentReceivedAt: found.paymentReceivedAt || '',
-        onboardingUnlockedAt: found.onboardingUnlockedAt || ''
+        ...safeMember(found)
       }
     });
   }
@@ -74,7 +88,7 @@ export async function POST(req) {
     if (idx >= 0) rows[idx] = next;
     else rows.unshift(next);
     await saveJsonStore(STORE_PATH, rows);
-    return Response.json({ ok: true, row: next });
+    return Response.json({ ok: true, row: safeMember(next) });
   }
 
   if (action === 'set_password') {
@@ -85,7 +99,7 @@ export async function POST(req) {
     if (idx < 0) return Response.json({ ok: false, error: 'member_not_found' }, { status: 404 });
     rows[idx] = { ...rows[idx], passwordHash: hashPassword(password), updatedAt: nowIso() };
     await saveJsonStore(STORE_PATH, rows);
-    return Response.json({ ok: true, row: rows[idx] });
+    return Response.json({ ok: true, row: safeMember(rows[idx]) });
   }
 
   if (action === 'set_flags') {
@@ -97,7 +111,9 @@ export async function POST(req) {
     const current = rows[idx] || {};
     const contractSigned = Boolean(body?.contractSigned);
     const paymentReceived = Boolean(body?.paymentReceived);
-    const active = Boolean(body?.active);
+    const wantsActive = Boolean(body?.active);
+    const readyToUnlock = contractSigned && paymentReceived && Boolean(clean(current?.passwordHash));
+    const active = wantsActive && readyToUnlock;
 
     const next = {
       ...current,
@@ -110,7 +126,13 @@ export async function POST(req) {
 
     rows[idx] = next;
     await saveJsonStore(STORE_PATH, rows);
-    return Response.json({ ok: true, row: next });
+
+    return Response.json({
+      ok: true,
+      row: safeMember(next),
+      readyToUnlock,
+      warning: wantsActive && !readyToUnlock ? 'requires_contract_payment_and_password' : ''
+    });
   }
 
   return Response.json({ ok: false, error: 'unsupported_action' }, { status: 400 });
