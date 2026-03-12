@@ -527,7 +527,7 @@ export default function InnerCircleHubPage() {
                           )}
                           <div style={{ color: '#e2e8f0', fontSize: 14, flex: 1 }}>{row?.name || 'Unknown'}</div>
                           {row?.showFngButton ? (
-                            <a href={fngHref} className="ghost" style={{ textDecoration: 'none', marginLeft: 'auto', fontSize: 12 }}>Mark FNG Submitted</a>
+                            <a href={fngHref} className="ghost" style={{ textDecoration: 'none', marginLeft: 'auto', fontSize: 12 }}>Submit App</a>
                           ) : null}
                         </div>
                       );
