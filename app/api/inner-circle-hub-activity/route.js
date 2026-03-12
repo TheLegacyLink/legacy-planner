@@ -110,6 +110,61 @@ function dedupePeopleRows(rows = []) {
   return out;
 }
 
+function stagePriority(row = {}) {
+  const type = clean(row?.type);
+  if (type === 'completed') return 5;
+  if (type === 'fng') return 4;
+  if (type === 'decision') return 3;
+  if (type === 'booked') return 2;
+  if (type === 'submitted') return 1;
+  return 0;
+}
+
+function collapseToLatestStage(rows = []) {
+  const sorted = [...(rows || [])].sort((a, b) => asTs(b?.at) - asTs(a?.at));
+  const keyToIdx = new Map();
+  const out = [];
+
+  for (const row of sorted) {
+    const keys = personKeys(row);
+    const existingIdx = keys.map((k) => keyToIdx.get(k)).find((v) => Number.isInteger(v));
+
+    if (!Number.isInteger(existingIdx)) {
+      const idx = out.push({ ...row }) - 1;
+      for (const k of keys) keyToIdx.set(k, idx);
+      continue;
+    }
+
+    const existing = out[existingIdx] || {};
+    const keepIncoming = stagePriority(row) > stagePriority(existing)
+      || (stagePriority(row) === stagePriority(existing) && asTs(row?.at) > asTs(existing?.at));
+
+    const merged = keepIncoming
+      ? {
+        ...existing,
+        ...row,
+        name: clean(row?.name || existing?.name),
+        email: clean(row?.email || existing?.email),
+        phone: clean(row?.phone || existing?.phone),
+        detail: clean(row?.detail || existing?.detail),
+        at: clean(row?.at || existing?.at)
+      }
+      : {
+        ...existing,
+        name: clean(existing?.name || row?.name),
+        email: clean(existing?.email || row?.email),
+        phone: clean(existing?.phone || row?.phone),
+        detail: clean(existing?.detail || row?.detail),
+        at: clean(existing?.at || row?.at)
+      };
+
+    out[existingIdx] = merged;
+    for (const k of [...personKeys(existing), ...keys]) keyToIdx.set(k, existingIdx);
+  }
+
+  return out.sort((a, b) => asTs(b?.at) - asTs(a?.at));
+}
+
 function inPeriod(ts = 0, period = 'daily') {
   if (!ts) return false;
   const d = new Date(ts);
@@ -260,8 +315,9 @@ export async function GET(req) {
       at: clean(r?.approvedAt || r?.approved_at || r?.updatedAt || r?.submittedAt || r?.createdAt || '')
     })));
 
-  const rows = [...booked, ...decisions, ...fng, ...completed]
-    .sort((a, b) => asTs(b.at) - asTs(a.at))
+  const stageRows = collapseToLatestStage([...booked, ...decisions, ...fng, ...completed]);
+
+  const rows = stageRows
     .map((r) => ({
       ...r,
       showFngButton: r.type === 'booked' || (r.type === 'decision' && r.decision === 'approved')
@@ -269,11 +325,11 @@ export async function GET(req) {
 
   const summary = {
     submitted: submitted.length,
-    approved: decisions.filter((r) => r.decision === 'approved').length,
-    declined: decisions.filter((r) => r.decision === 'declined').length,
-    booked: booked.length,
-    fng: fng.length,
-    completed: completed.length
+    approved: rows.filter((r) => r.type === 'decision' && r.decision === 'approved').length,
+    declined: rows.filter((r) => r.type === 'decision' && r.decision === 'declined').length,
+    booked: rows.filter((r) => r.type === 'booked').length,
+    fng: rows.filter((r) => r.type === 'fng').length,
+    completed: rows.filter((r) => r.type === 'completed').length
   };
 
   const stats = {
