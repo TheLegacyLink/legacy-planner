@@ -2,6 +2,8 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import nodemailer from 'nodemailer';
+import fs from 'node:fs';
+import path from 'node:path';
 import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 import users from '../../../data/innerCircleUsers.json';
 
@@ -14,6 +16,8 @@ const SPONSORSHIP_BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
 
 const DEFAULT_SKOOL_URL = 'https://www.skool.com/legacylink/about';
 const DEFAULT_YOUTUBE_URL = 'https://youtu.be/SVvU9SvCH9o?si=H9BNtEDzglTuvJaI';
+const DEFAULT_LICENSED_CONTRACTING_URL = 'https://accounts.surancebay.com/oauth/authorize?redirect_uri=https%3A%2F%2Fsurelc.surancebay.com%2Fproducer%2Foauth%3FreturnUrl%3D%252Fprofile%252Fcontact-info%253FgaId%253D168%2526gaId%253D168%2526branch%253DInvestaLink%2526branchVisible%253Dtrue%2526branchEditable%253Dfalse%2526branchRequired%253Dtrue%2526autoAdd%253Dfalse%2526requestMethod%253DGET&gaId=168&client_id=surecrmweb&response_type=code';
+const DEFAULT_ONBOARDING_PLAYBOOK_RELATIVE_PATH = 'public/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v2.pdf';
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -512,46 +516,111 @@ async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licen
 
   const skoolUrl = clean(process.env.SPONSORSHIP_SKOOL_URL || DEFAULT_SKOOL_URL);
   const youtubeUrl = clean(process.env.SPONSORSHIP_YOUTUBE_URL || DEFAULT_YOUTUBE_URL);
+  const contractingUrl = clean(process.env.SPONSORSHIP_LICENSED_CONTRACTING_URL || DEFAULT_LICENSED_CONTRACTING_URL);
 
-  const intro = licensed
-    ? 'You are on the licensed track. Complete each SOP step and submit approvals where required.'
-    : 'You are currently on the unlicensed track. Complete SOP steps and licensing to unlock lead access.';
+  const subject = licensed
+    ? 'Legacy Link Next Steps (Licensed): SOP + Contracting Access'
+    : 'Legacy Link Next Steps (Unlicensed): SOP + Licensing Track';
 
-  const subject = 'Your Legacy Link Sponsorship SOP Portal';
   const loginBlockText = hasExistingLogin
     ? ['SOP Login Name: ' + (loginName || to), 'SOP Password: (use your existing password)']
     : ['SOP Login Name: ' + (loginName || to), 'SOP Password: ' + (loginPassword || '')];
+
+  const intro = licensed
+    ? 'You are approved on the licensed track. Complete your SOP items and complete your contracting setup now.'
+    : 'You are approved on the unlicensed track. Complete the SOP and licensing steps to unlock lead access.';
 
   const text = [
     `Hi ${firstName || 'Agent'},`,
     '',
     intro,
-    `Your personal SOP link: ${sopLink}`,
+    '',
+    `1) SOP Portal: ${sopLink}`,
+    ...(licensed ? [`2) Contracting (Licensed Required): ${contractingUrl}`] : []),
     '',
     ...loginBlockText,
     '',
     `Skool Community: ${skoolUrl}`,
     `YouTube (Whatever It Takes): ${youtubeUrl}`,
     '',
+    'Your onboarding PDF is attached for quick reference.',
+    '',
     '— The Legacy Link Team'
   ].join('\n');
 
   const html = brandEmailFrame(
-    'Your Sponsorship SOP Portal',
+    licensed ? 'Licensed Next Steps — Execute Today' : 'Unlicensed Next Steps — Start Strong',
     `<p>Hi <strong>${firstName || 'Agent'}</strong>,</p>
      <p>${intro}</p>
-     <p><strong>Your personal SOP link:</strong><br/><a href="${sopLink}">${sopLink}</a></p>
+     <p><strong>Step 1 — SOP Portal:</strong><br/><a href="${sopLink}">${sopLink}</a></p>
+     ${licensed ? `<p><strong>Step 2 — Contracting (Licensed Required):</strong><br/><a href="${contractingUrl}">${contractingUrl}</a></p>` : ''}
      <p><strong>SOP Login Name:</strong> ${loginName || to}<br/>
      <strong>SOP Password:</strong> ${hasExistingLogin ? 'Use your existing password' : (loginPassword || '')}</p>
      <ul style="padding-left:18px; margin:10px 0;">
        <li><strong>Skool Community:</strong> <a href="${skoolUrl}">${skoolUrl}</a></li>
        <li><strong>YouTube (Whatever It Takes):</strong> <a href="${youtubeUrl}">${youtubeUrl}</a></li>
-     </ul>`
+     </ul>
+     <p>Your onboarding PDF is attached so you can follow the full process step by step.</p>`
+  );
+
+  const defaultPdfPath = path.join(process.cwd(), DEFAULT_ONBOARDING_PLAYBOOK_RELATIVE_PATH);
+  const configuredPdfPath = clean(process.env.SPONSORSHIP_ONBOARDING_PDF_PATH || '');
+  const pdfPath = configuredPdfPath || defaultPdfPath;
+  const attachments = fs.existsSync(pdfPath)
+    ? [{ filename: 'Legacy-Link-Onboarding-Playbook.pdf', path: pdfPath, contentType: 'application/pdf' }]
+    : [];
+
+  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+  const info = await tx.sendMail({ from, to, subject, text, html, attachments });
+  return { ok: true, messageId: info?.messageId || '', attachmentIncluded: attachments.length > 0 };
+}
+
+async function sendUnlicensedStartClassEmail(row = {}) {
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  if (!user || !pass) return { ok: false, error: 'missing_gmail_env' };
+
+  const jamalEmail = clean(process.env.SPONSORSHIP_UNLICENSED_COACH_EMAIL || findUserEmailByName('Jamal Holmes'));
+  if (!jamalEmail) return { ok: false, error: 'missing_jamal_email' };
+
+  const applicant = clean(row?.applicantName || 'Unknown Applicant');
+  const email = clean(row?.applicantEmail || '');
+  const phone = clean(row?.applicantPhone || '');
+  const referrer = clean(row?.referredByName || '');
+
+  const subject = `Unlicensed FNG Submission — Start Online Classes: ${applicant}`;
+  const text = [
+    'Hi Jamal,',
+    '',
+    'New unlicensed FNG applicant is ready for onboarding and online class setup.',
+    '',
+    `Applicant: ${applicant}`,
+    `Email: ${email || '—'}`,
+    `Phone: ${phone || '—'}`,
+    `Referred By: ${referrer || '—'}`,
+    '',
+    'Please start them on the online classes flow.',
+    '',
+    '— The Legacy Link System'
+  ].join('\n');
+
+  const html = brandEmailFrame(
+    'Unlicensed Applicant Ready — Online Classes Start',
+    `<p>Hi Jamal,</p>
+     <p>New unlicensed FNG applicant is ready for onboarding and online class setup.</p>
+     <ul style="padding-left:18px; margin:10px 0;">
+       <li><strong>Applicant:</strong> ${applicant}</li>
+       <li><strong>Email:</strong> ${email || '—'}</li>
+       <li><strong>Phone:</strong> ${phone || '—'}</li>
+       <li><strong>Referred By:</strong> ${referrer || '—'}</li>
+     </ul>
+     <p>Please start them on the online classes flow.</p>`
   );
 
   const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
-  const info = await tx.sendMail({ from, to, subject, text, html });
-  return { ok: true, messageId: info?.messageId || '' };
+  const info = await tx.sendMail({ from, to: jamalEmail, subject, text, html });
+  return { ok: true, messageId: clean(info?.messageId || ''), to: jamalEmail };
 }
 
 async function ensureSopProvisionFromActSubmit(row = {}) {
@@ -582,15 +651,21 @@ async function ensureSopProvisionFromActSubmit(row = {}) {
   const appUrl = clean(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
   const sopLink = `${appUrl}/sponsorship-sop?invite=${encodeURIComponent(invite.token)}`;
 
+  const isLicensed = isLicensedValue(row?.applicantLicensedStatus);
+
   const inviteEmail = await sendSopInviteEmail({
     to: email,
     firstName: clean(name.split(' ')[0]),
     sopLink,
-    licensed: isLicensedValue(row?.applicantLicensedStatus),
+    licensed: isLicensed,
     loginName: authProvision.user?.name || member.name,
     loginPassword: authProvision.plainPassword,
     hasExistingLogin: !authProvision.created
   }).catch((e) => ({ ok: false, error: clean(e?.message || 'send_failed') }));
+
+  const unlicensedCoachEmail = !isLicensed
+    ? await sendUnlicensedStartClassEmail(row).catch((e) => ({ ok: false, error: clean(e?.message || 'coach_notify_failed') }))
+    : { ok: true, skipped: true, reason: 'licensed_track' };
 
   await Promise.all([
     saveJsonFile(MEMBERS_PATH, members),
@@ -598,7 +673,7 @@ async function ensureSopProvisionFromActSubmit(row = {}) {
     saveJsonFile(AUTH_USERS_PATH, authUsers)
   ]);
 
-  return { ok: true, sopLink, inviteToken: invite.token, inviteEmail, credentialsCreated: authProvision.created };
+  return { ok: true, sopLink, inviteToken: invite.token, inviteEmail, unlicensedCoachEmail, credentialsCreated: authProvision.created };
 }
 
 export async function GET() {
