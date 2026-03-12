@@ -297,7 +297,7 @@ export async function GET(req) {
       name: clean(r?.applicantName || r?.name || r?.fullName || r?.insuredName || 'Unknown'),
       email: clean(r?.applicantEmail || r?.email || ''),
       phone: clean(r?.applicantPhone || r?.phone || ''),
-      detail: 'FNG Submitted',
+      detail: 'F&G Completed',
       at: clean(r?.submittedAt || r?.createdAt || r?.created_at || '')
     })));
 
@@ -311,7 +311,7 @@ export async function GET(req) {
       name: clean(r?.applicantName || r?.name || r?.fullName || r?.insuredName || 'Unknown'),
       email: clean(r?.applicantEmail || r?.email || ''),
       phone: clean(r?.applicantPhone || r?.phone || ''),
-      detail: 'Completed (Approved)',
+      detail: 'Application Completed',
       at: clean(r?.approvedAt || r?.approved_at || r?.updatedAt || r?.submittedAt || r?.createdAt || '')
     })));
 
