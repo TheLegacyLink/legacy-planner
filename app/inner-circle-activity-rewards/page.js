@@ -8,7 +8,7 @@ const REWARDS = {
   sponsorshipApp: 1,
   bookedAppointment: 5,
   cleanInsuranceApp: 10,
-  paidPlacedCase: 500
+  approvedPolicy: 500
 };
 
 const PAYOUT_LABELS = ['Pending Review', 'Approved', 'Paid', 'Reversed', 'Ineligible'];
@@ -151,17 +151,11 @@ function qualifiesCleanInsuranceApp(row = {}) {
   return Boolean(clean(row?.applicantName || row?.name) && (clean(row?.state) || clean(row?.policyNumber)));
 }
 
-function qualifiesPaidPlaced(row = {}) {
-  const status = normalize(row?.status || '');
-  const payout = normalize(row?.payoutStatus || '');
-  const hasPremium = Number(row?.monthlyPremium || row?.premium || 0) > 0;
-
-  if (normalize(row?.complianceStatus || '').includes('issue')) return false;
-  if (normalize(row?.agentStatus || '').includes('inactive') || normalize(row?.agentStatus || '').includes('suspend')) return false;
-
-  const approved = status.includes('approved');
-  const paidPlaced = payout.includes('paid') || status.includes('paid') || status.includes('placed');
-  return Boolean(approved && paidPlaced && hasPremium);
+function qualifiesApprovedPolicy(row = {}) {
+  const status = normalize(row?.status || "");
+  if (normalize(row?.complianceStatus || "").includes("issue")) return false;
+  if (normalize(row?.agentStatus || "").includes("inactive") || normalize(row?.agentStatus || "").includes("suspend")) return false;
+  return status.includes("approved");
 }
 
 function buildStreak(activityDates = []) {
@@ -268,21 +262,21 @@ export default function InnerCircleActivityRewardsPage() {
     const cleanPolicies = uniqueBy(cleanPoliciesRaw, (r) => `${r.agent}|${r.person || clean(r?.id)}`);
     const monthCleanPolicies = cleanPolicies.filter((r) => isThisMonth(r.ts));
 
-    const paidPlacedCasesRaw = cleanPolicies.filter(qualifiesPaidPlaced);
-    const paidPlacedCases = uniqueBy(paidPlacedCasesRaw, (r) => `${r.agent}|${r.person || clean(r?.id)}`);
-    const monthPaidPlacedCases = paidPlacedCases.filter((r) => isThisMonth(r.ts));
+    const approvedPoliciesRaw = cleanPolicies.filter(qualifiesApprovedPolicy);
+    const approvedPolicies = uniqueBy(approvedPoliciesRaw, (r) => `${r.agent}|${r.person || clean(r?.id)}`);
+    const monthApprovedPolicies = approvedPolicies.filter((r) => isThisMonth(r.ts));
 
     const periodCounts = (filterFn) => {
       const appCount = validApps.filter((r) => filterFn(r.ts)).length;
       const bookingCount = validBookings.filter((r) => filterFn(r.ts)).length;
       const cleanCount = cleanPolicies.filter((r) => filterFn(r.ts)).length;
-      const caseCount = paidPlacedCases.filter((r) => filterFn(r.ts)).length;
+      const approvedCount = approvedPolicies.filter((r) => filterFn(r.ts)).length;
       const earned =
         appCount * REWARDS.sponsorshipApp +
         bookingCount * REWARDS.bookedAppointment +
         cleanCount * REWARDS.cleanInsuranceApp +
-        caseCount * REWARDS.paidPlacedCase;
-      return { appCount, bookingCount, cleanCount, caseCount, earned };
+        approvedCount * REWARDS.approvedPolicy;
+      return { appCount, bookingCount, cleanCount, approvedCount, earned };
     };
 
     const today = periodCounts(isToday);
@@ -293,7 +287,7 @@ export default function InnerCircleActivityRewardsPage() {
       apps: 0,
       bookings: 0,
       cleanApps: 0,
-      paidPlaced: 0,
+      approvedPolicies: 0,
       earnings: 0,
       activityDates: []
     }]));
@@ -313,9 +307,9 @@ export default function InnerCircleActivityRewardsPage() {
       baseByAgent[r.agent].cleanApps += 1;
       if (r.ts) baseByAgent[r.agent].activityDates.push(r.ts);
     }
-    for (const r of monthPaidPlacedCases) {
+    for (const r of monthApprovedPolicies) {
       if (!baseByAgent[r.agent]) continue;
-      baseByAgent[r.agent].paidPlaced += 1;
+      baseByAgent[r.agent].approvedPolicies += 1;
       if (r.ts) baseByAgent[r.agent].activityDates.push(r.ts);
     }
 
@@ -324,14 +318,14 @@ export default function InnerCircleActivityRewardsPage() {
         v.apps * REWARDS.sponsorshipApp +
         v.bookings * REWARDS.bookedAppointment +
         v.cleanApps * REWARDS.cleanInsuranceApp +
-        v.paidPlaced * REWARDS.paidPlacedCase;
+        v.approvedPolicies * REWARDS.approvedPolicy;
       const streak = buildStreak(v.activityDates);
 
       const badges = {
         firstApp: v.apps >= 1,
         firstBooking: v.bookings >= 1,
         firstInsuranceApp: v.cleanApps >= 1,
-        firstApproval: v.paidPlaced >= 1,
+        firstApproval: v.approvedPolicies >= 1,
         first500: earnings >= 500,
         momentumBuilder: streak >= 3,
         consistencyLeader: streak >= 7,
@@ -346,7 +340,7 @@ export default function InnerCircleActivityRewardsPage() {
     const topBookings = Math.max(0, ...agents.map((a) => a.bookings));
     const topEarnings = Math.max(0, ...agents.map((a) => a.earnings));
 
-    const rankedByEarnings = [...agents].sort((a, b) => b.earnings - a.earnings || b.paidPlaced - a.paidPlaced || b.cleanApps - a.cleanApps);
+    const rankedByEarnings = [...agents].sort((a, b) => b.earnings - a.earnings || b.approvedPolicies - a.approvedPolicies || b.cleanApps - a.cleanApps);
 
     rankedByEarnings.forEach((a, idx) => {
       a.rank = idx + 1;
@@ -372,15 +366,15 @@ export default function InnerCircleActivityRewardsPage() {
       topSponsorshipSubmitter: [...agents].sort((a, b) => b.apps - a.apps)[0]?.agent || '—',
       topBooker: [...agents].sort((a, b) => b.bookings - a.bookings)[0]?.agent || '—',
       topCleanInsuranceSubmitter: [...agents].sort((a, b) => b.cleanApps - a.cleanApps)[0]?.agent || '—',
-      topProducer: [...agents].sort((a, b) => b.paidPlaced - a.paidPlaced)[0]?.agent || '—',
+      topProducer: [...agents].sort((a, b) => b.approvedPolicies - a.approvedPolicies)[0]?.agent || '—',
       biggestMover: [...agents].sort((a, b) => b.streak - a.streak)[0]?.agent || '—'
     };
 
     const monthlyWinners = {
-      topActivityLeader: [...agents].sort((a, b) => (b.apps + b.bookings + b.cleanApps + b.paidPlaced) - (a.apps + a.bookings + a.cleanApps + a.paidPlaced))[0]?.agent || '—',
+      topActivityLeader: [...agents].sort((a, b) => (b.apps + b.bookings + b.cleanApps + b.approvedPolicies) - (a.apps + a.bookings + a.cleanApps + a.approvedPolicies))[0]?.agent || '—',
       topBookingLeader: [...agents].sort((a, b) => b.bookings - a.bookings)[0]?.agent || '—',
       topAppLeader: [...agents].sort((a, b) => b.cleanApps - a.cleanApps)[0]?.agent || '—',
-      topProducer: [...agents].sort((a, b) => b.paidPlaced - a.paidPlaced)[0]?.agent || '—',
+      topProducer: [...agents].sort((a, b) => b.approvedPolicies - a.approvedPolicies)[0]?.agent || '—',
       highestEarnings: [...agents].sort((a, b) => b.earnings - a.earnings)[0]?.agent || '—'
     };
 
@@ -406,7 +400,7 @@ export default function InnerCircleActivityRewardsPage() {
       mostSponsorshipApps: [...agents].sort((a, b) => b.apps - a.apps),
       mostBookedAppointments: [...agents].sort((a, b) => b.bookings - a.bookings),
       mostCleanInsuranceApps: [...agents].sort((a, b) => b.cleanApps - a.cleanApps),
-      mostPaidPlacedCases: [...agents].sort((a, b) => b.paidPlaced - a.paidPlaced),
+      mostApprovedPolicies: [...agents].sort((a, b) => b.approvedPolicies - a.approvedPolicies),
       highestTotalEarnings: [...agents].sort((a, b) => b.earnings - a.earnings),
       highestActivityStreak: [...agents].sort((a, b) => b.streak - a.streak)
     };
@@ -443,7 +437,7 @@ export default function InnerCircleActivityRewardsPage() {
         <p style={{ margin: 0 }}>• $1 per complete sponsorship app</p>
         <p style={{ margin: 0 }}>• $5 per booked sponsorship appointment</p>
         <p style={{ margin: 0 }}>• $10 per clean insurance app submitted in good order</p>
-        <p style={{ margin: 0 }}>• $500 per approved, paid-and-placed case</p>
+        <p style={{ margin: 0 }}>• $500 per approved, approved policy</p>
       </div>
 
       {loading ? <div className="panel"><p>Loading rewards dashboard…</p></div> : null}
@@ -460,7 +454,7 @@ export default function InnerCircleActivityRewardsPage() {
             <p className="muted">Sponsorship apps: {block.v.appCount}</p>
             <p className="muted">Bookings: {block.v.bookingCount}</p>
             <p className="muted">Policies submitted (Closes): {block.v.cleanCount}</p>
-            <p className="muted">Approved paid-and-placed cases: {block.v.caseCount}</p>
+            <p className="muted">Approved policies: {block.v.approvedCount}</p>
             <p style={{ marginBottom: 0 }}><strong>Total earned: {money(block.v.earned)}</strong></p>
           </div>
         ))}
@@ -473,7 +467,7 @@ export default function InnerCircleActivityRewardsPage() {
             ['Most Sponsorship Apps', leaderboard.mostSponsorshipApps, 'apps'],
             ['Most Booked Appointments', leaderboard.mostBookedAppointments, 'bookings'],
             ['Most Clean Insurance Apps (Closes)', leaderboard.mostCleanInsuranceApps, 'cleanApps'],
-            ['Most Approved Paid-and-Placed Cases', leaderboard.mostPaidPlacedCases, 'paidPlaced'],
+            ['Most Approved Policies', leaderboard.mostApprovedPolicies, 'approvedPolicies'],
             ['Highest Total Earnings', leaderboard.highestTotalEarnings, 'earnings'],
             ['Highest Activity Streak', leaderboard.highestActivityStreak, 'streak']
           ].map(([title, rows, key]) => (
@@ -537,7 +531,7 @@ export default function InnerCircleActivityRewardsPage() {
                   <td>{a.apps}</td>
                   <td>{a.bookings}</td>
                   <td>{a.cleanApps}</td>
-                  <td>{a.paidPlaced}</td>
+                  <td>{a.approvedPolicies}</td>
                   <td>{money(a.earnings)}</td>
                   <td>{a.streak} day(s)</td>
                   <td>#{a.rank}</td>
@@ -562,11 +556,11 @@ export default function InnerCircleActivityRewardsPage() {
       <div className="panel" style={{ borderColor: '#334155' }}>
         <h3 style={{ marginTop: 0 }}>Rules & Qualification</h3>
         <p className="muted">Active and In Good Standing is required. No duplicate submissions. No fake submissions. No self-generated fake traffic. No payout on incomplete or invalid activity. All activity must be legitimate and verifiable. Payout decisions are subject to internal review and may be reversed or offset if paid in error.</p>
-        <p className="muted" style={{ marginBottom: 0 }}>How To Win: Submit valid sponsorship apps, get real appointments booked, turn activity into policies submitted (closes), and focus on approved paid-and-placed business.</p>
+        <p className="muted" style={{ marginBottom: 0 }}>How To Win: Submit valid sponsorship apps, get real appointments booked, turn activity into policies submitted (closes), and focus on approved policies.</p>
       </div>
 
       <div className="panel" style={{ borderColor: '#1f2937', background: '#0b1220' }}>
-        <small className="muted">Footer Note: All rewards are subject to verification, compliance review, and active member status. Invalid, duplicate, incomplete, fake, canceled, or non-qualifying activity does not count. Approved, paid-and-placed business is required for the $500 producer reward.</small>
+        <small className="muted">Footer Note: All rewards are subject to verification, compliance review, and active member status. Invalid, duplicate, incomplete, fake, canceled, or non-qualifying activity does not count. Approved, approved business is required for the $500 producer reward.</small>
         <small className="muted" style={{ display: 'block', marginTop: 6 }}>Payout Status Labels: {PAYOUT_LABELS.join(' • ')}</small>
       </div>
     </AppShell>
