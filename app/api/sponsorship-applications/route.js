@@ -144,6 +144,62 @@ function upsertAuthUser(authUsers = [], member = {}) {
   return { user, plainPassword: password, created: true, reset: false };
 }
 
+function buildProgramOnboardingHtml({
+  firstName = 'Agent',
+  licensed = false,
+  intro = '',
+  sopLink = '',
+  contractingUrl = '',
+  skoolUrl = '',
+  youtubeUrl = '',
+  loginName = '',
+  loginPassword = '',
+  playbookUrl = ''
+} = {}) {
+  const title = licensed ? 'Licensed Approval — Execute Your Next Steps' : 'Unlicensed Approval — Start Your Licensing Path';
+  const contractingStep = licensed
+    ? `<li style="margin-bottom:10px;"><strong>Contracting (Licensed Required):</strong><br/><a href="${contractingUrl}" style="color:#F58426;text-decoration:none;font-weight:700;">${contractingUrl}</a></li>`
+    : '';
+
+  return `
+  <div style="font-family:Inter,Arial,sans-serif;background:#0B1020;padding:20px;color:#E2E8F0;">
+    <div style="max-width:640px;margin:0 auto;border:1px solid #1f2a44;border-radius:14px;overflow:hidden;background:#121A33;">
+      <div style="padding:18px 20px;background:#0047AB;text-align:center;">
+        <div style="color:#fff;font-weight:800;font-size:32px;letter-spacing:.8px;line-height:1;">THE LEGACY LINK</div>
+      </div>
+      <div style="padding:20px;">
+        <h2 style="margin:0 0 14px;font-size:22px;color:#fff;">${title}</h2>
+        <p style="margin:0 0 14px;">Hi ${firstName || 'Agent'},</p>
+        <p style="margin:0 0 14px;">${intro}</p>
+
+        <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
+          <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Execute these steps in order</div>
+          <ol style="margin:0 0 0 18px;padding:0;">
+            <li style="margin-bottom:10px;"><strong>SOP Portal:</strong><br/><a href="${sopLink}" style="color:#F58426;text-decoration:none;font-weight:700;">${sopLink}</a></li>
+            ${contractingStep}
+            <li style="margin-bottom:10px;"><strong>Skool Community:</strong><br/><a href="${skoolUrl}" style="color:#F58426;text-decoration:none;font-weight:700;">${skoolUrl}</a></li>
+            <li><strong>YouTube (Whatever It Takes):</strong><br/><a href="${youtubeUrl}" style="color:#F58426;text-decoration:none;font-weight:700;">${youtubeUrl}</a></li>
+          </ol>
+        </div>
+
+        <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
+          <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Your Login Credentials</div>
+          <p style="margin:0 0 6px;"><strong>Login Email:</strong> ${loginName}</p>
+          <p style="margin:0;"><strong>Password:</strong> <span style="display:inline-block;background:#F58426;color:#0B1020;padding:4px 10px;border-radius:8px;font-weight:800;">${loginPassword}</span></p>
+        </div>
+
+        <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
+          <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Onboarding Playbook (PDF)</div>
+          <p style="margin:0 0 10px;">Your track-specific onboarding playbook is attached to this email.</p>
+          <a href="${playbookUrl}" style="display:inline-block;background:#F58426;color:#0B1020;padding:10px 14px;border-radius:8px;font-weight:800;text-decoration:none;">Open Playbook Link</a>
+        </div>
+
+        <p style="margin:14px 0 0;"><strong>Let’s execute.</strong><br/>The Legacy Link Team</p>
+      </div>
+    </div>
+  </div>`;
+}
+
 async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licensed = false, loginName = '', loginPassword = '' } = {}) {
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
@@ -183,23 +239,24 @@ async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licen
     '— The Legacy Link Team'
   ].join('\n');
 
-  const html = `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;">
-    <h2>${licensed ? 'Licensed Approval — Execute Your Next Steps' : 'Unlicensed Approval — Start Your Licensing Path'}</h2>
-    <p>Hi <strong>${firstName || 'Agent'}</strong>,</p>
-    <p>${intro}</p>
-    <p><strong>Execute these steps in order:</strong></p>
-    <ol style="padding-left:18px; margin:10px 0;">
-      <li><strong>SOP Portal:</strong> <a href="${sopLink}">${sopLink}</a></li>
-      ${licensed ? `<li><strong>Contracting (Licensed Required):</strong> <a href="${contractingUrl}">${contractingUrl}</a></li>` : ''}
-      <li><strong>Skool Community:</strong> <a href="${skoolUrl}">${skoolUrl}</a></li>
-      <li><strong>YouTube (Whatever It Takes):</strong> <a href="${youtubeUrl}">${youtubeUrl}</a></li>
-    </ol>
-    <p><strong>SOP Login Name:</strong> ${loginName || to}<br/>
-    <strong>SOP Password:</strong> ${loginPassword || ''}</p>
-    <p>Your onboarding PDF is attached for full process guidance.</p>
-    <p><strong>Let’s execute.</strong></p>
-    <p>— The Legacy Link Team</p>
-  </div>`;
+  const appUrl = clean(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
+  const defaultPublicPlaybookPath = licensed
+    ? '/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf'
+    : '/docs/onboarding/legacy-link-unlicensed-onboarding-playbook.pdf';
+  const playbookUrl = clean(process.env.SPONSORSHIP_ONBOARDING_PLAYBOOK_PUBLIC_URL || `${appUrl}${defaultPublicPlaybookPath}`);
+
+  const html = buildProgramOnboardingHtml({
+    firstName,
+    licensed,
+    intro,
+    sopLink,
+    contractingUrl,
+    skoolUrl,
+    youtubeUrl,
+    loginName: loginName || to,
+    loginPassword: loginPassword || '',
+    playbookUrl
+  });
 
   const defaultPdfPath = licensed
     ? path.join(process.cwd(), DEFAULT_LICENSED_ONBOARDING_PLAYBOOK_RELATIVE_PATH)
