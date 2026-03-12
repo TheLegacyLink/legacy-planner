@@ -47,6 +47,26 @@ function uniquePeopleCount(rows = []) {
   return keys.size;
 }
 
+function uniquePeople(rows = []) {
+  const seen = new Set();
+  const out = [];
+  for (const r of rows || []) {
+    const k = personKey(r);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(r);
+  }
+  return out;
+}
+
+function recommendedPotential(row = {}) {
+  const explicit = Number(row?.payoutAmount || 0) || 0;
+  if (explicit > 0) return explicit;
+  const monthly = Number(row?.monthlyPremium || row?.premium || 0) || 0;
+  if (monthly <= 0) return 500;
+  return Math.min(monthly, 700);
+}
+
 function isOwnerMatch(row = {}, ownerName = '', ownerEmail = '') {
   const n = normalize(ownerName);
   const e = normalize(ownerEmail);
@@ -146,6 +166,19 @@ export async function GET(req) {
     phone: clean(r?.applicantPhone || r?.phone || '')
   }));
 
+  const approvedPolicyRows = uniquePeople((policyRows || []).filter((r) => {
+    const ts = r?.approvedAt || r?.approved_at || r?.updatedAt || r?.submittedAt || r?.submitted_at || '';
+    if (monthKeyFromIso(ts) !== currentMonth) return false;
+    if (!normalize(r?.status || '').startsWith('approved')) return false;
+    return rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode);
+  }).map((r) => ({
+    ...r,
+    name: clean(r?.applicantName || r?.name || r?.insuredName || ''),
+    email: clean(r?.applicantEmail || r?.email || ''),
+    phone: clean(r?.applicantPhone || r?.phone || '')
+  })));
+
+
   const bookedThisMonthRows = (bookingRows || []).filter((r) => {
     const ts = r?.created_at || r?.updated_at || '';
     if (monthKeyFromIso(ts) !== currentMonth) return false;
@@ -187,7 +220,7 @@ export async function GET(req) {
   const sponsorshipApprovedThisMonth = uniquePeopleCount(approvedThisMonthRows);
 
   const closeRate = leadsReceived > 0 ? (closesThisMonth / leadsReceived) * 100 : 0;
-  const grossEarned = sponsorshipApprovedThisMonth * 500;
+  const potentialEarned = Number(approvedPolicyRows.reduce((sum, r) => sum + recommendedPotential(r), 0).toFixed(2));
 
   return Response.json({
     ok: true,
@@ -200,7 +233,8 @@ export async function GET(req) {
       closesThisMonth,
       sponsorshipApprovedThisMonth,
       closeRate: Number(closeRate.toFixed(1)),
-      grossEarned
+      potentialEarned,
+      grossEarned: potentialEarned
     }
   });
 }

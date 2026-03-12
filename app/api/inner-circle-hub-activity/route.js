@@ -246,23 +246,19 @@ export async function GET(req) {
       at: clean(r?.submittedAt || r?.createdAt || r?.created_at || '')
     })));
 
-  const approvedKeys = new Set(decisions.filter((r) => r.decision === 'approved').map((r) => personPrimaryKey(r)));
-  const bookedKeys = new Set(booked.map((r) => personPrimaryKey(r)));
-
-  const completed = [];
-  for (const row of fng) {
-    const k = personPrimaryKey(row);
-    if (approvedKeys.has(k) && bookedKeys.has(k)) {
-      completed.push({
-        type: 'completed',
-        name: row.name,
-        email: row.email,
-        phone: row.phone,
-        detail: 'Completed ⭐⭐⭐',
-        at: row.at
-      });
-    }
-  }
+  const completed = dedupePeopleRows((policyRows || [])
+    .filter((r) => {
+      if (!normalize(r?.status || '').startsWith('approved')) return false;
+      return rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode);
+    })
+    .map((r) => ({
+      type: 'completed',
+      name: clean(r?.applicantName || r?.name || r?.fullName || r?.insuredName || 'Unknown'),
+      email: clean(r?.applicantEmail || r?.email || ''),
+      phone: clean(r?.applicantPhone || r?.phone || ''),
+      detail: 'Completed (Approved)',
+      at: clean(r?.approvedAt || r?.approved_at || r?.updatedAt || r?.submittedAt || r?.createdAt || '')
+    })));
 
   const rows = [...booked, ...decisions, ...fng, ...completed]
     .sort((a, b) => asTs(b.at) - asTs(a.at))
