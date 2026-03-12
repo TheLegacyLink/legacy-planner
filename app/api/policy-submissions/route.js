@@ -519,48 +519,61 @@ async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licen
   const contractingUrl = clean(process.env.SPONSORSHIP_LICENSED_CONTRACTING_URL || DEFAULT_LICENSED_CONTRACTING_URL);
 
   const subject = licensed
-    ? 'Legacy Link Next Steps (Licensed): SOP + Contracting Access'
-    : 'Legacy Link Next Steps (Unlicensed): SOP + Licensing Track';
+    ? 'Legacy Link Approval: Licensed SOP + Contracting (Start Today)'
+    : 'Legacy Link Approval: Unlicensed SOP + Licensing Path (Start Today)';
 
   const loginBlockText = hasExistingLogin
     ? ['SOP Login Name: ' + (loginName || to), 'SOP Password: (use your existing password)']
     : ['SOP Login Name: ' + (loginName || to), 'SOP Password: ' + (loginPassword || '')];
 
   const intro = licensed
-    ? 'You are approved on the licensed track. Complete your SOP items and complete your contracting setup now.'
-    : 'You are approved on the unlicensed track. Complete the SOP and licensing steps to unlock lead access.';
+    ? 'You are approved on the licensed track. Complete your SOP and contracting steps now so you can move into production quickly.'
+    : 'You are approved on the unlicensed track. Complete your SOP and licensing steps now to unlock lead access.';
+
+  const executionChecklist = licensed
+    ? [
+      `Step 1 — SOP Portal: ${sopLink}`,
+      `Step 2 — Contracting (Licensed Required): ${contractingUrl}`,
+      `Step 3 — Skool Community: ${skoolUrl}`,
+      `Step 4 — YouTube (Whatever It Takes): ${youtubeUrl}`
+    ]
+    : [
+      `Step 1 — SOP Portal: ${sopLink}`,
+      `Step 2 — Skool Community: ${skoolUrl}`,
+      `Step 3 — YouTube (Whatever It Takes): ${youtubeUrl}`
+    ];
 
   const text = [
     `Hi ${firstName || 'Agent'},`,
     '',
     intro,
     '',
-    `1) SOP Portal: ${sopLink}`,
-    ...(licensed ? [`2) Contracting (Licensed Required): ${contractingUrl}`] : []),
+    'Execute these steps in order:',
+    ...executionChecklist,
     '',
     ...loginBlockText,
     '',
-    `Skool Community: ${skoolUrl}`,
-    `YouTube (Whatever It Takes): ${youtubeUrl}`,
+    'Your onboarding PDF is attached for a full step-by-step reference.',
     '',
-    'Your onboarding PDF is attached for quick reference.',
-    '',
+    'Let’s execute.',
     '— The Legacy Link Team'
   ].join('\n');
 
   const html = brandEmailFrame(
-    licensed ? 'Licensed Next Steps — Execute Today' : 'Unlicensed Next Steps — Start Strong',
+    licensed ? 'Licensed Approval — Execute Your Next Steps' : 'Unlicensed Approval — Start Your Licensing Path',
     `<p>Hi <strong>${firstName || 'Agent'}</strong>,</p>
      <p>${intro}</p>
-     <p><strong>Step 1 — SOP Portal:</strong><br/><a href="${sopLink}">${sopLink}</a></p>
-     ${licensed ? `<p><strong>Step 2 — Contracting (Licensed Required):</strong><br/><a href="${contractingUrl}">${contractingUrl}</a></p>` : ''}
-     <p><strong>SOP Login Name:</strong> ${loginName || to}<br/>
-     <strong>SOP Password:</strong> ${hasExistingLogin ? 'Use your existing password' : (loginPassword || '')}</p>
-     <ul style="padding-left:18px; margin:10px 0;">
+     <p><strong>Execute these steps in order:</strong></p>
+     <ol style="padding-left:18px; margin:10px 0;">
+       <li><strong>SOP Portal:</strong> <a href="${sopLink}">${sopLink}</a></li>
+       ${licensed ? `<li><strong>Contracting (Licensed Required):</strong> <a href="${contractingUrl}">${contractingUrl}</a></li>` : ''}
        <li><strong>Skool Community:</strong> <a href="${skoolUrl}">${skoolUrl}</a></li>
        <li><strong>YouTube (Whatever It Takes):</strong> <a href="${youtubeUrl}">${youtubeUrl}</a></li>
-     </ul>
-     <p>Your onboarding PDF is attached so you can follow the full process step by step.</p>`
+     </ol>
+     <p><strong>SOP Login Name:</strong> ${loginName || to}<br/>
+     <strong>SOP Password:</strong> ${hasExistingLogin ? 'Use your existing password' : (loginPassword || '')}</p>
+     <p>Your onboarding PDF is attached for full process guidance.</p>
+     <p><strong>Let’s execute.</strong></p>`
   );
 
   const defaultPdfPath = path.join(process.cwd(), DEFAULT_ONBOARDING_PLAYBOOK_RELATIVE_PATH);
