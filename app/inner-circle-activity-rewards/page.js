@@ -12,6 +12,9 @@ const REWARDS = {
 };
 
 const PAYOUT_LABELS = ['Pending Review', 'Approved', 'Paid', 'Reversed', 'Ineligible'];
+const EXCLUDED_REWARD_NAMES = new Set([
+  'karkeshia callaway'
+]);
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -39,6 +42,17 @@ function personKey(row = {}) {
   if (phone) return `p:${phone}`;
   if (name) return `n:${name}`;
   return '';
+}
+
+function isExcludedRewardPerson(row = {}) {
+  const candidates = [
+    row?.name,
+    row?.applicantName,
+    row?.applicant_name,
+    `${row?.firstName || ''} ${row?.lastName || ''}`
+  ].map(normalize).filter(Boolean);
+
+  return candidates.some((name) => EXCLUDED_REWARD_NAMES.has(name));
 }
 
 function toTs(v = '') {
@@ -223,7 +237,10 @@ export default function InnerCircleActivityRewardsPage() {
   }, [config.refreshIntervalSec]);
 
   const computed = useMemo(() => {
-    const validAppsRaw = (apps || []).filter(qualifiesSponsorshipApp).map((r) => ({
+    const validAppsRaw = (apps || [])
+      .filter((r) => !isExcludedRewardPerson(r))
+      .filter(qualifiesSponsorshipApp)
+      .map((r) => ({
       ...r,
       ts: toTs(r?.submitted_at || r?.createdAt || r?.updatedAt),
       person: personKey({
@@ -239,6 +256,7 @@ export default function InnerCircleActivityRewardsPage() {
     const validAppKeySet = new Set(validApps.flatMap((r) => [r.person, `id:${clean(r?.id)}`]).filter(Boolean));
 
     const validBookingsRaw = (bookings || [])
+      .filter((r) => !isExcludedRewardPerson(r))
       .filter((r) => qualifiesBooking(r, validAppKeySet))
       .map((r) => ({
         ...r,
@@ -251,6 +269,7 @@ export default function InnerCircleActivityRewardsPage() {
     const monthValidBookings = validBookings.filter((r) => isThisMonth(r.ts));
 
     const cleanPoliciesRaw = (policies || [])
+      .filter((r) => !isExcludedRewardPerson(r))
       .filter(qualifiesCleanInsuranceApp)
       .map((r) => ({
         ...r,
@@ -350,10 +369,12 @@ export default function InnerCircleActivityRewardsPage() {
 
     const duplicateApps = Math.max(0, validAppsRaw.filter((r) => isThisMonth(r.ts)).length - monthValidApps.length);
     const duplicateBookings = Math.max(0, validBookingsRaw.filter((r) => isThisMonth(r.ts)).length - monthValidBookings.length);
-    const pendingReview = (apps || []).filter((r) => normalize(r?.status || '').includes('pending review')).length;
+    const pendingReview = (apps || [])
+      .filter((r) => !isExcludedRewardPerson(r))
+      .filter((r) => normalize(r?.status || '').includes('pending review')).length;
 
     const payoutStatusCounts = { pending: 0, approved: 0, paid: 0, reversed: 0, ineligible: 0 };
-    for (const r of policies || []) {
+    for (const r of (policies || []).filter((x) => !isExcludedRewardPerson(x))) {
       const p = normalize(r?.payoutStatus || r?.status || '');
       if (p.includes('revers')) payoutStatusCounts.reversed += 1;
       else if (p.includes('paid')) payoutStatusCounts.paid += 1;

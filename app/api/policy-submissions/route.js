@@ -865,3 +865,32 @@ export async function PATCH(req) {
   await writeStore(store);
   return Response.json({ ok: true, row: store[idx], email, backOfficeEmail, payoutEmail, sopProvision });
 }
+
+export async function DELETE(req) {
+  const { searchParams } = new URL(req.url);
+  const id = clean(searchParams.get('id') || '');
+  const applicantName = clean(searchParams.get('applicantName') || searchParams.get('name') || '');
+
+  if (!id && !applicantName) {
+    return Response.json({ ok: false, error: 'missing_id_or_applicant_name' }, { status: 400 });
+  }
+
+  const store = await getStore();
+  const before = store.length;
+
+  let kept = store;
+  if (id) {
+    kept = store.filter((r) => clean(r?.id) !== id);
+  } else {
+    const key = applicantNameKey(applicantName);
+    kept = store.filter((r) => applicantNameKey(r?.applicantName || '') !== key);
+  }
+
+  const removed = before - kept.length;
+  if (removed <= 0) {
+    return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
+  }
+
+  await writeStore(kept);
+  return Response.json({ ok: true, removed, id: id || null, applicantName: applicantName || null });
+}

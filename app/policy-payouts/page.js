@@ -202,6 +202,30 @@ export default function PolicyPayoutsPage() {
     }
   }
 
+  async function deleteRow(row = {}) {
+    const id = String(row?.id || '');
+    if (!id) return;
+
+    const ok = typeof window === 'undefined'
+      ? true
+      : window.confirm(`Delete ${row?.applicantName || 'this record'} from Policy Payout Ledger? This cannot be undone.`);
+    if (!ok) return;
+
+    setSavingId(id);
+    try {
+      const res = await fetch(`/api/policy-submissions?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setSyncMsg(`Delete failed: ${data?.error || 'unknown error'}`);
+        return;
+      }
+      setRows((prev) => prev.filter((r) => r.id !== id));
+      setSyncMsg(`Deleted ${row?.applicantName || id}.`);
+    } finally {
+      setSavingId('');
+    }
+  }
+
   function emailForUserName(name = '') {
     const n = normalize(name);
     const hit = (users || []).find((u) => normalize(u?.name || '') === n);
@@ -492,7 +516,7 @@ export default function PolicyPayoutsPage() {
                     <td>{fmtDate(r.submittedAt)}</td>
                     <td>
                       {approvalLocked ? (
-                        <div style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'grid', gap: 8, justifyItems: 'center' }}>
                           <span
                             style={{
                               display: 'inline-block',
@@ -520,6 +544,15 @@ export default function PolicyPayoutsPage() {
                                 ? 'Approved • Paid'
                                 : 'Approved • Unpaid'}
                           </span>
+                          <button
+                            type="button"
+                            className="ghost"
+                            onClick={() => deleteRow(r)}
+                            disabled={savingId === r.id}
+                            style={{ ...SMALL_BTN, borderColor: '#ef4444', color: '#b91c1c' }}
+                          >
+                            Delete
+                          </button>
                         </div>
                       ) : (
                         <div style={{ display: 'grid', gap: 6 }}>
@@ -527,21 +560,21 @@ export default function PolicyPayoutsPage() {
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             <button
                               type="button"
-                              onClick={() => patchRow(r.id, { status: 'Approved', applicantLicensedStatus: 'Licensed' })}
+                              onClick={() => patchRow(r.id, { status: 'Approved', applicantLicensedStatus: 'Licensed', suppressEmail: true })}
                               style={{ ...SMALL_BTN, background: '#166534', color: '#fff', border: '1px solid #14532d' }}
                             >
                               Approve (Licensed)
                             </button>
                             <button
                               type="button"
-                              onClick={() => patchRow(r.id, { status: 'Approved', applicantLicensedStatus: 'Unlicensed' })}
+                              onClick={() => patchRow(r.id, { status: 'Approved', applicantLicensedStatus: 'Unlicensed', suppressEmail: true })}
                               style={{ ...SMALL_BTN, background: '#92400e', color: '#fff', border: '1px solid #78350f' }}
                             >
                               Approve (Unlicensed)
                             </button>
                             <button
                               type="button"
-                              onClick={() => patchRow(r.id, { status: 'Approved' })}
+                              onClick={() => patchRow(r.id, { status: 'Approved', suppressEmail: true })}
                               style={SMALL_BTN}
                             >
                               Approve
@@ -560,6 +593,14 @@ export default function PolicyPayoutsPage() {
                               style={{ ...SMALL_BTN, background: '#0f172a', color: '#fff', border: '1px solid #020617' }}
                             >
                               {emailingId === r.id ? 'Sending…' : 'Send Interview Email'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteRow(r)}
+                              disabled={savingId === r.id}
+                              style={{ ...SMALL_BTN, border: '1px solid #ef4444', color: '#b91c1c', background: '#fff' }}
+                            >
+                              Delete
                             </button>
                           </div>
                         </div>
