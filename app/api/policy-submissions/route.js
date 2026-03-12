@@ -480,20 +480,21 @@ function upsertAuthUser(authUsers = [], member = {}) {
   const email = clean(member?.email).toLowerCase();
   const name = clean(member?.name);
   const idx = authUsers.findIndex((u) => normalize(u?.email) === normalize(email));
+  const password = randomPassword();
 
   if (idx >= 0) {
     authUsers[idx] = {
       ...authUsers[idx],
       name,
       email,
+      password,
       active: true,
       role: clean(authUsers[idx]?.role || 'agent') || 'agent',
       updatedAt: nowIso()
     };
-    return { user: authUsers[idx], plainPassword: '', created: false };
+    return { user: authUsers[idx], plainPassword: password, created: false, reset: true };
   }
 
-  const password = randomPassword();
   const user = {
     id: `sau_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     name,
@@ -505,10 +506,10 @@ function upsertAuthUser(authUsers = [], member = {}) {
     updatedAt: nowIso()
   };
   authUsers.push(user);
-  return { user, plainPassword: password, created: true };
+  return { user, plainPassword: password, created: true, reset: false };
 }
 
-async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licensed = false, loginName = '', loginPassword = '', hasExistingLogin = false } = {}) {
+async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licensed = false, loginName = '', loginPassword = '' } = {}) {
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
   const from = clean(process.env.GMAIL_FROM) || user;
@@ -522,9 +523,7 @@ async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licen
     ? 'Legacy Link Approval: Licensed SOP + Contracting (Start Today)'
     : 'Legacy Link Approval: Unlicensed SOP + Licensing Path (Start Today)';
 
-  const loginBlockText = hasExistingLogin
-    ? ['SOP Login Name: ' + (loginName || to), 'SOP Password: (use your existing password)']
-    : ['SOP Login Name: ' + (loginName || to), 'SOP Password: ' + (loginPassword || '')];
+  const loginBlockText = ['SOP Login Name: ' + (loginName || to), 'SOP Password: ' + (loginPassword || '')];
 
   const intro = licensed
     ? 'You are approved on the licensed track. Complete your SOP and contracting steps now so you can move into production quickly.'
@@ -571,7 +570,7 @@ async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licen
        <li><strong>YouTube (Whatever It Takes):</strong> <a href="${youtubeUrl}">${youtubeUrl}</a></li>
      </ol>
      <p><strong>SOP Login Name:</strong> ${loginName || to}<br/>
-     <strong>SOP Password:</strong> ${hasExistingLogin ? 'Use your existing password' : (loginPassword || '')}</p>
+     <strong>SOP Password:</strong> ${loginPassword || ''}</p>
      <p>Your onboarding PDF is attached for full process guidance.</p>
      <p><strong>Let’s execute.</strong></p>`
   );
@@ -671,9 +670,8 @@ async function ensureSopProvisionFromActSubmit(row = {}) {
     firstName: clean(name.split(' ')[0]),
     sopLink,
     licensed: isLicensed,
-    loginName: authProvision.user?.name || member.name,
-    loginPassword: authProvision.plainPassword,
-    hasExistingLogin: !authProvision.created
+    loginName: authProvision.user?.email || member.email || email,
+    loginPassword: authProvision.plainPassword
   }).catch((e) => ({ ok: false, error: clean(e?.message || 'send_failed') }));
 
   const unlicensedCoachEmail = !isLicensed
