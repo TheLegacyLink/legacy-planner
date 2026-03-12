@@ -560,14 +560,14 @@ export default function PolicyPayoutsPage() {
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             <button
                               type="button"
-                              onClick={() => patchRow(r.id, { status: 'Approved', applicantLicensedStatus: 'Licensed', suppressEmail: true })}
+                              onClick={() => patchRow(r.id, { status: 'Approved', applicantLicensedStatus: 'Licensed' })}
                               style={{ ...SMALL_BTN, background: '#166534', color: '#fff', border: '1px solid #14532d' }}
                             >
                               Approve (Licensed)
                             </button>
                             <button
                               type="button"
-                              onClick={() => patchRow(r.id, { status: 'Approved', applicantLicensedStatus: 'Unlicensed', suppressEmail: true })}
+                              onClick={() => patchRow(r.id, { status: 'Approved', applicantLicensedStatus: 'Unlicensed' })}
                               style={{ ...SMALL_BTN, background: '#92400e', color: '#fff', border: '1px solid #78350f' }}
                             >
                               Approve (Unlicensed)
