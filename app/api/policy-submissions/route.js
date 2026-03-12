@@ -17,7 +17,8 @@ const SPONSORSHIP_BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
 const DEFAULT_SKOOL_URL = 'https://www.skool.com/legacylink/about';
 const DEFAULT_YOUTUBE_URL = 'https://youtu.be/SVvU9SvCH9o?si=H9BNtEDzglTuvJaI';
 const DEFAULT_LICENSED_CONTRACTING_URL = 'https://accounts.surancebay.com/oauth/authorize?redirect_uri=https%3A%2F%2Fsurelc.surancebay.com%2Fproducer%2Foauth%3FreturnUrl%3D%252Fprofile%252Fcontact-info%253FgaId%253D168%2526gaId%253D168%2526branch%253DInvestaLink%2526branchVisible%253Dtrue%2526branchEditable%253Dfalse%2526branchRequired%253Dtrue%2526autoAdd%253Dfalse%2526requestMethod%253DGET&gaId=168&client_id=surecrmweb&response_type=code';
-const DEFAULT_ONBOARDING_PLAYBOOK_RELATIVE_PATH = 'public/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v2.pdf';
+const DEFAULT_LICENSED_ONBOARDING_PLAYBOOK_RELATIVE_PATH = 'public/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf';
+const DEFAULT_UNLICENSED_ONBOARDING_PLAYBOOK_RELATIVE_PATH = 'public/docs/onboarding/legacy-link-unlicensed-onboarding-playbook.pdf';
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -575,11 +576,18 @@ async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licen
      <p><strong>Let’s execute.</strong></p>`
   );
 
-  const defaultPdfPath = path.join(process.cwd(), DEFAULT_ONBOARDING_PLAYBOOK_RELATIVE_PATH);
-  const configuredPdfPath = clean(process.env.SPONSORSHIP_ONBOARDING_PDF_PATH || '');
+  const defaultPdfPath = licensed
+    ? path.join(process.cwd(), DEFAULT_LICENSED_ONBOARDING_PLAYBOOK_RELATIVE_PATH)
+    : path.join(process.cwd(), DEFAULT_UNLICENSED_ONBOARDING_PLAYBOOK_RELATIVE_PATH);
+  const configuredPdfPath = licensed
+    ? clean(process.env.SPONSORSHIP_ONBOARDING_PDF_PATH_LICENSED || process.env.SPONSORSHIP_ONBOARDING_PDF_PATH || '')
+    : clean(process.env.SPONSORSHIP_ONBOARDING_PDF_PATH_UNLICENSED || process.env.SPONSORSHIP_ONBOARDING_PDF_PATH || '');
   const pdfPath = configuredPdfPath || defaultPdfPath;
+  const attachmentName = licensed
+    ? 'Legacy-Link-Licensed-Onboarding-Playbook.pdf'
+    : 'Legacy-Link-Unlicensed-Onboarding-Playbook.pdf';
   const attachments = fs.existsSync(pdfPath)
-    ? [{ filename: 'Legacy-Link-Onboarding-Playbook.pdf', path: pdfPath, contentType: 'application/pdf' }]
+    ? [{ filename: attachmentName, path: pdfPath, contentType: 'application/pdf' }]
     : [];
 
   const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });

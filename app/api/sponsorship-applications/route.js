@@ -1,4 +1,6 @@
 import nodemailer from 'nodemailer';
+import fs from 'node:fs';
+import path from 'node:path';
 import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 
 const STORE_PATH = 'stores/sponsorship-applications.json';
@@ -8,6 +10,9 @@ const AUTH_USERS_PATH = 'stores/sponsorship-sop-auth-users.json';
 
 const DEFAULT_SKOOL_URL = 'https://www.skool.com/legacylink/about';
 const DEFAULT_YOUTUBE_URL = 'https://youtu.be/SVvU9SvCH9o?si=H9BNtEDzglTuvJaI';
+const DEFAULT_LICENSED_CONTRACTING_URL = 'https://accounts.surancebay.com/oauth/authorize?redirect_uri=https%3A%2F%2Fsurelc.surancebay.com%2Fproducer%2Foauth%3FreturnUrl%3D%252Fprofile%252Fcontact-info%253FgaId%253D168%2526gaId%253D168%2526branch%253DInvestaLink%2526branchVisible%253Dtrue%2526branchEditable%253Dfalse%2526branchRequired%253Dtrue%2526autoAdd%253Dfalse%2526requestMethod%253DGET&gaId=168&client_id=surecrmweb&response_type=code';
+const DEFAULT_LICENSED_ONBOARDING_PLAYBOOK_RELATIVE_PATH = 'public/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf';
+const DEFAULT_UNLICENSED_ONBOARDING_PLAYBOOK_RELATIVE_PATH = 'public/docs/onboarding/legacy-link-unlicensed-onboarding-playbook.pdf';
 
 async function getStore() {
   return await loadJsonStore(STORE_PATH, []);
@@ -147,51 +152,72 @@ async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licen
 
   const skoolUrl = clean(process.env.SPONSORSHIP_SKOOL_URL || DEFAULT_SKOOL_URL);
   const youtubeUrl = clean(process.env.SPONSORSHIP_YOUTUBE_URL || DEFAULT_YOUTUBE_URL);
+  const contractingUrl = clean(process.env.SPONSORSHIP_LICENSED_CONTRACTING_URL || DEFAULT_LICENSED_CONTRACTING_URL);
   const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
 
-  const subject = 'Your Legacy Link Sponsorship SOP Portal';
-  const intro = licensed
-    ? 'You are on the licensed track. Complete each SOP step and submit approvals where required.'
-    : 'You are currently on the unlicensed track. Complete the SOP steps and licensing milestone to unlock lead access.';
+  const subject = licensed
+    ? 'Legacy Link Approval: Licensed SOP + Contracting (Start Today)'
+    : 'Legacy Link Approval: Unlicensed SOP + Licensing Path (Start Today)';
 
-  const loginBlockText = ['SOP Login Name: ' + (loginName || to), 'SOP Password: ' + (loginPassword || '')];
+  const intro = licensed
+    ? 'You are approved on the licensed track. Complete your SOP and contracting steps now so you can move into production quickly.'
+    : 'You are approved on the unlicensed track. Complete your SOP and licensing steps now to unlock lead access.';
 
   const text = [
     `Hi ${firstName || 'Agent'},`,
     '',
-    'Welcome to your Sponsorship SOP portal.',
     intro,
     '',
-    `Your personal SOP link: ${sopLink}`,
+    'Execute these steps in order:',
+    `Step 1 — SOP Portal: ${sopLink}`,
+    ...(licensed ? [`Step 2 — Contracting (Licensed Required): ${contractingUrl}`] : []),
+    `Step ${licensed ? '3' : '2'} — Skool Community: ${skoolUrl}`,
+    `Step ${licensed ? '4' : '3'} — YouTube (Whatever It Takes): ${youtubeUrl}`,
     '',
-    ...loginBlockText,
+    `SOP Login Name: ${loginName || to}`,
+    `SOP Password: ${loginPassword || ''}`,
     '',
-    `Skool Community: ${skoolUrl}`,
-    `YouTube (Whatever It Takes): ${youtubeUrl}`,
+    'Your onboarding PDF is attached for a full step-by-step reference.',
     '',
-    'Some steps are self-complete; some require approval. Click Request Approval where prompted.',
-    '',
+    'Let’s execute.',
     '— The Legacy Link Team'
   ].join('\n');
 
   const html = `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;">
-    <h2>Your Sponsorship SOP Portal</h2>
+    <h2>${licensed ? 'Licensed Approval — Execute Your Next Steps' : 'Unlicensed Approval — Start Your Licensing Path'}</h2>
     <p>Hi <strong>${firstName || 'Agent'}</strong>,</p>
     <p>${intro}</p>
-    <p><strong>Your personal SOP link:</strong><br/><a href="${sopLink}">${sopLink}</a></p>
-    <p><strong>SOP Login Name:</strong> ${loginName || to}<br/>
-    <strong>SOP Password:</strong> ${loginPassword || ''}</p>
-    <ul>
+    <p><strong>Execute these steps in order:</strong></p>
+    <ol style="padding-left:18px; margin:10px 0;">
+      <li><strong>SOP Portal:</strong> <a href="${sopLink}">${sopLink}</a></li>
+      ${licensed ? `<li><strong>Contracting (Licensed Required):</strong> <a href="${contractingUrl}">${contractingUrl}</a></li>` : ''}
       <li><strong>Skool Community:</strong> <a href="${skoolUrl}">${skoolUrl}</a></li>
       <li><strong>YouTube (Whatever It Takes):</strong> <a href="${youtubeUrl}">${youtubeUrl}</a></li>
-    </ul>
-    <p>Some steps are self-complete; some require approval. Click <strong>Request Approval</strong> where prompted.</p>
+    </ol>
+    <p><strong>SOP Login Name:</strong> ${loginName || to}<br/>
+    <strong>SOP Password:</strong> ${loginPassword || ''}</p>
+    <p>Your onboarding PDF is attached for full process guidance.</p>
+    <p><strong>Let’s execute.</strong></p>
     <p>— The Legacy Link Team</p>
   </div>`;
 
+  const defaultPdfPath = licensed
+    ? path.join(process.cwd(), DEFAULT_LICENSED_ONBOARDING_PLAYBOOK_RELATIVE_PATH)
+    : path.join(process.cwd(), DEFAULT_UNLICENSED_ONBOARDING_PLAYBOOK_RELATIVE_PATH);
+  const configuredPdfPath = licensed
+    ? clean(process.env.SPONSORSHIP_ONBOARDING_PDF_PATH_LICENSED || process.env.SPONSORSHIP_ONBOARDING_PDF_PATH || '')
+    : clean(process.env.SPONSORSHIP_ONBOARDING_PDF_PATH_UNLICENSED || process.env.SPONSORSHIP_ONBOARDING_PDF_PATH || '');
+  const pdfPath = configuredPdfPath || defaultPdfPath;
+  const attachmentName = licensed
+    ? 'Legacy-Link-Licensed-Onboarding-Playbook.pdf'
+    : 'Legacy-Link-Unlicensed-Onboarding-Playbook.pdf';
+  const attachments = fs.existsSync(pdfPath)
+    ? [{ filename: attachmentName, path: pdfPath, contentType: 'application/pdf' }]
+    : [];
+
   try {
-    const info = await tx.sendMail({ from, to, subject, text, html });
-    return { ok: true, messageId: clean(info?.messageId) };
+    const info = await tx.sendMail({ from, to, subject, text, html, attachments });
+    return { ok: true, messageId: clean(info?.messageId), attachmentIncluded: attachments.length > 0 };
   } catch (error) {
     return { ok: false, error: clean(error?.message || 'send_failed') || 'send_failed' };
   }
