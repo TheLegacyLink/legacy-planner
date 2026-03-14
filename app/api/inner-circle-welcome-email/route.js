@@ -187,28 +187,9 @@ async function generatePersonalizedVipPdf({ roleKey, roleLabel, name, email, tem
     if (!fs.existsSync(outPath)) return null;
     return outPath;
   } catch {
-    // Runtime fallback (no python/reportlab): generate a minimal PDF so password still matches email.
-    try {
-      return generateFallbackPersonalizedPdf({
-        outPath,
-        roleKey,
-        roleLabel,
-        name,
-        email,
-        tempPassword,
-        coachName,
-        hubUrl,
-        appUrl,
-        skoolUrl,
-        contractLink,
-        telegramUrl,
-        playbookUrl,
-        compScheduleUrl,
-        sponsorshipUrl
-      });
-    } catch {
-      return null;
-    }
+    // Never fall back to plain-text style PDFs.
+    // Returning null will trigger premium static attachment fallback in caller.
+    return null;
   }
 }
 
