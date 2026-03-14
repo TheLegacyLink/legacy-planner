@@ -4,6 +4,7 @@ import { loadJsonStore, saveJsonStore } from '../../../../../lib/blobJsonStore';
 import { clean, findLicensedByEmail, isStrongAliasMatch, matchLicensedAgent } from '../../../../../lib/licensedAgentMatch';
 
 export const ALIASES_PATH = 'stores/licensed-backoffice-email-aliases.json';
+export const ALIAS_REVIEW_PATH = 'stores/licensed-backoffice-alias-review.json';
 export const CODES_PATH = 'stores/licensed-backoffice-login-codes.json';
 export const SESSIONS_PATH = 'stores/licensed-backoffice-sessions.json';
 
@@ -19,6 +20,39 @@ export async function saveAliases(rows = []) {
   await saveJsonStore(ALIASES_PATH, Array.isArray(rows) ? rows : []);
 }
 
+export async function loadAliasReviewRows() {
+  const rows = await loadJsonStore(ALIAS_REVIEW_PATH, []);
+  return Array.isArray(rows) ? rows : [];
+}
+
+export async function saveAliasReviewRows(rows = []) {
+  await saveJsonStore(ALIAS_REVIEW_PATH, Array.isArray(rows) ? rows : []);
+}
+
+async function queuePendingVerification({ email = '', fullName = '', phone = '', reason = '', candidates = [] } = {}) {
+  const list = await loadAliasReviewRows();
+  const keyEmail = clean(email).toLowerCase();
+  const now = nowIso();
+  const row = {
+    id: `alias_review_${Date.now()}`,
+    email: keyEmail,
+    fullName: clean(fullName),
+    phone: clean(phone),
+    reason: clean(reason) || 'pending_verification',
+    candidates: Array.isArray(candidates) ? candidates.slice(0, 5) : [],
+    status: 'pending',
+    createdAt: now,
+    updatedAt: now
+  };
+
+  const next = [
+    ...list.filter((r) => !(clean(r?.email).toLowerCase() === keyEmail && clean(r?.status || 'pending') === 'pending')),
+    row
+  ];
+  await saveAliasReviewRows(next);
+  return row;
+}
+
 export async function resolveLicensedProfile({ email = '', fullName = '', phone = '' } = {}) {
   const e = clean(email).toLowerCase();
 
@@ -28,7 +62,7 @@ export async function resolveLicensedProfile({ email = '', fullName = '', phone 
 
   // 2) Approved alias mapping
   const aliases = await loadAliases();
-  const alias = aliases.find((a) => clean(a?.aliasEmail).toLowerCase() === e && clean(a?.active) !== 'false');
+  const alias = aliases.find((a) => clean(a?.aliasEmail).toLowerCase() === e && a?.active !== false);
   if (alias) {
     const rematch = matchLicensedAgent({ fullName: alias?.name, email: alias?.primaryEmail, phone: alias?.phone });
     if (rematch?.matched && rematch?.match) {
@@ -38,10 +72,24 @@ export async function resolveLicensedProfile({ email = '', fullName = '', phone 
 
   // 3) Name + phone match flow (for alternate emails)
   const m = matchLicensedAgent({ fullName, phone, email });
-  if (!m?.matched || !m?.match) return { ok: false, error: 'not_licensed_match' };
+  if (!m?.matched || !m?.match) {
+    await queuePendingVerification({ email: e, fullName, phone, reason: 'no_match', candidates: [] });
+    return { ok: false, error: 'pending_verification' };
+  }
 
   if (!isStrongAliasMatch({ fullName, phone }, m.match)) {
-    return { ok: false, error: 'weak_match_requires_review', candidates: m.candidates || [] };
+    await queuePendingVerification({ email: e, fullName, phone, reason: 'weak_match', candidates: m.candidates || [] });
+    return { ok: false, error: 'pending_verification', candidates: m.candidates || [] };
+  }
+
+  // Alias policy: up to 2 approved alternate emails per primary roster email.
+  const primaryEmail = clean(m.match.email).toLowerCase();
+  const activeAliasesForPrimary = aliases.filter((a) => clean(a?.primaryEmail).toLowerCase() === primaryEmail && a?.active !== false);
+  const distinctAliasEmails = [...new Set(activeAliasesForPrimary.map((a) => clean(a?.aliasEmail).toLowerCase()).filter(Boolean))];
+  const alreadyLinked = distinctAliasEmails.includes(e);
+  if (!alreadyLinked && distinctAliasEmails.length >= 2) {
+    await queuePendingVerification({ email: e, fullName, phone, reason: 'alias_limit_reached', candidates: [m.match] });
+    return { ok: false, error: 'pending_verification_alias_limit' };
   }
 
   // Auto-link alias on strong match
@@ -50,7 +98,7 @@ export async function resolveLicensedProfile({ email = '', fullName = '', phone 
     const idx = next.findIndex((a) => clean(a?.aliasEmail).toLowerCase() === e);
     const row = {
       aliasEmail: e,
-      primaryEmail: clean(m.match.email).toLowerCase(),
+      primaryEmail,
       name: clean(m.match.name),
       phone: clean(m.match.phone),
       agentId: clean(m.match.agentId),

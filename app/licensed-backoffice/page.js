@@ -98,6 +98,10 @@ export default function LicensedBackofficePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
+        if (res.status === 202 || String(data?.error || '').startsWith('pending_verification')) {
+          setError('Pending verification: we received your request and admin approval is required before access.');
+          return;
+        }
         setError(data?.error ? `Login blocked: ${data.error}` : 'Unable to send code right now.');
         return;
       }
@@ -283,7 +287,7 @@ export default function LicensedBackofficePage() {
             <button type="button" disabled style={{ padding: '10px 14px', borderRadius: 10, border: '1px dashed #475569', background: '#0B1220', color: '#9CA3AF' }}>
               Google Sign-In (Enable when OAuth keys are added)
             </button>
-            {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Licensed-only access. Use email code, with name + phone matching support for alternate emails.</small>}
+            {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Licensed-only access. Use email code, with name + phone matching support for alternate emails (max 2 approved alternates per agent).</small>}
           </div>
         </section>
       </main>
