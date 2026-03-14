@@ -633,10 +633,15 @@ function toPortalRow(row = {}, viewerName = '', viewerRole = '') {
   const withinPriority = isWithinPriorityWindow(row);
   const claimed = normalize(row?.claim_status).startsWith('claimed') || clean(row?.claimed_by);
 
+  // Policy update: admin assignment is treated as confirmed.
+  const assignmentStatusRaw = normalize(row?.assignment_status || '');
+  const assignment_status = assignmentStatusRaw === 'pending_confirmation' ? 'confirmed' : clean(row?.assignment_status || '');
+
   const canClaim = !claimed && (!withinPriority || normalize(viewerName) === normalize(row?.priority_agent) || isManagerRole(viewerRole));
 
   return {
     ...row,
+    assignment_status,
     visibility: full ? 'full' : 'partial',
     applicant_name: full ? clean(row?.applicant_name) : maskName(row?.applicant_name),
     applicant_email: full ? clean(row?.applicant_email) : maskEmail(row?.applicant_email),
