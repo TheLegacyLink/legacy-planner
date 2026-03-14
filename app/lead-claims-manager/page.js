@@ -652,9 +652,9 @@ export default function LeadClaimsPortalPage() {
                     <button type="button" className="ghost publicBtnBlock" onClick={() => (typeof window !== 'undefined' ? window.location.assign('/pipeline') : null)}>
                       Open in Pipeline
                     </button>
-                    {isPendingConfirmation && isClaimOwner ? (
+                    {isPendingConfirmation && (isClaimOwner || isManager) ? (
                       <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled={savingId === row.id} onClick={() => confirmAssignment(row.id)} style={{ marginTop: 8 }}>
-                        Confirm I Can Complete This
+                        {isClaimOwner ? 'Confirm I Can Complete This' : 'Admin Confirm Assignment'}
                       </button>
                     ) : null}
                   </>
