@@ -160,7 +160,7 @@ function findAuthUserByName(name = '') {
 }
 
 function emailFrame(title = '', bodyHtml = '') {
-  return `<div style="font-family:Inter,Arial,sans-serif;background:#f8fafc;padding:20px;color:#0f172a;"><div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:#0047AB;color:#fff;padding:16px 20px;text-align:center;font-weight:800;font-size:28px;line-height:1;">THE LEGACY LINK</div><div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;">${title}</h2>${bodyHtml}<p style="margin:16px 0 0;color:#475569;">Please confirm you can complete this sponsorship application.</p><p style="margin:8px 0 0;color:#334155;"><strong>The Legacy Link Support Team</strong></p></div></div></div>`;
+  return `<div style="font-family:Inter,Arial,sans-serif;background:#f8fafc;padding:20px;color:#0f172a;"><div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:#0047AB;color:#fff;padding:16px 20px;text-align:center;font-weight:800;font-size:28px;line-height:1;">THE LEGACY LINK</div><div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;">${title}</h2>${bodyHtml}<p style="margin:16px 0 0;color:#475569;">This assignment is confirmed and ready to work.</p><p style="margin:8px 0 0;color:#334155;"><strong>The Legacy Link Support Team</strong></p></div></div></div>`;
 }
 
 function parseDateTime12(raw = '') {
@@ -257,7 +257,7 @@ async function sendAssignmentEmail({ assignedTo = '', assignedBy = '', row = {},
     `Booked Time (Client): ${clientTime}`,
     `Booked Time (Your Timezone): ${agentTime}`,
     '',
-    'Please confirm you can complete this sponsorship application.',
+    'This assignment is confirmed and ready to work.',
     'Also reach out to the client 24 hours before their appointment.',
     '',
     note ? `Note from ${assignedBy || 'Link'}: ${note}` : '',
@@ -277,7 +277,7 @@ async function sendAssignmentEmail({ assignedTo = '', assignedBy = '', row = {},
        <li><strong>Booked Time (Client):</strong> ${clientTime}</li>
        <li><strong>Booked Time (Your Timezone):</strong> ${agentTime}</li>
      </ul>
-     <p>Please confirm you can complete this sponsorship application.</p>
+     <p>This assignment is confirmed and ready to work.</p>
      <p>Also reach out to the client <strong>24 hours before</strong> their appointment.</p>
      ${note ? `<p><strong>Note from ${assignedBy || 'Link'}:</strong> ${note}</p>` : ''}`
   );
@@ -907,9 +907,9 @@ export async function POST(req) {
       override_by: actor.name,
       override_at: nowIso(),
       override_note: clean(body?.note || ''),
-      assignment_status: 'pending_confirmation',
+      assignment_status: 'confirmed',
       assignment_requested_at: nowIso(),
-      assignment_confirmed_at: '',
+      assignment_confirmed_at: nowIso(),
       updated_at: nowIso()
     };
 

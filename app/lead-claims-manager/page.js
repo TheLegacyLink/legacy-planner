@@ -231,7 +231,7 @@ export default function LeadClaimsPortalPage() {
         return;
       }
       const emailStatus = data?.assignmentEmail === 'sent'
-        ? 'Email sent for confirmation.'
+        ? 'Assignment email sent.'
         : `Assigned, but email failed${data?.assignmentEmailError ? `: ${data.assignmentEmailError}` : '.'}`;
       setMessage(`Assigned to ${targetName}. ${emailStatus}`);
       await loadRows(true);
