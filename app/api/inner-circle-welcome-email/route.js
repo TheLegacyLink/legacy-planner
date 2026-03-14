@@ -79,7 +79,7 @@ function resolveRoleConfig(input = '') {
   return { roleKey, ...(ROLE_CONFIG[roleKey] || ROLE_CONFIG.unlicensed) };
 }
 
-async function generatePersonalizedVipPdf({ name, email, coachName, hubUrl, appUrl, contractLink, telegramUrl, playbookUrl, sponsorshipUrl }) {
+async function generatePersonalizedVipPdf({ name, email, tempPassword, coachName, hubUrl, appUrl, contractLink, telegramUrl, playbookUrl, sponsorshipUrl }) {
   const scriptPath = path.join(process.cwd(), 'scripts', 'generate_personalized_inner_circle_playbook.py');
   if (!fs.existsSync(scriptPath)) return null;
 
@@ -94,6 +94,7 @@ async function generatePersonalizedVipPdf({ name, email, coachName, hubUrl, appU
     '--output', outPath,
     '--name', clean(name),
     '--email', clean(email),
+    '--password', clean(tempPassword),
     '--coach', clean(coachName),
     '--hub', clean(hubUrl),
     '--app', clean(appUrl),
@@ -460,6 +461,7 @@ export async function POST(req) {
     personalizedPdfPath = isInnerCircle ? (await generatePersonalizedVipPdf({
       name,
       email: to,
+      tempPassword,
       coachName,
       hubUrl,
       appUrl,

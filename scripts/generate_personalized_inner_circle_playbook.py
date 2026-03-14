@@ -78,6 +78,7 @@ def build(args):
     info_rows = [
         ['Agent Name', clean(args.name) or 'Not provided'],
         ['Hub Login Email', clean(args.email) or 'Not provided'],
+        ['Hub Login Password', clean(args.password) or 'Not provided'],
         ['Coach Name', clean(args.coach) or 'Legacy Link Coach'],
     ]
     info = Table(info_rows, colWidths=[1.6 * inch, 4.9 * inch])
@@ -159,6 +160,7 @@ def parse_args():
     p.add_argument('--name', default='')
     p.add_argument('--email', default='')
     p.add_argument('--coach', default='')
+    p.add_argument('--password', default='')
     p.add_argument('--hub', default='')
     p.add_argument('--app', default='')
     p.add_argument('--contract', default='')
