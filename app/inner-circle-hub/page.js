@@ -31,14 +31,15 @@ function toNum(v = 0) {
 function availableTabs(member = {}) {
   const modules = member?.modules || {};
   const all = [
-    { key: 'dashboard', label: 'Dashboard' },
-    { key: 'faststart', label: 'Fast Track' },
-    { key: 'scripts', label: 'Scripts' },
-    { key: 'execution', label: 'Execution' },
-    { key: 'vault', label: 'Vault' },
-    { key: 'tracker', label: 'Tracker' },
-    { key: 'rewards', label: 'Activity Rewards' },
-    { key: 'links', label: 'My Links' }
+    { key: 'dashboard', label: 'The Lounge' },
+    { key: 'faststart', label: 'Fast Start' },
+    { key: 'scripts', label: 'Script Vault' },
+    { key: 'execution', label: 'Daily Execution' },
+    { key: 'vault', label: 'Resource Vault' },
+    { key: 'tracker', label: 'KPI Tracker' },
+    { key: 'production', label: 'My Production' },
+    { key: 'rewards', label: 'VIP Rewards' },
+    { key: 'links', label: 'My VIP Links' }
   ];
   return all.filter((t) => modules?.[t.key] !== false);
 }
@@ -64,12 +65,15 @@ export default function InnerCircleHubPage() {
   const [scripts, setScripts] = useState([]);
   const [scriptFilter, setScriptFilter] = useState('all');
   const [vault, setVault] = useState({ content: [], calls: [], onboarding: [] });
+  const [leaderboard, setLeaderboard] = useState({ month: '', rows: [] });
 
   const [tab, setTab] = useState('dashboard');
   const [dailyRows, setDailyRows] = useState([]);
   const [trackerPeriod, setTrackerPeriod] = useState('daily');
   const [activityType, setActivityType] = useState('all');
   const [activityRows, setActivityRows] = useState([]);
+  const [policyRows, setPolicyRows] = useState([]);
+  const [productionFilter, setProductionFilter] = useState('all');
   const [activitySummary, setActivitySummary] = useState({ submitted: 0, approved: 0, declined: 0, booked: 0, fng: 0, completed: 0 });
   const [activityStats, setActivityStats] = useState({
     daily: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 },
@@ -107,11 +111,141 @@ export default function InnerCircleHubPage() {
     return [c.workNewLeads, c.followUpWarmLeads, c.bookOneConversation, c.postContent, c.updateTracker].filter(Boolean).length;
   }, [tracker?.checklist]);
 
+  const vipTier = useMemo(() => {
+    const closes = toNum(kpi?.closesThisMonth);
+    const bookings = toNum(kpi?.bookingsThisMonth);
+    if (closes >= 5) return 'Chairman Elite';
+    if (closes >= 2 || bookings >= 8) return 'Momentum Pro';
+    return 'Founding Member';
+  }, [kpi?.closesThisMonth, kpi?.bookingsThisMonth]);
+
+  const monthlyTopPerformers = useMemo(() => {
+    const rows = Array.isArray(leaderboard?.rows) ? leaderboard.rows : [];
+    const scoredRaw = rows
+      .filter((r) => Boolean(r?.inInnerCircle) && clean(r?.applicantName))
+      .map((r) => {
+        const leads = toNum(r?.kpi?.leadsReceived);
+        const bookings = toNum(r?.kpi?.bookingsThisMonth);
+        const submitted = toNum(r?.trackerTotals?.sponsorshipApps);
+        const approved = toNum(r?.kpi?.sponsorshipApprovedThisMonth);
+        const fng = toNum(r?.trackerTotals?.fngSubmittedApps);
+        const completed = toNum(r?.kpi?.closesThisMonth);
+        return {
+          name: clean(r?.applicantName),
+          leads,
+          bookings,
+          submitted,
+          approved,
+          fng,
+          completed
+        };
+      })
+      .filter((r) => (r.leads + r.bookings + r.submitted + r.approved + r.fng + r.completed) > 0);
+
+    const deduped = new Map();
+    for (const row of scoredRaw) {
+      const key = clean(row?.name).toLowerCase();
+      const existing = deduped.get(key);
+      if (!existing) {
+        deduped.set(key, { ...row });
+        continue;
+      }
+      deduped.set(key, {
+        ...existing,
+        leads: Math.max(existing.leads, row.leads),
+        bookings: Math.max(existing.bookings, row.bookings),
+        submitted: Math.max(existing.submitted, row.submitted),
+        approved: Math.max(existing.approved, row.approved),
+        fng: Math.max(existing.fng, row.fng),
+        completed: Math.max(existing.completed, row.completed)
+      });
+    }
+
+    const scored = Array.from(deduped.values())
+      .map((r) => {
+        const points = (r.submitted * 1) + (r.bookings * 3) + (r.fng * 10) + (r.completed * 500);
+        return {
+          ...r,
+          points,
+          dollars: points
+        };
+      })
+      .sort((a, b) => b.points - a.points || b.completed - a.completed || b.fng - a.fng || b.bookings - a.bookings || a.name.localeCompare(b.name));
+
+    return scored.slice(0, 5);
+  }, [leaderboard]);
+
+  const topThreePerformers = monthlyTopPerformers.slice(0, 3);
+
   const filteredActivityRows = useMemo(() => {
     if (activityType === 'all') return activityRows;
     if (activityType === 'decision') return (activityRows || []).filter((r) => clean(r?.type) === 'decision');
     return (activityRows || []).filter((r) => clean(r?.type) === activityType);
   }, [activityRows, activityType]);
+
+  const personalProduction = useMemo(() => {
+    const myName = clean(member?.applicantName || '').toLowerCase();
+
+    const mine = (policyRows || []).filter((r) => {
+      const writer = clean(r?.policyWriterName || r?.assignedInnerCircleAgent || '').toLowerCase();
+      const submittedBy = clean(r?.submittedBy || '').toLowerCase();
+      const owner = writer || submittedBy;
+      return myName && owner === myName;
+    });
+
+    const byType = {
+      sponsorship: 0,
+      bonus: 0,
+      innerCircle: 0,
+      regular: 0,
+      juvenile: 0
+    };
+
+    let totalPoints = 0;
+    let advanceTotal = 0;
+
+    for (const row of mine) {
+      const t = clean(row?.policyType || row?.appType || '').toLowerCase();
+      if (t.includes('sponsorship')) byType.sponsorship += 1;
+      else if (t.includes('bonus')) byType.bonus += 1;
+      else if (t.includes('inner circle')) byType.innerCircle += 1;
+      else if (t.includes('regular')) byType.regular += 1;
+      else if (t.includes('juvenile')) byType.juvenile += 1;
+      totalPoints += Number(row?.pointsEarned || 0) || 0;
+      advanceTotal += Number(row?.advancePayout || row?.payoutAmount || 0) || 0;
+    }
+
+    const sorted = [...mine].sort((a, b) => new Date(b?.submittedAt || 0).getTime() - new Date(a?.submittedAt || 0).getTime());
+
+    return {
+      rows: sorted,
+      byType,
+      totalPoints,
+      advanceTotal
+    };
+  }, [policyRows, member?.applicantName]);
+
+  const filteredProductionRows = useMemo(() => {
+    if (productionFilter === 'all') return personalProduction.rows;
+    return (personalProduction.rows || []).filter((row) => {
+      const t = clean(row?.policyType || row?.appType || '').toLowerCase();
+      return t.includes(productionFilter);
+    });
+  }, [personalProduction.rows, productionFilter]);
+
+  const productionStats = useMemo(() => {
+    const rows = filteredProductionRows || [];
+    const approved = rows.filter((r) => clean(r?.status).toLowerCase() === 'approved').length;
+    const approvalRate = rows.length ? Math.round((approved / rows.length) * 100) : 0;
+
+    const totals = rows.reduce((acc, row) => ({
+      points: acc.points + (Number(row?.pointsEarned || 0) || 0),
+      advance: acc.advance + (Number(row?.advancePayout || row?.payoutAmount || 0) || 0),
+      remaining: acc.remaining + (Number(row?.remainingBalance || 0) || 0)
+    }), { points: 0, advance: 0, remaining: 0 });
+
+    return { ...totals, count: rows.length, approved, approvalRate };
+  }, [filteredProductionRows]);
 
   const periodTotals = useMemo(() => {
     const key = trackerPeriod === 'weekly' ? 'weekly' : trackerPeriod === 'monthly' ? 'monthly' : 'daily';
@@ -144,28 +278,59 @@ export default function InnerCircleHubPage() {
     };
   }, [activityStats, trackerPeriod, dailyRows]);
 
+  const siteBase = useMemo(() => {
+    const envBase = clean(process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || '');
+    if (envBase) return envBase.replace(/\/$/, '');
+    if (typeof window !== 'undefined' && window?.location?.origin) return window.location.origin.replace(/\/$/, '');
+    return 'https://innercirclelink.com';
+  }, []);
+
+  function toAbsoluteLink(value = '') {
+    const v = clean(value);
+    if (!v) return '';
+    if (/^https?:\/\//i.test(v)) return v;
+    return `${siteBase}${v.startsWith('/') ? '' : '/'}${v}`;
+  }
+
   const sponsorshipLink = useMemo(() => {
-    const base = process.env.NEXT_PUBLIC_SPONSORSHIP_LINK_BASE || '/sponsorship-signup';
+    const base = toAbsoluteLink(process.env.NEXT_PUBLIC_SPONSORSHIP_LINK_BASE || '/sponsorship-signup');
     const ref = encodeURIComponent(member?.email || member?.id || 'member');
     return base.includes('?') ? `${base}&ref=${ref}` : `${base}?ref=${ref}`;
-  }, [member?.email, member?.id]);
+  }, [member?.email, member?.id, siteBase, toAbsoluteLink]);
 
   const onboardingPlaybookUrl = useMemo(() => {
     return process.env.NEXT_PUBLIC_INNER_CIRCLE_PLAYBOOK_URL || '/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v2.pdf';
   }, []);
 
+  const onboardingLibraryLinks = useMemo(() => {
+    return [
+      {
+        name: 'Inner Circle Playbook (VIP)',
+        url: process.env.NEXT_PUBLIC_INNER_CIRCLE_PLAYBOOK_URL || '/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v2.pdf'
+      },
+      {
+        name: 'Licensed Agent Playbook',
+        url: '/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf'
+      },
+      {
+        name: 'Unlicensed Agent Playbook',
+        url: '/docs/onboarding/legacy-link-unlicensed-onboarding-playbook.pdf'
+      }
+    ].map((item) => ({ ...item, url: toAbsoluteLink(item.url) }));
+  }, [toAbsoluteLink]);
+
   const contractLinks = useMemo(() => {
     return [
       {
         name: 'Inner Circle Contract (IUL Agreement)',
-        url: process.env.NEXT_PUBLIC_DOCUSIGN_IUL_ICA_URL || '/iul-agreement'
+        url: toAbsoluteLink(process.env.NEXT_PUBLIC_DOCUSIGN_IUL_ICA_URL || '/iul-agreement')
       },
       {
         name: 'Contract Agreement Page',
-        url: '/contract-agreement'
+        url: toAbsoluteLink('/contract-agreement')
       }
     ];
-  }, []);
+  }, [siteBase, toAbsoluteLink]);
 
   useEffect(() => {
     if (!member?.email && !member?.applicantName) return;
@@ -178,12 +343,14 @@ export default function InnerCircleHubPage() {
 
         const activityUrl = `/api/inner-circle-hub-activity?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}`;
 
-        const [kpiRes, dailyRes, scriptsRes, vaultRes, activityRes] = await Promise.all([
+        const [kpiRes, dailyRes, scriptsRes, vaultRes, activityRes, progressRes, policiesRes] = await Promise.all([
           fetch(kpiUrl, { cache: 'no-store' }),
           fetch(dailyUrl, { cache: 'no-store' }),
           fetch('/api/inner-circle-hub-scripts', { cache: 'no-store' }),
           fetch('/api/inner-circle-hub-vault', { cache: 'no-store' }),
-          fetch(activityUrl, { cache: 'no-store' })
+          fetch(activityUrl, { cache: 'no-store' }),
+          fetch('/api/inner-circle-hub-progress', { cache: 'no-store' }),
+          fetch('/api/policy-submissions', { cache: 'no-store' })
         ]);
 
         const kpiData = await kpiRes.json().catch(() => ({}));
@@ -191,6 +358,8 @@ export default function InnerCircleHubPage() {
         const scriptsData = await scriptsRes.json().catch(() => ({}));
         const vaultData = await vaultRes.json().catch(() => ({}));
         const activityData = await activityRes.json().catch(() => ({}));
+        const progressData = await progressRes.json().catch(() => ({}));
+        const policiesData = await policiesRes.json().catch(() => ({}));
 
         if (!canceled && kpiRes.ok && kpiData?.ok) setKpi(kpiData.kpi || null);
         if (!canceled && dailyRes.ok && dailyData?.ok) {
@@ -226,12 +395,20 @@ export default function InnerCircleHubPage() {
             monthly: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 }
           });
         }
+        if (!canceled && progressRes.ok && progressData?.ok) {
+          setLeaderboard({ month: clean(progressData?.month), rows: Array.isArray(progressData?.rows) ? progressData.rows : [] });
+        }
+        if (!canceled && policiesRes.ok && policiesData?.ok) {
+          setPolicyRows(Array.isArray(policiesData?.rows) ? policiesData.rows : []);
+        }
       } catch {
         if (!canceled) {
           setKpi(null);
           setDailyRows([]);
           setScripts([]);
           setVault({ content: [], calls: [], onboarding: [] });
+          setLeaderboard({ month: '', rows: [] });
+          setPolicyRows([]);
         }
       }
     }
@@ -378,10 +555,10 @@ export default function InnerCircleHubPage() {
 
   if (!member) {
     return (
-      <main className="publicPage" style={{ minHeight: '100vh', background: 'radial-gradient(circle at top,#0b1326 0%,#020617 45%, #000 100%)', color: '#e5e7eb' }}>
-        <div className="panel" style={{ maxWidth: 460, border: '1px solid #1f2937', background: '#020617' }}>
-          <p style={{ margin: 0, color: '#93c5fd', fontWeight: 700 }}>THE LEGACY LINK</p>
-          <h2 style={{ marginTop: 8, marginBottom: 6, color: '#fff' }}>Inner Circle Production Hub</h2>
+      <main className="publicPage" style={{ minHeight: '100vh', background: 'radial-gradient(circle at top,#17120a 0%,#0b1020 42%, #05070f 100%)', color: '#e5e7eb' }}>
+        <div className="panel" style={{ maxWidth: 460, border: '1px solid #3a2f1a', background: 'linear-gradient(180deg,#111827 0%, #0b1020 100%)', boxShadow: '0 20px 80px rgba(0,0,0,0.45)' }}>
+          <p style={{ margin: 0, color: '#c8a96b', fontWeight: 700, letterSpacing: '.06em' }}>THE LEGACY LINK</p>
+          <h2 style={{ marginTop: 8, marginBottom: 6, color: '#fff' }}>Inner Circle — VIP Lounge</h2>
           <p style={{ marginTop: 0, color: '#cbd5e1' }}>Member Login</p>
           {!forgotMode ? (
             <form onSubmit={login} className="settingsGrid" style={{ rowGap: 12 }}>
@@ -424,13 +601,13 @@ export default function InnerCircleHubPage() {
   }
 
   return (
-    <main className="publicPage" style={{ minHeight: '100vh', background: '#020617', color: '#e5e7eb' }}>
-      <div className="panel" style={{ maxWidth: 1100, border: '1px solid #1f2937', background: '#030a17' }}>
+    <main className="publicPage" style={{ minHeight: '100vh', background: 'radial-gradient(circle at top,#17120a 0%,#0b1020 42%, #05070f 100%)', color: '#e5e7eb' }}>
+      <div className="panel" style={{ maxWidth: 1100, border: '1px solid #3a2f1a', background: 'linear-gradient(180deg,#0f172a 0%, #0b1020 100%)', boxShadow: '0 24px 80px rgba(0,0,0,0.45)' }}>
         <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <p style={{ margin: 0, color: '#93c5fd', fontWeight: 700 }}>THE LEGACY LINK</p>
-            <h2 style={{ marginTop: 6, color: '#fff' }}>Inner Circle Production Hub</h2>
-            <p className="muted" style={{ marginTop: -8 }}>Welcome, {firstNameFromMember(member)}</p>
+            <p style={{ margin: 0, color: '#c8a96b', fontWeight: 700, letterSpacing: '.06em' }}>THE LEGACY LINK</p>
+            <h2 style={{ marginTop: 6, color: '#fff' }}>Inner Circle VIP Lounge</h2>
+            <p className="muted" style={{ marginTop: -8 }}>Welcome back, {firstNameFromMember(member)} • Premium Member Access</p>
           </div>
           <button type="button" className="ghost" onClick={logout}>Logout</button>
         </div>
@@ -458,6 +635,21 @@ export default function InnerCircleHubPage() {
 
             {tab === 'dashboard' ? (
               <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ border: '1px solid #5f4a23', borderRadius: 14, padding: 16, background: 'linear-gradient(135deg,#1f2937 0%,#0b1020 55%,#111827 100%)' }}>
+                  <small style={{ color: '#c8a96b', letterSpacing: '.06em', fontWeight: 700 }}>WELCOME TO THE INNER CIRCLE</small>
+                  <h3 style={{ color: '#fff', margin: '6px 0 8px' }}>Private access. Elite strategy. Real execution.</h3>
+                  <p style={{ color: '#d1d5db', margin: 0 }}>Your next move is simple: execute today’s priorities, stay coachable, and stack momentum.</p>
+                </div>
+
+                <div style={{ border: '1px solid #3a2f1a', borderRadius: 12, padding: 14, background: '#0b1020' }}>
+                  <strong style={{ color: '#fff', fontSize: 16 }}>Today’s Priority</strong>
+                  <div style={{ display: 'grid', gap: 10, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
+                    <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#111827' }}><small style={{ color: '#c8a96b', fontWeight: 700 }}>WATCH THIS</small><div style={{ color: '#e5e7eb', marginTop: 6 }}>Review one script and run a live rep today.</div></div>
+                    <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#111827' }}><small style={{ color: '#c8a96b', fontWeight: 700 }}>DO THIS</small><div style={{ color: '#e5e7eb', marginTop: 6 }}>Book at least one conversation before end of day.</div></div>
+                    <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#111827' }}><small style={{ color: '#c8a96b', fontWeight: 700 }}>POST THIS</small><div style={{ color: '#e5e7eb', marginTop: 6 }}>Publish one authority post to generate new leads.</div></div>
+                  </div>
+                </div>
+
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
                   <strong style={{ color: '#fff', fontSize: 16 }}>KPI Dashboard (This Month)</strong>
                   <div style={{ display: 'grid', gap: 10, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
@@ -468,18 +660,90 @@ export default function InnerCircleHubPage() {
                   </div>
                 </div>
 
+                <div style={{ border: '1px solid #3a2f1a', borderRadius: 12, padding: 14, background: '#0f172a' }}>
+                  <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ color: '#fff', fontSize: 16 }}>Member Status</strong>
+                    <span className="pill" style={{ background: '#3a2f1a', color: '#f3e8d1', border: '1px solid #5f4a23' }}>{vipTier}</span>
+                  </div>
+                  <p style={{ color: '#d1d5db', margin: '8px 0 10px' }}>You’re in the room. Keep stacking daily actions and your badge climbs automatically with performance.</p>
+                  <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
+                    <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#111827' }}><small className="muted">Current Tier</small><div style={{ color: '#fff', fontWeight: 800 }}>{vipTier}</div></div>
+                    <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#111827' }}><small className="muted">Checklist Progress</small><div style={{ color: '#fff', fontWeight: 800 }}>{checklistDoneCount}/5 today</div></div>
+                    <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#111827' }}><small className="muted">Tracker Days</small><div style={{ color: '#fff', fontWeight: 800 }}>{dailyRows.length}</div></div>
+                  </div>
+                </div>
+
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#061126' }}>
-                  <strong style={{ color: '#fff', fontSize: 16 }}>Onboarding Playbook</strong>
-                  <p style={{ color: '#cbd5e1', marginTop: 8, marginBottom: 10 }}>Download your Inner Circle onboarding PDF anytime.</p>
+                  <strong style={{ color: '#fff', fontSize: 16 }}>Onboarding Playbooks Library</strong>
+                  <p style={{ color: '#cbd5e1', marginTop: 8, marginBottom: 10 }}>Your back office has all onboarding PDFs in one place.</p>
                   <a
                     href={onboardingPlaybookUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="publicPrimaryBtn"
-                    style={{ display: 'inline-block', textDecoration: 'none' }}
+                    style={{ display: 'inline-block', textDecoration: 'none', marginBottom: 10 }}
                   >
-                    Download Playbook PDF
+                    Open VIP Playbook
                   </a>
+                  <div style={{ display: 'grid', gap: 6 }}>
+                    {onboardingLibraryLinks.map((link) => (
+                      <a
+                        key={link.name}
+                        href={link.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ghost"
+                        style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'left' }}
+                      >
+                        {link.name}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #5f4a23', borderRadius: 12, padding: 14, background: '#111827' }}>
+                  <strong style={{ color: '#fff', fontSize: 16 }}>Concierge Desk</strong>
+                  <p style={{ color: '#d1d5db', margin: '8px 0 0' }}>Need support? Message your advisor or coach for your next best move. Premium members move faster with quick feedback loops.</p>
+                </div>
+
+                <div style={{ border: '1px solid #7a5d25', borderRadius: 12, padding: 14, background: 'linear-gradient(135deg,#2b2110 0%,#111827 55%,#1f2937 100%)' }}>
+                  <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ color: '#fff' }}>Top 3 Performers of the Month</strong>
+                    <span className="pill" style={{ background: '#c8a96b', color: '#0b1020', border: '1px solid #e6d1a6', fontWeight: 800 }}>Monthly Spotlight</span>
+                  </div>
+                  {topThreePerformers.length ? (
+                    <div style={{ display: 'grid', gap: 8, marginTop: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))' }}>
+                      {topThreePerformers.map((row, idx) => (
+                        <div key={`top3_${idx}_${row?.name || 'member'}`} style={{ border: '1px solid #5f4a23', borderRadius: 10, padding: 10, background: '#0f172a' }}>
+                          <div style={{ color: '#c8a96b', fontWeight: 800 }}>#{idx + 1}</div>
+                          <div style={{ color: '#f8fafc', fontWeight: 800, marginTop: 2 }}>{row?.name || 'Member'}</div>
+                          <div style={{ marginTop: 4, color: '#f3e8d1', fontWeight: 700 }}>{row.points} points • ${row.dollars}</div>
+                          <div style={{ color: '#d1d5db', fontSize: 12, marginTop: 6 }}>Sponsorship Submitted {row.submitted} • Booked {row.bookings} • F&G Submitted {row.fng} • F&G Approved {row.completed} • Sponsorship Approved {row.approved}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <small className="muted">No top performers yet this month.</small>
+                  )}
+                </div>
+
+                <div style={{ border: '1px solid #3a2f1a', borderRadius: 12, padding: 12, background: '#0f172a' }}>
+                  <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ color: '#fff' }}>Monthly Leaderboard</strong>
+                    <small className="muted">Top 5 Inner Circle • {leaderboard?.month || 'Current Month'}</small>
+                  </div>
+                  <small className="muted">Scoring: Sponsorship Submitted (1) • Booked (3) • F&G Submitted (10) • F&G Approved (500). Sponsorship Approved and Leads are tracked but not scored.</small>
+                  <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+                    {monthlyTopPerformers.map((row, idx) => (
+                      <div key={`leader_${idx}_${row?.name || 'unknown'}`} style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#111827', color: '#e5e7eb' }}>
+                        <span style={{ color: '#c8a96b', fontWeight: 800, marginRight: 8 }}>#{idx + 1}</span>
+                        <strong style={{ color: '#f8fafc', fontWeight: 800 }}>{row?.name || 'Member'}</strong>
+                        <span style={{ color: '#e2e8f0', fontWeight: 700 }}> • {row.points} pts • ${row.dollars}</span>
+                        <div style={{ color: '#cbd5e1', fontSize: 12, marginTop: 4 }}>Sponsorship Submitted {row.submitted} • Booked {row.bookings} • F&G Submitted {row.fng} • F&G Approved {row.completed} • Sponsorship Approved {row.approved}</div>
+                      </div>
+                    ))}
+                    {!monthlyTopPerformers.length ? <small className="muted">No qualifying performance yet this month.</small> : null}
+                  </div>
                 </div>
 
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
@@ -539,15 +803,30 @@ export default function InnerCircleHubPage() {
             ) : null}
 
             {tab === 'faststart' ? (
-              <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 16, background: '#071022' }}>
-                <strong style={{ color: '#fff', fontSize: 18 }}>First 14 Days Fast Track</strong>
-                <p style={{ color: '#cbd5e1', marginTop: 8, marginBottom: 10, fontSize: 15 }}>Move in sequence. Execute daily. Keep momentum high.</p>
-                <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#f1f5f9', display: 'grid', gap: 10, fontWeight: 600, lineHeight: 1.5, fontSize: 15 }}>
-                  <li><span style={{ color: '#93c5fd' }}>Day 1–2:</span> CRM setup, profile setup, scripts setup</li>
-                  <li><span style={{ color: '#93c5fd' }}>Day 3–5:</span> Start 50+ outbound conversations</li>
-                  <li><span style={{ color: '#93c5fd' }}>Day 6–9:</span> Book discovery calls and run appointment flow</li>
-                  <li><span style={{ color: '#93c5fd' }}>Day 10–14:</span> Submit first apps and tighten follow-up cadence</li>
-                </ul>
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ border: '1px solid #5f4a23', borderRadius: 12, padding: 16, background: '#111827' }}>
+                  <strong style={{ color: '#fff', fontSize: 18 }}>VIP First 7 Days</strong>
+                  <p style={{ color: '#e5e7eb', marginTop: 8, marginBottom: 10, fontSize: 15 }}>Your premium onboarding sprint. Keep this simple and complete one block per day.</p>
+                  <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#f1f5f9', display: 'grid', gap: 10, fontWeight: 600, lineHeight: 1.5, fontSize: 15 }}>
+                    <li><span style={{ color: '#c8a96b' }}>Day 1:</span> Login, set environment, review scripts, save tracker baseline</li>
+                    <li><span style={{ color: '#c8a96b' }}>Day 2:</span> Start 25+ outbound conversations</li>
+                    <li><span style={{ color: '#c8a96b' }}>Day 3:</span> Book your first conversation and tighten follow-up</li>
+                    <li><span style={{ color: '#c8a96b' }}>Day 4:</span> Run discovery flow + objection handling reps</li>
+                    <li><span style={{ color: '#c8a96b' }}>Day 5:</span> Push for sponsorship submit and FNG action</li>
+                    <li><span style={{ color: '#c8a96b' }}>Day 6:</span> Fill pipeline gaps and post authority content</li>
+                    <li><span style={{ color: '#c8a96b' }}>Day 7:</span> Review KPI, plan week two, set stretch target</li>
+                  </ul>
+                </div>
+
+                <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 16, background: '#071022' }}>
+                  <strong style={{ color: '#fff', fontSize: 18 }}>Days 8–14 Fast Track</strong>
+                  <p style={{ color: '#cbd5e1', marginTop: 8, marginBottom: 10, fontSize: 15 }}>Move in sequence. Execute daily. Keep momentum high.</p>
+                  <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#f1f5f9', display: 'grid', gap: 10, fontWeight: 600, lineHeight: 1.5, fontSize: 15 }}>
+                    <li><span style={{ color: '#93c5fd' }}>Day 8–10:</span> Scale outbound and stack booked calls</li>
+                    <li><span style={{ color: '#93c5fd' }}>Day 11–12:</span> Submit additional apps and recover warm leads</li>
+                    <li><span style={{ color: '#93c5fd' }}>Day 13–14:</span> Tighten close rate, lock in consistency</li>
+                  </ul>
+                </div>
               </div>
             ) : null}
 
@@ -659,6 +938,85 @@ export default function InnerCircleHubPage() {
               </div>
             ) : null}
 
+            {tab === 'production' ? (
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div style={{ border: '1px solid #5f4a23', borderRadius: 12, padding: 14, background: 'linear-gradient(135deg,#1f2937 0%,#0b1020 55%,#111827 100%)' }}>
+                  <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                    <strong style={{ color: '#fff', fontSize: 17 }}>My Production Back Office</strong>
+                    <small className="muted">Private view • only your personal production</small>
+                  </div>
+                  <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>Filter by policy type to quickly see flat-rate vs commission-based production.</p>
+                </div>
+
+                <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+                  <button type="button" className={productionFilter === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('all')}>All Policies</button>
+                  <button type="button" className={productionFilter === 'sponsorship' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('sponsorship')}>Sponsorship</button>
+                  <button type="button" className={productionFilter === 'bonus' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('bonus')}>Bonus</button>
+                  <button type="button" className={productionFilter === 'regular' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('regular')}>Regular</button>
+                  <button type="button" className={productionFilter === 'inner circle' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('inner circle')}>Inner Circle</button>
+                  <button type="button" className={productionFilter === 'juvenile' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('juvenile')}>Juvenile</button>
+                </div>
+
+                <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))' }}>
+                  <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 12, background: '#111827' }}><small className="muted">Total Policies</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{productionStats.count}</div></div>
+                  <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 12, background: '#111827' }}><small className="muted">Points Earned</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{productionStats.points.toFixed(2)}</div></div>
+                  <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 12, background: '#111827' }}><small className="muted">Advance Payout</small><div style={{ color: '#86efac', fontWeight: 800, fontSize: 24 }}>${productionStats.advance.toFixed(2)}</div></div>
+                  <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 12, background: '#111827' }}><small className="muted">Deferred Balance</small><div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 24 }}>${productionStats.remaining.toFixed(2)}</div></div>
+                  <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 12, background: '#111827' }}><small className="muted">Approval Rate</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{productionStats.approvalRate}%</div></div>
+                </div>
+
+                <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1.2fr 1fr' }}>
+                  <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+                    <strong style={{ color: '#fff' }}>Policy Type Breakdown</strong>
+                    <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                      <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0b1220', color: '#e2e8f0' }}>Sponsorship Policies: <strong style={{ color: '#f8fafc' }}>{personalProduction.byType.sponsorship}</strong> <small className="muted">(flat 500 pts to referrer)</small></div>
+                      <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0b1220', color: '#e2e8f0' }}>Bonus Policies: <strong style={{ color: '#f8fafc' }}>{personalProduction.byType.bonus}</strong> <small className="muted">(flat 500 pts licensed only)</small></div>
+                      <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0b1220', color: '#e2e8f0' }}>Inner Circle Policies: <strong style={{ color: '#f8fafc' }}>{personalProduction.byType.innerCircle}</strong> <small className="muted">(flat 1,200 pts / $1,200)</small></div>
+                      <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0b1220', color: '#e2e8f0' }}>Regular Policies: <strong style={{ color: '#f8fafc' }}>{personalProduction.byType.regular}</strong> <small className="muted">(70% commission model)</small></div>
+                      <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0b1220', color: '#e2e8f0' }}>Juvenile Policies: <strong style={{ color: '#f8fafc' }}>{personalProduction.byType.juvenile}</strong> <small className="muted">(50% commission model)</small></div>
+                    </div>
+                  </div>
+
+                  <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+                    <strong style={{ color: '#fff' }}>Payout Structure Snapshot</strong>
+                    <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                      <div style={{ background: '#0b1220', border: '1px solid #334155', borderRadius: 8, padding: 10 }}>
+                        <small className="muted">Advance (75%)</small>
+                        <div style={{ height: 10, background: '#1f2937', borderRadius: 8, marginTop: 6 }}><div style={{ width: '75%', height: '100%', background: 'linear-gradient(90deg,#22c55e,#16a34a)', borderRadius: 8 }} /></div>
+                      </div>
+                      <div style={{ background: '#0b1220', border: '1px solid #334155', borderRadius: 8, padding: 10 }}>
+                        <small className="muted">Deferred (Months 10/11/12)</small>
+                        <div style={{ height: 10, background: '#1f2937', borderRadius: 8, marginTop: 6 }}><div style={{ width: '25%', height: '100%', background: 'linear-gradient(90deg,#c8a96b,#a78647)', borderRadius: 8 }} /></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+                  <strong style={{ color: '#fff' }}>Policy Activity Table</strong>
+                  <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                    {filteredProductionRows.slice(0, 30).map((row) => (
+                      <div key={row?.id} style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#0b1220' }}>
+                        <div style={{ color: '#f8fafc', fontWeight: 700 }}>
+                          {row?.applicantName || 'Applicant'} • {row?.policyType || row?.appType || 'Policy'}
+                          {clean(row?.policyType || row?.appType || '').toLowerCase().includes('inner circle') ? (
+                            <span className="pill" style={{ marginLeft: 8, background: '#3a2f1a', color: '#f3e8d1', border: '1px solid #c8a96b' }}>Inner Circle</span>
+                          ) : null}
+                        </div>
+                        <div style={{ color: '#cbd5e1', fontSize: 12, marginTop: 4 }}>
+                          Commission: {Math.round((Number(row?.commissionRate || 0) || 0) * 100)}% • Points: {Number(row?.pointsEarned || 0).toFixed(2)} • Advance: ${Number(row?.advancePayout || row?.payoutAmount || 0).toFixed(2)} • Status: {row?.status || 'Submitted'}
+                        </div>
+                        <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 2 }}>
+                          Remaining: ${Number(row?.remainingBalance || 0).toFixed(2)} • M10: ${Number(row?.month10Payout || 0).toFixed(2)} • M11: ${Number(row?.month11Payout || 0).toFixed(2)} • M12: ${Number(row?.month12Payout || 0).toFixed(2)}
+                        </div>
+                      </div>
+                    ))}
+                    {!filteredProductionRows.length ? <small className="muted">No personal production records for this filter yet.</small> : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {tab === 'rewards' ? (
               <div style={{ display: 'grid', gap: 10 }}>
                 <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 12, background: '#071022' }}>
@@ -707,6 +1065,22 @@ export default function InnerCircleHubPage() {
           </div>
         )}
       </div>
+      <style jsx global>{`
+        .publicPrimaryBtn {
+          background: linear-gradient(135deg, #c8a96b 0%, #a78647 100%) !important;
+          color: #0b1020 !important;
+          border: 1px solid #d6bd8d !important;
+          font-weight: 700;
+        }
+        .publicPrimaryBtn:hover {
+          filter: brightness(1.05);
+        }
+        .ghost {
+          border-color: #5f4a23 !important;
+          color: #f3e8d1 !important;
+          background: rgba(17, 24, 39, 0.55) !important;
+        }
+      `}</style>
     </main>
   );
 }

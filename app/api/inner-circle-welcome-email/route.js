@@ -1,10 +1,116 @@
 import nodemailer from 'nodemailer';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import { promisify } from 'util';
+import { execFile } from 'child_process';
 import { createHash, randomBytes } from 'crypto';
 import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 
 function clean(v = '') { return String(v || '').trim(); }
+const execFileAsync = promisify(execFile);
+
+function safeFilePart(v = '') {
+  return clean(v)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || 'agent';
+}
+
+function buildSponsorshipUrl(base = '', ref = '') {
+  const b = clean(base);
+  if (!b) return '';
+  const encoded = encodeURIComponent(clean(ref) || 'member');
+  return b.includes('?') ? `${b}&ref=${encoded}` : `${b}?ref=${encoded}`;
+}
+
+function buildRefCode({ name = '', email = '' } = {}) {
+  const n = clean(name).toLowerCase();
+  const parts = n
+    .replace(/[^a-z\s'-]/g, ' ')
+    .split(/\s+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[0]}.${parts[parts.length - 1]}`;
+  }
+
+  const local = clean(email).toLowerCase().split('@')[0] || '';
+  if (local) return local.replace(/[^a-z0-9._-]/g, '');
+
+  return 'member';
+}
+
+const ROLE_CONFIG = {
+  'inner-circle': {
+    label: 'Inner Circle',
+    playbookUrl: 'https://innercirclelink.com/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v2.pdf',
+    staticPlaybookPath: path.join(process.cwd(), 'public', 'docs', 'inner-circle', 'legacy-link-inner-circle-onboarding-playbook-v2.pdf'),
+    fileLabel: 'Legacy-Link-Inner-Circle-Onboarding-Playbook'
+  },
+  licensed: {
+    label: 'Licensed Agent',
+    playbookUrl: 'https://innercirclelink.com/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf',
+    staticPlaybookPath: path.join(process.cwd(), 'public', 'docs', 'onboarding', 'legacy-link-licensed-onboarding-playbook.pdf'),
+    fileLabel: 'Legacy-Link-Licensed-Onboarding-Playbook'
+  },
+  unlicensed: {
+    label: 'Unlicensed Agent',
+    playbookUrl: 'https://innercirclelink.com/docs/onboarding/legacy-link-unlicensed-onboarding-playbook.pdf',
+    staticPlaybookPath: path.join(process.cwd(), 'public', 'docs', 'onboarding', 'legacy-link-unlicensed-onboarding-playbook.pdf'),
+    fileLabel: 'Legacy-Link-Unlicensed-Onboarding-Playbook'
+  }
+};
+
+function normalizeRole(input = '') {
+  const raw = clean(input).toLowerCase();
+  // Safety default: non-inner role unless explicitly marked inner.
+  if (!raw) return 'unlicensed';
+  if (raw.includes('inner')) return 'inner-circle';
+  if (raw.includes('unlicensed')) return 'unlicensed';
+  if (raw.includes('licensed')) return 'licensed';
+  return 'unlicensed';
+}
+
+function resolveRoleConfig(input = '') {
+  const roleKey = normalizeRole(input);
+  return { roleKey, ...(ROLE_CONFIG[roleKey] || ROLE_CONFIG.unlicensed) };
+}
+
+async function generatePersonalizedVipPdf({ name, email, coachName, hubUrl, appUrl, contractLink, telegramUrl, playbookUrl, sponsorshipUrl }) {
+  const scriptPath = path.join(process.cwd(), 'scripts', 'generate_personalized_inner_circle_playbook.py');
+  if (!fs.existsSync(scriptPath)) return null;
+
+  const outDir = path.join(os.tmpdir(), 'legacy-link-vip-playbooks');
+  fs.mkdirSync(outDir, { recursive: true });
+
+  const outFile = `${Date.now()}-${safeFilePart(name || email || 'agent')}.pdf`;
+  const outPath = path.join(outDir, outFile);
+
+  const args = [
+    scriptPath,
+    '--output', outPath,
+    '--name', clean(name),
+    '--email', clean(email),
+    '--coach', clean(coachName),
+    '--hub', clean(hubUrl),
+    '--app', clean(appUrl),
+    '--contract', clean(contractLink),
+    '--telegram', clean(telegramUrl),
+    '--playbook', clean(playbookUrl),
+    '--sponsorship', clean(sponsorshipUrl)
+  ];
+
+  try {
+    await execFileAsync('python3', args, { timeout: 20000, maxBuffer: 1024 * 1024 });
+    if (!fs.existsSync(outPath)) return null;
+    return outPath;
+  } catch {
+    return null;
+  }
+}
 
 function mailer() {
   const user = clean(process.env.GMAIL_APP_USER);
@@ -151,49 +257,84 @@ async function upsertHubMemberAccessOnWelcome({ name = '', email = '', tempPassw
   return { ok: true, memberId: clean(next.id), email: memberEmail };
 }
 
-function buildHtml({ name, telegramUrl, hubUrl, tempPassword, playbookUrl }) {
+function buildHtml({ roleLabel, isInnerCircle, name, email, coachName, telegramUrl, appUrl, hubUrl, tempPassword, playbookUrl, compScheduleUrl, contractLink, sponsorshipUrl }) {
+  const safeRole = escapeHtml(roleLabel || 'Agent');
   const safeName = escapeHtml(name || 'there');
-  const safeTelegram = escapeHtml(telegramUrl);
-  const safeHub = escapeHtml(hubUrl);
-  const safePassword = escapeHtml(tempPassword);
+  const safeEmail = escapeHtml(email || '');
+  const safeCoach = escapeHtml(coachName || 'Legacy Link Coach');
+  const safeTelegram = escapeHtml(telegramUrl || '');
+  const safeApp = escapeHtml(appUrl);
+  const safeHub = escapeHtml(hubUrl || '');
+  const safePassword = escapeHtml(tempPassword || '');
   const safePlaybook = escapeHtml(playbookUrl);
+  const safeCompSchedule = escapeHtml(compScheduleUrl || '');
+  const safeContract = escapeHtml(contractLink || '');
+  const safeSponsorship = escapeHtml(sponsorshipUrl || '');
+
+  const onboardingRows = [
+    `<li style="margin-bottom:10px;"><strong>Review your onboarding agreement first:</strong><br/><a href="${safeContract}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeContract}</a></li>`,
+    `<li style="margin-bottom:10px;"><strong>Join the Legacy Link App (CRM):</strong><br/><a href="${safeApp}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeApp}</a></li>`
+  ];
+
+  if (isInnerCircle) {
+    onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Join the Telegram group and send a quick intro message:</strong><br/><a href="${safeTelegram}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeTelegram}</a></li>`);
+    onboardingRows.push(`<li style="margin-bottom:10px;">Then log in to your Inner Circle Hub:<br/><a href="${safeHub}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeHub}</a></li>`);
+    if (safeSponsorship) onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Your personal sponsorship link:</strong><br/><a href="${safeSponsorship}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSponsorship}</a></li>`);
+    onboardingRows.push(`<li style="margin-bottom:10px;"><strong>HUB Login Email:</strong> ${safeEmail}</li>`);
+    onboardingRows.push(`<li style="margin-bottom:10px;"><strong>HUB Login Password (save this):</strong><br/><span style="display:inline-block;background:#F58426;color:#0B1020;padding:6px 10px;border-radius:8px;font-weight:800;">${safePassword}</span></li>`);
+    onboardingRows.push('<li>Now move through your first 72-hour execution plan in the Hub.</li>');
+  } else {
+    if (safeSponsorship) onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Your personal sponsorship link:</strong><br/><a href="${safeSponsorship}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSponsorship}</a></li>`);
+    onboardingRows.push('<li>Complete the attached onboarding playbook + comp/bonus schedule and follow your coach instructions.</li>');
+  }
+
+  const first72 = isInnerCircle
+    ? `<li>Review Fast Start inside the hub</li>
+            <li>Open Scripts and pick your primary call flow</li>
+            <li>Log your first daily production activity in Tracker</li>
+            <li>Drop a quick intro in Telegram</li>`
+    : `<li>Review the attached role-specific onboarding playbook</li>
+            <li>Complete account setup in Legacy Link App</li>
+            <li>Run your first daily activity block and tracker update</li>
+            <li>Connect with your coach for next production targets</li>`;
+
+  const roleNote = isInnerCircle
+    ? 'Inner Circle members also have their own back office links and resources.'
+    : 'Inner Circle Hub access is not included for this role.';
 
   return `
   <div style="margin:0;padding:24px;background:#0B1020;font-family:Arial,Helvetica,sans-serif;color:#F8FAFC;">
     <div style="max-width:680px;margin:0 auto;border:1px solid #1D428A;border-radius:14px;overflow:hidden;background:#111A33;">
       <div style="padding:20px 22px;background:linear-gradient(120deg,#1D428A,#006BB6);">
         <div style="font-size:28px;font-weight:800;letter-spacing:.4px;line-height:1.1;">THE LEGACY LINK</div>
-        <div style="margin-top:6px;font-size:14px;opacity:.9;">Inner Circle Welcome</div>
+        <div style="margin-top:6px;font-size:14px;opacity:.9;">${safeRole} Welcome</div>
       </div>
 
       <div style="padding:22px;line-height:1.65;">
         <p style="margin:0 0 14px;">Hi ${safeName},</p>
-        <p style="margin:0 0 14px;">Welcome to <strong>The Legacy Link Inner Circle</strong>. We’re excited to have you inside.</p>
+        <p style="margin:0 0 14px;">Welcome to <strong>The Legacy Link ${safeRole}</strong>. We’re excited to have you inside.</p>
+        <p style="margin:0 0 14px;"><strong>Your coach:</strong> ${safeCoach}</p>
 
         <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
           <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Your onboarding steps</div>
           <ol style="margin:0 0 0 18px;padding:0;">
-            <li style="margin-bottom:10px;">Log in to your Inner Circle Hub:<br/><a href="${safeHub}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeHub}</a></li>
-            <li style="margin-bottom:10px;"><strong>HUB Login Temporary Password:</strong><br/><span style="display:inline-block;background:#F58426;color:#0B1020;padding:6px 10px;border-radius:8px;font-weight:800;">${safePassword}</span></li>
-            <li style="margin-bottom:10px;">To set your own password: log out → click <strong>Forgot Password</strong> on the login page → use the email reset link.</li>
-            <li>Join the Telegram group:<br/><a href="${safeTelegram}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeTelegram}</a></li>
+            ${onboardingRows.join('\n')}
           </ol>
         </div>
 
         <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
           <div style="font-weight:700;margin-bottom:8px;color:#F58426;">What to do in your first 72 hours</div>
           <ul style="margin:0 0 0 18px;padding:0;">
-            <li>Review Fast Start inside the hub</li>
-            <li>Open Scripts and pick your primary call flow</li>
-            <li>Log your first daily production activity in Tracker</li>
-            <li>Drop a quick intro in Telegram</li>
+            ${first72}
           </ul>
         </div>
 
         <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
-          <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Onboarding Playbook (PDF)</div>
-          <p style="margin:0 0 10px;">This PDF is attached to this email. You can also download it after login from your Hub dashboard under <strong>Onboarding Playbook</strong>.</p>
-          <a href="${safePlaybook}" style="display:inline-block;background:#F58426;color:#0B1020;padding:10px 14px;border-radius:8px;font-weight:800;text-decoration:none;">Download Playbook PDF</a>
+          <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Onboarding Documents (PDF)</div>
+          <p style="margin:0 0 10px;">Your role-specific onboarding documents are attached to this email.</p>
+          <a href="${safePlaybook}" style="display:inline-block;background:#F58426;color:#0B1020;padding:10px 14px;border-radius:8px;font-weight:800;text-decoration:none;margin-right:8px;">Onboarding Playbook</a>
+          ${!isInnerCircle && safeCompSchedule ? `<a href="${safeCompSchedule}" style="display:inline-block;background:#C8A96B;color:#0B1020;padding:10px 14px;border-radius:8px;font-weight:800;text-decoration:none;">Comp + Bonus Schedule</a>` : ''}
+          <p style="margin:10px 0 0;color:#C9D1E1;font-size:12px;">${roleNote}</p>
         </div>
 
         <p style="margin:0;">If you run into any access issue, reply to this email and we’ll get you handled fast.</p>
@@ -203,51 +344,106 @@ function buildHtml({ name, telegramUrl, hubUrl, tempPassword, playbookUrl }) {
   </div>`;
 }
 
+
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
   const to = clean(body?.to || 'kimora@thelegacylink.com');
   const name = clean(body?.name || 'Kimora');
-  const telegramUrl = clean(body?.telegramUrl || 'https://t.me/+9GyGIETNM1QxZWRh');
-  const hubUrl = clean(body?.hubUrl || process.env.NEXT_PUBLIC_INNER_CIRCLE_HUB_URL || 'https://innercirclelink.com/inner-circle-hub');
+  const appUrl = clean(body?.appUrl || body?.customLinks?.app || process.env.INNER_CIRCLE_APP_URL || 'https://legacylink.app/');
   const requestedTempPassword = clean(body?.tempPassword || '');
-  const tempPassword = requestedTempPassword || generateTempPassword();
-  const playbookUrl = clean(body?.playbookUrl || 'https://innercirclelink.com/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v2.pdf');
+  const roleInput = clean(body?.role || body?.agentType || body?.agentRole || (body?.licensed === true ? 'licensed' : (body?.licensed === false ? 'unlicensed' : '')));
+  const roleConfig = resolveRoleConfig(roleInput);
+  const isInnerCircle = roleConfig.roleKey === 'inner-circle';
+  const tempPassword = isInnerCircle ? (requestedTempPassword || generateTempPassword()) : '';
+  const telegramUrl = isInnerCircle ? clean(body?.telegramUrl || body?.customLinks?.telegram || 'https://t.me/+9GyGIETNM1QxZWRh') : '';
+  const hubUrl = isInnerCircle ? clean(body?.hubUrl || body?.customLinks?.hub || process.env.NEXT_PUBLIC_INNER_CIRCLE_HUB_URL || 'https://innercirclelink.com/inner-circle-hub') : '';
+  const explicitPlaybookUrl = clean(body?.playbookUrl || body?.customLinks?.playbook || '');
+  const playbookUrl = explicitPlaybookUrl || roleConfig.playbookUrl;
+  const compScheduleUrl = clean(body?.compScheduleUrl || body?.customLinks?.compSchedule || 'https://innercirclelink.com/docs/onboarding/legacy-link-comp-schedule-bonuses-v1.pdf');
+  const compSchedulePath = path.join(process.cwd(), 'public', 'docs', 'onboarding', 'legacy-link-comp-schedule-bonuses-v1.pdf');
+  const defaultContract = isInnerCircle ? 'https://innercirclelink.com/inner-circle-contract' : 'https://innercirclelink.com/contract-agreement';
+  const contractLink = clean(body?.contractLink || body?.customLinks?.contract || defaultContract);
+  const referredBy = clean(body?.referredBy || body?.customLinks?.referredBy || '');
+  // Current chain-of-command rule: coach defaults to the referrer unless explicitly overridden.
+  const coachName = clean(body?.coachName || body?.customLinks?.coachName || referredBy || 'Legacy Link Coach');
+  const sponsorshipBase = clean(body?.sponsorshipUrl || body?.customLinks?.sponsorship || process.env.NEXT_PUBLIC_SPONSORSHIP_LINK_BASE || 'https://innercirclelink.com/sponsorship-signup');
+  const sponsorshipRefCode = buildRefCode({ name, email: to });
+  const sponsorshipUrl = buildSponsorshipUrl(sponsorshipBase, sponsorshipRefCode);
   const ghlUserId = clean(body?.ghlUserId || '');
   const autoWireOnWelcome = body?.autoWireOnWelcome !== false;
 
-  if (!to || !telegramUrl || !hubUrl || !tempPassword || !playbookUrl) {
+  if (!to || !appUrl || !playbookUrl || !contractLink || (isInnerCircle && (!telegramUrl || !hubUrl || !tempPassword))) {
     return Response.json({ ok: false, error: 'missing_required_fields' }, { status: 400 });
   }
 
   const m = mailer();
   if (!m) return Response.json({ ok: false, error: 'mail_not_configured' }, { status: 500 });
 
-  const subject = 'Welcome to The Legacy Link Inner Circle 🔗 — Your Access Details';
-  const text = [
+  const subject = `Welcome to The Legacy Link ${roleConfig.label} 🔗 — Your Access Details`;
+  const textLines = [
     `Hi ${name},`,
     '',
-    'Welcome to The Legacy Link Inner Circle! Here is your onboarding access:',
+    `Welcome to The Legacy Link ${roleConfig.label}! Here is your onboarding access:`,
     '',
-    `Inner Circle Hub: ${hubUrl}`,
-    `HUB Login Temporary Password: ${tempPassword}`,
-    `Telegram Group: ${telegramUrl}`,
-    `Onboarding Playbook (PDF): ${playbookUrl}`,
-    'Where to find it in the Hub: Dashboard → Onboarding Playbook',
-    'Note: The temporary password above is specifically for your HUB login.',
-    '',
-    'To set your own password: log out, click Forgot Password on the login page, then use the email reset link.',
-    '',
-    'Welcome to the movement,',
-    'The Legacy Link Team'
-  ].join('\n');
+    `Step 1 (Required First): Onboarding Agreement: ${contractLink}`,
+    `Step 2: Join the Legacy Link App (CRM): ${appUrl}`
+  ];
 
-  const html = buildHtml({ name, telegramUrl, hubUrl, tempPassword, playbookUrl });
+  if (isInnerCircle) {
+    textLines.push(`Step 3: Join Telegram and send a quick intro message: ${telegramUrl}`);
+    textLines.push(`Step 4: Inner Circle Hub: ${hubUrl}`);
+    textLines.push(`HUB Login Email: ${to}`);
+    textLines.push(`HUB Login Password (save this): ${tempPassword}`);
+    textLines.push('Step 5: Run your first 72-hour execution plan in the Hub');
+  } else {
+    textLines.push('Step 3: Complete your attached role-based onboarding playbook');
+    textLines.push('Inner Circle Hub access is not included for this role.');
+  }
 
+  textLines.push(`Coach: ${coachName}`);
+  textLines.push(`Personal Sponsorship Link: ${sponsorshipUrl}`);
+  textLines.push(`Onboarding Playbook (PDF): ${playbookUrl}`);
+  if (!isInnerCircle) {
+    textLines.push(`Comp + Bonus Schedule (PDF): ${compScheduleUrl}`);
+  }
+  if (isInnerCircle) {
+    textLines.push('Where to find all PDFs: Inner Circle back office resource links');
+  }
+  textLines.push('');
+  textLines.push('Welcome to the movement,');
+  textLines.push('The Legacy Link Team');
+
+  const text = textLines.join('\n');
+
+  const html = buildHtml({ roleLabel: roleConfig.label, isInnerCircle, name, email: to, coachName, telegramUrl, appUrl, hubUrl, tempPassword, playbookUrl, compScheduleUrl, contractLink, sponsorshipUrl });
+
+  let personalizedPdfPath = '';
   try {
-    const playbookPath = path.join(process.cwd(), 'public', 'docs', 'inner-circle', 'legacy-link-inner-circle-onboarding-playbook-v2.pdf');
-    const attachments = fs.existsSync(playbookPath)
-      ? [{ filename: 'Legacy-Link-Inner-Circle-Onboarding-Playbook.pdf', path: playbookPath }]
-      : [{ filename: 'Legacy-Link-Inner-Circle-Onboarding-Playbook.pdf', path: playbookUrl }];
+    const staticPlaybookPath = roleConfig.staticPlaybookPath;
+    personalizedPdfPath = isInnerCircle ? (await generatePersonalizedVipPdf({
+      name,
+      email: to,
+      coachName,
+      hubUrl,
+      appUrl,
+      contractLink,
+      telegramUrl,
+      playbookUrl,
+      sponsorshipUrl
+    }) || '') : '';
+
+    let attachments = personalizedPdfPath
+      ? [{ filename: `Legacy-Link-VIP-Playbook-${safeFilePart(name || to)}.pdf`, path: personalizedPdfPath }]
+      : (fs.existsSync(staticPlaybookPath)
+        ? [{ filename: `${roleConfig.fileLabel}.pdf`, path: staticPlaybookPath }]
+        : [{ filename: `${roleConfig.fileLabel}.pdf`, path: playbookUrl }]);
+
+    if (!isInnerCircle) {
+      const compAttachment = fs.existsSync(compSchedulePath)
+        ? { filename: 'Legacy-Link-Comp-Schedule-Bonuses.pdf', path: compSchedulePath }
+        : { filename: 'Legacy-Link-Comp-Schedule-Bonuses.pdf', path: compScheduleUrl };
+      attachments = [...attachments, compAttachment];
+    }
 
     const info = await m.tx.sendMail({
       from: m.from,
@@ -258,9 +454,9 @@ export async function POST(req) {
       attachments
     });
 
-    let autoWire = { ok: false, skipped: true, reason: 'disabled' };
-    let hubAccess = { ok: false, skipped: true, reason: 'disabled' };
-    if (autoWireOnWelcome) {
+    let autoWire = { ok: false, skipped: true, reason: isInnerCircle ? 'disabled' : 'role_not_inner_circle' };
+    let hubAccess = { ok: false, skipped: true, reason: isInnerCircle ? 'disabled' : 'role_not_inner_circle' };
+    if (autoWireOnWelcome && isInnerCircle) {
       try {
         autoWire = await wireInnerCircleAgentOnWelcome({ name, email: to, ghlUserId });
       } catch (wireErr) {
@@ -278,10 +474,18 @@ export async function POST(req) {
       ok: true,
       messageId: info?.messageId || '',
       accepted: info?.accepted || [],
+      role: roleConfig.roleKey,
+      roleLabel: roleConfig.label,
       autoWire,
-      hubAccess
+      hubAccess,
+      personalizedPlaybookAttached: Boolean(personalizedPdfPath),
+      compScheduleAttached: !isInnerCircle
     });
   } catch (error) {
     return Response.json({ ok: false, error: String(error?.message || error) }, { status: 500 });
+  } finally {
+    if (personalizedPdfPath && personalizedPdfPath.includes(path.join(os.tmpdir(), 'legacy-link-vip-playbooks'))) {
+      try { fs.unlinkSync(personalizedPdfPath); } catch {}
+    }
   }
 }

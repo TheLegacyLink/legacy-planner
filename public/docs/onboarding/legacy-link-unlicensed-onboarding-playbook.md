@@ -1,28 +1,46 @@
-# Unlicensed Agent Onboarding Playbook
+# The Legacy Link — Unlicensed Agent Onboarding Playbook
 
 ## Purpose
-- This is your Unlicensed Agent onboarding checklist.
-- Your target is to complete SOP requirements and begin licensing progress immediately.
+This playbook is your **unlicensed agent launch sequence**.
+Complete each step in order and maintain daily execution discipline.
 
-## Step 1 — Access Your SOP Portal
-- Open your SOP link from the welcome email.
-- Login with the email and password provided in your approval email.
-- Complete each checklist item and submit approval requests where required.
+---
 
-## Step 2 — Start Licensing Path
-- Complete your study/class startup instructions from your assigned coach.
-- Track daily study progress and stay on schedule until exam completion.
-- Ask for support early if you get blocked.
+## Step 1 — Access SOP Instructions + Welcome Email
+- Open your Welcome Email and save your links.
+- Open SOP instructions and complete the checklist in order.
+- Confirm account access before moving forward.
 
-## Step 3 — Community + Training
-- Join Skool and confirm your membership inside SOP.
-- Watch "Whatever It Takes" and complete the required action.
-- Stay active and execute your daily checklist.
+## Step 2 — Complete Contract + Required Profile Setup
+- Complete onboarding agreement/profile setup first.
+- Fill all required profile fields accurately.
+- Upload/submit any required onboarding details.
+- If blocked, contact support with screenshot + short description.
 
-## Step 4 — Execution Standards
-- Practice scripts daily and submit accountability updates.
-- Keep contact records clean and complete.
-- Focus on consistency: speed + follow-through.
+## Step 3 — Join Legacy Link App (CRM)
+- Join app: **https://legacylink.app/**
+- Complete profile setup and confirm login.
+- Track all lead notes and follow-up activity in CRM.
+
+## Step 4 — Community + Skool (Training)
+- Join Skool community: **https://www.skool.com/legacylink/about**
+- Complete onboarding/training tasks assigned there.
+- Stay active and responsive while onboarding is in progress.
+
+## Step 5 — Daily Execution Standards
+- Work new leads daily
+- Follow up warm leads daily
+- Book at least one conversation daily
+- Follow script framework and coach guidance
+- Keep CRM notes clean and updated same day
+
+---
+
+## Quality Standard
+- No lead without notes
+- No same-day activity left unlogged
+- No skipped follow-up without reason
 
 ## Support
-- support@thelegacylink.com
+- **support@thelegacylink.com**
+- Include: name, email, issue, screenshot, and urgency
