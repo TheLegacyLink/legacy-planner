@@ -72,12 +72,12 @@ def build():
     story = []
     story.append(Paragraph('THE LEGACY LINK', st['tiny']))
     story.append(Paragraph('Sponsorship Application Call SOP', st['title']))
-    story.append(Paragraph('Professional required workflow for live sponsorship application calls.', st['sub']))
+    story.append(Paragraph('Required workflow for sponsorship application calls.', st['sub']))
 
     story.append(section('Non-Negotiable Rule (No Exceptions)', [
         'Joining the agency is NOT contingent on purchasing/submitting a policy.',
         'Contract must be completed first.',
-        'Do not proceed to application submission until contract is signed.',
+        'Do not proceed to starting the application until contract is signed.',
         f'Required Contract Link: {CONTRACT_URL}'
     ], st, bg='#2B1212'))
     story.append(Spacer(1, 8))

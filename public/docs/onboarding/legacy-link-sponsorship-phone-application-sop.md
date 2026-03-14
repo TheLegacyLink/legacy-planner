@@ -6,7 +6,7 @@ This SOP defines the **required call flow** for submitting a sponsorship applica
 ## Non-Negotiable Rule
 - Joining the agency is **NOT contingent** on purchasing or submitting a policy.
 - Contract must be completed first.
-- **No exceptions:** do not proceed to application submission until contract is signed.
+- **No exceptions:** do not proceed to starting the application until contract is signed.
 
 ## Contract Link (Required)
 - **https://innercirclelink.com/contract-agreement**
