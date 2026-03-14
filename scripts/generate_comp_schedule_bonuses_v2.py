@@ -197,6 +197,78 @@ def build():
         '4) Promote — upgrade effective following month once verified.'
     ], st))
 
+    story.append(PageBreak())
+    story.append(Paragraph('LEGACY LINK FAQ — PERSONAL PRODUCTION, COMPENSATION, GETTING STARTED', st['h']))
+
+    story.append(dark_box('How do I move up in comp?', [
+        '• Hit the required monthly AP for the next level and maintain it for 3 consecutive months.',
+        '• Each month must qualify on its own. One big month does not make up for a missed month.',
+        '• Streak starts from the first qualifying month.'
+    ], st))
+    story.append(Spacer(1, 8))
+
+    story.append(dark_box('What counts toward promotion?', [
+        '• Net placed AP counts (approved, issued, placed, and on the books).',
+        '• AP is based on personal production.',
+        '• Pending business does not count.'
+    ], st))
+    story.append(Spacer(1, 8))
+
+    story.append(dark_box('How many policies does AP usually take?', [
+        '• It depends on case size. Bigger policies = fewer closes. Smaller policies = more closes.',
+        '• Use a range target, not one exact policy count.'
+    ], st))
+    story.append(Spacer(1, 8))
+
+    story.append(dark_box('How often are comp levels reviewed?', [
+        '• Monthly review using a rolling 3-month lookback.',
+        '• If one month is missed, streak resets.',
+        '• No automatic grace period; any exception is company discretion only.'
+    ], st))
+
+    story.append(PageBreak())
+
+    story.append(dark_box('What is good standing?', [
+        '• Compliance clear, license active, carrier status active, no unresolved issues.',
+        '• Policy business must remain on the books.'
+    ], st))
+    story.append(Spacer(1, 8))
+
+    story.append(dark_box('Bonuses: timing and adjustments', [
+        '• Bonuses are paid after milestone verification and good-standing placed business.',
+        '• Bonuses can be reduced, reversed, or offset if business lapses, cancels, chargebacks, falls off books, or no longer supports milestone.',
+        '• Chargebacks affect bonuses only (not comp level).',
+        '• Current policy: once promoted, comp level does not step down.'
+    ], st))
+    story.append(Spacer(1, 8))
+
+    story.append(dark_box('Licensed and Unlicensed Paths', [
+        '• Joining Legacy Link is NOT contingent on purchasing a policy.',
+        '• Lead by Example is optional; value is selling what you personally own (if you have an insurance need per contract).',
+        '• Unlicensed agents do not earn insurance commissions during pre-licensing.',
+        '• Licensed lead start: contracting complete + onboarding complete + systems setup complete + cleared to work.'
+    ], st))
+    story.append(Spacer(1, 8))
+
+    story.append(dark_box('If bonus policy is declined, what path applies?', [
+        '• Licensed path: contracting support → onboarding → leads when cleared.',
+        '• Unlicensed path: 1 hour community service → pre-licensing → licensing → contracting → onboarding → leads.'
+    ], st))
+    story.append(Spacer(1, 8))
+
+    story.append(dark_box('Simple compensation example (50% comp)', [
+        '• Example AP: $100 monthly premium × 12 = $1,200 AP.',
+        '• Total commission at 50% comp: $1,200 × 50% = $600.',
+        '• Typical split: 75% advance ($450) + 25% holdback ($150) paid later (months 10–12).',
+        '• Holdback exists because policy must persist on books for 12 months.'
+    ], st))
+    story.append(Spacer(1, 8))
+
+    story.append(dark_box('What is a chargeback?', [
+        '• A chargeback happens when policy does not stay active long enough and commission is taken back.',
+        '• Recovery can come from future commissions, bonuses, or other earnings.'
+    ], st))
+
     story.append(Spacer(1, 10))
     story.append(Paragraph('Support: support@thelegacylink.com', st['body']))
     story.append(Paragraph('Prepared for internal Legacy Link use. Structure can evolve with compensation policy updates.', st['tiny']))
