@@ -57,6 +57,8 @@ export default function LicensedBackofficePage() {
   const [sponsorRows, setSponsorRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [googleReady, setGoogleReady] = useState(false);
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') : '';
@@ -78,7 +80,50 @@ export default function LicensedBackofficePage() {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  useEffect(() => {
+    if (session) return;
+    if (!googleClientId) return;
+    if (typeof window === 'undefined') return;
+
+    let cancelled = false;
+    const render = () => {
+      if (cancelled) return;
+      const google = window.google;
+      const host = document.getElementById('google-signin-host');
+      if (!google || !host) return;
+      host.innerHTML = '';
+      google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: (resp) => {
+          if (resp?.credential) verifyGoogleCredential(resp.credential);
+        }
+      });
+      google.accounts.id.renderButton(host, {
+        theme: 'outline',
+        size: 'large',
+        shape: 'pill',
+        text: 'signin_with',
+        width: 320
+      });
+      setGoogleReady(true);
+    };
+
+    const existing = document.getElementById('google-identity-script');
+    if (existing) {
+      render();
+      return () => { cancelled = true; };
+    }
+
+    const script = document.createElement('script');
+    script.id = 'google-identity-script';
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = render;
+    document.head.appendChild(script);
+
+    return () => { cancelled = true; };
+  }, [session, googleClientId]);
 
   async function requestCode() {
     setError('');
@@ -136,6 +181,31 @@ export default function LicensedBackofficePage() {
       setSession(data.profile);
     } catch {
       setError('Verification failed.');
+    }
+  }
+
+  async function verifyGoogleCredential(idToken = '') {
+    setError('');
+    try {
+      const res = await fetch('/api/licensed-backoffice/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok || !data?.token || !data?.profile) {
+        if (res.status === 202 || String(data?.error || '').startsWith('pending_verification')) {
+          setError('Pending verification: we received your Google login request and admin approval is required before access.');
+          return;
+        }
+        setError(data?.error ? `Google login blocked: ${data.error}` : 'Google login failed.');
+        return;
+      }
+      if (typeof window !== 'undefined') window.localStorage.setItem('licensed_backoffice_token', data.token);
+      setAuthToken(data.token);
+      setSession(data.profile);
+    } catch {
+      setError('Google login failed.');
     }
   }
 
@@ -284,9 +354,16 @@ export default function LicensedBackofficePage() {
                 </button>
               </>
             )}
-            <button type="button" disabled style={{ padding: '10px 14px', borderRadius: 10, border: '1px dashed #475569', background: '#0B1220', color: '#9CA3AF' }}>
-              Google Sign-In (Enable when OAuth keys are added)
-            </button>
+            {googleClientId ? (
+              <div style={{ display: 'grid', gap: 6 }}>
+                <div id="google-signin-host" style={{ minHeight: 42 }} />
+                {!googleReady ? <small style={{ color: '#9CA3AF' }}>Loading Google Sign-In…</small> : null}
+              </div>
+            ) : (
+              <button type="button" disabled style={{ padding: '10px 14px', borderRadius: 10, border: '1px dashed #475569', background: '#0B1220', color: '#9CA3AF' }}>
+                Google Sign-In (add NEXT_PUBLIC_GOOGLE_CLIENT_ID + GOOGLE_CLIENT_ID)
+              </button>
+            )}
             {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Licensed-only access. Use email code, with name + phone matching support for alternate emails (max 2 approved alternates per agent).</small>}
           </div>
         </section>
