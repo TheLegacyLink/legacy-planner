@@ -117,6 +117,12 @@ def build():
     story.append(Paragraph('• No skipped follow-up without reason', st['b']))
 
     story.append(Spacer(1, 8))
+    story.append(section('Lead Activation Requirement', [
+        'Licensed agents start receiving leads after full onboarding is complete.',
+        'Licensed agents must complete their first hour of community service before lead activation.'
+    ], st))
+
+    story.append(Spacer(1, 8))
     story.append(Paragraph('<b>Support:</b> support@thelegacylink.com', st['b']))
 
     doc.build(story, onFirstPage=page_bg, onLaterPages=page_bg)

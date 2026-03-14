@@ -41,6 +41,10 @@ Complete each step in order, then execute daily standards with clean CRM updates
 - No same-day activity left unlogged
 - No skipped follow-up without reason
 
+## Lead Activation Requirement
+- Licensed agents start receiving leads after full onboarding is complete.
+- Licensed agents must also complete their first hour of community service before lead activation.
+
 ## Support
 - **support@thelegacylink.com**
 - Include: name, email, issue, screenshot, and urgency

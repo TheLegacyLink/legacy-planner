@@ -257,7 +257,7 @@ async function upsertHubMemberAccessOnWelcome({ name = '', email = '', tempPassw
   return { ok: true, memberId: clean(next.id), email: memberEmail };
 }
 
-function buildHtml({ roleLabel, isInnerCircle, name, email, coachName, telegramUrl, appUrl, hubUrl, tempPassword, playbookUrl, compScheduleUrl, contractLink, sponsorshipUrl }) {
+function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, telegramUrl, appUrl, hubUrl, tempPassword, playbookUrl, compScheduleUrl, contractLink, sponsorshipUrl }) {
   const safeRole = escapeHtml(roleLabel || 'Agent');
   const safeName = escapeHtml(name || 'there');
   const safeEmail = escapeHtml(email || '');
@@ -300,7 +300,19 @@ function buildHtml({ roleLabel, isInnerCircle, name, email, coachName, telegramU
 
   const roleNote = isInnerCircle
     ? 'Inner Circle members also have their own back office links and resources.'
-    : 'Inner Circle Hub access is not included for this role.';
+    : '';
+
+  const roleSpecialNotice = roleKey === 'unlicensed'
+    ? `<div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
+          <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Pre-Licensing Onboarding (Important)</div>
+          <p style="margin:0;">Jamal leads all pre-licensing onboarding. Regardless of referral/upline, Jamal will reach out within <strong>1–3 business days</strong> to start your pre-licensing process.</p>
+        </div>`
+    : (roleKey === 'licensed'
+      ? `<div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
+          <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Lead Activation Requirement</div>
+          <p style="margin:0;">Licensed agents begin receiving leads after full onboarding is complete and after finishing their first hour of community service.</p>
+        </div>`
+      : '');
 
   return `
   <div style="margin:0;padding:24px;background:#0B1020;font-family:Arial,Helvetica,sans-serif;color:#F8FAFC;">
@@ -334,8 +346,10 @@ function buildHtml({ roleLabel, isInnerCircle, name, email, coachName, telegramU
           <p style="margin:0 0 10px;">Your role-specific onboarding documents are attached to this email.</p>
           <a href="${safePlaybook}" style="display:inline-block;background:#F58426;color:#0B1020;padding:10px 14px;border-radius:8px;font-weight:800;text-decoration:none;margin-right:8px;">Onboarding Playbook</a>
           ${!isInnerCircle && safeCompSchedule ? `<a href="${safeCompSchedule}" style="display:inline-block;background:#C8A96B;color:#0B1020;padding:10px 14px;border-radius:8px;font-weight:800;text-decoration:none;">Comp + Bonus Schedule</a>` : ''}
-          <p style="margin:10px 0 0;color:#C9D1E1;font-size:12px;">${roleNote}</p>
+          ${roleNote ? `<p style="margin:10px 0 0;color:#C9D1E1;font-size:12px;">${roleNote}</p>` : ''}
         </div>
+
+        ${roleSpecialNotice}
 
         <p style="margin:0;">If you run into any access issue, reply to this email and we’ll get you handled fast.</p>
         <p style="margin:14px 0 0;"><strong>Welcome to the movement,</strong><br/>The Legacy Link Team</p>
@@ -397,7 +411,6 @@ export async function POST(req) {
     textLines.push('Step 5: Run your first 72-hour execution plan in the Hub');
   } else {
     textLines.push('Step 3: Complete your attached role-based onboarding playbook');
-    textLines.push('Inner Circle Hub access is not included for this role.');
   }
 
   textLines.push(`Coach: ${coachName}`);
@@ -405,6 +418,13 @@ export async function POST(req) {
   textLines.push(`Onboarding Playbook (PDF): ${playbookUrl}`);
   if (!isInnerCircle) {
     textLines.push(`Comp + Bonus Schedule (PDF): ${compScheduleUrl}`);
+  }
+  if (roleConfig.roleKey === 'unlicensed') {
+    textLines.push('Pre-licensing onboarding note: Jamal leads this process for all unlicensed agents, regardless of referral/upline.');
+    textLines.push('Jamal will reach out within 1–3 business days to get pre-licensing started.');
+  }
+  if (roleConfig.roleKey === 'licensed') {
+    textLines.push('Lead activation note: Licensed agents start receiving leads after full onboarding is complete and after first hour of community service is completed.');
   }
   if (isInnerCircle) {
     textLines.push('Where to find all PDFs: Inner Circle back office resource links');
@@ -415,7 +435,7 @@ export async function POST(req) {
 
   const text = textLines.join('\n');
 
-  const html = buildHtml({ roleLabel: roleConfig.label, isInnerCircle, name, email: to, coachName, telegramUrl, appUrl, hubUrl, tempPassword, playbookUrl, compScheduleUrl, contractLink, sponsorshipUrl });
+  const html = buildHtml({ roleKey: roleConfig.roleKey, roleLabel: roleConfig.label, isInnerCircle, name, email: to, coachName, telegramUrl, appUrl, hubUrl, tempPassword, playbookUrl, compScheduleUrl, contractLink, sponsorshipUrl });
 
   let personalizedPdfPath = '';
   try {

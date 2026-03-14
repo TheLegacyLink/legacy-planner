@@ -27,7 +27,12 @@ Complete each step in order and maintain daily execution discipline.
 - Complete onboarding/training tasks assigned there.
 - Stay active and responsive while onboarding is in progress.
 
-## Step 5 — Daily Execution Standards
+## Step 5 — Pre-Licensing Onboarding (Jamal Leads This)
+- Jamal leads pre-licensing onboarding for all unlicensed agents.
+- This is true regardless of referral/upline.
+- Expect Jamal to reach out within **1–3 business days** to get your pre-licensing process started.
+
+## Step 6 — Daily Execution Standards
 - Work new leads daily
 - Follow up warm leads daily
 - Book at least one conversation daily
