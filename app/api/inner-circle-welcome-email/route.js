@@ -121,8 +121,8 @@ function buildRefCode({ name = '', email = '' } = {}) {
 const ROLE_CONFIG = {
   'inner-circle': {
     label: 'Inner Circle',
-    playbookUrl: 'https://innercirclelink.com/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v2.pdf',
-    staticPlaybookPath: path.join(process.cwd(), 'public', 'docs', 'inner-circle', 'legacy-link-inner-circle-onboarding-playbook-v2.pdf'),
+    playbookUrl: 'https://innercirclelink.com/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v3.pdf',
+    staticPlaybookPath: path.join(process.cwd(), 'public', 'docs', 'inner-circle', 'legacy-link-inner-circle-onboarding-playbook-v3.pdf'),
     fileLabel: 'Legacy-Link-Inner-Circle-Onboarding-Playbook'
   },
   licensed: {
@@ -538,22 +538,8 @@ export async function POST(req) {
   let personalizedPdfPath = '';
   try {
     const staticPlaybookPath = roleConfig.staticPlaybookPath;
-    personalizedPdfPath = isInnerCircle ? ((await generatePersonalizedVipPdf({
-      roleKey: roleConfig.roleKey,
-      roleLabel: roleConfig.label,
-      name,
-      email: to,
-      tempPassword,
-      coachName,
-      hubUrl,
-      appUrl,
-      skoolUrl,
-      contractLink,
-      telegramUrl,
-      playbookUrl,
-      compScheduleUrl,
-      sponsorshipUrl
-    })) || '') : '';
+    // Keep premium static template for consistency; avoid plain-text/personalized variants.
+    personalizedPdfPath = '';
 
     let attachments = personalizedPdfPath
       ? [{ filename: `Legacy-Link-VIP-Playbook-${safeFilePart(name || to)}.pdf`, path: personalizedPdfPath }]

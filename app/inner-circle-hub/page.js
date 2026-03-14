@@ -299,14 +299,14 @@ export default function InnerCircleHubPage() {
   }, [member?.email, member?.id, siteBase, toAbsoluteLink]);
 
   const onboardingPlaybookUrl = useMemo(() => {
-    return process.env.NEXT_PUBLIC_INNER_CIRCLE_PLAYBOOK_URL || '/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v2.pdf';
+    return process.env.NEXT_PUBLIC_INNER_CIRCLE_PLAYBOOK_URL || '/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v3.pdf';
   }, []);
 
   const onboardingLibraryLinks = useMemo(() => {
     return [
       {
         name: 'Inner Circle Playbook (VIP)',
-        url: process.env.NEXT_PUBLIC_INNER_CIRCLE_PLAYBOOK_URL || '/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v2.pdf'
+        url: process.env.NEXT_PUBLIC_INNER_CIRCLE_PLAYBOOK_URL || '/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v3.pdf'
       },
       {
         name: 'Licensed Agent Playbook',
