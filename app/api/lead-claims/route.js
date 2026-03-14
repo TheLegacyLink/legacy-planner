@@ -160,7 +160,7 @@ function findAuthUserByName(name = '') {
 }
 
 function emailFrame(title = '', bodyHtml = '') {
-  return `<div style="font-family:Inter,Arial,sans-serif;background:#f8fafc;padding:20px;color:#0f172a;"><div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:#0047AB;color:#fff;padding:16px 20px;text-align:center;font-weight:800;font-size:28px;line-height:1;">THE LEGACY LINK</div><div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;">${title}</h2>${bodyHtml}<p style="margin:16px 0 0;color:#475569;">This assignment is confirmed and ready to work.</p><p style="margin:8px 0 0;color:#334155;"><strong>The Legacy Link Support Team</strong></p></div></div></div>`;
+  return `<div style="font-family:Inter,Arial,sans-serif;background:#f8fafc;padding:20px;color:#0f172a;"><div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:#0047AB;color:#fff;padding:16px 20px;text-align:center;font-weight:800;font-size:28px;line-height:1;">THE LEGACY LINK</div><div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;">${title}</h2>${bodyHtml}<p style="margin:8px 0 0;color:#334155;"><strong>The Legacy Link Support Team</strong></p></div></div></div>`;
 }
 
 function parseDateTime12(raw = '') {
