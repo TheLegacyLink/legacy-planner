@@ -578,6 +578,17 @@ export default function LeadClaimsPortalPage() {
                 <p className="muted" style={{ margin: '6px 0 0' }}>{row.applicant_state || '—'} • {clean(row.requested_at_est) || 'No booking time yet'}</p>
                 {inPriority && isMyReferral ? <p className="muted" style={{ margin: '4px 0 0', color: '#92400e' }}>24h priority lock is active for your referral.</p> : null}
                 {isPendingConfirmation ? <p className="muted" style={{ margin: '4px 0 0', color: '#92400e' }}>🟨 Waiting for confirmation from {row.claimed_by || 'assigned agent'}.</p> : null}
+                {isPendingConfirmation && (isManager || isClaimOwner) ? (
+                  <button
+                    type="button"
+                    className="publicPrimaryBtn publicBtnBlock"
+                    disabled={savingId === row.id}
+                    onClick={() => confirmAssignment(row.id)}
+                    style={{ marginTop: 8 }}
+                  >
+                    Admin Confirm Assignment
+                  </button>
+                ) : null}
                 {isClaimedView ? <p className="muted" style={{ margin: '4px 0 0' }}>Claimed by: {row.claimed_by || '—'} • {fmtDate(row.claimed_at)}</p> : null}
                 {isExpiredQueue && expired ? <p className="muted" style={{ margin: '4px 0 0', color: '#b45309' }}>⚠️ Appointment time passed with no claim. Needs reschedule outreach.</p> : null}
                 {isExpiredQueue && row.reschedule_email_sent_at ? (
