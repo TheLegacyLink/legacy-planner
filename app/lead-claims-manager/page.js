@@ -640,9 +640,19 @@ export default function LeadClaimsPortalPage() {
                           Assign Appointment (Admin)
                         </button>
                         {isPendingConfirmation ? (
-                          <button type="button" className="ghost publicBtnBlock" disabled={savingId === row.id} onClick={() => reopenAssignment(row.id)}>
-                            Re-Open Queue (No Confirm)
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              className="publicPrimaryBtn publicBtnBlock"
+                              disabled={savingId === row.id}
+                              onClick={() => confirmAssignment(row.id)}
+                            >
+                              Admin Confirm Assignment
+                            </button>
+                            <button type="button" className="ghost publicBtnBlock" disabled={savingId === row.id} onClick={() => reopenAssignment(row.id)}>
+                              Re-Open Queue (No Confirm)
+                            </button>
+                          </>
                         ) : null}
                       </div>
                     ) : null}
