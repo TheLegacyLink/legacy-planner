@@ -1,7 +1,78 @@
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 import users from '../../../data/innerCircleUsers.json';
 
+async function loadHistoricStoreSnapshots(pathname = '', maxSnapshots = 25) {
+  try {
+    const blob = await import('@vercel/blob');
+    if (!process.env.BLOB_READ_WRITE_TOKEN) return [];
+
+    const { blobs } = await blob.list({ prefix: pathname, limit: 200 });
+    const versions = (blobs || [])
+      .filter((b) => b?.pathname === pathname && b?.url)
+      .sort((a, b) => new Date(b?.uploadedAt || b?.uploaded_at || 0).getTime() - new Date(a?.uploadedAt || a?.uploaded_at || 0).getTime())
+      .slice(0, Math.max(1, Number(maxSnapshots || 25)));
+
+    const out = [];
+    for (const v of versions) {
+      try {
+        const res = await fetch(v.url, { cache: 'no-store' });
+        if (!res.ok) continue;
+        const parsed = await res.json().catch(() => null);
+        if (Array.isArray(parsed)) out.push(parsed);
+      } catch {
+        // skip unreadable snapshots
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 const STORE_PATH = 'stores/sponsorship-bookings.json';
+
+const MANUAL_RESTORE_BOOKINGS = [
+  {
+    id: 'book_restore_manual_curtis_craft',
+    source_application_id: 'sapp_1773322563851_restore',
+    applicant_first_name: 'Curtis',
+    applicant_last_name: 'Craft',
+    applicant_name: 'Curtis Craft',
+    applicant_phone: '6145975487',
+    applicant_email: 'curtisability@yahoo.com',
+    applicant_state: 'OH',
+    licensed_status: 'Unlicensed',
+    referred_by: 'Link',
+    referral_code: 'kimora_link',
+    requested_at_est: '2026-03-17 1:30 PM',
+    priority_agent: 'Link',
+    priority_expires_at: '2026-03-14T23:59:59.000Z',
+    priority_released: false,
+    claimed_by: '',
+    claim_status: 'Priority Hold',
+    notes: 'Manual restore after retention-rule update.'
+  },
+  {
+    id: 'book_restore_manual_teewanna_curry',
+    source_application_id: 'sapp_1773320978215',
+    applicant_first_name: 'Teewanna',
+    applicant_last_name: 'Curry',
+    applicant_name: 'Teewanna Curry',
+    applicant_phone: '4784619690',
+    applicant_email: 'teewannacurry@gmail.com',
+    applicant_state: 'GA',
+    licensed_status: 'Unlicensed',
+    referred_by: 'Link',
+    referral_code: 'kimora_link',
+    requested_at_est: '2026-03-18 8:30 PM',
+    priority_agent: 'Link',
+    priority_expires_at: '2026-03-14T23:59:59.000Z',
+    priority_released: false,
+    claimed_by: '',
+    claim_status: 'Priority Hold',
+    notes: 'Manual restore after retention-rule update.'
+  }
+];
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -137,10 +208,56 @@ function dedupeReschedules(rows = []) {
   return { rows: out, changed };
 }
 
-function olderThanHours(row = {}, hours = 24) {
-  const ts = rowTimestamp(row);
-  if (!ts) return false;
-  return (Date.now() - ts) > (Number(hours || 24) * 60 * 60 * 1000);
+function parseRequestedAtEst(raw = '') {
+  const v = clean(raw);
+  if (!v) return 0;
+
+  // Preferred format: "YYYY-MM-DD h:mm AM/PM" (with optional trailing timezone text)
+  const m = v.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})\s*([AP]M)(?:\s+[A-Z]{2,4})?$/i);
+  if (m) {
+    const y = Number(m[1]);
+    const mo = Number(m[2]) - 1;
+    const d = Number(m[3]);
+    let h = Number(m[4]) % 12;
+    const mi = Number(m[5]);
+    const ampm = String(m[6] || '').toUpperCase();
+    if (ampm === 'PM') h += 12;
+    const dt = new Date(y, mo, d, h, mi, 0, 0);
+    const ts = dt.getTime();
+    return Number.isFinite(ts) ? ts : 0;
+  }
+
+  // Alternate format: "M/D/YYYY h:mm AM/PM"
+  const m2 = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})\s*([AP]M)(?:\s+[A-Z]{2,4})?$/i);
+  if (m2) {
+    const mo = Number(m2[1]) - 1;
+    const d = Number(m2[2]);
+    const y = Number(m2[3]);
+    let h = Number(m2[4]) % 12;
+    const mi = Number(m2[5]);
+    const ampm = String(m2[6] || '').toUpperCase();
+    if (ampm === 'PM') h += 12;
+    const dt = new Date(y, mo, d, h, mi, 0, 0);
+    const ts = dt.getTime();
+    return Number.isFinite(ts) ? ts : 0;
+  }
+
+  return 0;
+}
+
+function rowExpiryTs(row = {}) {
+  // Hard rule: only expire 24h after the booked appointment time.
+  const scheduledTs = parseRequestedAtEst(row?.requested_at_est || '');
+  if (scheduledTs > 0) return scheduledTs + (24 * 60 * 60 * 1000);
+
+  // If booking time cannot be parsed, do NOT auto-expire.
+  return 0;
+}
+
+function isExpiredRow(row = {}) {
+  const exp = rowExpiryTs(row);
+  if (!exp) return false;
+  return Date.now() > exp;
 }
 
 function refreshExpired(rows = []) {
@@ -164,7 +281,7 @@ function refreshExpired(rows = []) {
       };
     })
     .filter((row) => {
-      if (olderThanHours(row, 24)) {
+      if (isExpiredRow(row)) {
         changed = true;
         return false;
       }
@@ -174,11 +291,39 @@ function refreshExpired(rows = []) {
   return { rows: out, changed };
 }
 
+function applyManualRestores(rows = []) {
+  let changed = false;
+  const out = [...(rows || [])];
+
+  for (const seed of MANUAL_RESTORE_BOOKINGS) {
+    if (isExpiredRow(seed)) continue;
+
+    const exists = out.some((r) => {
+      const sameSource = clean(r?.source_application_id) && clean(r?.source_application_id) === clean(seed.source_application_id);
+      const sameNameTime = normalize(r?.applicant_name) === normalize(seed.applicant_name)
+        && clean(r?.requested_at_est) === clean(seed.requested_at_est);
+      return sameSource || sameNameTime;
+    });
+
+    if (exists) continue;
+
+    out.unshift({
+      ...seed,
+      created_at: clean(seed?.created_at) || nowIso(),
+      updated_at: nowIso()
+    });
+    changed = true;
+  }
+
+  return { rows: out, changed };
+}
+
 async function getStore() {
   const loaded = await loadJsonStore(STORE_PATH, []);
   const refreshed = refreshExpired(loaded);
-  const deduped = dedupeReschedules(refreshed.rows || []);
-  return { rows: deduped.rows, changed: Boolean(refreshed.changed || deduped.changed) };
+  const restored = applyManualRestores(refreshed.rows || []);
+  const deduped = dedupeReschedules(restored.rows || []);
+  return { rows: deduped.rows, changed: Boolean(refreshed.changed || restored.changed || deduped.changed) };
 }
 
 async function writeStore(rows) {
@@ -199,6 +344,36 @@ export async function POST(req) {
   const mode = normalize(body?.mode || 'upsert');
   const state = await getStore();
   const store = state.rows;
+
+  if (mode === 'restore_recent') {
+    const maxSnapshots = Math.max(1, Math.min(100, Number(body?.maxSnapshots || 40)));
+    const snapshots = await loadHistoricStoreSnapshots(STORE_PATH, maxSnapshots);
+
+    const merged = [...store];
+    for (const snap of snapshots) {
+      for (const row of (snap || [])) {
+        if (!row || typeof row !== 'object') continue;
+        if (isExpiredRow(row)) continue;
+        merged.push({ ...row });
+      }
+    }
+
+    const deduped = dedupeReschedules(merged);
+    const refreshed = refreshExpired(deduped.rows || []);
+    const restored = applyManualRestores(refreshed.rows || []);
+
+    const finalRows = restored.rows || [];
+    await writeStore(finalRows);
+
+    return Response.json({
+      ok: true,
+      restored: true,
+      snapshotsScanned: snapshots.length,
+      rows: finalRows,
+      total: finalRows.length,
+      changed: Boolean(deduped.changed || refreshed.changed || restored.changed)
+    });
+  }
 
   if (mode === 'upsert') {
     const booking = body?.booking || {};

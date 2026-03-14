@@ -108,6 +108,67 @@ function clampMonthlyPremium(value = 0) {
   return Math.round(n * 100) / 100;
 }
 
+function roundMoney(value = 0) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100) / 100;
+}
+
+function normalizePolicyType(value = '') {
+  const v = normalize(value);
+  if (!v) return '';
+  if (v.includes('sponsorship')) return 'Sponsorship Policy';
+  if (v.includes('bonus')) return 'Bonus Policy';
+  if (v.includes('inner circle')) return 'Inner Circle Policy';
+  if (v.includes('juvenile')) return 'Juvenile Policy';
+  if (v.includes('regular')) return 'Regular Policy';
+  return clean(value);
+}
+
+function computePolicyPayoutFields({ policyType = '', monthlyPremium = 0, licensed = false } = {}) {
+  const type = normalizePolicyType(policyType);
+  const monthly = clampMonthlyPremium(monthlyPremium);
+  const annualPremium = roundMoney(monthly * 12);
+
+  let commissionRate = 0;
+  let pointsEarned = 0;
+  let flatPayout = false;
+
+  if (type === 'Sponsorship Policy') {
+    pointsEarned = 500;
+    flatPayout = true;
+  } else if (type === 'Bonus Policy') {
+    pointsEarned = licensed ? 500 : 0;
+    flatPayout = true;
+  } else if (type === 'Inner Circle Policy') {
+    pointsEarned = 1200;
+    flatPayout = true;
+  } else if (type === 'Regular Policy') {
+    commissionRate = 0.7;
+    pointsEarned = roundMoney(annualPremium * commissionRate);
+  } else if (type === 'Juvenile Policy') {
+    commissionRate = 0.5;
+    pointsEarned = roundMoney(annualPremium * commissionRate);
+  }
+
+  const advancePayout = flatPayout ? roundMoney(pointsEarned) : roundMoney(pointsEarned * 0.75);
+  const remainingBalance = flatPayout ? 0 : roundMoney(pointsEarned - advancePayout);
+  const deferredMonthlyPayout = flatPayout ? 0 : roundMoney(remainingBalance / 3);
+
+  return {
+    policyType: type,
+    monthlyPremium: monthly,
+    annualPremium,
+    commissionRate,
+    pointsEarned: roundMoney(pointsEarned),
+    advancePayout,
+    remainingBalance,
+    month10Payout: deferredMonthlyPayout,
+    month11Payout: deferredMonthlyPayout,
+    month12Payout: deferredMonthlyPayout
+  };
+}
+
 function followingWeekFridayIso(fromIso = '') {
   const d = fromIso ? new Date(fromIso) : new Date();
   if (Number.isNaN(d.getTime())) return '';
@@ -133,25 +194,51 @@ async function writeStore(rows) {
 }
 
 function normalizedRecord(row = {}) {
+  const appType = clean(row.appType || row.applicationType || row.app_type || '');
+  const policyType = normalizePolicyType(row.policyType || appType);
+  const applicantLicensedStatus = clean(row.applicantLicensedStatus || row.agentLicensedStatus || '');
+  const calc = computePolicyPayoutFields({
+    policyType,
+    monthlyPremium: row.monthlyPremium || 0,
+    licensed: isLicensedValue(applicantLicensedStatus)
+  });
+
+  const status = clean(row.status || 'Submitted') || 'Submitted';
+  const innerCirclePending = calc.policyType === 'Inner Circle Policy' && !normalize(status).startsWith('approved');
+
   return {
     id: clean(row.id) || `pol_${Date.now()}`,
+    appType,
+    policyType: calc.policyType,
     applicantName: clean(row.applicantName),
     referredByName: clean(row.referredByName),
+    referrer: clean(row.referrer || row.referredByName),
     policyWriterName: clean(row.policyWriterName),
+    assignedInnerCircleAgent: clean(row.assignedInnerCircleAgent || row.policyWriterName),
     applicantEmail: clean(row.applicantEmail).toLowerCase(),
     applicantPhone: clean(row.applicantPhone),
-    applicantLicensedStatus: clean(row.applicantLicensedStatus),
+    applicantLicensedStatus,
+    agentLicensedStatus: applicantLicensedStatus,
     submittedBy: clean(row.submittedBy),
     submittedByRole: clean(row.submittedByRole),
     state: clean(row.state).toUpperCase(),
     policyNumber: clean(row.policyNumber),
-    monthlyPremium: clampMonthlyPremium(row.monthlyPremium || 0),
+    monthlyPremium: calc.monthlyPremium,
+    annualPremium: calc.annualPremium,
+    commissionRate: calc.commissionRate,
+    pointsEarned: innerCirclePending ? 0 : calc.pointsEarned,
+    pointsPendingApproval: innerCirclePending ? calc.pointsEarned : 0,
+    advancePayout: innerCirclePending ? 0 : calc.advancePayout,
+    remainingBalance: innerCirclePending ? 0 : calc.remainingBalance,
+    month10Payout: innerCirclePending ? 0 : calc.month10Payout,
+    month11Payout: innerCirclePending ? 0 : calc.month11Payout,
+    month12Payout: innerCirclePending ? 0 : calc.month12Payout,
     carrier: clean(row.carrier || 'F&G') || 'F&G',
     productName: clean(row.productName || 'IUL Pathsetter') || 'IUL Pathsetter',
-    status: clean(row.status || 'Submitted') || 'Submitted',
+    status,
     approvedAt: clean(row.approvedAt || ''),
     payoutDueAt: clean(row.payoutDueAt || ''),
-    payoutAmount: Number(row.payoutAmount || 0) || 0,
+    payoutAmount: Number(row.payoutAmount ?? (innerCirclePending ? 0 : calc.advancePayout)) || 0,
     payoutStatus: clean(row.payoutStatus || 'Unpaid') || 'Unpaid',
     payoutPaidAt: clean(row.payoutPaidAt || ''),
     payoutPaidBy: clean(row.payoutPaidBy || ''),
@@ -159,6 +246,38 @@ function normalizedRecord(row = {}) {
     refCode: clean(row.refCode || ''),
     submittedAt: clean(row.submittedAt || nowIso()),
     updatedAt: nowIso()
+  };
+}
+
+function applyPolicyMath(row = {}, { preservePayoutAmount = false } = {}) {
+  const policyType = normalizePolicyType(row?.policyType || row?.appType || '');
+  const licensedStatus = clean(row?.agentLicensedStatus || row?.applicantLicensedStatus || '');
+  const calc = computePolicyPayoutFields({
+    policyType,
+    monthlyPremium: row?.monthlyPremium || 0,
+    licensed: isLicensedValue(licensedStatus)
+  });
+
+  const isApproved = normalize(row?.status || '').startsWith('approved');
+  const innerCirclePending = policyType === 'Inner Circle Policy' && !isApproved;
+
+  return {
+    ...row,
+    policyType: calc.policyType,
+    monthlyPremium: calc.monthlyPremium,
+    annualPremium: calc.annualPremium,
+    commissionRate: calc.commissionRate,
+    pointsEarned: innerCirclePending ? 0 : calc.pointsEarned,
+    advancePayout: innerCirclePending ? 0 : calc.advancePayout,
+    remainingBalance: innerCirclePending ? 0 : calc.remainingBalance,
+    month10Payout: innerCirclePending ? 0 : calc.month10Payout,
+    month11Payout: innerCirclePending ? 0 : calc.month11Payout,
+    month12Payout: innerCirclePending ? 0 : calc.month12Payout,
+    payoutAmount: preservePayoutAmount ? Number(row?.payoutAmount || 0) || 0 : (innerCirclePending ? 0 : calc.advancePayout),
+    referrer: clean(row?.referrer || row?.referredByName || ''),
+    assignedInnerCircleAgent: clean(row?.assignedInnerCircleAgent || row?.policyWriterName || ''),
+    agentLicensedStatus: licensedStatus,
+    pointsPendingApproval: innerCirclePending ? calc.pointsEarned : 0
   };
 }
 
@@ -805,6 +924,7 @@ export async function POST(req) {
 
       const rec = normalizedRecord({
         id,
+        appType: 'Sponsorship App',
         applicantName,
         referredByName,
         policyWriterName: clean(app?.policyWriterName || ''),
@@ -872,6 +992,7 @@ export async function POST(req) {
   if (mode !== 'upsert') return Response.json({ ok: false, error: 'unsupported_mode' }, { status: 400 });
 
   const rec = normalizedRecord(body?.record || body);
+  if (!rec.appType) return Response.json({ ok: false, error: 'missing_app_type' }, { status: 400 });
   if (!rec.applicantName) return Response.json({ ok: false, error: 'missing_applicant' }, { status: 400 });
 
   const idx = store.findIndex((r) => clean(r.id) === rec.id);
@@ -902,22 +1023,13 @@ export async function POST(req) {
 
   const finalRow = idx >= 0 ? store[idx] : duplicateIdx >= 0 ? store[duplicateIdx] : rec;
 
-  let removedFromBookingQueue = 0;
-  try {
-    const bookings = await loadJsonStore(SPONSORSHIP_BOOKINGS_PATH, []);
-    const list = Array.isArray(bookings) ? bookings : [];
-    const kept = list.filter((b) => !bookingMatchesApplicant(b, finalRow));
-    removedFromBookingQueue = list.length - kept.length;
-    if (removedFromBookingQueue > 0) {
-      await saveJsonStore(SPONSORSHIP_BOOKINGS_PATH, kept);
-    }
-  } catch {
-    // non-blocking
-  }
+  // Queue-retention safeguard: do not auto-remove from sponsorship booking queue here.
+  // Bookings are now only auto-expired in sponsorship-bookings route at 24h after booked time.
+  const removedFromBookingQueue = 0;
 
   const sop = await ensureSopProvisionFromActSubmit(finalRow).catch((e) => ({ ok: false, error: clean(e?.message || 'sop_provision_failed') }));
 
-  return Response.json({ ok: true, row: finalRow, sop, removedFromBookingQueue });
+  return Response.json({ ok: true, row: finalRow, sop, removedFromBookingQueue, bookingQueueRetention: 'preserved' });
 }
 
 export async function PATCH(req) {
@@ -967,8 +1079,9 @@ export async function PATCH(req) {
     ? followingWeekFridayIso(approvedAt)
     : (declineTransition ? '' : (patch.payoutDueAt != null ? clean(patch.payoutDueAt) : store[idx].payoutDueAt));
 
-  store[idx] = {
+  const draftRow = {
     ...store[idx],
+    appType: patch.appType != null ? clean(patch.appType) : store[idx].appType,
     payoutAmount: patch.payoutAmount != null ? Number(patch.payoutAmount || 0) || 0 : store[idx].payoutAmount,
     payoutStatus: patch.payoutStatus != null ? clean(patch.payoutStatus) : store[idx].payoutStatus,
     payoutPaidAt: patch.payoutPaidAt != null ? clean(patch.payoutPaidAt) : store[idx].payoutPaidAt,
@@ -984,6 +1097,8 @@ export async function PATCH(req) {
     applicantLicensedStatus: patch.applicantLicensedStatus != null ? clean(patch.applicantLicensedStatus) : store[idx].applicantLicensedStatus,
     updatedAt: nowIso()
   };
+
+  store[idx] = applyPolicyMath(draftRow, { preservePayoutAmount: patch.payoutAmount != null });
 
   let email = null;
   let backOfficeEmail = null;
