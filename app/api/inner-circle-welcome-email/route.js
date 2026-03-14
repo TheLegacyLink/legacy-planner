@@ -257,13 +257,14 @@ async function upsertHubMemberAccessOnWelcome({ name = '', email = '', tempPassw
   return { ok: true, memberId: clean(next.id), email: memberEmail };
 }
 
-function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, telegramUrl, appUrl, hubUrl, tempPassword, playbookUrl, compScheduleUrl, contractLink, sponsorshipUrl }) {
+function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, telegramUrl, appUrl, skoolUrl, hubUrl, tempPassword, playbookUrl, compScheduleUrl, contractLink, sponsorshipUrl }) {
   const safeRole = escapeHtml(roleLabel || 'Agent');
   const safeName = escapeHtml(name || 'there');
   const safeEmail = escapeHtml(email || '');
   const safeCoach = escapeHtml(coachName || 'Legacy Link Coach');
   const safeTelegram = escapeHtml(telegramUrl || '');
   const safeApp = escapeHtml(appUrl);
+  const safeSkool = escapeHtml(skoolUrl || '');
   const safeHub = escapeHtml(hubUrl || '');
   const safePassword = escapeHtml(tempPassword || '');
   const safePlaybook = escapeHtml(playbookUrl);
@@ -285,6 +286,7 @@ function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, 
     onboardingRows.push('<li>Now move through your first 72-hour execution plan in the Hub.</li>');
   } else {
     if (safeSponsorship) onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Your personal sponsor link to share:</strong><br/><a href="${safeSponsorship}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSponsorship}</a></li>`);
+    if (roleKey === 'licensed' && safeSkool) onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Join Skool Community (Training):</strong><br/><a href="${safeSkool}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSkool}</a></li>`);
     onboardingRows.push('<li>Complete the attached onboarding playbook + comp/bonus schedule and follow your coach instructions.</li>');
   }
 
@@ -310,7 +312,16 @@ function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, 
     : (roleKey === 'licensed'
       ? `<div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
           <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Lead Activation Requirement</div>
-          <p style="margin:0;">Licensed agents begin receiving leads after full onboarding is complete and after finishing their first hour of community service.</p>
+          <p style="margin:0 0 10px;">Licensed agents begin receiving leads after full onboarding is complete and after finishing their first hour of community service.</p>
+          ${safeSkool ? `<p style="margin:0 0 10px;"><strong>Skool Community:</strong> <a href="${safeSkool}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSkool}</a></p>` : ''}
+          <p style="margin:0 0 6px;"><strong>Favorite carrier partners (sample):</strong></p>
+          <ul style="margin:0 0 0 18px;padding:0;">
+            <li>F&G</li>
+            <li>Foresters</li>
+            <li>Mutual of Omaha</li>
+            <li>National Life Group</li>
+            <li>Transamerica</li>
+          </ul>
         </div>`
       : '');
 
@@ -364,6 +375,7 @@ export async function POST(req) {
   const to = clean(body?.to || 'kimora@thelegacylink.com');
   const name = clean(body?.name || 'Kimora');
   const appUrl = clean(body?.appUrl || body?.customLinks?.app || process.env.INNER_CIRCLE_APP_URL || 'https://legacylink.app/');
+  const skoolUrl = clean(body?.skoolUrl || body?.customLinks?.skool || process.env.SPONSORSHIP_SKOOL_URL || 'https://www.skool.com/legacylink/about');
   const requestedTempPassword = clean(body?.tempPassword || '');
   const roleInput = clean(body?.role || body?.agentType || body?.agentRole || (body?.licensed === true ? 'licensed' : (body?.licensed === false ? 'unlicensed' : '')));
   const roleConfig = resolveRoleConfig(roleInput);
@@ -409,6 +421,9 @@ export async function POST(req) {
     textLines.push(`HUB Login Email: ${to}`);
     textLines.push(`HUB Login Password (save this): ${tempPassword}`);
     textLines.push('Step 5: Run your first 72-hour execution plan in the Hub');
+  } else if (roleConfig.roleKey === 'licensed') {
+    textLines.push(`Step 3: Join Skool Community (Training): ${skoolUrl}`);
+    textLines.push('Step 4: Complete your attached role-based onboarding playbook');
   } else {
     textLines.push('Step 3: Complete your attached role-based onboarding playbook');
   }
@@ -424,7 +439,9 @@ export async function POST(req) {
     textLines.push('Jamal will reach out within 1–3 business days to get pre-licensing started.');
   }
   if (roleConfig.roleKey === 'licensed') {
+    textLines.push(`Skool Community (Training): ${skoolUrl}`);
     textLines.push('Lead activation note: Licensed agents start receiving leads after full onboarding is complete and after first hour of community service is completed.');
+    textLines.push('Favorite carrier partners (sample): F&G, Foresters, Mutual of Omaha, National Life Group, Transamerica.');
   }
   if (isInnerCircle) {
     textLines.push('Where to find all PDFs: Inner Circle back office resource links');
@@ -435,7 +452,7 @@ export async function POST(req) {
 
   const text = textLines.join('\n');
 
-  const html = buildHtml({ roleKey: roleConfig.roleKey, roleLabel: roleConfig.label, isInnerCircle, name, email: to, coachName, telegramUrl, appUrl, hubUrl, tempPassword, playbookUrl, compScheduleUrl, contractLink, sponsorshipUrl });
+  const html = buildHtml({ roleKey: roleConfig.roleKey, roleLabel: roleConfig.label, isInnerCircle, name, email: to, coachName, telegramUrl, appUrl, skoolUrl, hubUrl, tempPassword, playbookUrl, compScheduleUrl, contractLink, sponsorshipUrl });
 
   let personalizedPdfPath = '';
   try {
