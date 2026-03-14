@@ -82,6 +82,13 @@ def build():
     ], st, bg='#2B1212'))
     story.append(Spacer(1, 8))
 
+    story.append(section('Approved Applicant Routing (Applies to Everyone Approved)', [
+        'This routing applies to every approved applicant.',
+        'If someone is licensed and decides not to do the bonus policy, help them with the contracting process.',
+        'If someone is unlicensed and decides not to do the bonus policy, they must complete one-hour community service before pre-licensing starts.'
+    ], st, bg='#13261A'))
+    story.append(Spacer(1, 8))
+
     story.append(section('Step 1 — Pre-Call Setup', [
         'Confirm Zoom is open and working.',
         'Confirm your camera is on and environment is professional.',

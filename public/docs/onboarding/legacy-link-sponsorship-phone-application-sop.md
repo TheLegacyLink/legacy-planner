@@ -11,6 +11,11 @@ This SOP defines the **required call flow** for submitting a sponsorship applica
 ## Contract Link (Required)
 - **https://innercirclelink.com/contract-agreement**
 
+## Approved Applicant Routing (Applies to Everyone Approved)
+- This routing applies to **every approved applicant**.
+- If someone is **licensed** and decides not to do the bonus policy, help them with the contracting process.
+- If someone is **unlicensed** and decides not to do the bonus policy, they must complete their **one-hour community service** before pre-licensing starts.
+
 ---
 
 ## Step 1 — Pre-Call Setup (Before You Start)
