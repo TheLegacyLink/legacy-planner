@@ -586,7 +586,7 @@ export default function LeadClaimsPortalPage() {
                     onClick={() => confirmAssignment(row.id)}
                     style={{ marginTop: 8 }}
                   >
-                    Admin Confirm Assignment
+                    ✅ Confirm (Admin)
                   </button>
                 ) : null}
                 {isClaimedView ? <p className="muted" style={{ margin: '4px 0 0' }}>Claimed by: {row.claimed_by || '—'} • {fmtDate(row.claimed_at)}</p> : null}
@@ -658,7 +658,7 @@ export default function LeadClaimsPortalPage() {
                               disabled={savingId === row.id}
                               onClick={() => confirmAssignment(row.id)}
                             >
-                              Admin Confirm Assignment
+                              ✅ Confirm (Admin)
                             </button>
                             <button type="button" className="ghost publicBtnBlock" disabled={savingId === row.id} onClick={() => reopenAssignment(row.id)}>
                               Re-Open Queue (No Confirm)
@@ -675,7 +675,7 @@ export default function LeadClaimsPortalPage() {
                     </button>
                     {isPendingConfirmation && (isClaimOwner || isManager) ? (
                       <button type="button" className="publicPrimaryBtn publicBtnBlock" disabled={savingId === row.id} onClick={() => confirmAssignment(row.id)} style={{ marginTop: 8 }}>
-                        {isClaimOwner ? 'Confirm I Can Complete This' : 'Admin Confirm Assignment'}
+                        {isClaimOwner ? 'Confirm I Can Complete This' : '✅ Confirm (Admin)'}
                       </button>
                     ) : null}
                   </>
