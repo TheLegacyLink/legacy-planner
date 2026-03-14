@@ -5,6 +5,7 @@ import licensedAgents from '../../data/licensedAgents.json';
 
 function clean(v = '') { return String(v || '').trim(); }
 function normalize(v = '') { return clean(v).toLowerCase().replace(/\s+/g, ' '); }
+function normalizePhone(v = '') { return clean(v).replace(/\D+/g, ''); }
 
 function toDisplayName(raw = '') {
   const value = clean(raw);
@@ -47,13 +48,28 @@ function uniqueLicensedUsers() {
   const map = new Map();
   for (const row of licensedAgents || []) {
     const email = clean(row?.email).toLowerCase();
-    if (!email) continue;
-    if (!map.has(email)) {
-      map.set(email, {
+    const name = toDisplayName(row?.full_name || row?.name || '');
+    const phone = normalizePhone(row?.phone || '');
+    const key = email || `${normalize(name)}|${phone}`;
+    if (!key) continue;
+    const carriersActive = Array.isArray(row?.carriers_active)
+      ? row.carriers_active.map(clean).filter(Boolean)
+      : [];
+
+    if (!map.has(key)) {
+      map.set(key, {
         email,
-        name: toDisplayName(row?.full_name || row?.name || ''),
+        name,
+        phone,
         agentId: clean(row?.agent_id),
         homeState: clean(row?.home_state),
+        carriersActive
+      });
+    } else {
+      const prev = map.get(key);
+      map.set(key, {
+        ...prev,
+        carriersActive: [...new Set([...(prev?.carriersActive || []), ...carriersActive])]
       });
     }
   }
@@ -63,6 +79,8 @@ function uniqueLicensedUsers() {
 export default function LicensedBackofficePage() {
   const users = useMemo(() => uniqueLicensedUsers(), []);
   const [email, setEmail] = useState('');
+  const [loginName, setLoginName] = useState('');
+  const [loginPhone, setLoginPhone] = useState('');
   const [session, setSession] = useState(null);
   const [tab, setTab] = useState('overview');
   const [policyRows, setPolicyRows] = useState([]);
@@ -73,11 +91,40 @@ export default function LicensedBackofficePage() {
   async function login() {
     setError('');
     const e = clean(email).toLowerCase();
-    const hit = users.find((u) => u.email === e);
+    const n = clean(loginName);
+    const p = normalizePhone(loginPhone);
+
+    let hit = null;
+    if (e) hit = users.find((u) => u.email === e) || null;
+
+    if (!hit && (n || p || e)) {
+      try {
+        const res = await fetch('/api/licensed-agents/match', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fullName: n, email: e, phone: p })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.matched && data?.match) {
+          hit = {
+            email: clean(data.match.email).toLowerCase(),
+            name: clean(data.match.name),
+            phone: normalizePhone(data.match.phone),
+            agentId: clean(data.match.agentId),
+            homeState: clean(data.match.homeState),
+            carriersActive: Array.isArray(data.match.carriersActive) ? data.match.carriersActive : []
+          };
+        }
+      } catch {
+        // ignore and use local fallback
+      }
+    }
+
     if (!hit) {
-      setError('Access pending. This portal is for active licensed agents only.');
+      setError('Access pending. Use licensed email OR name + phone for match.');
       return;
     }
+
     setSession(hit);
   }
 
@@ -171,20 +218,34 @@ export default function LicensedBackofficePage() {
             <p style={{ margin: '8px 0 0', opacity: 0.95 }}>Licensed Agent Back Office (Exclusive Preview)</p>
           </div>
           <div style={{ padding: 24, display: 'grid', gap: 12 }}>
-            <label style={{ fontSize: 14, color: '#9CA3AF' }}>Sign in with your licensed email</label>
+            <label style={{ fontSize: 14, color: '#9CA3AF' }}>Sign in (licensed-only)</label>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@email.com"
+              placeholder="Licensed email (recommended)"
               style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }}
             />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <input
+                value={loginName}
+                onChange={(e) => setLoginName(e.target.value)}
+                placeholder="Full name (fallback)"
+                style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }}
+              />
+              <input
+                value={loginPhone}
+                onChange={(e) => setLoginPhone(e.target.value)}
+                placeholder="Phone (fallback)"
+                style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }}
+              />
+            </div>
             <button onClick={login} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
               Enter Back Office
             </button>
             <button type="button" disabled style={{ padding: '10px 14px', borderRadius: 10, border: '1px dashed #475569', background: '#0B1220', color: '#9CA3AF' }}>
               Google Sign-In (Phase 2)
             </button>
-            {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Licensed-only access. Active roster required.</small>}
+            {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Licensed-only access. If email differs, use name + phone match.</small>}
           </div>
         </section>
       </main>
@@ -236,6 +297,11 @@ export default function LicensedBackofficePage() {
                   <div style={{ color: '#9CA3AF', fontSize: 12 }}>Sponsorships Brought In</div>
                   <div style={{ fontSize: 24, fontWeight: 700 }}>{metrics.mySponsors.length}</div>
                   <div style={{ color: '#9CA3AF' }}>Approved: {metrics.approvedSponsors.length} • Booked: {metrics.bookedSponsors.length}</div>
+                </div>
+                <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 12 }}>Contracted Carriers</div>
+                  <div style={{ fontSize: 18, fontWeight: 700 }}>{(session.carriersActive || []).length || 0}</div>
+                  <div style={{ color: '#9CA3AF' }}>{(session.carriersActive || []).length ? session.carriersActive.join(' • ') : 'No active carriers mapped yet'}</div>
                 </div>
                 <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
                   <div style={{ color: '#9CA3AF', fontSize: 12 }}>Next Tier Progress</div>
