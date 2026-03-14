@@ -44,88 +44,112 @@ function monthKey(ts = '') {
 
 function sum(values = []) { return values.reduce((a, b) => a + Number(b || 0), 0); }
 
-function uniqueLicensedUsers() {
-  const map = new Map();
-  for (const row of licensedAgents || []) {
-    const email = clean(row?.email).toLowerCase();
-    const name = toDisplayName(row?.full_name || row?.name || '');
-    const phone = normalizePhone(row?.phone || '');
-    const key = email || `${normalize(name)}|${phone}`;
-    if (!key) continue;
-    const carriersActive = Array.isArray(row?.carriers_active)
-      ? row.carriers_active.map(clean).filter(Boolean)
-      : [];
-
-    if (!map.has(key)) {
-      map.set(key, {
-        email,
-        name,
-        phone,
-        agentId: clean(row?.agent_id),
-        homeState: clean(row?.home_state),
-        carriersActive
-      });
-    } else {
-      const prev = map.get(key);
-      map.set(key, {
-        ...prev,
-        carriersActive: [...new Set([...(prev?.carriersActive || []), ...carriersActive])]
-      });
-    }
-  }
-  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-}
-
 export default function LicensedBackofficePage() {
-  const users = useMemo(() => uniqueLicensedUsers(), []);
   const [email, setEmail] = useState('');
   const [loginName, setLoginName] = useState('');
   const [loginPhone, setLoginPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [codeRequested, setCodeRequested] = useState(false);
   const [session, setSession] = useState(null);
+  const [authToken, setAuthToken] = useState('');
   const [tab, setTab] = useState('overview');
   const [policyRows, setPolicyRows] = useState([]);
   const [sponsorRows, setSponsorRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  async function login() {
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') : '';
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/licensed-backoffice/auth/me', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store'
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && res.ok && data?.ok && data?.profile) {
+          setSession(data.profile);
+          setAuthToken(token);
+        }
+      } catch {
+        // ignore stale session
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function requestCode() {
     setError('');
     const e = clean(email).toLowerCase();
     const n = clean(loginName);
     const p = normalizePhone(loginPhone);
-
-    let hit = null;
-    if (e) hit = users.find((u) => u.email === e) || null;
-
-    if (!hit && (n || p || e)) {
-      try {
-        const res = await fetch('/api/licensed-agents/match', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fullName: n, email: e, phone: p })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data?.matched && data?.match) {
-          hit = {
-            email: clean(data.match.email).toLowerCase(),
-            name: clean(data.match.name),
-            phone: normalizePhone(data.match.phone),
-            agentId: clean(data.match.agentId),
-            homeState: clean(data.match.homeState),
-            carriersActive: Array.isArray(data.match.carriersActive) ? data.match.carriersActive : []
-          };
-        }
-      } catch {
-        // ignore and use local fallback
-      }
-    }
-
-    if (!hit) {
-      setError('Access pending. Use licensed email OR name + phone for match.');
+    if (!e) {
+      setError('Email is required.');
       return;
     }
 
-    setSession(hit);
+    try {
+      const res = await fetch('/api/licensed-backoffice/auth/request-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: e, fullName: n, phone: p })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setError(data?.error ? `Login blocked: ${data.error}` : 'Unable to send code right now.');
+        return;
+      }
+      setCodeRequested(true);
+    } catch {
+      setError('Unable to send code right now.');
+    }
+  }
+
+  async function verifyCode() {
+    setError('');
+    const e = clean(email).toLowerCase();
+    const c = clean(code);
+    if (!e || !c) {
+      setError('Enter both email and code.');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/licensed-backoffice/auth/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: e, code: c })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok || !data?.token || !data?.profile) {
+        setError(data?.error ? `Verification failed: ${data.error}` : 'Invalid code.');
+        return;
+      }
+      if (typeof window !== 'undefined') window.localStorage.setItem('licensed_backoffice_token', data.token);
+      setAuthToken(data.token);
+      setSession(data.profile);
+    } catch {
+      setError('Verification failed.');
+    }
+  }
+
+  async function logout() {
+    try {
+      if (authToken) {
+        await fetch('/api/licensed-backoffice/auth/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+          body: JSON.stringify({ token: authToken })
+        });
+      }
+    } catch {}
+    if (typeof window !== 'undefined') window.localStorage.removeItem('licensed_backoffice_token');
+    setAuthToken('');
+    setSession(null);
+    setCode('');
+    setCodeRequested(false);
   }
 
   useEffect(() => {
@@ -239,13 +263,27 @@ export default function LicensedBackofficePage() {
                 style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }}
               />
             </div>
-            <button onClick={login} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
-              Enter Back Office
-            </button>
+            {!codeRequested ? (
+              <button onClick={requestCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
+                Send Login Code
+              </button>
+            ) : (
+              <>
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="Enter 6-digit code"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }}
+                />
+                <button onClick={verifyCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
+                  Verify & Enter Back Office
+                </button>
+              </>
+            )}
             <button type="button" disabled style={{ padding: '10px 14px', borderRadius: 10, border: '1px dashed #475569', background: '#0B1220', color: '#9CA3AF' }}>
-              Google Sign-In (Phase 2)
+              Google Sign-In (Enable when OAuth keys are added)
             </button>
-            {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Licensed-only access. If email differs, use name + phone match.</small>}
+            {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Licensed-only access. Use email code, with name + phone matching support for alternate emails.</small>}
           </div>
         </section>
       </main>
@@ -261,7 +299,7 @@ export default function LicensedBackofficePage() {
               <h2 style={{ margin: 0, fontSize: 28 }}>Licensed Agent Back Office</h2>
               <p style={{ margin: '6px 0 0', color: '#9CA3AF' }}>{session.name} • {session.email} • {session.homeState || 'State Pending'}</p>
             </div>
-            <button onClick={() => setSession(null)} style={{ borderRadius: 10, border: '1px solid #334155', padding: '8px 12px', background: '#111827', color: '#E5E7EB' }}>Switch Agent</button>
+            <button onClick={logout} style={{ borderRadius: 10, border: '1px solid #334155', padding: '8px 12px', background: '#111827', color: '#E5E7EB' }}>Sign Out</button>
           </div>
         </header>
 
