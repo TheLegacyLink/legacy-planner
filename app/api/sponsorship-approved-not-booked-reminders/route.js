@@ -391,8 +391,6 @@ export async function POST(req) {
           '',
           `${fullName} in your downline was just approved for sponsorship.`,
           '',
-          `First Name: ${firstName || 'N/A'}`,
-          `Last Name: ${lastName || 'N/A'}`,
           `Full Name: ${fullName}`,
           `Email: ${email || 'N/A'}`,
           `Phone: ${phone}`,
@@ -409,8 +407,6 @@ export async function POST(req) {
           <p>Hi <strong>${uplineName}</strong>,</p>
           <p><strong>${fullName}</strong> in your downline was just approved for sponsorship.</p>
           <ul>
-            <li><strong>First Name:</strong> ${firstName || 'N/A'}</li>
-            <li><strong>Last Name:</strong> ${lastName || 'N/A'}</li>
             <li><strong>Full Name:</strong> ${fullName}</li>
             <li><strong>Email:</strong> ${email || 'N/A'}</li>
             <li><strong>Phone:</strong> ${phone}</li>
@@ -437,8 +433,6 @@ export async function POST(req) {
           '',
           `${fullName} (approved sponsorship) is now booked.`,
           '',
-          `First Name: ${firstName || 'N/A'}`,
-          `Last Name: ${lastName || 'N/A'}`,
           `Full Name: ${fullName}`,
           `Email: ${email || 'N/A'}`,
           `Phone: ${phone}`,
@@ -455,8 +449,6 @@ export async function POST(req) {
           <p>Hi <strong>${uplineName}</strong>,</p>
           <p><strong>${fullName}</strong> (approved sponsorship) is now booked.</p>
           <ul>
-            <li><strong>First Name:</strong> ${firstName || 'N/A'}</li>
-            <li><strong>Last Name:</strong> ${lastName || 'N/A'}</li>
             <li><strong>Full Name:</strong> ${fullName}</li>
             <li><strong>Email:</strong> ${email || 'N/A'}</li>
             <li><strong>Phone:</strong> ${phone}</li>
@@ -483,8 +475,6 @@ export async function POST(req) {
           '',
           `${fullName} was approved over an hour ago and still has not booked.`,
           '',
-          `First Name: ${firstName || 'N/A'}`,
-          `Last Name: ${lastName || 'N/A'}`,
           `Full Name: ${fullName}`,
           `Email: ${email || 'N/A'}`,
           `Phone: ${phone}`,
@@ -500,8 +490,6 @@ export async function POST(req) {
           <p>Hi <strong>${uplineName}</strong>,</p>
           <p><strong>${fullName}</strong> was approved over an hour ago and still has not booked.</p>
           <ul>
-            <li><strong>First Name:</strong> ${firstName || 'N/A'}</li>
-            <li><strong>Last Name:</strong> ${lastName || 'N/A'}</li>
             <li><strong>Full Name:</strong> ${fullName}</li>
             <li><strong>Email:</strong> ${email || 'N/A'}</li>
             <li><strong>Phone:</strong> ${phone}</li>
