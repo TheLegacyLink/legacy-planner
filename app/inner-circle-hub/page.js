@@ -315,6 +315,10 @@ export default function InnerCircleHubPage() {
       {
         name: 'Unlicensed Agent Playbook',
         url: '/docs/onboarding/legacy-link-unlicensed-onboarding-playbook.pdf'
+      },
+      {
+        name: 'Sponsorship Application Call SOP',
+        url: '/docs/onboarding/legacy-link-sponsorship-phone-application-sop.pdf'
       }
     ].map((item) => ({ ...item, url: toAbsoluteLink(item.url) }));
   }, [toAbsoluteLink]);
@@ -341,6 +345,10 @@ export default function InnerCircleHubPage() {
       {
         name: 'Unlicensed Agent Onboarding PDF',
         url: toAbsoluteLink('/docs/onboarding/legacy-link-unlicensed-onboarding-playbook.pdf')
+      },
+      {
+        name: 'Sponsorship Application Call SOP PDF',
+        url: toAbsoluteLink('/docs/onboarding/legacy-link-sponsorship-phone-application-sop.pdf')
       }
     ];
   }, [toAbsoluteLink]);
