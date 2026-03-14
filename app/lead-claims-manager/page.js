@@ -360,11 +360,6 @@ export default function LeadClaimsPortalPage() {
     });
   }, [query]);
 
-  const pendingConfirmRows = useMemo(
-    () => rows.filter((r) => clean(r.assignment_status) === 'pending_confirmation'),
-    [rows]
-  );
-
   const availableRows = useMemo(
     () => rows.filter((r) => !clean(r.claimed_by) || clean(r.assignment_status) === 'pending_confirmation'),
     [rows]
@@ -380,11 +375,6 @@ export default function LeadClaimsPortalPage() {
     [rows, auth.name, filterRowsByQuery]
   );
 
-  const pendingConfirmFilteredRows = useMemo(
-    () => filterRowsByQuery(pendingConfirmRows),
-    [pendingConfirmRows, filterRowsByQuery]
-  );
-
   const teamClaimedRows = useMemo(
     () => filterRowsByQuery(rows.filter((r) => clean(r.claimed_by))),
     [rows, filterRowsByQuery]
@@ -397,13 +387,11 @@ export default function LeadClaimsPortalPage() {
 
   const displayedRows = view === 'claimed'
     ? myClaims
-    : view === 'pending'
-      ? pendingConfirmFilteredRows
-      : view === 'team'
-        ? teamClaimedRows
-        : view === 'expired'
-          ? expiredUnclaimedRows
-          : availableToClaimRows;
+    : view === 'team'
+      ? teamClaimedRows
+      : view === 'expired'
+        ? expiredUnclaimedRows
+        : availableToClaimRows;
 
   if (!auth.name) {
     return (
@@ -464,9 +452,6 @@ export default function LeadClaimsPortalPage() {
             <button type="button" className={view === 'available' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setView('available')}>
               Available to Claim ({availableToClaimRows.length})
             </button>
-            <button type="button" className={view === 'pending' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setView('pending')}>
-              Awaiting Confirmation ({pendingConfirmRows.length})
-            </button>
             <button type="button" className={view === 'claimed' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setView('claimed')}>
               My Claimed Leads ({myClaims.length})
             </button>
@@ -486,11 +471,6 @@ export default function LeadClaimsPortalPage() {
               <strong>Claimed by you today:</strong> {myClaims.slice(0, 3).map((r) => clean(r.applicant_name)).filter(Boolean).join(' • ')}
             </div>
           ) : null}
-          {pendingConfirmRows.length ? (
-            <div className="claimsMiniClaimed" style={{ borderColor: '#fcd34d', background: '#fffbeb' }}>
-              <strong>Awaiting confirmation:</strong> {pendingConfirmRows.length} appointment{pendingConfirmRows.length > 1 ? 's' : ''}.
-            </div>
-          ) : null}
           <input placeholder="Search leads..." value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
       </section>
@@ -504,8 +484,6 @@ export default function LeadClaimsPortalPage() {
             <h3>
               {view === 'claimed'
                 ? 'No claimed leads yet'
-                : view === 'pending'
-                  ? 'No pending confirmations'
                   : view === 'team'
                     ? 'No team-claimed leads yet'
                     : view === 'expired'
@@ -515,8 +493,6 @@ export default function LeadClaimsPortalPage() {
             <p className="muted">
               {view === 'claimed'
                 ? 'Once you claim leads, they will show here.'
-                : view === 'pending'
-                  ? 'Assignments waiting for agent confirmation will appear here.'
                   : view === 'team'
                     ? 'When agents claim booked appointments, they will show here.'
                     : view === 'expired'
