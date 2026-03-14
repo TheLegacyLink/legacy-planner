@@ -557,7 +557,7 @@ export async function POST(req) {
   let personalizedPdfPath = '';
   try {
     const staticPlaybookPath = roleConfig.staticPlaybookPath;
-    personalizedPdfPath = (await generatePersonalizedVipPdf({
+    personalizedPdfPath = isInnerCircle ? ((await generatePersonalizedVipPdf({
       roleKey: roleConfig.roleKey,
       roleLabel: roleConfig.label,
       name,
@@ -572,7 +572,7 @@ export async function POST(req) {
       playbookUrl,
       compScheduleUrl,
       sponsorshipUrl
-    }) || '');
+    })) || '') : '';
 
     let attachments = personalizedPdfPath
       ? [{ filename: `Legacy-Link-VIP-Playbook-${safeFilePart(name || to)}.pdf`, path: personalizedPdfPath }]
