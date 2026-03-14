@@ -332,6 +332,19 @@ export default function InnerCircleHubPage() {
     ];
   }, [siteBase, toAbsoluteLink]);
 
+  const vipPdfLinks = useMemo(() => {
+    return [
+      {
+        name: 'Licensed Agent Onboarding PDF',
+        url: toAbsoluteLink('/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf')
+      },
+      {
+        name: 'Unlicensed Agent Onboarding PDF',
+        url: toAbsoluteLink('/docs/onboarding/legacy-link-unlicensed-onboarding-playbook.pdf')
+      }
+    ];
+  }, [toAbsoluteLink]);
+
   useEffect(() => {
     if (!member?.email && !member?.applicantName) return;
     let canceled = false;
@@ -1051,6 +1064,16 @@ export default function InnerCircleHubPage() {
                 </div>
 
                 {contractLinks.map((item) => (
+                  <div key={item.name} style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617', display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8 }}>
+                    <strong style={{ color: '#fff' }}>{item.name}</strong>
+                    <img src={qrUrl(item.url)} alt={`${item.name} QR`} width={118} height={118} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
+                    <button type="button" className="ghost" onClick={() => copyLink(item.url, item.name)}>
+                      {copiedKey === item.name ? 'Copied' : 'Copy Link'}
+                    </button>
+                  </div>
+                ))}
+
+                {vipPdfLinks.map((item) => (
                   <div key={item.name} style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617', display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8 }}>
                     <strong style={{ color: '#fff' }}>{item.name}</strong>
                     <img src={qrUrl(item.url)} alt={`${item.name} QR`} width={118} height={118} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
