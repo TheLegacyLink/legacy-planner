@@ -279,12 +279,12 @@ function buildHtml({ roleLabel, isInnerCircle, name, email, coachName, telegramU
   if (isInnerCircle) {
     onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Join the Telegram group and send a quick intro message:</strong><br/><a href="${safeTelegram}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeTelegram}</a></li>`);
     onboardingRows.push(`<li style="margin-bottom:10px;">Then log in to your Inner Circle Hub:<br/><a href="${safeHub}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeHub}</a></li>`);
-    if (safeSponsorship) onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Your personal sponsorship link:</strong><br/><a href="${safeSponsorship}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSponsorship}</a></li>`);
+    if (safeSponsorship) onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Your personal sponsor link to share:</strong><br/><a href="${safeSponsorship}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSponsorship}</a></li>`);
     onboardingRows.push(`<li style="margin-bottom:10px;"><strong>HUB Login Email:</strong> ${safeEmail}</li>`);
     onboardingRows.push(`<li style="margin-bottom:10px;"><strong>HUB Login Password (save this):</strong><br/><span style="display:inline-block;background:#F58426;color:#0B1020;padding:6px 10px;border-radius:8px;font-weight:800;">${safePassword}</span></li>`);
     onboardingRows.push('<li>Now move through your first 72-hour execution plan in the Hub.</li>');
   } else {
-    if (safeSponsorship) onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Your personal sponsorship link:</strong><br/><a href="${safeSponsorship}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSponsorship}</a></li>`);
+    if (safeSponsorship) onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Your personal sponsor link to share:</strong><br/><a href="${safeSponsorship}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSponsorship}</a></li>`);
     onboardingRows.push('<li>Complete the attached onboarding playbook + comp/bonus schedule and follow your coach instructions.</li>');
   }
 
@@ -359,8 +359,8 @@ export async function POST(req) {
   const hubUrl = isInnerCircle ? clean(body?.hubUrl || body?.customLinks?.hub || process.env.NEXT_PUBLIC_INNER_CIRCLE_HUB_URL || 'https://innercirclelink.com/inner-circle-hub') : '';
   const explicitPlaybookUrl = clean(body?.playbookUrl || body?.customLinks?.playbook || '');
   const playbookUrl = explicitPlaybookUrl || roleConfig.playbookUrl;
-  const compScheduleUrl = clean(body?.compScheduleUrl || body?.customLinks?.compSchedule || 'https://innercirclelink.com/docs/onboarding/legacy-link-comp-schedule-bonuses-v1.pdf');
-  const compSchedulePath = path.join(process.cwd(), 'public', 'docs', 'onboarding', 'legacy-link-comp-schedule-bonuses-v1.pdf');
+  const compScheduleUrl = clean(body?.compScheduleUrl || body?.customLinks?.compSchedule || 'https://innercirclelink.com/docs/onboarding/legacy-link-comp-schedule-bonuses-v2.pdf');
+  const compSchedulePath = path.join(process.cwd(), 'public', 'docs', 'onboarding', 'legacy-link-comp-schedule-bonuses-v2.pdf');
   const defaultContract = isInnerCircle ? 'https://innercirclelink.com/inner-circle-contract' : 'https://innercirclelink.com/contract-agreement';
   const contractLink = clean(body?.contractLink || body?.customLinks?.contract || defaultContract);
   const referredBy = clean(body?.referredBy || body?.customLinks?.referredBy || '');
@@ -401,7 +401,7 @@ export async function POST(req) {
   }
 
   textLines.push(`Coach: ${coachName}`);
-  textLines.push(`Personal Sponsorship Link: ${sponsorshipUrl}`);
+  textLines.push(`Your Personal Sponsor Link to Share: ${sponsorshipUrl}`);
   textLines.push(`Onboarding Playbook (PDF): ${playbookUrl}`);
   if (!isInnerCircle) {
     textLines.push(`Comp + Bonus Schedule (PDF): ${compScheduleUrl}`);
