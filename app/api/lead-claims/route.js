@@ -7,6 +7,7 @@ const SPONSORSHIP_BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
 const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
 const BONUS_BOOKINGS_PATH = 'stores/bonus-bookings.json';
 const SETTINGS_PATH = 'stores/lead-claims-settings.json';
+const AGENT_ONBOARDING_PATH = 'stores/agent-onboarding.json';
 
 const LICENSE_OVERRIDES = {
   'kelin brown': ['AZ', 'CA', 'CO', 'FL', 'MI', 'NE', 'NV', 'OH', 'OK', 'RI', 'TX', 'VA'],
@@ -99,14 +100,63 @@ function parseFullName(lastFirst = '') {
   return clean(`${first} ${last}`);
 }
 
-function activeUsers() {
+let RUNTIME_ASSIGNABLE_USERS = null;
+
+function authUsers() {
   return (users || []).filter((u) => u?.active);
+}
+
+function activeUsers() {
+  return Array.isArray(RUNTIME_ASSIGNABLE_USERS) && RUNTIME_ASSIGNABLE_USERS.length
+    ? RUNTIME_ASSIGNABLE_USERS
+    : authUsers();
+}
+
+async function refreshAssignableUsers() {
+  const base = authUsers().map((u) => ({ ...u, name: clean(u?.name), email: clean(u?.email), role: clean(u?.role || 'agent'), active: u?.active !== false }));
+
+  const onboardingRows = await loadJsonStore(AGENT_ONBOARDING_PATH, []);
+  const onboard = (Array.isArray(onboardingRows) ? onboardingRows : [])
+    .filter((r) => normalize(r?.group) === 'inner' && r?.active !== false)
+    .map((r) => ({
+      name: clean(r?.name),
+      email: clean(r?.email),
+      role: 'agent',
+      active: true
+    }))
+    .filter((r) => r.name);
+
+  const byName = new Map();
+  for (const row of [...base, ...onboard]) {
+    const key = normalize(row?.name);
+    if (!key) continue;
+    if (!byName.has(key)) byName.set(key, row);
+    else {
+      const prev = byName.get(key);
+      byName.set(key, {
+        ...prev,
+        ...row,
+        email: clean(prev?.email || row?.email),
+        role: clean(prev?.role || row?.role || 'agent'),
+        active: true
+      });
+    }
+  }
+
+  RUNTIME_ASSIGNABLE_USERS = [...byName.values()].sort((a, b) => clean(a?.name).localeCompare(clean(b?.name)));
+  return RUNTIME_ASSIGNABLE_USERS;
 }
 
 function findUserEmailByName(name = '') {
   const n = normalize(name);
-  const hit = (users || []).find((u) => normalize(u.name) === n);
+  const hit = activeUsers().find((u) => normalize(u.name) === n);
   return clean(hit?.email);
+}
+
+function findAuthUserByName(name = '') {
+  const n = normalize(name);
+  if (!n) return null;
+  return authUsers().find((u) => normalize(u.name) === n) || null;
 }
 
 function emailFrame(title = '', bodyHtml = '') {
@@ -656,9 +706,11 @@ function findById(rows = [], id = '') {
 }
 
 export async function GET(req) {
+  await refreshAssignableUsers();
+
   const { searchParams } = new URL(req.url);
   const viewerName = clean(searchParams.get('viewer'));
-  const viewer = findUserByName(viewerName);
+  const viewer = findAuthUserByName(viewerName);
   const viewerRole = clean(viewer?.role || 'guest');
 
   const [sponsorStoreRaw, policyRows, bonusRowsRaw] = await Promise.all([
@@ -719,10 +771,12 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  await refreshAssignableUsers();
+
   const body = await req.json().catch(() => ({}));
   const action = normalize(body?.action || '');
   const actorName = clean(body?.actorName);
-  const actor = findUserByName(actorName);
+  const actor = findAuthUserByName(actorName);
 
   if (!actor) return Response.json({ ok: false, error: 'invalid_actor' }, { status: 401 });
 
