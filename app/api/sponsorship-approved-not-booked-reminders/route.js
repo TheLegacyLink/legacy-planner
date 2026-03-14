@@ -100,14 +100,107 @@ function referredAgentName(app = {}) {
   return clean(hit?.name);
 }
 
+function userByName(name = '') {
+  if (!name) return null;
+  return (users || []).find((u) => normalize(u?.name) === normalize(name)) || null;
+}
+
 function emailByName(name = '') {
-  if (!name) return '';
-  const hit = (users || []).find((u) => normalize(u?.name) === normalize(name));
+  const hit = userByName(name);
   return clean(hit?.email);
 }
 
 function referredAgentEmail(app = {}) {
   return emailByName(referredAgentName(app));
+}
+
+function isKimora(name = '') {
+  return normalize(name) === 'kimora link';
+}
+
+const AGENT_TZ_OVERRIDES = {
+  'jamal holmes': 'America/New_York',
+  'leticia wright': 'America/New_York',
+  'latricia wright': 'America/New_York',
+  'mahogany burns': 'America/New_York',
+  'breanna james': 'America/New_York',
+  'donyell richardson': 'America/New_York',
+  'shannon maxwell': 'America/New_York',
+  'andrea cannon': 'America/New_York',
+  'angelica lassiter': 'America/New_York',
+  'angelic': 'America/New_York'
+};
+
+function resolveAgentTimeZone(agentName = '') {
+  const n = normalize(agentName);
+  const fromOverride = AGENT_TZ_OVERRIDES[n];
+  if (fromOverride) return fromOverride;
+
+  const u = userByName(agentName) || {};
+  const tz = clean(u?.timeZone || u?.timezone || '');
+  return tz || 'America/New_York';
+}
+
+function parseRequestedAtEst(raw = '') {
+  const v = clean(raw);
+  if (!v) return null;
+
+  const m = v.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})\s*([AP]M)$/i);
+  if (!m) return null;
+
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  let hour12 = Number(m[4]);
+  const minute = Number(m[5]);
+  const ampm = String(m[6] || '').toUpperCase();
+  if (ampm === 'PM' && hour12 !== 12) hour12 += 12;
+  if (ampm === 'AM' && hour12 === 12) hour12 = 0;
+
+  // Treat source string as Eastern Time wall clock by app convention.
+  const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour12).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00-04:00`;
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt;
+}
+
+function formatInTz(dateValue, timeZone = 'America/New_York') {
+  if (!dateValue) return '';
+  const dt = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  if (Number.isNaN(dt.getTime())) return '';
+  return new Intl.DateTimeFormat('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone,
+    timeZoneName: 'short'
+  }).format(dt);
+}
+
+function findBookingRowForApp(app = {}, bookings = []) {
+  const appId = clean(app?.id);
+  const appNameKey = normalizeNameKey(applicantName(app));
+  const appEmail = normalize(app?.email || app?.applicant_email || '');
+
+  return (bookings || []).find((b) => {
+    if (clean(b?.source_application_id) && clean(b?.source_application_id) === appId) return true;
+    const bNameKey = normalizeNameKey(b?.applicant_name || '');
+    const bEmail = normalize(b?.applicant_email || '');
+    return (appNameKey && bNameKey && appNameKey === bNameKey) || (appEmail && bEmail && appEmail === bEmail);
+  }) || null;
+}
+
+function centralHourNow() {
+  const hour = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: 'America/Chicago' }).format(new Date()));
+  return Number.isNaN(hour) ? 12 : hour;
+}
+
+function isQuietHoursNow() {
+  const h = centralHourNow();
+  return h >= 21 || h < 8;
 }
 
 function smtp() {
@@ -247,13 +340,16 @@ export async function POST(req) {
   let sms10mSent = 0;
   let sms30mSent = 0;
   let sms24hSent = 0;
+  let uplineApprovedSent = 0;
+  let uplineBookedSent = 0;
+  let uplineOneHourSent = 0;
   const errors = [];
+
+  const quietHours = isQuietHoursNow();
 
   for (const app of apps) {
     if (attempted >= maxPerRun) break;
     if (!isApproved(app)) continue;
-    if (isBooked(app, bookings)) continue;
-    if (hasSubmittedPolicy(app, policyRows)) continue;
 
     const anchor = approvedAnchor(app);
     if (!anchor) continue;
@@ -265,13 +361,178 @@ export async function POST(req) {
 
     const record = byId[appId] || {};
 
-    const fullName = applicantName(app) || 'Applicant';
+    const firstName = clean(app?.firstName || app?.first_name || '');
+    const lastName = clean(app?.lastName || app?.last_name || '');
+    const fullName = applicantName(app) || clean(app?.name || `${firstName} ${lastName}`) || 'Applicant';
     const email = clean(app?.email || app?.applicant_email || '');
     const phone = clean(app?.phone || app?.applicant_phone || 'N/A');
+    const stateCode = clean(app?.state || app?.applicant_state || 'N/A');
     const bookingLink = `https://innercirclelink.com/sponsorship-booking?id=${encodeURIComponent(appId)}`;
     const contactId = resolveContactIdForApp(app, callerRows);
 
+    const uplineName = referredAgentName(app) || 'Agent';
+    const uplineEmail = referredAgentEmail(app);
+    const bookingExists = isBooked(app, bookings);
+    const bookingRow = bookingExists ? findBookingRowForApp(app, bookings) : null;
+    const agentTz = resolveAgentTimeZone(uplineName);
+    const bookedEtRaw = clean(bookingRow?.requested_at_est || '');
+    const bookedAtEt = parseRequestedAtEst(bookedEtRaw);
+    const bookedAtEtLabel = bookedAtEt ? formatInTz(bookedAtEt, 'America/New_York') : bookedEtRaw;
+    const bookedAtAgentLabel = bookedAtEt ? formatInTz(bookedAtEt, agentTz) : '';
+
     attempted += 1;
+
+    // Upline notifications (all referrers)
+    if (uplineEmail) {
+      if (!record?.uplineApprovedSentAt && ageMs >= 0 && ageMs <= 24 * 60 * 60 * 1000) {
+        const subject = `Sponsorship Approved: ${fullName}`;
+        const text = [
+          `Hi ${uplineName},`,
+          '',
+          `${fullName} in your downline was just approved for sponsorship.`,
+          '',
+          `First Name: ${firstName || 'N/A'}`,
+          `Last Name: ${lastName || 'N/A'}`,
+          `Full Name: ${fullName}`,
+          `Email: ${email || 'N/A'}`,
+          `Phone: ${phone}`,
+          `State: ${stateCode}`,
+          `Approved At (ET): ${formatInTz(anchor, 'America/New_York') || anchor.toLocaleString('en-US')}`,
+          `Booking Link: ${bookingLink}`,
+          '',
+          'Please support them in getting scheduled quickly.',
+          '',
+          'The Legacy Link Support Team'
+        ].join('\n');
+
+        const htmlBody = `
+          <p>Hi <strong>${uplineName}</strong>,</p>
+          <p><strong>${fullName}</strong> in your downline was just approved for sponsorship.</p>
+          <ul>
+            <li><strong>First Name:</strong> ${firstName || 'N/A'}</li>
+            <li><strong>Last Name:</strong> ${lastName || 'N/A'}</li>
+            <li><strong>Full Name:</strong> ${fullName}</li>
+            <li><strong>Email:</strong> ${email || 'N/A'}</li>
+            <li><strong>Phone:</strong> ${phone}</li>
+            <li><strong>State:</strong> ${stateCode}</li>
+            <li><strong>Approved At (ET):</strong> ${formatInTz(anchor, 'America/New_York') || anchor.toLocaleString('en-US')}</li>
+            <li><strong>Booking Link:</strong> <a href="${bookingLink}">${bookingLink}</a></li>
+          </ul>
+          <p>Please support them in getting scheduled quickly.</p>
+        `;
+
+        const out = await sendBrandedEmail({ to: uplineEmail, subject, text, htmlBody });
+        if (out.ok) {
+          uplineApprovedSent += 1;
+          record.uplineApprovedSentAt = nowIso();
+        } else {
+          errors.push({ appId, type: 'upline_approved', error: out.error });
+        }
+      }
+
+      if (bookingExists && !record?.uplineBookedSentAt && ageMs <= 48 * 60 * 60 * 1000) {
+        const subject = `Booked: ${fullName} is now scheduled`;
+        const text = [
+          `Hi ${uplineName},`,
+          '',
+          `${fullName} (approved sponsorship) is now booked.`,
+          '',
+          `First Name: ${firstName || 'N/A'}`,
+          `Last Name: ${lastName || 'N/A'}`,
+          `Full Name: ${fullName}`,
+          `Email: ${email || 'N/A'}`,
+          `Phone: ${phone}`,
+          `State: ${stateCode}`,
+          `Booked Time (ET): ${bookedAtEtLabel || 'N/A'}`,
+          `Booked Time (${agentTz}): ${bookedAtAgentLabel || bookedAtEtLabel || 'N/A'}`,
+          '',
+          'Great momentum — keep the follow-through tight.',
+          '',
+          'The Legacy Link Support Team'
+        ].join('\n');
+
+        const htmlBody = `
+          <p>Hi <strong>${uplineName}</strong>,</p>
+          <p><strong>${fullName}</strong> (approved sponsorship) is now booked.</p>
+          <ul>
+            <li><strong>First Name:</strong> ${firstName || 'N/A'}</li>
+            <li><strong>Last Name:</strong> ${lastName || 'N/A'}</li>
+            <li><strong>Full Name:</strong> ${fullName}</li>
+            <li><strong>Email:</strong> ${email || 'N/A'}</li>
+            <li><strong>Phone:</strong> ${phone}</li>
+            <li><strong>State:</strong> ${stateCode}</li>
+            <li><strong>Booked Time (ET):</strong> ${bookedAtEtLabel || 'N/A'}</li>
+            <li><strong>Booked Time (${agentTz}):</strong> ${bookedAtAgentLabel || bookedAtEtLabel || 'N/A'}</li>
+          </ul>
+          <p>Great momentum — keep the follow-through tight.</p>
+        `;
+
+        const out = await sendBrandedEmail({ to: uplineEmail, subject, text, htmlBody });
+        if (out.ok) {
+          uplineBookedSent += 1;
+          record.uplineBookedSentAt = nowIso();
+        } else {
+          errors.push({ appId, type: 'upline_booked', error: out.error });
+        }
+      }
+
+      if (!bookingExists && ageMs >= 60 * 60 * 1000 && !record?.uplineOneHourNotBookedSentAt) {
+        const subject = `Action Needed (1-Hour): ${fullName} approved but not booked`;
+        const text = [
+          `Hi ${uplineName},`,
+          '',
+          `${fullName} was approved over an hour ago and still has not booked.`,
+          '',
+          `First Name: ${firstName || 'N/A'}`,
+          `Last Name: ${lastName || 'N/A'}`,
+          `Full Name: ${fullName}`,
+          `Email: ${email || 'N/A'}`,
+          `Phone: ${phone}`,
+          `State: ${stateCode}`,
+          `Booking Link: ${bookingLink}`,
+          '',
+          'Please reach out immediately and get them on a schedule.',
+          '',
+          'The Legacy Link Support Team'
+        ].join('\n');
+
+        const htmlBody = `
+          <p>Hi <strong>${uplineName}</strong>,</p>
+          <p><strong>${fullName}</strong> was approved over an hour ago and still has not booked.</p>
+          <ul>
+            <li><strong>First Name:</strong> ${firstName || 'N/A'}</li>
+            <li><strong>Last Name:</strong> ${lastName || 'N/A'}</li>
+            <li><strong>Full Name:</strong> ${fullName}</li>
+            <li><strong>Email:</strong> ${email || 'N/A'}</li>
+            <li><strong>Phone:</strong> ${phone}</li>
+            <li><strong>State:</strong> ${stateCode}</li>
+            <li><strong>Booking Link:</strong> <a href="${bookingLink}">${bookingLink}</a></li>
+          </ul>
+          <p>Please reach out immediately and get them on a schedule.</p>
+        `;
+
+        const out = await sendBrandedEmail({ to: uplineEmail, subject, text, htmlBody });
+        if (out.ok) {
+          uplineOneHourSent += 1;
+          record.uplineOneHourNotBookedSentAt = nowIso();
+        } else {
+          errors.push({ appId, type: 'upline_one_hour_not_booked', error: out.error });
+        }
+      }
+    }
+
+    // If already booked, skip not-booked reminder logic below.
+    if (bookingExists) {
+      record.lastTouchedAt = nowIso();
+      byId[appId] = record;
+      continue;
+    }
+
+    if (hasSubmittedPolicy(app, policyRows)) {
+      record.lastTouchedAt = nowIso();
+      byId[appId] = record;
+      continue;
+    }
 
     // SMS sequence (1m, 30m, 24h) — stops automatically once booked/submitted due to early loop guards.
     if (contactId && ageMs >= 1 * 60 * 1000 && !record?.sms10mSentAt) {
@@ -380,97 +641,19 @@ export async function POST(req) {
       }
     }
 
-    const agentEmail = referredAgentEmail(app);
-    const agentName = referredAgentName(app) || 'Agent';
+    // Legacy 24h/48h upline reminders replaced by 1-hour upline escalation logic above.
 
-    if (agentEmail && !record?.agent24hSentAt) {
-      const agentSubject = `Action Needed: ${fullName} approved but not booked`;
-      const agentText = [
-        `Hi ${agentName},`,
-        '',
-        'This is a 24-hour follow-up notification for one of your referred sponsorship applicants.',
-        `${fullName} has been approved but has not booked the onboarding call yet.`,
-        '',
-        `Applicant Name: ${fullName}`,
-        `Applicant Email: ${email || 'N/A'}`,
-        `Applicant Phone: ${phone}`,
-        `Booking Link: ${bookingLink}`,
-        '',
-        'Please coordinate with them as soon as possible and get them on schedule.',
-        '',
-        'The Legacy Link Support Team'
-      ].join('\n');
-
-      const agentHtmlBody = `
-        <p>Hi <strong>${agentName}</strong>,</p>
-        <p>This is a 24-hour follow-up notification for one of your referred sponsorship applicants.</p>
-        <p><strong>${fullName}</strong> has been approved but has not booked the onboarding call yet.</p>
-        <ul>
-          <li><strong>Applicant Name:</strong> ${fullName}</li>
-          <li><strong>Applicant Email:</strong> ${email || 'N/A'}</li>
-          <li><strong>Applicant Phone:</strong> ${phone}</li>
-          <li><strong>Booking Link:</strong> <a href="${bookingLink}">${bookingLink}</a></li>
-        </ul>
-        <p>Please coordinate with them as soon as possible and get them on schedule.</p>
-      `;
-
-      const out = await sendBrandedEmail({ to: agentEmail, subject: agentSubject, text: agentText, htmlBody: agentHtmlBody });
-      if (out.ok) {
-        agentSent += 1;
-        record.agent24hSentAt = nowIso();
-      } else {
-        errors.push({ appId, type: 'agent', error: out.error });
-      }
-    }
-
-    if (ageMs >= 48 * 60 * 60 * 1000 && !record?.escalation48hSentAt) {
-      const kimoraEmail = emailByName('Kimora Link');
-      const jamalEmail = emailByName('Jamal Holmes');
-      const recipients = [...new Set([kimoraEmail, jamalEmail].filter(Boolean))];
-
-      if (recipients.length) {
-        const escalationSubject = `48-Hour Escalation: ${fullName} still not booked`;
-        const escalationText = [
-          'This is a 48-hour escalation for an approved sponsorship applicant who is still not booked.',
-          '',
-          `Applicant Name: ${fullName}`,
-          `Applicant Email: ${email || 'N/A'}`,
-          `Applicant Phone: ${phone}`,
-          `Referred By: ${referredAgentName(app) || 'N/A'}`,
-          `Booking Link: ${bookingLink}`,
-          '',
-          'Please coordinate immediately and get this applicant scheduled.'
-        ].join('\n');
-
-        const escalationHtmlBody = `
-          <p>This is a <strong>48-hour escalation</strong> for an approved sponsorship applicant who is still not booked.</p>
-          <ul>
-            <li><strong>Applicant Name:</strong> ${fullName}</li>
-            <li><strong>Applicant Email:</strong> ${email || 'N/A'}</li>
-            <li><strong>Applicant Phone:</strong> ${phone}</li>
-            <li><strong>Referred By:</strong> ${referredAgentName(app) || 'N/A'}</li>
-            <li><strong>Booking Link:</strong> <a href="${bookingLink}">${bookingLink}</a></li>
-          </ul>
-          <p>Please coordinate immediately and get this applicant scheduled.</p>
-        `;
-
-        const out = await sendBrandedEmail({
-          to: recipients.join(', '),
-          subject: escalationSubject,
-          text: escalationText,
-          htmlBody: escalationHtmlBody
-        });
-
-        if (out.ok) {
-          escalation48hSent += 1;
-          record.escalation48hSentAt = nowIso();
-        } else {
-          errors.push({ appId, type: 'escalation48h', error: out.error });
-        }
-      }
-    }
-
-    if (record.followup24hSentAt || record.agent24hSentAt || record.escalation48hSentAt || record.sms10mSentAt || record.sms30mSentAt || record.sms24hSentAt) {
+    if (
+      record.followup24hSentAt
+      || record.uplineApprovedSentAt
+      || record.uplineBookedSentAt
+      || record.uplineOneHourNotBookedSentAt
+      || record.agent24hSentAt
+      || record.escalation48hSentAt
+      || record.sms10mSentAt
+      || record.sms30mSentAt
+      || record.sms24hSentAt
+    ) {
       record.lastTouchedAt = nowIso();
       byId[appId] = record;
     }
@@ -485,6 +668,10 @@ export async function POST(req) {
     applicantSent,
     agentSent,
     escalation48hSent,
+    uplineApprovedSent,
+    uplineBookedSent,
+    uplineOneHourSent,
+    quietHours,
     sms10mSent,
     sms30mSent,
     sms24hSent,
