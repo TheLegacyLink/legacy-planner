@@ -25,6 +25,76 @@ function buildSponsorshipUrl(base = '', ref = '') {
   return b.includes('?') ? `${b}&ref=${encoded}` : `${b}?ref=${encoded}`;
 }
 
+function pdfEscape(line = '') {
+  return String(line || '').replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+}
+
+function generateFallbackPersonalizedPdf({ outPath = '', name = '', email = '', tempPassword = '', coachName = '', hubUrl = '', appUrl = '', contractLink = '', telegramUrl = '', playbookUrl = '', sponsorshipUrl = '' } = {}) {
+  if (!outPath) return null;
+
+  const lines = [
+    'THE LEGACY LINK - Inner Circle VIP Quickstart',
+    '',
+    `Agent Name: ${clean(name) || 'Not provided'}`,
+    `Hub Login Email: ${clean(email) || 'Not provided'}`,
+    `Hub Login Password: ${clean(tempPassword) || 'Not provided'}`,
+    `Coach Name: ${clean(coachName) || 'Legacy Link Coach'}`,
+    '',
+    'Step Order (Do in this order):',
+    '1) Sign your Inner Circle contract',
+    '2) Join Telegram and post your intro',
+    '3) Join Legacy Link App (CRM)',
+    '4) Log into your Inner Circle Hub',
+    '5) Execute your first 72-hour sprint',
+    '',
+    `Contract: ${clean(contractLink)}`,
+    `Telegram: ${clean(telegramUrl)}`,
+    `App: ${clean(appUrl)}`,
+    `Hub: ${clean(hubUrl)}`,
+    `Playbook: ${clean(playbookUrl)}`,
+    `Your personal sponsor link to share: ${clean(sponsorshipUrl)}`,
+  ];
+
+  const content = [
+    'BT',
+    '/F1 11 Tf',
+    '1 0 0 1 48 760 Tm',
+    '14 TL',
+    ...lines.map((line, idx) => idx === 0
+      ? `(${pdfEscape(line)}) Tj`
+      : ['T*', `(${pdfEscape(line)}) Tj`].join('\n')),
+    'ET'
+  ].join('\n');
+
+  const objects = [];
+  const addObj = (s) => { objects.push(s); return objects.length; };
+
+  const fontObj = addObj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+  const contentObj = addObj(`<< /Length ${Buffer.byteLength(content, 'utf8')} >>\nstream\n${content}\nendstream`);
+  const pageObj = addObj(`<< /Type /Page /Parent 4 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontObj} 0 R >> >> /Contents ${contentObj} 0 R >>`);
+  const pagesObj = addObj(`<< /Type /Pages /Kids [${pageObj} 0 R] /Count 1 >>`);
+  const catalogObj = addObj(`<< /Type /Catalog /Pages ${pagesObj} 0 R >>`);
+
+  let body = '%PDF-1.4\n';
+  const offsets = [0];
+  for (let i = 0; i < objects.length; i += 1) {
+    offsets.push(Buffer.byteLength(body, 'utf8'));
+    body += `${i + 1} 0 obj\n${objects[i]}\nendobj\n`;
+  }
+
+  const xrefStart = Buffer.byteLength(body, 'utf8');
+  body += `xref\n0 ${objects.length + 1}\n`;
+  body += '0000000000 65535 f \n';
+  for (let i = 1; i <= objects.length; i += 1) {
+    body += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+  }
+
+  body += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogObj} 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`;
+
+  fs.writeFileSync(outPath, body, 'utf8');
+  return outPath;
+}
+
 function buildRefCode({ name = '', email = '' } = {}) {
   const n = clean(name).toLowerCase();
   const parts = n
@@ -109,7 +179,24 @@ async function generatePersonalizedVipPdf({ name, email, tempPassword, coachName
     if (!fs.existsSync(outPath)) return null;
     return outPath;
   } catch {
-    return null;
+    // Runtime fallback (no python/reportlab): generate a minimal PDF so password still matches email.
+    try {
+      return generateFallbackPersonalizedPdf({
+        outPath,
+        name,
+        email,
+        tempPassword,
+        coachName,
+        hubUrl,
+        appUrl,
+        contractLink,
+        telegramUrl,
+        playbookUrl,
+        sponsorshipUrl
+      });
+    } catch {
+      return null;
+    }
   }
 }
 
