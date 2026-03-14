@@ -29,29 +29,34 @@ function pdfEscape(line = '') {
   return String(line || '').replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 }
 
-function generateFallbackPersonalizedPdf({ outPath = '', name = '', email = '', tempPassword = '', coachName = '', hubUrl = '', appUrl = '', contractLink = '', telegramUrl = '', playbookUrl = '', sponsorshipUrl = '' } = {}) {
+function generateFallbackPersonalizedPdf({ outPath = '', roleKey = '', roleLabel = '', name = '', email = '', tempPassword = '', coachName = '', hubUrl = '', appUrl = '', skoolUrl = '', contractLink = '', telegramUrl = '', playbookUrl = '', compScheduleUrl = '', sponsorshipUrl = '' } = {}) {
   if (!outPath) return null;
 
+  const isInner = clean(roleKey) === 'inner-circle';
   const lines = [
-    'THE LEGACY LINK - Inner Circle VIP Quickstart',
+    `THE LEGACY LINK - ${clean(roleLabel) || 'Agent'} Elite Quickstart`,
     '',
     `Agent Name: ${clean(name) || 'Not provided'}`,
-    `Hub Login Email: ${clean(email) || 'Not provided'}`,
-    `Hub Login Password: ${clean(tempPassword) || 'Not provided'}`,
+    `Login Email: ${clean(email) || 'Not provided'}`,
+    ...(isInner ? [`Hub Login Password: ${clean(tempPassword) || 'Not provided'}`] : []),
     `Coach Name: ${clean(coachName) || 'Legacy Link Coach'}`,
     '',
     'Step Order (Do in this order):',
-    '1) Sign your Inner Circle contract',
-    '2) Join Telegram and post your intro',
-    '3) Join Legacy Link App (CRM)',
-    '4) Log into your Inner Circle Hub',
-    '5) Execute your first 72-hour sprint',
+    `1) Sign onboarding agreement: ${clean(contractLink)}`,
+    `2) Join Legacy Link App (CRM): ${clean(appUrl)}`,
+    ...(isInner
+      ? [
+          `3) Join Telegram: ${clean(telegramUrl)}`,
+          `4) Open Inner Circle Hub: ${clean(hubUrl)}`,
+          '5) Complete your first 72-hour sprint'
+        ]
+      : [
+          ...(clean(roleKey) === 'licensed' ? [`3) Join Skool Community: ${clean(skoolUrl)}`] : []),
+          '3) Complete onboarding playbook + comp schedule'
+        ]),
     '',
-    `Contract: ${clean(contractLink)}`,
-    `Telegram: ${clean(telegramUrl)}`,
-    `App: ${clean(appUrl)}`,
-    `Hub: ${clean(hubUrl)}`,
     `Playbook: ${clean(playbookUrl)}`,
+    ...(isInner ? [] : [`Comp Schedule: ${clean(compScheduleUrl)}`]),
     `Your personal sponsor link to share: ${clean(sponsorshipUrl)}`,
   ];
 
@@ -60,9 +65,9 @@ function generateFallbackPersonalizedPdf({ outPath = '', name = '', email = '', 
     '/F1 11 Tf',
     '1 0 0 1 48 760 Tm',
     '14 TL',
-    ...lines.map((line, idx) => idx === 0
-      ? `(${pdfEscape(line)}) Tj`
-      : ['T*', `(${pdfEscape(line)}) Tj`].join('\n')),
+    ...lines.flatMap((line, idx) => idx === 0
+      ? [`(${pdfEscape(line)}) Tj`]
+      : ['T*', `(${pdfEscape(line)}) Tj`]),
     'ET'
   ].join('\n');
 
@@ -149,7 +154,7 @@ function resolveRoleConfig(input = '') {
   return { roleKey, ...(ROLE_CONFIG[roleKey] || ROLE_CONFIG.unlicensed) };
 }
 
-async function generatePersonalizedVipPdf({ name, email, tempPassword, coachName, hubUrl, appUrl, contractLink, telegramUrl, playbookUrl, sponsorshipUrl }) {
+async function generatePersonalizedVipPdf({ roleKey, roleLabel, name, email, tempPassword, coachName, hubUrl, appUrl, skoolUrl, contractLink, telegramUrl, playbookUrl, compScheduleUrl, sponsorshipUrl }) {
   const scriptPath = path.join(process.cwd(), 'scripts', 'generate_personalized_inner_circle_playbook.py');
   if (!fs.existsSync(scriptPath)) return null;
 
@@ -162,15 +167,18 @@ async function generatePersonalizedVipPdf({ name, email, tempPassword, coachName
   const args = [
     scriptPath,
     '--output', outPath,
+    '--role', clean(roleKey || roleLabel),
     '--name', clean(name),
     '--email', clean(email),
     '--password', clean(tempPassword),
     '--coach', clean(coachName),
     '--hub', clean(hubUrl),
     '--app', clean(appUrl),
+    '--skool', clean(skoolUrl),
     '--contract', clean(contractLink),
     '--telegram', clean(telegramUrl),
     '--playbook', clean(playbookUrl),
+    '--comp', clean(compScheduleUrl),
     '--sponsorship', clean(sponsorshipUrl)
   ];
 
@@ -183,15 +191,19 @@ async function generatePersonalizedVipPdf({ name, email, tempPassword, coachName
     try {
       return generateFallbackPersonalizedPdf({
         outPath,
+        roleKey,
+        roleLabel,
         name,
         email,
         tempPassword,
         coachName,
         hubUrl,
         appUrl,
+        skoolUrl,
         contractLink,
         telegramUrl,
         playbookUrl,
+        compScheduleUrl,
         sponsorshipUrl
       });
     } catch {
@@ -545,18 +557,22 @@ export async function POST(req) {
   let personalizedPdfPath = '';
   try {
     const staticPlaybookPath = roleConfig.staticPlaybookPath;
-    personalizedPdfPath = isInnerCircle ? (await generatePersonalizedVipPdf({
+    personalizedPdfPath = (await generatePersonalizedVipPdf({
+      roleKey: roleConfig.roleKey,
+      roleLabel: roleConfig.label,
       name,
       email: to,
       tempPassword,
       coachName,
       hubUrl,
       appUrl,
+      skoolUrl,
       contractLink,
       telegramUrl,
       playbookUrl,
+      compScheduleUrl,
       sponsorshipUrl
-    }) || '') : '';
+    }) || '');
 
     let attachments = personalizedPdfPath
       ? [{ filename: `Legacy-Link-VIP-Playbook-${safeFilePart(name || to)}.pdf`, path: personalizedPdfPath }]

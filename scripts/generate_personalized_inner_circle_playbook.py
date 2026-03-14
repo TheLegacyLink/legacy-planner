@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-Generate a personalized Inner Circle VIP onboarding PDF with QR codes.
+Generate a personalized Elite onboarding PDF with QR codes for all roles:
+- inner-circle
+- licensed
+- unlicensed
 """
 
 from pathlib import Path
@@ -15,6 +18,25 @@ from reportlab.graphics.barcode import qr, createBarcodeDrawing
 
 def clean(v: str) -> str:
     return str(v or '').strip()
+
+
+def norm_role(v: str) -> str:
+    raw = clean(v).lower()
+    if 'inner' in raw:
+        return 'inner-circle'
+    if 'unlicensed' in raw:
+        return 'unlicensed'
+    if 'licensed' in raw:
+        return 'licensed'
+    return 'inner-circle'
+
+
+def role_label(role: str) -> str:
+    return {
+        'inner-circle': 'Inner Circle',
+        'licensed': 'Licensed Agent',
+        'unlicensed': 'Unlicensed Agent'
+    }.get(role, 'Agent')
 
 
 def make_qr_cell(url: str, label: str):
@@ -49,7 +71,7 @@ def page_bg(canvas, doc):
     canvas.line(34, 742, letter[0] - 34, 742)
     canvas.setFillColor(colors.HexColor('#93A0B5'))
     canvas.setFont('Helvetica', 8)
-    canvas.drawString(34, 20, 'The Legacy Link • Personalized VIP Onboarding')
+    canvas.drawString(34, 20, 'The Legacy Link • Personalized Elite Onboarding')
     canvas.drawRightString(letter[0] - 34, 20, f'Page {doc.page}')
     canvas.restoreState()
 
@@ -58,6 +80,10 @@ def build(args):
     out = Path(args.output).expanduser().resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
 
+    role = norm_role(args.role)
+    label = role_label(role)
+    is_inner = role == 'inner-circle'
+
     doc = SimpleDocTemplate(
         str(out),
         pagesize=letter,
@@ -65,23 +91,25 @@ def build(args):
         rightMargin=34,
         topMargin=44,
         bottomMargin=30,
-        title='Legacy Link VIP Playbook',
+        title=f'Legacy Link {label} Elite Playbook',
         author='The Legacy Link',
     )
 
     story = []
 
     story.append(Paragraph('THE LEGACY LINK', STYLES['muted']))
-    story.append(Paragraph('Personalized Inner Circle VIP Access', STYLES['title']))
+    story.append(Paragraph(f'Personalized {label} Elite Access', STYLES['title']))
     story.append(Paragraph('Your custom onboarding quickstart with direct QR shortcuts.', STYLES['sub']))
 
     info_rows = [
         ['Agent Name', clean(args.name) or 'Not provided'],
-        ['Hub Login Email', clean(args.email) or 'Not provided'],
-        ['Hub Login Password', clean(args.password) or 'Not provided'],
-        ['Coach Name', clean(args.coach) or 'Legacy Link Coach'],
+        ['Login Email', clean(args.email) or 'Not provided'],
     ]
-    info = Table(info_rows, colWidths=[1.6 * inch, 4.9 * inch])
+    if is_inner:
+        info_rows.append(['Hub Login Password', clean(args.password) or 'Not provided'])
+    info_rows.append(['Coach Name', clean(args.coach) or 'Legacy Link Coach'])
+
+    info = Table(info_rows, colWidths=[1.8 * inch, 4.7 * inch])
     info.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#111827')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#E5E7EB')),
@@ -99,31 +127,78 @@ def build(args):
     story.append(Spacer(1, 12))
 
     story.append(Paragraph('Step Order (Do in this order)', STYLES['h1']))
-    steps = [
-        '1) Sign your Inner Circle contract',
-        '2) Join Telegram and post your quick intro',
-        '3) Join Legacy Link App (CRM)',
-        '4) Log into your Inner Circle Hub',
-        '5) Complete your first 72-hour execution sprint',
-    ]
+    if is_inner:
+        steps = [
+            '1) Sign your Inner Circle contract',
+            '2) Join Telegram and post your quick intro',
+            '3) Join Legacy Link App (CRM)',
+            '4) Log into your Inner Circle Hub',
+            '5) Complete your first 72-hour execution sprint',
+        ]
+    elif role == 'licensed':
+        steps = [
+            '1) Sign onboarding agreement',
+            '2) Join Legacy Link App (CRM)',
+            '3) Join Skool community training',
+            '4) Complete onboarding playbook + comp schedule',
+            '5) Finish first hour of community service for lead activation',
+        ]
+    else:
+        steps = [
+            '1) Sign onboarding agreement',
+            '2) Join Legacy Link App (CRM)',
+            '3) Complete onboarding playbook + comp schedule',
+            '4) Watch for Jamal pre-licensing outreach (1–3 business days)',
+            '5) Start daily execution + CRM updates',
+        ]
+
     for s in steps:
         story.append(Paragraph(f'• {s}', STYLES['body']))
 
     story.append(Spacer(1, 10))
-    story.append(Paragraph('VIP QR Quick Access', STYLES['h1']))
+    story.append(Paragraph('Elite QR Quick Access', STYLES['h1']))
 
-    qr_table = Table([
-        [
-            make_qr_cell(clean(args.hub), 'Hub'),
-            make_qr_cell(clean(args.app), 'App'),
-            make_qr_cell(clean(args.contract), 'Contract'),
-        ],
-        [
-            make_qr_cell(clean(args.telegram), 'Telegram'),
-            make_qr_cell(clean(args.playbook), 'Playbook'),
-            make_qr_cell(clean(args.sponsorship), 'Sponsorship'),
-        ],
-    ], colWidths=[2.2 * inch, 2.2 * inch, 2.2 * inch])
+    if is_inner:
+        qr_rows = [
+            [
+                make_qr_cell(clean(args.hub), 'Hub'),
+                make_qr_cell(clean(args.app), 'App'),
+                make_qr_cell(clean(args.contract), 'Contract'),
+            ],
+            [
+                make_qr_cell(clean(args.telegram), 'Telegram'),
+                make_qr_cell(clean(args.playbook), 'Playbook'),
+                make_qr_cell(clean(args.sponsorship), 'Sponsor Link'),
+            ],
+        ]
+    elif role == 'licensed':
+        qr_rows = [
+            [
+                make_qr_cell(clean(args.app), 'App'),
+                make_qr_cell(clean(args.contract), 'Contract'),
+                make_qr_cell(clean(args.skool), 'Skool'),
+            ],
+            [
+                make_qr_cell(clean(args.playbook), 'Playbook'),
+                make_qr_cell(clean(args.comp), 'Comp + Bonus'),
+                make_qr_cell(clean(args.sponsorship), 'Sponsor Link'),
+            ],
+        ]
+    else:
+        qr_rows = [
+            [
+                make_qr_cell(clean(args.app), 'App'),
+                make_qr_cell(clean(args.contract), 'Contract'),
+                make_qr_cell(clean(args.playbook), 'Playbook'),
+            ],
+            [
+                make_qr_cell(clean(args.comp), 'Comp + Bonus'),
+                make_qr_cell(clean(args.sponsorship), 'Sponsor Link'),
+                Paragraph('<b>Pre-Licensing</b><br/>Jamal reaches out in 1–3 business days', STYLES['small']),
+            ],
+        ]
+
+    qr_table = Table(qr_rows, colWidths=[2.2 * inch, 2.2 * inch, 2.2 * inch])
     qr_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#111827')),
         ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#2A3142')),
@@ -157,15 +232,18 @@ def build(args):
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument('--output', required=True)
+    p.add_argument('--role', default='inner-circle')
     p.add_argument('--name', default='')
     p.add_argument('--email', default='')
     p.add_argument('--coach', default='')
     p.add_argument('--password', default='')
     p.add_argument('--hub', default='')
     p.add_argument('--app', default='')
+    p.add_argument('--skool', default='')
     p.add_argument('--contract', default='')
     p.add_argument('--telegram', default='')
     p.add_argument('--playbook', default='')
+    p.add_argument('--comp', default='')
     p.add_argument('--sponsorship', default='')
     return p.parse_args()
 
