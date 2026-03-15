@@ -49,7 +49,7 @@ function isAnnualizedType(appType = '') {
   return type.includes('regular') || type.includes('juvenile');
 }
 
-function calcPreview(appType = '', monthlyPremium = 0, annualPremiumInput = 0, licensedStatus = '') {
+function calcPreview(appType = '', monthlyPremium = 0, annualPremiumInput = 0, licensedStatus = '', carrier = '', productName = '') {
   const type = String(appType || '').toLowerCase();
   const monthly = Math.max(0, Number(monthlyPremium || 0) || 0);
   const annualFromMonthly = roundMoney(monthly * 12);
@@ -68,7 +68,8 @@ function calcPreview(appType = '', monthlyPremium = 0, annualPremiumInput = 0, l
     points = licensed ? 500 : 0;
     flatPayout = true;
   } else if (type.includes('inner circle')) {
-    points = 1200;
+    const isNlgFlex = String(carrier || '').toLowerCase().includes('national life') || String(productName || '').toLowerCase().includes('flex life');
+    points = isNlgFlex ? 1200 : 500;
     flatPayout = true;
   } else if (type.includes('regular')) {
     commissionRate = 0.7;
@@ -337,6 +338,10 @@ export default function InnerCircleAppSubmitPage() {
   }, [contractStatus.signed, contractStatus.checkedEmail]);
 
   useEffect(() => {
+    if (!isAdmin && isInnerCircleType) {
+      update('appType', '');
+      return;
+    }
     if (!isAdmin) return;
     if (!isInnerCircleType) return;
     setAdminMarkedAppReceived(true);
@@ -356,7 +361,7 @@ export default function InnerCircleAppSubmitPage() {
       form.appType.trim() &&
       form.applicantName.trim() &&
       form.applicantEmail.trim() &&
-      form.applicantPhone.trim() &&
+      (isInnerCircleType || form.applicantPhone.trim()) &&
       form.applicantLicensedStatus.trim() &&
       form.referredByName.trim() &&
       writerOk &&
@@ -364,11 +369,11 @@ export default function InnerCircleAppSubmitPage() {
       premiumOk &&
       contractOk
     );
-  }, [form, requiresContract, contractStatus.signed, isAdmin, adminBypassContractGate, adminMarkedAppReceived, usesAnnualizedPremium]);
+  }, [form, requiresContract, contractStatus.signed, isAdmin, adminBypassContractGate, adminMarkedAppReceived, usesAnnualizedPremium, isInnerCircleType]);
 
   const payoutPreview = useMemo(() => {
-    return calcPreview(form.appType, form.monthlyPremium, form.annualPremium, form.applicantLicensedStatus);
-  }, [form.appType, form.monthlyPremium, form.annualPremium, form.applicantLicensedStatus]);
+    return calcPreview(form.appType, form.monthlyPremium, form.annualPremium, form.applicantLicensedStatus, form.carrier, form.productName);
+  }, [form.appType, form.monthlyPremium, form.annualPremium, form.applicantLicensedStatus, form.carrier, form.productName]);
 
   const [animatedPreview, setAnimatedPreview] = useState({
     annualPremium: 0,
@@ -681,7 +686,7 @@ export default function InnerCircleAppSubmitPage() {
               <option value="">Select application type</option>
               <option value="Sponsorship App">Sponsorship App</option>
               <option value="Bonus Policy">Bonus Policy</option>
-              <option value="Inner Circle App">Inner Circle App</option>
+              {isAdmin ? <option value="Inner Circle App">Inner Circle App</option> : null}
               <option value="Regular App">Regular App</option>
               <option value="Juvenile App">Juvenile App</option>
             </select>
@@ -710,7 +715,7 @@ export default function InnerCircleAppSubmitPage() {
             {payoutPreview.flatPayout ? (
               <small style={{ color: '#86efac', display: 'block', marginTop: 8 }}>
                 {form.appType === 'Inner Circle App'
-                  ? 'Inner Circle flat-rate: 1,200 points / $1,200 posts on approval (no Month 10/11/12 backend payout).'
+                  ? `Inner Circle flat-rate based on product: ${String(form.carrier || '').toLowerCase().includes('national life') || String(form.productName || '').toLowerCase().includes('flex life') ? '1,200 points (NLG Flex Life)' : '500 points (F&G Pathsetter)'} on approval (no Month 10/11/12 backend payout).`
                   : 'Flat-rate payout: 100% paid upfront. No Month 10/11/12 backend payout.'}
               </small>
             ) : null}
@@ -742,6 +747,30 @@ export default function InnerCircleAppSubmitPage() {
               placeholder="applicant@email.com"
             />
           </label>
+
+          {isInnerCircleType ? (
+            <label>
+              Inner Circle Member *
+              <select
+                value={users.find((u) => String(u?.email || '').toLowerCase() === String(form.applicantEmail || '').toLowerCase())?.email || ''}
+                onChange={(e) => {
+                  const selected = users.find((u) => String(u?.email || '').toLowerCase() === String(e.target.value || '').toLowerCase());
+                  if (!selected) return;
+                  setForm((prev) => ({
+                    ...prev,
+                    applicantName: selected.name || prev.applicantName,
+                    applicantEmail: selected.email || prev.applicantEmail,
+                    referredByName: prev.referredByName || selected.name || ''
+                  }));
+                }}
+              >
+                <option value="">Select inner circle member</option>
+                {users.map((u) => (
+                  <option key={`member-${u.email || u.name}`} value={u.email || ''}>{u.name} {u.email ? `(${u.email})` : ''}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
 
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {!requiresContract ? (
@@ -813,7 +842,7 @@ export default function InnerCircleAppSubmitPage() {
           ) : null}
 
           <label>
-            Applicant Phone *
+            Applicant Phone {isInnerCircleType ? '(optional)' : '*'}
             <input
               value={form.applicantPhone}
               onChange={(e) => update('applicantPhone', e.target.value)}

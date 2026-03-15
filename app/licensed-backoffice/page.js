@@ -190,6 +190,7 @@ export default function LicensedBackofficePage() {
   });
   const [googleReady, setGoogleReady] = useState(false);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+  const isAdmin = normalize(session?.role || '') === 'admin';
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') : '';
@@ -371,6 +372,13 @@ export default function LicensedBackofficePage() {
   }, [session]);
 
   useEffect(() => {
+    if (isAdmin) return;
+    if (String(appForm.appType || '').toLowerCase().includes('inner circle')) {
+      setAppForm((prev) => ({ ...prev, appType: '' }));
+    }
+  }, [isAdmin, appForm.appType]);
+
+  useEffect(() => {
     if (!session?.email) return;
     let cancelled = false;
     async function load() {
@@ -437,7 +445,9 @@ export default function LicensedBackofficePage() {
           referredByName,
           policyWriterName,
           submittedBy: clean(session?.email || ''),
-          submittedByRole: isInnerCircleName(session?.name || '') ? 'inner_circle_licensed_backoffice' : 'licensed_backoffice_agent',
+          submittedByRole: isAdmin
+            ? 'admin_licensed_backoffice'
+            : (isInnerCircleName(session?.name || '') ? 'inner_circle_licensed_backoffice' : 'licensed_backoffice_agent'),
           state,
           policyNumber: clean(appForm.policyNumber || ''),
           monthlyPremium: Number(appForm.monthlyPremium || 0) || 0,
@@ -879,13 +889,30 @@ export default function LicensedBackofficePage() {
                     <option value="">Application type *</option>
                     <option value="Sponsorship App">Sponsorship App</option>
                     <option value="Bonus Policy">Bonus Policy</option>
-                    <option value="Inner Circle App">Inner Circle App</option>
+                    {isAdmin ? <option value="Inner Circle App">Inner Circle App</option> : null}
                     <option value="Regular App">Regular App</option>
                     <option value="Juvenile App">Juvenile App</option>
                   </select>
                   <input value={appForm.applicantName} onChange={(e) => setAppForm((p) => ({ ...p, applicantName: e.target.value }))} placeholder="Client name *" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
                   <input value={appForm.applicantEmail} onChange={(e) => setAppForm((p) => ({ ...p, applicantEmail: e.target.value }))} placeholder="Applicant email" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
                   <input value={appForm.applicantPhone} onChange={(e) => setAppForm((p) => ({ ...p, applicantPhone: e.target.value }))} placeholder="Applicant phone" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
+                  {String(appForm.appType || '').toLowerCase().includes('inner circle') ? (
+                    <select value={appForm.applicantEmail || ''} onChange={(e) => {
+                      const selected = (Array.isArray(innerCircleUsers) ? innerCircleUsers : []).find((u) => clean(u?.email).toLowerCase() === clean(e.target.value).toLowerCase());
+                      if (!selected) return;
+                      setAppForm((p) => ({
+                        ...p,
+                        applicantName: clean(selected?.name || selected?.fullName || p.applicantName),
+                        applicantEmail: clean(selected?.email || p.applicantEmail),
+                        referredByName: p.referredByName || clean(selected?.name || selected?.fullName || ''),
+                      }));
+                    }} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}>
+                      <option value="">Select inner circle member *</option>
+                      {(Array.isArray(innerCircleUsers) ? innerCircleUsers : []).map((u) => (
+                        <option key={`ic-${u?.email || u?.name}`} value={u?.email || ''}>{u?.name || u?.fullName} {u?.email ? `(${u.email})` : ''}</option>
+                      ))}
+                    </select>
+                  ) : null}
                   <select value={appForm.applicantLicensedStatus} onChange={(e) => setAppForm((p) => ({ ...p, applicantLicensedStatus: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}>
                     <option value="Licensed">Licensed</option>
                     <option value="Unlicensed">Unlicensed</option>

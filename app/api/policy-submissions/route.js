@@ -145,7 +145,7 @@ function sponsorshipFlatRate({ policyWriterName = '', referredByName = '', submi
   return 400;
 }
 
-function computePolicyPayoutFields({ policyType = '', monthlyPremium = 0, annualPremium = 0, licensed = false, policyWriterName = '', referredByName = '', submittedByRole = '' } = {}) {
+function computePolicyPayoutFields({ policyType = '', monthlyPremium = 0, annualPremium = 0, licensed = false, policyWriterName = '', referredByName = '', submittedByRole = '', carrier = '', productName = '' } = {}) {
   const type = normalizePolicyType(policyType);
   const monthly = clampMonthlyPremium(monthlyPremium);
   const annualFromMonthly = roundMoney(monthly * 12);
@@ -165,7 +165,10 @@ function computePolicyPayoutFields({ policyType = '', monthlyPremium = 0, annual
     pointsEarned = licensed ? 500 : 0;
     flatPayout = true;
   } else if (type === 'Inner Circle Policy') {
-    pointsEarned = 1200;
+    const carrierNorm = normalize(carrier);
+    const productNorm = normalize(productName);
+    const isNlgFlex = carrierNorm.includes('national life') || productNorm.includes('flex life');
+    pointsEarned = isNlgFlex ? 1200 : 500;
     flatPayout = true;
   } else if (type === 'Regular Policy') {
     commissionRate = 0.7;
@@ -228,7 +231,9 @@ function normalizedRecord(row = {}) {
     licensed: isLicensedValue(applicantLicensedStatus),
     policyWriterName: row.policyWriterName || '',
     referredByName: row.referredByName || row.referrer || '',
-    submittedByRole: row.submittedByRole || ''
+    submittedByRole: row.submittedByRole || '',
+    carrier: row.carrier || '',
+    productName: row.productName || ''
   });
 
   const status = clean(row.status || 'Submitted') || 'Submitted';
@@ -287,7 +292,9 @@ function applyPolicyMath(row = {}, { preservePayoutAmount = false } = {}) {
     licensed: isLicensedValue(licensedStatus),
     policyWriterName: row?.policyWriterName || '',
     referredByName: row?.referredByName || row?.referrer || '',
-    submittedByRole: row?.submittedByRole || ''
+    submittedByRole: row?.submittedByRole || '',
+    carrier: row?.carrier || '',
+    productName: row?.productName || ''
   });
 
   const isApproved = normalize(row?.status || '').startsWith('approved');
@@ -1027,6 +1034,9 @@ export async function POST(req) {
   if (!rec.appType) return Response.json({ ok: false, error: 'missing_app_type' }, { status: 400 });
   if (!rec.policyType) return Response.json({ ok: false, error: 'missing_policy_type' }, { status: 400 });
   if (!rec.applicantName) return Response.json({ ok: false, error: 'missing_applicant' }, { status: 400 });
+  if (rec.policyType === 'Inner Circle Policy' && !normalize(rec.submittedByRole).includes('admin')) {
+    return Response.json({ ok: false, error: 'admin_only_inner_circle_submission' }, { status: 403 });
+  }
 
   const idx = store.findIndex((r) => clean(r.id) === rec.id);
   const duplicateIdx = findApplicantIndex(store, rec.applicantName, rec.id);
