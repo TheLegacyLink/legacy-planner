@@ -189,6 +189,7 @@ export default function InnerCircleHubPage() {
   const [policyRows, setPolicyRows] = useState([]);
   const [productionFilter, setProductionFilter] = useState('all');
   const [productionWindow, setProductionWindow] = useState('month');
+  const [pointsHistoryOpen, setPointsHistoryOpen] = useState(false);
   const [activitySummary, setActivitySummary] = useState({ submitted: 0, approved: 0, declined: 0, booked: 0, fng: 0, completed: 0 });
   const [activityStats, setActivityStats] = useState({
     daily: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 },
@@ -562,10 +563,11 @@ export default function InnerCircleHubPage() {
       if (!key) continue;
       pointsByMonth.set(key, (pointsByMonth.get(key) || 0) + Number(e.points || 0));
     }
-    const pointsHistory = [...pointsByMonth.entries()]
+    const fullPointsHistory = [...pointsByMonth.entries()]
       .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-      .slice(0, 6)
       .map(([key, points]) => ({ key, label: monthShortFromKey(key), points: Number(points || 0) }));
+
+    const pointsHistory = fullPointsHistory.slice(0, 6);
 
     const thisMonthPoints = Number(pointsByMonth.get(currentMonthKey) || 0);
     const lastMonthPoints = Number(pointsByMonth.get(previousMonthKey) || 0);
@@ -592,7 +594,8 @@ export default function InnerCircleHubPage() {
       thisMonthPoints,
       lastMonthPoints,
       lifetimePoints,
-      pointsHistory
+      pointsHistory,
+      fullPointsHistory
     };
   }, [personalProduction.rows]);
 
@@ -1488,7 +1491,29 @@ export default function InnerCircleHubPage() {
                       <span key={`pts-${m.key}`} className="pill neutral">{m.label}: {Number(m.points || 0).toLocaleString()}</span>
                     ))}
                   </div>
+                  <button type="button" className="ghost" style={{ marginTop: 10 }} onClick={() => setPointsHistoryOpen(true)}>View Full Monthly History</button>
                 </div>
+
+                {pointsHistoryOpen ? (
+                  <div role="dialog" aria-modal="true" onClick={() => setPointsHistoryOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.62)', zIndex: 80, display: 'grid', placeItems: 'center' }}>
+                    <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(560px, 95vw)', maxHeight: '82vh', overflow: 'auto', background: '#0B1220', border: '1px solid #334155', borderRadius: 12, padding: 14 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                        <strong style={{ color: '#fff' }}>Full Monthly Points History</strong>
+                        <button type="button" className="ghost" onClick={() => setPointsHistoryOpen(false)}>Close</button>
+                      </div>
+                      <p style={{ color: '#94A3B8', fontSize: 12, marginTop: 6 }}>Points reset monthly for current leaderboard pacing, but all prior months are retained.</p>
+                      <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+                        {(productionFinancials.fullPointsHistory || []).map((m) => (
+                          <div key={`full-pts-${m.key}`} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0f172a' }}>
+                            <span style={{ color: '#cbd5e1' }}>{m.key}</span>
+                            <strong style={{ color: '#fff' }}>{Number(m.points || 0).toLocaleString()} pts</strong>
+                          </div>
+                        ))}
+                        {!(productionFinancials.fullPointsHistory || []).length ? <small className="muted">No monthly history yet.</small> : null}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))' }}>
                   <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 12, background: '#111827' }}><small className="muted">Total Policies</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{productionStats.count}</div></div>
