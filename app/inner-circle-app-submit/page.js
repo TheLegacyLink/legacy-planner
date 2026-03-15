@@ -4,8 +4,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'legacy-inner-circle-policy-apps-v1';
 const SESSION_KEY = 'legacy-inner-circle-submit-session-v1';
-const FIXED_CARRIER = 'F&G';
-const FIXED_PRODUCT = 'IUL Pathsetter';
+
+const PRODUCT_OPTIONS = [
+  { key: 'fg_pathsetter', label: 'IUL Pathsetter (F&G)', carrier: 'F&G', productName: 'IUL Pathsetter' },
+  { key: 'nlg_flex_life', label: 'Flex Life (NLG)', carrier: 'National Life Group', productName: 'Flex Life' }
+];
+const DEFAULT_PRODUCT = PRODUCT_OPTIONS[0];
+
+function productByKey(key = '') {
+  return PRODUCT_OPTIONS.find((p) => p.key === key) || DEFAULT_PRODUCT;
+}
 
 function normalizeRef(ref = '') {
   const cleaned = String(ref).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
@@ -166,8 +174,9 @@ export default function InnerCircleAppSubmitPage() {
     policyNumber: '',
     monthlyPremium: '',
     annualPremium: '',
-    carrier: FIXED_CARRIER,
-    productName: FIXED_PRODUCT,
+    productKey: DEFAULT_PRODUCT.key,
+    carrier: DEFAULT_PRODUCT.carrier,
+    productName: DEFAULT_PRODUCT.productName,
     status: 'Submitted'
   });
 
@@ -527,8 +536,8 @@ export default function InnerCircleAppSubmitPage() {
       id: `app_${Date.now()}`,
       ...form,
       policyWriterName: effectivePolicyWriter,
-      carrier: FIXED_CARRIER,
-      productName: FIXED_PRODUCT,
+      carrier: form.carrier,
+      productName: form.productName,
       submittedBy: session.name,
       submittedByRole: session.role || 'submitter',
       refCode: ref,
@@ -578,8 +587,9 @@ export default function InnerCircleAppSubmitPage() {
       policyNumber: '',
       monthlyPremium: '',
       annualPremium: '',
-      carrier: FIXED_CARRIER,
-      productName: FIXED_PRODUCT,
+      productKey: DEFAULT_PRODUCT.key,
+      carrier: DEFAULT_PRODUCT.carrier,
+      productName: DEFAULT_PRODUCT.productName,
       status: 'Submitted'
     });
     setAdminBypassContractGate(false);
@@ -863,13 +873,28 @@ export default function InnerCircleAppSubmitPage() {
           </label>
 
           <label>
-            Carrier *
-            <input value={FIXED_CARRIER} disabled readOnly />
+            Product *
+            <select
+              value={form.productKey || DEFAULT_PRODUCT.key}
+              onChange={(e) => {
+                const next = productByKey(e.target.value);
+                setForm((prev) => ({
+                  ...prev,
+                  productKey: next.key,
+                  carrier: next.carrier,
+                  productName: next.productName
+                }));
+              }}
+            >
+              {PRODUCT_OPTIONS.map((opt) => (
+                <option key={opt.key} value={opt.key}>{opt.label}</option>
+              ))}
+            </select>
           </label>
 
           <label>
-            Product *
-            <input value={FIXED_PRODUCT} disabled readOnly />
+            Carrier *
+            <input value={form.carrier || DEFAULT_PRODUCT.carrier} disabled readOnly />
           </label>
 
           <label>
@@ -926,6 +951,8 @@ export default function InnerCircleAppSubmitPage() {
             <div className="policySidebarList">
               <div><small className="muted">Application Type</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.appType || '—'}</div></div>
               <div><small className="muted">Policy Writer</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.policyWriterName === 'Other' ? (form.policyWriterOtherName || '—') : (form.policyWriterName || '—')}</div></div>
+              <div><small className="muted">Product</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.productName || '—'}</div></div>
+              <div><small className="muted">Carrier</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.carrier || '—'}</div></div>
               <div><small className="muted">Referred By</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.referredByName || '—'}</div></div>
               <div><small className="muted">Monthly Premium</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>${Number(form.monthlyPremium || 0).toFixed(2)}</div></div>
               {usesAnnualizedPremium ? <div><small className="muted">Annualized Premium (AP)</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>${Number(form.annualPremium || 0).toFixed(2)}</div></div> : null}

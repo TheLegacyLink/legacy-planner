@@ -63,6 +63,16 @@ const INNER_CIRCLE_DEFAULT_70 = new Set([
   'andrea cannon'
 ]);
 
+const PRODUCT_OPTIONS = [
+  { key: 'fg_pathsetter', label: 'IUL Pathsetter (F&G)', carrier: 'F&G', productName: 'IUL Pathsetter' },
+  { key: 'nlg_flex_life', label: 'Flex Life (NLG)', carrier: 'National Life Group', productName: 'Flex Life' }
+];
+const DEFAULT_PRODUCT = PRODUCT_OPTIONS[0];
+
+function productByKey(key = '') {
+  return PRODUCT_OPTIONS.find((p) => p.key === key) || DEFAULT_PRODUCT;
+}
+
 function tierByComp(comp = 0) {
   return COMP_LADDER.find((t) => Number(t?.comp || 0) === Number(comp || 0)) || null;
 }
@@ -173,7 +183,10 @@ export default function LicensedBackofficePage() {
     state: session?.homeState || '',
     policyNumber: '',
     monthlyPremium: '',
-    annualPremium: ''
+    annualPremium: '',
+    productKey: DEFAULT_PRODUCT.key,
+    carrier: DEFAULT_PRODUCT.carrier,
+    productName: DEFAULT_PRODUCT.productName
   });
   const [googleReady, setGoogleReady] = useState(false);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
@@ -429,6 +442,8 @@ export default function LicensedBackofficePage() {
           policyNumber: clean(appForm.policyNumber || ''),
           monthlyPremium: Number(appForm.monthlyPremium || 0) || 0,
           annualPremium: Number(appForm.annualPremium || 0) || 0,
+          carrier: clean(appForm.carrier || DEFAULT_PRODUCT.carrier),
+          productName: clean(appForm.productName || DEFAULT_PRODUCT.productName),
           status: 'Submitted'
         },
         skipSopProvision: true
@@ -457,7 +472,10 @@ export default function LicensedBackofficePage() {
         applicantPhone: '',
         policyNumber: '',
         monthlyPremium: '',
-        annualPremium: ''
+        annualPremium: '',
+        productKey: DEFAULT_PRODUCT.key,
+        carrier: DEFAULT_PRODUCT.carrier,
+        productName: DEFAULT_PRODUCT.productName
       }));
       setTab('policies');
       setSubmitMsg('Policy app submitted successfully.');
@@ -876,6 +894,15 @@ export default function LicensedBackofficePage() {
                   <input value={appForm.referredByName} onChange={(e) => setAppForm((p) => ({ ...p, referredByName: e.target.value }))} placeholder="Referred by *" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
                   <input value={appForm.policyWriterName} onChange={(e) => setAppForm((p) => ({ ...p, policyWriterName: e.target.value }))} placeholder="Policy written by *" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
                   <input value={appForm.policyNumber} onChange={(e) => setAppForm((p) => ({ ...p, policyNumber: e.target.value }))} placeholder="Policy number (optional)" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
+                  <select value={appForm.productKey || DEFAULT_PRODUCT.key} onChange={(e) => {
+                    const next = productByKey(e.target.value);
+                    setAppForm((p) => ({ ...p, productKey: next.key, carrier: next.carrier, productName: next.productName }));
+                  }} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}>
+                    {PRODUCT_OPTIONS.map((opt) => (
+                      <option key={opt.key} value={opt.key}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <input value={appForm.carrier || DEFAULT_PRODUCT.carrier} readOnly disabled style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
                   <input value={appForm.monthlyPremium} onChange={(e) => setAppForm((p) => ({ ...p, monthlyPremium: e.target.value }))} placeholder={String(appForm.appType || '').toLowerCase().includes('regular') || String(appForm.appType || '').toLowerCase().includes('juvenile') ? "Monthly premium (optional)" : "Monthly premium"} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
                   {(String(appForm.appType || '').toLowerCase().includes('regular') || String(appForm.appType || '').toLowerCase().includes('juvenile')) ? (
                     <input value={appForm.annualPremium} onChange={(e) => setAppForm((p) => ({ ...p, annualPremium: e.target.value }))} placeholder="Annualized premium (AP)" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
