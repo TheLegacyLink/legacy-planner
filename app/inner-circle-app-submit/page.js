@@ -727,6 +727,9 @@ export default function InnerCircleAppSubmitPage() {
                 {payoutPreview.annualizedInputUsed ? 'Using Annualized Premium (AP) for commission math.' : 'Tip: add Annualized Premium (AP) to calculate commission accurately for regular/juvenile apps.'}
               </small>
             ) : null}
+            <small style={{ color: '#9CA3AF', display: 'block', marginTop: 8 }}>
+              Points/payout are pending on submission and only post after status is Approved.
+            </small>
           </div>
 
           <label>

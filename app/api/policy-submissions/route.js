@@ -237,7 +237,7 @@ function normalizedRecord(row = {}) {
   });
 
   const status = clean(row.status || 'Submitted') || 'Submitted';
-  const innerCirclePending = calc.policyType === 'Inner Circle Policy' && !normalize(status).startsWith('approved');
+  const approvalPending = !normalize(status).startsWith('approved');
 
   return {
     id: clean(row.id) || `pol_${Date.now()}`,
@@ -259,19 +259,19 @@ function normalizedRecord(row = {}) {
     monthlyPremium: calc.monthlyPremium,
     annualPremium: calc.annualPremium,
     commissionRate: calc.commissionRate,
-    pointsEarned: innerCirclePending ? 0 : calc.pointsEarned,
-    pointsPendingApproval: innerCirclePending ? calc.pointsEarned : 0,
-    advancePayout: innerCirclePending ? 0 : calc.advancePayout,
-    remainingBalance: innerCirclePending ? 0 : calc.remainingBalance,
-    month10Payout: innerCirclePending ? 0 : calc.month10Payout,
-    month11Payout: innerCirclePending ? 0 : calc.month11Payout,
-    month12Payout: innerCirclePending ? 0 : calc.month12Payout,
+    pointsEarned: approvalPending ? 0 : calc.pointsEarned,
+    pointsPendingApproval: approvalPending ? calc.pointsEarned : 0,
+    advancePayout: approvalPending ? 0 : calc.advancePayout,
+    remainingBalance: approvalPending ? 0 : calc.remainingBalance,
+    month10Payout: approvalPending ? 0 : calc.month10Payout,
+    month11Payout: approvalPending ? 0 : calc.month11Payout,
+    month12Payout: approvalPending ? 0 : calc.month12Payout,
     carrier: clean(row.carrier || 'F&G') || 'F&G',
     productName: clean(row.productName || 'IUL Pathsetter') || 'IUL Pathsetter',
     status,
     approvedAt: clean(row.approvedAt || ''),
     payoutDueAt: clean(row.payoutDueAt || ''),
-    payoutAmount: Number(row.payoutAmount ?? (innerCirclePending ? 0 : calc.advancePayout)) || 0,
+    payoutAmount: Number(row.payoutAmount ?? (approvalPending ? 0 : calc.advancePayout)) || 0,
     payoutStatus: clean(row.payoutStatus || 'Unpaid') || 'Unpaid',
     payoutPaidAt: clean(row.payoutPaidAt || ''),
     payoutPaidBy: clean(row.payoutPaidBy || ''),
@@ -298,7 +298,7 @@ function applyPolicyMath(row = {}, { preservePayoutAmount = false } = {}) {
   });
 
   const isApproved = normalize(row?.status || '').startsWith('approved');
-  const innerCirclePending = policyType === 'Inner Circle Policy' && !isApproved;
+  const approvalPending = !isApproved;
 
   return {
     ...row,
@@ -306,17 +306,17 @@ function applyPolicyMath(row = {}, { preservePayoutAmount = false } = {}) {
     monthlyPremium: calc.monthlyPremium,
     annualPremium: calc.annualPremium,
     commissionRate: calc.commissionRate,
-    pointsEarned: innerCirclePending ? 0 : calc.pointsEarned,
-    advancePayout: innerCirclePending ? 0 : calc.advancePayout,
-    remainingBalance: innerCirclePending ? 0 : calc.remainingBalance,
-    month10Payout: innerCirclePending ? 0 : calc.month10Payout,
-    month11Payout: innerCirclePending ? 0 : calc.month11Payout,
-    month12Payout: innerCirclePending ? 0 : calc.month12Payout,
-    payoutAmount: preservePayoutAmount ? Number(row?.payoutAmount || 0) || 0 : (innerCirclePending ? 0 : calc.advancePayout),
+    pointsEarned: approvalPending ? 0 : calc.pointsEarned,
+    advancePayout: approvalPending ? 0 : calc.advancePayout,
+    remainingBalance: approvalPending ? 0 : calc.remainingBalance,
+    month10Payout: approvalPending ? 0 : calc.month10Payout,
+    month11Payout: approvalPending ? 0 : calc.month11Payout,
+    month12Payout: approvalPending ? 0 : calc.month12Payout,
+    payoutAmount: preservePayoutAmount ? Number(row?.payoutAmount || 0) || 0 : (approvalPending ? 0 : calc.advancePayout),
     referrer: clean(row?.referrer || row?.referredByName || ''),
     assignedInnerCircleAgent: clean(row?.assignedInnerCircleAgent || row?.policyWriterName || ''),
     agentLicensedStatus: licensedStatus,
-    pointsPendingApproval: innerCirclePending ? calc.pointsEarned : 0
+    pointsPendingApproval: approvalPending ? calc.pointsEarned : 0
   };
 }
 

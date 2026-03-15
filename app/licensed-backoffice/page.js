@@ -936,6 +936,7 @@ export default function LicensedBackofficePage() {
                   ) : null}
                 </div>
                 <div style={{ color: '#9CA3AF', fontSize: 13 }}>Estimated Sponsorship Policy payout: <strong style={{ color: '#E5E7EB' }}>{String(appForm.appType || '').toLowerCase().includes('sponsorship') ? `$${isInnerCircleName(clean(appForm.policyWriterName || session?.name || '')) ? 500 : 400}` : 'Based on policy type rules'}</strong></div>
+                <div style={{ color: '#9CA3AF', fontSize: 12 }}>Points/payout remain pending until the policy is Approved.</div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button type="button" onClick={submitPolicyFromBackoffice} disabled={submitBusy} style={{ padding: '10px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
                     {submitBusy ? 'Submitting…' : 'Submit App'}
