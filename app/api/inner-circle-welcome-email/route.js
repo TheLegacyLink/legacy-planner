@@ -458,9 +458,11 @@ export async function POST(req) {
   const roleInput = clean(body?.role || body?.agentType || body?.agentRole || (body?.licensed === true ? 'licensed' : (body?.licensed === false ? 'unlicensed' : '')));
   const roleConfig = resolveRoleConfig(roleInput);
   const isInnerCircle = roleConfig.roleKey === 'inner-circle';
-  const defaultBackofficeUrl = clean(process.env.NEXT_PUBLIC_LICENSED_BACKOFFICE_URL || 'https://innercirclelink.com/licensed-backoffice');
+  const defaultLicensedBackofficeUrl = clean(process.env.NEXT_PUBLIC_LICENSED_BACKOFFICE_URL || 'https://innercirclelink.com/licensed-backoffice');
+  const defaultUnlicensedBackofficeUrl = clean(process.env.NEXT_PUBLIC_UNLICENSED_BACKOFFICE_URL || 'https://innercirclelink.com/unlicensed-backoffice');
   const defaultInnerAppUrl = clean(process.env.INNER_CIRCLE_APP_URL || 'https://legacylink.app/');
-  const appUrl = clean(body?.appUrl || body?.customLinks?.app || (isInnerCircle ? defaultInnerAppUrl : defaultBackofficeUrl));
+  const defaultNonInnerUrl = roleConfig.roleKey === 'unlicensed' ? defaultUnlicensedBackofficeUrl : defaultLicensedBackofficeUrl;
+  const appUrl = clean(body?.appUrl || body?.customLinks?.app || (isInnerCircle ? defaultInnerAppUrl : defaultNonInnerUrl));
   const skoolUrl = clean(body?.skoolUrl || body?.customLinks?.skool || process.env.SPONSORSHIP_SKOOL_URL || 'https://www.skool.com/legacylink/about');
   const requestedTempPassword = clean(body?.tempPassword || '');
   const tempPassword = isInnerCircle ? (requestedTempPassword || generateTempPassword()) : '';
