@@ -125,7 +125,20 @@ function normalizePolicyType(value = '') {
   return clean(value);
 }
 
-function computePolicyPayoutFields({ policyType = '', monthlyPremium = 0, licensed = false } = {}) {
+function isInnerCircleName(name = '') {
+  const n = normalize(name);
+  if (!n) return false;
+  return (users || []).some((u) => normalize(u?.name || u?.fullName || '') === n);
+}
+
+function sponsorshipFlatRate({ policyWriterName = '', referredByName = '', submittedByRole = '' } = {}) {
+  const role = normalize(submittedByRole);
+  if (role.includes('inner_circle')) return 500;
+  if (isInnerCircleName(policyWriterName) || isInnerCircleName(referredByName)) return 500;
+  return 400;
+}
+
+function computePolicyPayoutFields({ policyType = '', monthlyPremium = 0, licensed = false, policyWriterName = '', referredByName = '', submittedByRole = '' } = {}) {
   const type = normalizePolicyType(policyType);
   const monthly = clampMonthlyPremium(monthlyPremium);
   const annualPremium = roundMoney(monthly * 12);
@@ -135,7 +148,7 @@ function computePolicyPayoutFields({ policyType = '', monthlyPremium = 0, licens
   let flatPayout = false;
 
   if (type === 'Sponsorship Policy') {
-    pointsEarned = 500;
+    pointsEarned = sponsorshipFlatRate({ policyWriterName, referredByName, submittedByRole });
     flatPayout = true;
   } else if (type === 'Bonus Policy') {
     pointsEarned = licensed ? 500 : 0;
@@ -200,7 +213,10 @@ function normalizedRecord(row = {}) {
   const calc = computePolicyPayoutFields({
     policyType,
     monthlyPremium: row.monthlyPremium || 0,
-    licensed: isLicensedValue(applicantLicensedStatus)
+    licensed: isLicensedValue(applicantLicensedStatus),
+    policyWriterName: row.policyWriterName || '',
+    referredByName: row.referredByName || row.referrer || '',
+    submittedByRole: row.submittedByRole || ''
   });
 
   const status = clean(row.status || 'Submitted') || 'Submitted';
@@ -255,7 +271,10 @@ function applyPolicyMath(row = {}, { preservePayoutAmount = false } = {}) {
   const calc = computePolicyPayoutFields({
     policyType,
     monthlyPremium: row?.monthlyPremium || 0,
-    licensed: isLicensedValue(licensedStatus)
+    licensed: isLicensedValue(licensedStatus),
+    policyWriterName: row?.policyWriterName || '',
+    referredByName: row?.referredByName || row?.referrer || '',
+    submittedByRole: row?.submittedByRole || ''
   });
 
   const isApproved = normalize(row?.status || '').startsWith('approved');
@@ -993,6 +1012,7 @@ export async function POST(req) {
 
   const rec = normalizedRecord(body?.record || body);
   if (!rec.appType) return Response.json({ ok: false, error: 'missing_app_type' }, { status: 400 });
+  if (!rec.policyType) return Response.json({ ok: false, error: 'missing_policy_type' }, { status: 400 });
   if (!rec.applicantName) return Response.json({ ok: false, error: 'missing_applicant' }, { status: 400 });
 
   const idx = store.findIndex((r) => clean(r.id) === rec.id);
@@ -1027,7 +1047,10 @@ export async function POST(req) {
   // Bookings are now only auto-expired in sponsorship-bookings route at 24h after booked time.
   const removedFromBookingQueue = 0;
 
-  const sop = await ensureSopProvisionFromActSubmit(finalRow).catch((e) => ({ ok: false, error: clean(e?.message || 'sop_provision_failed') }));
+  const skipSopProvision = Boolean(body?.skipSopProvision) || normalize(finalRow?.submittedByRole || '').includes('licensed_backoffice');
+  const sop = skipSopProvision
+    ? { ok: true, skipped: true, reason: 'skip_sop_provision' }
+    : await ensureSopProvisionFromActSubmit(finalRow).catch((e) => ({ ok: false, error: clean(e?.message || 'sop_provision_failed') }));
 
   return Response.json({ ok: true, row: finalRow, sop, removedFromBookingQueue, bookingQueueRetention: 'preserved' });
 }

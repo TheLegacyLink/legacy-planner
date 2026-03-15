@@ -489,54 +489,52 @@ export default function MissionControl() {
     const rosterRaw = Array.isArray(licensedAgents) ? licensedAgents : [];
     const roster = [...new Set(rosterRaw.map((r) => cleanName(licensedDisplayName(r?.full_name || r?.name || ''))).filter(Boolean))];
     const innerCircle = new Set((config.agents || []).map((n) => cleanName(n)));
-    const owners = new Set(['angelique lassiter', 'jamal holmes']);
-    const eligible = roster.filter((n) => !innerCircle.has(n) && !owners.has(n));
 
     const byAgent = new Map();
-    const add = (agent, field, inc = 1) => {
+    const add = (agent, { count = 0, dollars = 0, rate = 0 } = {}) => {
       const key = cleanName(agent);
-      if (!key || !eligible.includes(key)) return;
-      const prev = byAgent.get(key) || { agent, sponsorshipApps: 0, insuranceApps: 0 };
-      prev[field] = Number(prev[field] || 0) + inc;
+      if (!key) return;
+      const prev = byAgent.get(key) || { agent, sponsorshipPolicies: 0, flatRate: rate, estimatedPayout: 0 };
+      prev.sponsorshipPolicies = Number(prev.sponsorshipPolicies || 0) + Number(count || 0);
+      prev.flatRate = Number(rate || prev.flatRate || 0);
+      prev.estimatedPayout = Number(prev.estimatedPayout || 0) + Number(dollars || 0);
       byAgent.set(key, prev);
     };
 
-    const sponsorSeen = new Set();
-    for (const r of (payoutSponsorshipRows || [])) {
-      const dt = new Date(r?.submitted_at || r?.updatedAt || r?.createdAt || 0);
-      if (!sameMonthYear(dt)) continue;
-      const mapped = mapApplicationToAgent(r, eligible);
-      const key = applicantKey(r);
-      if (!mapped || sponsorSeen.has(`${mapped}|${key}`)) continue;
-      sponsorSeen.add(`${mapped}|${key}`);
-      add(mapped, 'sponsorshipApps', 1);
-    }
-
+    const seen = new Set();
     for (const r of (payoutPolicyRows || [])) {
       const dt = new Date(r?.submittedAt || r?.updatedAt || r?.createdAt || 0);
       if (!sameMonthYear(dt)) continue;
-      const mapped = mapApplicationToAgent(r, eligible);
+
+      const type = String(r?.policyType || r?.appType || '').toLowerCase();
+      if (!type.includes('sponsorship')) continue;
+
+      const mapped = mapApplicationToAgent(r, roster.length ? roster : (config.agents || []));
       if (!mapped) continue;
-      add(mapped, 'insuranceApps', 1);
+
+      const key = `${cleanName(mapped)}|${String(r?.id || applicantKey(r))}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const agentKey = cleanName(mapped);
+      const defaultRate = innerCircle.has(agentKey) ? 500 : 400;
+      const rowPayout = Number(r?.advancePayout || r?.payoutAmount || 0);
+      const rate = rowPayout > 0 ? rowPayout : defaultRate;
+
+      add(mapped, { count: 1, dollars: rate, rate });
     }
 
-    const rows = [...byAgent.values()].map((r) => {
-      const s = Number(r.sponsorshipApps || 0);
-      const p = Number(r.insuranceApps || 0);
-      const sponsorshipDollars = (Math.min(10, s) * 1) + (Math.max(0, s - 10) * 5);
-      const insuranceDollars = p * 10;
-      return { ...r, sponsorshipDollars, insuranceDollars, estimatedPayout: sponsorshipDollars + insuranceDollars };
-    }).sort((a, b) => b.estimatedPayout - a.estimatedPayout || a.agent.localeCompare(b.agent));
+    const rows = [...byAgent.values()]
+      .sort((a, b) => b.estimatedPayout - a.estimatedPayout || a.agent.localeCompare(b.agent));
 
     const totals = rows.reduce((acc, r) => {
-      acc.sponsorshipApps += Number(r.sponsorshipApps || 0);
-      acc.insuranceApps += Number(r.insuranceApps || 0);
+      acc.sponsorshipPolicies += Number(r.sponsorshipPolicies || 0);
       acc.payout += Number(r.estimatedPayout || 0);
       return acc;
-    }, { sponsorshipApps: 0, insuranceApps: 0, payout: 0 });
+    }, { sponsorshipPolicies: 0, payout: 0 });
 
     return { rows, totals };
-  }, [payoutPolicyRows, payoutSponsorshipRows, config.agents]);
+  }, [payoutPolicyRows, config.agents]);
 
   useEffect(() => {
     let mounted = true;
@@ -602,7 +600,7 @@ export default function MissionControl() {
   }
 
   function exportPayoutCsv() {
-    const header = ['Month', 'Agent', 'Sponsorship Apps', 'Insurance Apps', 'Sponsorship $', 'Insurance $', 'Estimated Payout', 'Status', 'Paid At'];
+    const header = ['Month', 'Agent', 'Sponsorship Policies', 'Flat Rate', 'Estimated Payout', 'Status', 'Paid At'];
     const lines = [header.join(',')];
     for (const r of payoutRows.rows) {
       const status = payoutStatusMap[cleanName(r.agent)]?.paid ? 'Paid' : 'Pending';
@@ -610,10 +608,8 @@ export default function MissionControl() {
       const vals = [
         payoutMonthKey,
         r.agent,
-        r.sponsorshipApps,
-        r.insuranceApps,
-        r.sponsorshipDollars,
-        r.insuranceDollars,
+        r.sponsorshipPolicies,
+        r.flatRate,
         r.estimatedPayout,
         status,
         paidAt
@@ -1119,7 +1115,7 @@ export default function MissionControl() {
           <div className="panelRow" style={{ gap: '1rem', flexWrap: 'wrap' }}>
             <div>
               <h3>Licensed Incentive Payout Queue ({scopeLabel})</h3>
-              <span className="muted">Licensed-only payout preview. Excludes Inner Circle + Agency Owners. Paid monthly.</span>
+              <span className="muted">Sponsorship policy flat-rate payout preview. Paid monthly.</span>
             </div>
           </div>
 
@@ -1134,11 +1130,9 @@ export default function MissionControl() {
               <table>
                 <thead>
                   <tr>
-                    <th>Licensed Agent</th>
-                    <th>Sponsorship Apps</th>
-                    <th>Insurance Apps</th>
-                    <th>Sponsorship $</th>
-                    <th>Insurance $</th>
+                    <th>Agent</th>
+                    <th>Sponsorship Policies</th>
+                    <th>Flat Rate</th>
                     <th>Estimated Payout</th>
                     <th>Status</th>
                     <th>Action</th>
@@ -1148,10 +1142,8 @@ export default function MissionControl() {
                   {payoutRows.rows.map((r) => (
                     <tr key={r.agent}>
                       <td>{r.agent}</td>
-                      <td>{r.sponsorshipApps}</td>
-                      <td>{r.insuranceApps}</td>
-                      <td>${Number(r.sponsorshipDollars || 0).toLocaleString()}</td>
-                      <td>${Number(r.insuranceDollars || 0).toLocaleString()}</td>
+                      <td>{r.sponsorshipPolicies}</td>
+                      <td>${Number(r.flatRate || 0).toLocaleString()}</td>
                       <td><strong>${Number(r.estimatedPayout || 0).toLocaleString()}</strong></td>
                       <td>
                         {payoutStatusMap[cleanName(r.agent)]?.paid
@@ -1176,9 +1168,9 @@ export default function MissionControl() {
               </table>
 
               <p className="muted" style={{ marginTop: 10 }}>
-                Totals — Sponsorship Apps: {payoutRows.totals.sponsorshipApps} • Insurance Apps: {payoutRows.totals.insuranceApps} • Estimated Payout: ${Number(payoutRows.totals.payout || 0).toLocaleString()} • Paid: ${Number(payoutRows.rows.filter((r) => payoutStatusMap[cleanName(r.agent)]?.paid).reduce((a, r) => a + Number(r.estimatedPayout || 0), 0)).toLocaleString()} • Pending: ${Number(payoutRows.rows.filter((r) => !payoutStatusMap[cleanName(r.agent)]?.paid).reduce((a, r) => a + Number(r.estimatedPayout || 0), 0)).toLocaleString()}
+                Totals — Sponsorship Policies: {payoutRows.totals.sponsorshipPolicies} • Estimated Payout: ${Number(payoutRows.totals.payout || 0).toLocaleString()} • Paid: ${Number(payoutRows.rows.filter((r) => payoutStatusMap[cleanName(r.agent)]?.paid).reduce((a, r) => a + Number(r.estimatedPayout || 0), 0)).toLocaleString()} • Pending: ${Number(payoutRows.rows.filter((r) => !payoutStatusMap[cleanName(r.agent)]?.paid).reduce((a, r) => a + Number(r.estimatedPayout || 0), 0)).toLocaleString()}
               </p>
-              <p className="muted">Rule logic: $1 per sponsorship app (first 10), then $5 per sponsorship app after 10 in same 30-day window; $10 per submitted insurance application. Guardrails and review holds apply.</p>
+              <p className="muted">Rule logic: Sponsorship Policy payout is flat-rate only — $400 for licensed agents, $500 for inner circle. No AP, no month 10/11/12 split.</p>
             </>
           )}
         </div>
