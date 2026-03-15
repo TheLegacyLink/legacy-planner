@@ -80,6 +80,43 @@ function isPaidRow(row = {}) {
   return payout.includes('paid') || Boolean(clean(row?.payoutPaidAt || ''));
 }
 
+function isApprovedLike(status = '') {
+  const s = normalize(status);
+  return s.includes('approved') || s.includes('issued');
+}
+
+function isFgNlgPolicy(row = {}) {
+  const carrier = normalize(row?.carrier || row?.carrierName || '');
+  const product = normalize(row?.productName || row?.product || '');
+  const t = normalize(row?.policyType || row?.appType || '');
+  return carrier.includes('f&g')
+    || carrier.includes('f and g')
+    || carrier.includes('fidelity')
+    || carrier.includes('national life')
+    || carrier.includes('nlg')
+    || product.includes('f&g')
+    || product.includes('f and g')
+    || product.includes('nlg')
+    || t.includes('inner circle');
+}
+
+function achievementValueFromPolicyRow(row = {}) {
+  const raw = Number(row?.advancePayout || row?.payoutAmount || row?.pointsEarned || 0) || 0;
+  if (raw > 0) return raw;
+
+  const approved = isApprovedLike(row?.status || '');
+  if (!approved) return 0;
+
+  const t = normalize(row?.policyType || row?.appType || '');
+  if (t.includes('sponsorship')) return 500;
+  if (isFgNlgPolicy(row)) return 500;
+
+  const annual = Number(row?.annualPremium || 0) || ((Number(row?.monthlyPremium || 0) || 0) * 12);
+  const rate = Number(row?.commissionRate || 0) || (t.includes('juvenile') ? 0.5 : 0.7);
+  const fallback = Number((annual * rate).toFixed(2));
+  return Number.isFinite(fallback) ? Math.max(0, fallback) : 0;
+}
+
 const UNLOCK_RULES = [
   { badge_key: 'identity.licensed', check: (s) => s.isLicensed === true },
   { badge_key: 'performance.first_submission', check: (s) => s.policiesSubmitted >= 1 },
@@ -326,7 +363,7 @@ export default function AchievementCenterPage() {
     const policiesIssued = issuedRows.length;
     const policiesIssuedThisMonth = issuedRows.filter((r) => monthKeyFromIso(clean(r?.approvedAt || r?.updatedAt || r?.submittedAt || r?.createdAt || '')) === currentMonth).length;
 
-    const lifetimeEarnings = minePolicies.filter((r) => isPaidRow(r)).reduce((a, r) => a + toNum(r?.advancePayout || r?.payoutAmount || 0), 0);
+    const lifetimeEarnings = minePolicies.reduce((a, r) => a + toNum(achievementValueFromPolicyRow(r)), 0);
 
     const isMineSponsorship = (r = {}) => {
       const refCandidates = [r?.referredBy, r?.referred_by, r?.referredByName, r?.agentName, r?.agent, r?.owner].map(clean).filter(Boolean);
