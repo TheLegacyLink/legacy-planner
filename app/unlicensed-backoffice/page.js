@@ -5,6 +5,20 @@ import { useEffect, useMemo, useState } from 'react';
 function clean(v = '') { return String(v || '').trim(); }
 function pct(done = 0, total = 1) { return Math.round((done / Math.max(1, total)) * 100); }
 
+const US_STATE_OPTIONS = [
+  ['AL', 'Alabama'], ['AK', 'Alaska'], ['AZ', 'Arizona'], ['AR', 'Arkansas'], ['CA', 'California'],
+  ['CO', 'Colorado'], ['CT', 'Connecticut'], ['DE', 'Delaware'], ['FL', 'Florida'], ['GA', 'Georgia'],
+  ['HI', 'Hawaii'], ['ID', 'Idaho'], ['IL', 'Illinois'], ['IN', 'Indiana'], ['IA', 'Iowa'],
+  ['KS', 'Kansas'], ['KY', 'Kentucky'], ['LA', 'Louisiana'], ['ME', 'Maine'], ['MD', 'Maryland'],
+  ['MA', 'Massachusetts'], ['MI', 'Michigan'], ['MN', 'Minnesota'], ['MS', 'Mississippi'], ['MO', 'Missouri'],
+  ['MT', 'Montana'], ['NE', 'Nebraska'], ['NV', 'Nevada'], ['NH', 'New Hampshire'], ['NJ', 'New Jersey'],
+  ['NM', 'New Mexico'], ['NY', 'New York'], ['NC', 'North Carolina'], ['ND', 'North Dakota'], ['OH', 'Ohio'],
+  ['OK', 'Oklahoma'], ['OR', 'Oregon'], ['PA', 'Pennsylvania'], ['RI', 'Rhode Island'], ['SC', 'South Carolina'],
+  ['SD', 'South Dakota'], ['TN', 'Tennessee'], ['TX', 'Texas'], ['UT', 'Utah'], ['VT', 'Vermont'],
+  ['VA', 'Virginia'], ['WA', 'Washington'], ['WV', 'West Virginia'], ['WI', 'Wisconsin'], ['WY', 'Wyoming'],
+  ['DC', 'District of Columbia']
+];
+
 const STEP_META = [
   { key: 'prelicensingStarted', title: 'Start Pre-Licensing', note: 'Enroll and begin your pre-licensing course.' },
   { key: 'examPassed', title: 'Pass State Exam', note: 'Mark complete after passing your resident state exam.' },
@@ -213,19 +227,40 @@ export default function UnlicensedBackofficePage() {
                 </div>
 
                 {s.key === 'examPassed' ? (
-                  <input
-                    value={fields.examPassDate || ''}
-                    onChange={(e) => save({ steps, fields: { ...fields, examPassDate: e.target.value } })}
-                    placeholder="Exam pass date (YYYY-MM-DD)"
-                    style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }}
-                  />
+                  <label style={{ display: 'grid', gap: 4, marginTop: 8, color: '#9CA3AF' }}>
+                    <span>Exam pass date</span>
+                    <input
+                      type="date"
+                      value={fields.examPassDate || ''}
+                      onChange={(e) => save({ steps, fields: { ...fields, examPassDate: e.target.value } })}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }}
+                    />
+                  </label>
                 ) : null}
 
                 {s.key === 'residentLicenseObtained' ? (
                   <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                    <input value={fields.residentState || ''} onChange={(e) => save({ steps, fields: { ...fields, residentState: e.target.value } })} placeholder="Resident state" style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }} />
-                    <input value={fields.residentLicenseNumber || ''} onChange={(e) => save({ steps, fields: { ...fields, residentLicenseNumber: e.target.value } })} placeholder="License #" style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }} />
-                    <input value={fields.residentLicenseActiveDate || ''} onChange={(e) => save({ steps, fields: { ...fields, residentLicenseActiveDate: e.target.value } })} placeholder="Active date" style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }} />
+                    <label style={{ display: 'grid', gap: 4, color: '#9CA3AF' }}>
+                      <span>Resident state</span>
+                      <select
+                        value={fields.residentState || ''}
+                        onChange={(e) => save({ steps, fields: { ...fields, residentState: e.target.value } })}
+                        style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }}
+                      >
+                        <option value="">Select state</option>
+                        {US_STATE_OPTIONS.map(([code, label]) => (
+                          <option key={code} value={code}>{code} — {label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label style={{ display: 'grid', gap: 4, color: '#9CA3AF' }}>
+                      <span>Resident license #</span>
+                      <input value={fields.residentLicenseNumber || ''} onChange={(e) => save({ steps, fields: { ...fields, residentLicenseNumber: e.target.value } })} placeholder="License #" style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }} />
+                    </label>
+                    <label style={{ display: 'grid', gap: 4, color: '#9CA3AF' }}>
+                      <span>License active date</span>
+                      <input type="date" value={fields.residentLicenseActiveDate || ''} onChange={(e) => save({ steps, fields: { ...fields, residentLicenseActiveDate: e.target.value } })} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }} />
+                    </label>
                   </div>
                 ) : null}
 
