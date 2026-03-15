@@ -5,9 +5,9 @@ import { loadRuntimeConfig } from '../../lib/runtimeConfig';
 
 const REWARDS = {
   sponsorshipApp: 1,
-  bookedAppointment: 5,
+  bookedAppointment: 0,
   cleanInsuranceApp: 10,
-  approvedPolicy: 500
+  approvedPolicy: 0
 };
 
 const PAYOUT_LABELS = ['Pending Review', 'Approved', 'Paid', 'Reversed', 'Ineligible'];
@@ -178,9 +178,16 @@ function qualifiesBooking(row = {}, validAppKeys = new Set()) {
   return Boolean((sourceId && validAppKeys.has(`id:${sourceId}`)) || (key && validAppKeys.has(key)));
 }
 
+function isLicensedValue(v = '') {
+  const n = normalize(v);
+  return n.includes('licensed') || n === 'yes' || n === 'true' || n === '1';
+}
+
 function qualifiesCleanInsuranceApp(row = {}) {
   const status = normalize(row?.status || 'submitted');
   if (status.includes('incomplete') || status.includes('invalid') || status.includes('duplicate') || status.includes('junk')) return false;
+  const licensed = isLicensedValue(row?.applicantLicensedStatus || row?.agentLicensedStatus || row?.licensed || row?.isLicensed || '');
+  if (!licensed) return false;
   return Boolean(clean(row?.applicantName || row?.name) && (clean(row?.state) || clean(row?.policyNumber)));
 }
 
@@ -311,9 +318,7 @@ export default function InnerCircleHubRewardsPage() {
       const approvedCount = approvedPolicies.filter((r) => filterFn(r.ts)).length;
       const earned =
         appCount * REWARDS.sponsorshipApp +
-        bookingCount * REWARDS.bookedAppointment +
-        cleanCount * REWARDS.cleanInsuranceApp +
-        approvedCount * REWARDS.approvedPolicy;
+        cleanCount * REWARDS.cleanInsuranceApp;
       return { appCount, bookingCount, cleanCount, approvedCount, earned };
     };
 
@@ -331,9 +336,7 @@ export default function InnerCircleHubRewardsPage() {
       const approvedCount = approvedPolicies.filter((r) => monthKeyFromTs(r.ts) === monthKey).length;
       const earned =
         appCount * REWARDS.sponsorshipApp +
-        bookingCount * REWARDS.bookedAppointment +
-        cleanCount * REWARDS.cleanInsuranceApp +
-        approvedCount * REWARDS.approvedPolicy;
+        cleanCount * REWARDS.cleanInsuranceApp;
       return { appCount, bookingCount, cleanCount, approvedCount, earned };
     };
 
@@ -364,9 +367,7 @@ export default function InnerCircleHubRewardsPage() {
         ...v,
         earnings:
           v.apps * REWARDS.sponsorshipApp +
-          v.bookings * REWARDS.bookedAppointment +
-          v.cleanApps * REWARDS.cleanInsuranceApp +
-          v.approvedPolicies * REWARDS.approvedPoliciesCase
+          v.cleanApps * REWARDS.cleanInsuranceApp
       }))
       .filter((r) => r.earnings > 0)
       .sort((a, b) => b.earnings - a.earnings);
@@ -404,9 +405,7 @@ export default function InnerCircleHubRewardsPage() {
     const agents = Object.entries(baseByAgent).map(([agent, v]) => {
       const earnings =
         v.apps * REWARDS.sponsorshipApp +
-        v.bookings * REWARDS.bookedAppointment +
-        v.cleanApps * REWARDS.cleanInsuranceApp +
-        v.approvedPolicies * REWARDS.approvedPolicy;
+        v.cleanApps * REWARDS.cleanInsuranceApp;
       const streak = buildStreak(v.activityDates);
 
       const badges = {
@@ -530,10 +529,8 @@ export default function InnerCircleHubRewardsPage() {
 
       <div className="panel" style={{ display: 'grid', gap: 8 }}>
         <strong style={{ color: '#ffffff' }}>Internal Reward Summary</strong>
-        <p style={{ margin: 0, color: '#ffffff' }}>• $1 per complete sponsorship app</p>
-        <p style={{ margin: 0, color: '#ffffff' }}>• $5 per booked sponsorship appointment</p>
-        <p style={{ margin: 0, color: '#ffffff' }}>• $10 per clean insurance app submitted in good order</p>
-        <p style={{ margin: 0, color: '#ffffff' }}>• $500 per approved, approved policy</p>
+        <p style={{ margin: 0, color: '#ffffff' }}>• $1 per sponsorship app submitted</p>
+        <p style={{ margin: 0, color: '#ffffff' }}>• $10 per clean insurance app submitted in good order (licensed agents only)</p>
       </div>
 
 
@@ -572,9 +569,9 @@ export default function InnerCircleHubRewardsPage() {
           <div className="panel" key={block.label}>
             <h3>{block.label}</h3>
             <p className="muted">Sponsorship apps: {block.v.appCount}</p>
-            <p className="muted">Bookings: {block.v.bookingCount}</p>
+            <p className="muted">Bookings (tracking only): {block.v.bookingCount}</p>
             <p className="muted">Policies submitted (Closes): {block.v.cleanCount}</p>
-            <p className="muted">Approved policies: {block.v.approvedCount}</p>
+            <p className="muted">Approved policies (tracking only): {block.v.approvedCount}</p>
             <p style={{ marginBottom: 0 }}><strong>Total earned: {money(block.v.earned)}</strong></p>
           </div>
         ))}
@@ -669,7 +666,7 @@ export default function InnerCircleHubRewardsPage() {
       </div>
 
       <div className="panel" style={{ borderColor: '#1f2937', background: '#0b1220' }}>
-        <small className="muted">Footer Note: All rewards are subject to verification, compliance review, and active member status. Invalid, duplicate, incomplete, fake, canceled, or non-qualifying activity does not count. Approved, approved business is required for the $500 producer reward.</small>
+        <small className="muted">Footer Note: All rewards are subject to verification, compliance review, and active member status. Invalid, duplicate, incomplete, fake, canceled, or non-qualifying activity does not count.</small>
         <small className="muted" style={{ display: 'block', marginTop: 6 }}>Payout Status Labels: {PAYOUT_LABELS.join(' • ')}</small>
       </div>
 
