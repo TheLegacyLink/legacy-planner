@@ -51,6 +51,56 @@ function monthShortFromKey(key = '') {
   return d.toLocaleDateString('en-US', { month: 'short' });
 }
 
+function normalizePolicyTypeLabel(v = '') {
+  const t = clean(v).toLowerCase();
+  if (t.includes('sponsorship')) return 'Sponsorship Policy';
+  if (t.includes('bonus')) return 'Bonus Policy';
+  if (t.includes('inner circle')) return 'Inner Circle Policy';
+  if (t.includes('juvenile')) return 'Juvenile Policy';
+  if (t.includes('regular')) return 'Regular Policy';
+  return clean(v);
+}
+
+function isApprovedStatus(status = '') {
+  return clean(status).toLowerCase().includes('approved');
+}
+
+function computeEffectivePoints(row = {}) {
+  const existing = Number(row?.pointsEarned || 0) || 0;
+  const statusApproved = isApprovedStatus(row?.status || '');
+  const type = normalizePolicyTypeLabel(row?.policyType || row?.appType || '');
+
+  if (!statusApproved) return existing;
+  if (existing > 0) return existing;
+
+  if (type === 'Sponsorship Policy') return 500;
+  if (type === 'Bonus Policy') return 500;
+  if (type === 'Inner Circle Policy') {
+    const carrier = clean(row?.carrier || '').toLowerCase();
+    const product = clean(row?.productName || '').toLowerCase();
+    const nlgFlex = carrier.includes('national life') || product.includes('flex life');
+    return nlgFlex ? 1200 : 500;
+  }
+
+  if (type === 'Regular Policy' || type === 'Juvenile Policy') {
+    const annual = Number(row?.annualPremium || 0) || ((Number(row?.monthlyPremium || 0) || 0) * 12);
+    const rate = Number(row?.commissionRate || 0) || (type === 'Regular Policy' ? 0.7 : 0.5);
+    const pts = Number((annual * rate).toFixed(2));
+    return Number.isFinite(pts) ? pts : 0;
+  }
+
+  return existing;
+}
+
+function computeEffectiveAdvance(row = {}, points = 0) {
+  const existing = Number(row?.advancePayout || row?.payoutAmount || 0) || 0;
+  if (existing > 0) return existing;
+  const type = normalizePolicyTypeLabel(row?.policyType || row?.appType || '');
+  if (!isApprovedStatus(row?.status || '')) return existing;
+  if (type === 'Sponsorship Policy' || type === 'Bonus Policy' || type === 'Inner Circle Policy') return Number(points || 0);
+  return Number((Number(points || 0) * 0.75).toFixed(2));
+}
+
 function inWindow(ts = 0, windowKey = 'all') {
   if (!ts || windowKey === 'all') return Boolean(ts);
   const d = new Date(ts);
@@ -324,11 +374,15 @@ export default function InnerCircleHubPage() {
     const approved = rows.filter((r) => clean(r?.status).toLowerCase().includes('approved')).length;
     const approvalRate = rows.length ? Math.round((approved / rows.length) * 100) : 0;
 
-    const totals = rows.reduce((acc, row) => ({
-      points: acc.points + (Number(row?.pointsEarned || 0) || 0),
-      advance: acc.advance + (Number(row?.advancePayout || row?.payoutAmount || 0) || 0),
-      remaining: acc.remaining + (Number(row?.remainingBalance || 0) || 0)
-    }), { points: 0, advance: 0, remaining: 0 });
+    const totals = rows.reduce((acc, row) => {
+      const points = computeEffectivePoints(row);
+      const advance = computeEffectiveAdvance(row, points);
+      return {
+        points: acc.points + points,
+        advance: acc.advance + advance,
+        remaining: acc.remaining + (Number(row?.remainingBalance || 0) || Math.max(0, Number(points || 0) - Number(advance || 0)) )
+      };
+    }, { points: 0, advance: 0, remaining: 0 });
 
     return { ...totals, count: rows.length, approved, approvalRate };
   }, [filteredProductionRows]);
@@ -342,7 +396,8 @@ export default function InnerCircleHubPage() {
       const paidAt = clean(r?.payoutPaidAt || '');
       const payoutStatus = clean(r?.payoutStatus || '').toLowerCase();
       const paid = payoutStatus === 'paid' || Boolean(paidAt);
-      const amount = Number(r?.advancePayout || r?.payoutAmount || 0) || 0;
+      const points = computeEffectivePoints(r);
+      const amount = computeEffectiveAdvance(r, points);
       const expectedPayoutAt = clean(r?.payoutDueAt || (approvedAt ? new Date(new Date(approvedAt).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() : ''));
       return {
         id: clean(r?.id || `prod_${i}`),
@@ -351,6 +406,7 @@ export default function InnerCircleHubPage() {
         sourceType,
         status: paid ? 'paid' : 'pending',
         amount,
+        points,
         qualifiedAt: approvedAt,
         paidAt,
         expectedPayoutAt
@@ -401,6 +457,14 @@ export default function InnerCircleHubPage() {
     return { allTimePaid, allTimePending, thisMonthPaid, thisMonthPending, trend, sourceTotals, sourceSum, upcoming, monthTotal, paidRatio, nextPayout };
   }, [personalProduction.rows]);
 
+
+
+  const monthlyLicensedIncentive = useMemo(() => {
+    const submitted = Number(activityStats?.monthly?.sponsorshipSubmitted || 0) || 0;
+    const appSubmitted = Number(activityStats?.monthly?.fngSubmitted || 0) || 0;
+    const total = (submitted * 1) + (appSubmitted * 10);
+    return { submitted, appSubmitted, total };
+  }, [activityStats]);
 
   const periodTotals = useMemo(() => {
     const key = trackerPeriod === 'weekly' ? 'weekly' : trackerPeriod === 'monthly' ? 'monthly' : 'daily';
@@ -1241,6 +1305,21 @@ export default function InnerCircleHubPage() {
 
                 <small className="muted">Showing: {productionWindow === 'month' ? 'This Month' : productionWindow === 'lastMonth' ? 'Last Month' : 'All Time'} • {productionFilter === 'all' ? 'All Policy Types' : productionFilter}</small>
 
+                <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
+                  <div style={{ color: '#fff', fontWeight: 700 }}>Licensed Monthly Incentive Tracker</div>
+                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>$1 per Sponsorship Submitted • $10 per App Submitted (paid monthly)</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                    <span className="pill neutral">Sponsorship Submitted: {monthlyLicensedIncentive.submitted}</span>
+                    <span className="pill offpace">Apps Submitted: {monthlyLicensedIncentive.appSubmitted}</span>
+                    <span className="pill onpace">Monthly Total: ${monthlyLicensedIncentive.total}</span>
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
+                  <div style={{ color: '#fff', fontWeight: 700 }}>Points Rule</div>
+                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>All Sponsorship Policies = 500 points on approval. Approved policies earn points even if legacy row points were missing.</div>
+                </div>
+
                 <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))' }}>
                   <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 12, background: '#111827' }}><small className="muted">Total Policies</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{productionStats.count}</div></div>
                   <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 12, background: '#111827' }}><small className="muted">Points Earned</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{productionStats.points.toFixed(2)}</div></div>
@@ -1288,7 +1367,7 @@ export default function InnerCircleHubPage() {
                           ) : null}
                         </div>
                         <div style={{ color: '#cbd5e1', fontSize: 12, marginTop: 4 }}>
-                          Commission: {Math.round((Number(row?.commissionRate || 0) || 0) * 100)}% • Points: {Number(row?.pointsEarned || 0).toFixed(2)} • Advance: ${Number(row?.advancePayout || row?.payoutAmount || 0).toFixed(2)} • Status: {row?.status || 'Submitted'}
+                          Commission: {Math.round((Number(row?.commissionRate || 0) || 0) * 100)}% • Points: {Number(computeEffectivePoints(row) || 0).toFixed(2)} • Advance: ${Number(computeEffectiveAdvance(row, computeEffectivePoints(row)) || 0).toFixed(2)} • Status: {row?.status || 'Submitted'}
                         </div>
                         <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 2 }}>
                           Remaining: ${Number(row?.remainingBalance || 0).toFixed(2)} • M10: ${Number(row?.month10Payout || 0).toFixed(2)} • M11: ${Number(row?.month11Payout || 0).toFixed(2)} • M12: ${Number(row?.month12Payout || 0).toFixed(2)}
