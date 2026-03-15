@@ -80,6 +80,8 @@ export default function LicensedBackofficePage() {
       }
     })();
     return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     if (session) return;
     if (!googleClientId) return;
