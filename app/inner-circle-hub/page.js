@@ -1363,22 +1363,46 @@ export default function InnerCircleHubPage() {
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
                   <strong style={{ color: '#fff' }}>Policy Activity Table</strong>
                   <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-                    {filteredProductionRows.slice(0, 30).map((row) => (
-                      <div key={row?.id} style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#0b1220' }}>
-                        <div style={{ color: '#f8fafc', fontWeight: 700 }}>
-                          {row?.applicantName || 'Applicant'} • {row?.policyType || row?.appType || 'Policy'}
-                          {clean(row?.policyType || row?.appType || '').toLowerCase().includes('inner circle') ? (
-                            <span className="pill" style={{ marginLeft: 8, background: '#3a2f1a', color: '#f3e8d1', border: '1px solid #c8a96b' }}>Inner Circle</span>
-                          ) : null}
+                    {filteredProductionRows.slice(0, 30).map((row) => {
+                      const typeLabel = normalizePolicyTypeLabel(row?.policyType || row?.appType || 'Policy');
+                      const typeNorm = clean(typeLabel).toLowerCase();
+                      const isInner = typeNorm.includes('inner circle');
+                      const isSponsorship = typeNorm.includes('sponsorship');
+                      const approved = isApprovedStatus(row?.status || '');
+                      const commissionPct = Math.round((Number(row?.commissionRate || 0) || 0) * 100);
+                      const points = Number(computeEffectivePoints(row) || 0);
+                      const advance = Number(computeEffectiveAdvance(row, points) || 0);
+
+                      return (
+                        <div
+                          key={row?.id}
+                          style={{
+                            border: approved ? '1px solid #22c55e' : '1px solid #334155',
+                            boxShadow: approved ? '0 0 0 1px rgba(34,197,94,0.28), 0 0 20px rgba(34,197,94,0.16)' : 'none',
+                            borderRadius: 10,
+                            padding: 10,
+                            background: approved ? 'linear-gradient(180deg,#0b1620 0%,#0b1220 100%)' : '#0b1220'
+                          }}
+                        >
+                          <div style={{ color: '#f8fafc', fontWeight: 700, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                            <span>{row?.applicantName || 'Applicant'} • {typeLabel}</span>
+                            {isSponsorship ? (
+                              <span className="pill" style={{ background: '#064e3b', color: '#d1fae5', border: '1px solid #10b981' }}>Sponsorship</span>
+                            ) : null}
+                            {isInner ? (
+                              <span className="pill" style={{ background: '#1e3a8a', color: '#dbeafe', border: '1px solid #3b82f6' }}>Inner Circle</span>
+                            ) : null}
+                            <span className={`pill ${approved ? 'onpace' : 'atrisk'}`}>{approved ? 'Approved' : (row?.status || 'Submitted')}</span>
+                          </div>
+                          <div style={{ color: '#cbd5e1', fontSize: 12, marginTop: 6 }}>
+                            Commission: <strong style={{ color: '#f8fafc' }}>{commissionPct}%</strong> • Points: <strong style={{ color: '#f8fafc' }}>{points.toFixed(2)}</strong> • Advance: <strong style={{ color: '#86efac' }}>${advance.toFixed(2)}</strong>
+                          </div>
+                          <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 3 }}>
+                            Remaining: ${Number(row?.remainingBalance || 0).toFixed(2)} • M10: ${Number(row?.month10Payout || 0).toFixed(2)} • M11: ${Number(row?.month11Payout || 0).toFixed(2)} • M12: ${Number(row?.month12Payout || 0).toFixed(2)}
+                          </div>
                         </div>
-                        <div style={{ color: '#cbd5e1', fontSize: 12, marginTop: 4 }}>
-                          Commission: {Math.round((Number(row?.commissionRate || 0) || 0) * 100)}% • Points: {Number(computeEffectivePoints(row) || 0).toFixed(2)} • Advance: ${Number(computeEffectiveAdvance(row, computeEffectivePoints(row)) || 0).toFixed(2)} • Status: {row?.status || 'Submitted'}
-                        </div>
-                        <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 2 }}>
-                          Remaining: ${Number(row?.remainingBalance || 0).toFixed(2)} • M10: ${Number(row?.month10Payout || 0).toFixed(2)} • M11: ${Number(row?.month11Payout || 0).toFixed(2)} • M12: ${Number(row?.month12Payout || 0).toFixed(2)}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {!filteredProductionRows.length ? <small className="muted">No personal production records for this filter yet.</small> : null}
                   </div>
                 </div>
