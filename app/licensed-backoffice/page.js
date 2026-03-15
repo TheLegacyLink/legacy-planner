@@ -549,6 +549,27 @@ export default function LicensedBackofficePage() {
               </div>
             ) : null}
 
+            {tab === 'overview' ? (
+              <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
+                <h3 style={{ marginTop: 0 }}>Licensed Incentive Rules (Current)</h3>
+                <div style={{ color: '#9CA3AF', display: 'grid', gap: 6 }}>
+                  <div><strong style={{ color: '#E5E7EB' }}>$1</strong> per completed sponsorship app</div>
+                  <div><strong style={{ color: '#E5E7EB' }}>$10</strong> per submitted insurance application</div>
+                  <div>30-day boost: after the first <strong style={{ color: '#E5E7EB' }}>10</strong> completed sponsorship apps, each additional app in that rolling 30-day window is <strong style={{ color: '#E5E7EB' }}>$5</strong>.</div>
+                </div>
+                <div style={{ marginTop: 12, padding: 10, borderRadius: 10, border: '1px solid #334155', background: '#020617' }}>
+                  <div style={{ fontWeight: 700, marginBottom: 6 }}>Guardrails</div>
+                  <ul style={{ margin: 0, paddingLeft: 18, color: '#9CA3AF', display: 'grid', gap: 4 }}>
+                    <li>One payout per unique person/event (no duplicate payout).</li>
+                    <li>Minimum data quality required (valid name, phone, email, state).</li>
+                    <li>No self-submissions, household abuse, or recycled leads.</li>
+                    <li>Fraud/duplicate review hold applies before payout release.</li>
+                    <li>Program can be updated by company policy notice.</li>
+                  </ul>
+                </div>
+              </div>
+            ) : null}
+
             {tab === 'sponsorships' ? (
               <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
                 <h3 style={{ marginTop: 0 }}>My Sponsorship Pipeline</h3>
