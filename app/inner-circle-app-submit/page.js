@@ -142,6 +142,7 @@ function mapReferrerToUser(raw = '', users = [], refCode = '') {
 export default function InnerCircleAppSubmitPage() {
   const [ref, setRef] = useState('');
   const [saved, setSaved] = useState('');
+  const [skipBusy, setSkipBusy] = useState(false);
   const [contractStatus, setContractStatus] = useState({ loading: false, checkedEmail: '', signed: false, signedAt: '' });
   const [contractEmailBusy, setContractEmailBusy] = useState(false);
   const [contractEmailMsg, setContractEmailMsg] = useState('');
@@ -371,6 +372,22 @@ export default function InnerCircleAppSubmitPage() {
     );
   }, [form, requiresContract, contractStatus.signed, isAdmin, adminBypassContractGate, adminMarkedAppReceived, usesAnnualizedPremium, isInnerCircleType]);
 
+  const canMarkSkipped = useMemo(() => {
+    const writerOk = form.policyWriterName === 'Other'
+      ? form.policyWriterOtherName.trim()
+      : form.policyWriterName.trim();
+
+    return Boolean(
+      session?.name &&
+      form.applicantName.trim() &&
+      form.applicantEmail.trim() &&
+      form.applicantLicensedStatus.trim() &&
+      form.referredByName.trim() &&
+      writerOk &&
+      form.state.trim()
+    );
+  }, [session?.name, form]);
+
   const payoutPreview = useMemo(() => {
     return calcPreview(form.appType, form.monthlyPremium, form.annualPremium, form.applicantLicensedStatus, form.carrier, form.productName);
   }, [form.appType, form.monthlyPremium, form.annualPremium, form.applicantLicensedStatus, form.carrier, form.productName]);
@@ -495,6 +512,58 @@ export default function InnerCircleAppSubmitPage() {
       setContractEmailMsg('Could not mark signed right now.');
     } finally {
       setContractEmailBusy(false);
+    }
+  }
+
+  async function markSkippedApp() {
+    if (!canMarkSkipped || !session?.name || skipBusy) return;
+
+    const effectivePolicyWriter = form.policyWriterName === 'Other'
+      ? form.policyWriterOtherName.trim()
+      : form.policyWriterName;
+
+    setSkipBusy(true);
+    setSaved('');
+    try {
+      const payload = {
+        mode: 'skip_onboarding',
+        record: {
+          applicantName: form.applicantName,
+          applicantEmail: form.applicantEmail,
+          applicantPhone: form.applicantPhone,
+          applicantLicensedStatus: form.applicantLicensedStatus,
+          referredByName: form.referredByName,
+          policyWriterName: effectivePolicyWriter,
+          state: form.state,
+          submittedBy: session.name,
+          submittedByRole: session.role || 'submitter',
+          note: 'Marked as skipped in app submit flow. No production credit; onboarding credentials sent.'
+        }
+      };
+
+      const res = await fetch('/api/policy-submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setSaved(`Could not mark skipped: ${data?.error || 'unknown_error'}`);
+        return;
+      }
+
+      setSaved('Applicant marked as skipped. No production credit added. Welcome + credentials flow triggered.');
+      setForm((prev) => ({
+        ...prev,
+        appType: '',
+        policyNumber: '',
+        monthlyPremium: '',
+        annualPremium: ''
+      }));
+    } catch {
+      setSaved('Could not mark skipped right now. Please retry.');
+    } finally {
+      setSkipBusy(false);
     }
   }
 
@@ -971,9 +1040,13 @@ export default function InnerCircleAppSubmitPage() {
             </label>
           ) : null}
 
-          <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
+          <div className="rowActions" style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <button type="submit" disabled={!canSubmit}>Submit Application</button>
+            <button type="button" className="ghost" onClick={markSkippedApp} disabled={!canMarkSkipped || skipBusy}>
+              {skipBusy ? 'Saving Skip…' : 'Applicant Skipped App (No Credit)'}
+            </button>
             {requiresContract && !contractStatus.signed && !(isAdmin && (adminBypassContractGate || adminMarkedAppReceived)) ? <small className="muted">Signature gate: applicant must complete ICA before submit.</small> : null}
+            <small className="muted">Skip action still triggers onboarding credentials + welcome flow.</small>
           </div>
         </form>
 
@@ -998,6 +1071,9 @@ export default function InnerCircleAppSubmitPage() {
             </div>
             <button type="submit" form="policySubmitForm" className="publicPrimaryBtn" disabled={!canSubmit} style={{ width: '100%', marginTop: 12 }}>
               Submit Application
+            </button>
+            <button type="button" className="ghost" onClick={markSkippedApp} disabled={!canMarkSkipped || skipBusy} style={{ width: '100%', marginTop: 8 }}>
+              {skipBusy ? 'Saving Skip…' : 'Applicant Skipped App (No Credit)'}
             </button>
           </div>
         </aside>

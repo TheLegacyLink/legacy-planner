@@ -13,6 +13,7 @@ const MEMBERS_PATH = 'stores/sponsorship-program-members.json';
 const INVITES_PATH = 'stores/sponsorship-sop-invites.json';
 const AUTH_USERS_PATH = 'stores/sponsorship-sop-auth-users.json';
 const SPONSORSHIP_BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
+const ONBOARDING_DECISIONS_PATH = 'stores/onboarding-decisions.json';
 
 const DEFAULT_SKOOL_URL = 'https://www.skool.com/legacylink/about';
 const DEFAULT_YOUTUBE_URL = 'https://youtu.be/SVvU9SvCH9o?si=H9BNtEDzglTuvJaI';
@@ -218,6 +219,28 @@ async function getStore() {
 
 async function writeStore(rows) {
   return await saveJsonStore(STORE_PATH, rows);
+}
+
+async function appendOnboardingDecision(row = {}) {
+  const list = await loadJsonStore(ONBOARDING_DECISIONS_PATH, []);
+  const rows = Array.isArray(list) ? list : [];
+  rows.unshift({
+    id: clean(row?.id || `od_${Date.now()}`),
+    decision: clean(row?.decision || 'skipped_app') || 'skipped_app',
+    applicantName: clean(row?.applicantName || ''),
+    applicantEmail: clean(row?.applicantEmail || '').toLowerCase(),
+    applicantPhone: clean(row?.applicantPhone || ''),
+    applicantLicensedStatus: clean(row?.applicantLicensedStatus || ''),
+    referredByName: clean(row?.referredByName || ''),
+    policyWriterName: clean(row?.policyWriterName || ''),
+    state: clean(row?.state || '').toUpperCase(),
+    submittedBy: clean(row?.submittedBy || ''),
+    submittedByRole: clean(row?.submittedByRole || ''),
+    note: clean(row?.note || ''),
+    createdAt: nowIso()
+  });
+  await saveJsonStore(ONBOARDING_DECISIONS_PATH, rows);
+  return rows[0];
 }
 
 function normalizedRecord(row = {}) {
@@ -919,8 +942,9 @@ export async function GET() {
 
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
+  const requestedModeForDupCheck = clean(body?.mode || 'upsert').toLowerCase();
   const duplicateBypass = Boolean(body?.forceDuplicate || body?.confirmDuplicate);
-  if (!duplicateBypass) {
+  if (!duplicateBypass && requestedModeForDupCheck !== 'skip_onboarding') {
     const applicantName = String(body?.submission?.applicantName || body?.submission?.applicant_name || body?.applicantName || body?.applicant_name || '');
     const amountRaw = body?.submission?.annualPremium ?? body?.submission?.annual_premium ?? body?.annualPremium ?? body?.annual_premium ?? body?.premium;
     const newNameKey = dupNameKey(applicantName);
@@ -942,6 +966,32 @@ export async function POST(req) {
 
   const mode = clean(body?.mode || 'upsert').toLowerCase();
   const store = await getStore();
+
+  if (mode === 'skip_onboarding') {
+    const row = {
+      id: clean(body?.id || `skip_${Date.now()}`),
+      decision: 'skipped_app',
+      applicantName: clean(body?.record?.applicantName || body?.applicantName || ''),
+      applicantEmail: clean(body?.record?.applicantEmail || body?.applicantEmail || '').toLowerCase(),
+      applicantPhone: clean(body?.record?.applicantPhone || body?.applicantPhone || ''),
+      applicantLicensedStatus: clean(body?.record?.applicantLicensedStatus || body?.applicantLicensedStatus || ''),
+      referredByName: clean(body?.record?.referredByName || body?.referredByName || ''),
+      policyWriterName: clean(body?.record?.policyWriterName || body?.policyWriterName || ''),
+      state: clean(body?.record?.state || body?.state || '').toUpperCase(),
+      submittedBy: clean(body?.record?.submittedBy || body?.submittedBy || ''),
+      submittedByRole: clean(body?.record?.submittedByRole || body?.submittedByRole || ''),
+      note: clean(body?.record?.note || body?.note || 'Applicant skipped app submission; onboarding credentials requested.')
+    };
+
+    if (!row.applicantName || !row.applicantEmail) {
+      return Response.json({ ok: false, error: 'missing_applicant_identity' }, { status: 400 });
+    }
+
+    const decision = await appendOnboardingDecision(row);
+    const sop = await ensureSopProvisionFromActSubmit(row).catch((e) => ({ ok: false, error: clean(e?.message || 'sop_provision_failed') }));
+
+    return Response.json({ ok: true, decision, sop, noProductionCredit: true });
+  }
 
   if (mode === 'import_base44') {
     const sourceRows = await loadJsonStore(SPONSORSHIP_APPS_STORE_PATH, []);
