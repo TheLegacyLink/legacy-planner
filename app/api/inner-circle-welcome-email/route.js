@@ -9,6 +9,7 @@ import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../
 
 function clean(v = '') { return String(v || '').trim(); }
 const execFileAsync = promisify(execFile);
+const YOUTUBE_WHATEVER_IT_TAKES = 'https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX';
 
 function safeFilePart(v = '') {
   return clean(v)
@@ -368,6 +369,7 @@ function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, 
   } else {
     if (safeSponsorship) onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Your personal sponsor link to share:</strong><br/><a href="${safeSponsorship}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSponsorship}</a></li>`);
     if (roleKey === 'licensed' && safeSkool) onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Join Skool Community (Training):</strong><br/><a href="${safeSkool}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSkool}</a></li>`);
+    onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Watch “Whatever It Takes” + leave a comment:</strong><br/><a href="${YOUTUBE_WHATEVER_IT_TAKES}" style="color:#F58426;text-decoration:none;font-weight:700;">${YOUTUBE_WHATEVER_IT_TAKES}</a></li>`);
     onboardingRows.push('<li>Complete the attached onboarding playbook + comp/bonus schedule and follow your coach instructions.</li>');
   }
 
@@ -508,9 +510,11 @@ export async function POST(req) {
     textLines.push('Step 5: Run your first 72-hour execution plan in the Hub');
   } else if (roleConfig.roleKey === 'licensed') {
     textLines.push(`Step 3: Join Skool Community (Training): ${skoolUrl}`);
-    textLines.push('Step 4: Complete your attached role-based onboarding playbook');
+    textLines.push(`Step 4: Watch "Whatever It Takes" and leave a comment: ${YOUTUBE_WHATEVER_IT_TAKES}`);
+    textLines.push('Step 5: Complete your attached role-based onboarding playbook');
   } else {
-    textLines.push('Step 3: Complete your attached role-based onboarding playbook');
+    textLines.push(`Step 3: Watch "Whatever It Takes" and leave a comment: ${YOUTUBE_WHATEVER_IT_TAKES}`);
+    textLines.push('Step 4: Complete your attached role-based onboarding playbook');
   }
 
   textLines.push(`Coach: ${coachName}`);
@@ -520,11 +524,13 @@ export async function POST(req) {
     textLines.push(`Comp + Bonus Schedule (PDF): ${compScheduleUrl}`);
   }
   if (roleConfig.roleKey === 'unlicensed') {
+    textLines.push(`Required video task: Watch "Whatever It Takes" and leave a comment: ${YOUTUBE_WHATEVER_IT_TAKES}`);
     textLines.push('Pre-licensing onboarding note: Jamal leads this process for all unlicensed agents, regardless of referral/upline.');
     textLines.push('Jamal will reach out within 1–3 business days to get pre-licensing started.');
   }
   if (roleConfig.roleKey === 'licensed') {
     textLines.push(`Skool Community (Training): ${skoolUrl}`);
+    textLines.push(`Required video task: Watch "Whatever It Takes" and leave a comment: ${YOUTUBE_WHATEVER_IT_TAKES}`);
     textLines.push('Lead activation note: Licensed agents start receiving leads after full onboarding is complete and after first hour of community service is completed.');
     textLines.push('Favorite carrier partners (sample): F&G, Foresters, Mutual of Omaha, National Life Group, Transamerica.');
   }

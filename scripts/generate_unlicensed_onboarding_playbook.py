@@ -98,13 +98,13 @@ def build():
       'Stay active and responsive while onboarding is in progress.'
     ], st)); story.append(Spacer(1,8))
 
-    story.append(section('Step 5 — Pre-Licensing Onboarding (Jamal Leads This)', [
+    story.append(section('Step 6 — Pre-Licensing Onboarding (Jamal Leads This)', [
       'Jamal leads pre-licensing onboarding for all unlicensed agents.',
       'This is true regardless of referral/upline.',
       'Expect outreach from Jamal within 1–3 business days to start pre-licensing.'
     ], st)); story.append(Spacer(1,8))
 
-    story.append(section('Step 6 — Daily Execution Standards', [
+    story.append(section('Step 7 — Daily Execution Standards', [
       'Work new leads daily.',
       'Follow up warm leads daily.',
       'Book at least one conversation daily.',

@@ -102,7 +102,12 @@ def build():
     ], st))
     story.append(Spacer(1, 8))
 
-    story.append(section('Step 5 — Daily Execution Standards', [
+    story.append(section('Step 5 — Required Video Task', [
+      'Watch "Whatever It Takes": https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX',
+      'Leave a comment on the video for completion verification.'
+    ], st)); story.append(Spacer(1,8))
+
+    story.append(section('Step 6 — Daily Execution Standards', [
         'Work new leads daily.',
         'Follow up warm leads daily.',
         'Book at least one conversation daily.',

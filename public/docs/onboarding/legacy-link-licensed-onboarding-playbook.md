@@ -27,7 +27,11 @@ Complete each step in order, then execute daily standards with clean CRM updates
 - Complete required onboarding/training tasks inside community.
 - Stay responsive and active while onboarding is in progress.
 
-## Step 5 — Daily Execution Standards (Non-Negotiable)
+## Step 5 — Required Video Task
+- Watch **Whatever It Takes**: **https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX**
+- Leave a comment on the video so completion can be verified.
+
+## Step 7 — Daily Execution Standards (Non-Negotiable)
 - Work new leads daily
 - Follow up warm leads daily
 - Book at least one conversation daily
