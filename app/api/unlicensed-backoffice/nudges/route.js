@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
-import { loadJsonStore, saveJsonStore } from '../../../../../lib/blobJsonStore';
-import innerCircleUsers from '../../../../../data/innerCircleUsers.json';
-import leadClaimsUsers from '../../../../../data/leadClaimsUsers.json';
+import { loadJsonStore, saveJsonStore } from '../../../../lib/blobJsonStore';
+import innerCircleUsers from '../../../../data/innerCircleUsers.json';
+import leadClaimsUsers from '../../../../data/leadClaimsUsers.json';
 
 const PROGRESS_PATH = 'stores/unlicensed-backoffice-progress.json';
 const APPS_PATH = 'stores/sponsorship-applications.json';

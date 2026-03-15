@@ -213,6 +213,8 @@ export default function MissionControl() {
   const [payoutBusyAgent, setPayoutBusyAgent] = useState('');
   const [unlicensedProgressRows, setUnlicensedProgressRows] = useState([]);
   const [unlicensedStageCounts, setUnlicensedStageCounts] = useState({});
+  const [unlicensedBonusCounts, setUnlicensedBonusCounts] = useState({});
+  const [nudgeRunState, setNudgeRunState] = useState({ running: false, message: '' });
   const [detailsModal, setDetailsModal] = useState({ open: false, type: '' });
   const [contactsVaultSummary, setContactsVaultSummary] = useState({ total: 0, withEmail: 0, withoutEmail: 0 });
   const [contactsVaultUpdatedAt, setContactsVaultUpdatedAt] = useState('');
@@ -255,13 +257,14 @@ export default function MissionControl() {
       setLoading(true);
       setError('');
       try {
-        const [leaderboardRes, revenueRes, sponsorshipRes, manualReviewRes, policySubmissionsRes, sponsorshipBookingsRes] = await Promise.all([
+        const [leaderboardRes, revenueRes, sponsorshipRes, manualReviewRes, policySubmissionsRes, sponsorshipBookingsRes, unlicensedProgressRes] = await Promise.all([
           fetch(config.leaderboardUrl, { cache: 'no-store' }),
           fetch(config.revenueUrl, { cache: 'no-store' }),
           fetch(config.sponsorshipTrackerUrl, { cache: 'no-store' }),
           fetch('/api/sponsorship-applications', { cache: 'no-store' }),
           fetch('/api/policy-submissions', { cache: 'no-store' }),
-          fetch('/api/sponsorship-bookings', { cache: 'no-store' })
+          fetch('/api/sponsorship-bookings', { cache: 'no-store' }),
+          fetch('/api/unlicensed-backoffice/admin/progress', { cache: 'no-store' })
         ]);
 
         if (!leaderboardRes.ok) throw new Error(`Leaderboard HTTP ${leaderboardRes.status}`);
@@ -373,6 +376,16 @@ export default function MissionControl() {
             .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
         }
 
+        let unlicensedRows = [];
+        let unlicensedStages = {};
+        let unlicensedBonuses = {};
+        if (unlicensedProgressRes.ok) {
+          const unlicensedJson = await unlicensedProgressRes.json().catch(() => ({}));
+          unlicensedRows = Array.isArray(unlicensedJson?.rows) ? unlicensedJson.rows : [];
+          unlicensedStages = unlicensedJson?.stageCounts && typeof unlicensedJson.stageCounts === 'object' ? unlicensedJson.stageCounts : {};
+          unlicensedBonuses = unlicensedJson?.bonusCounts && typeof unlicensedJson.bonusCounts === 'object' ? unlicensedJson.bonusCounts : {};
+        }
+
         if (!mounted) return;
         setRows(normalizeRows(leaderboardJson));
         setRevenueRows(normalizeRows(revenueJson));
@@ -383,6 +396,9 @@ export default function MissionControl() {
         setTodaySponsorshipDetails(todayDetails);
         setTodayApplicationDetails(todayAppDetailsRows);
         setBookingQueue(queueRows);
+        setUnlicensedProgressRows(unlicensedRows);
+        setUnlicensedStageCounts(unlicensedStages);
+        setUnlicensedBonusCounts(unlicensedBonuses);
         setPayoutPolicyRows(policyRows);
         setPayoutSponsorshipRows(reviewRows);
         setSponsorshipSyncIssue(sponsorshipIssue);
@@ -562,6 +578,26 @@ export default function MissionControl() {
       // ignore save failures here; quick admin action
     } finally {
       setPayoutBusyAgent('');
+    }
+  }
+
+  async function runUnlicensedNudges() {
+    if (nudgeRunState.running) return;
+    setNudgeRunState({ running: true, message: '' });
+    try {
+      const res = await fetch('/api/unlicensed-backoffice/nudges', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun: false })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setNudgeRunState({ running: false, message: `Nudges failed: ${data?.error || `HTTP ${res.status}`}` });
+        return;
+      }
+      setNudgeRunState({ running: false, message: `Nudges complete. Sent: ${Number(data?.sentCount || 0)}, Skipped: ${Number(data?.skippedCount || 0)}.` });
+    } catch {
+      setNudgeRunState({ running: false, message: 'Nudges failed. Please retry.' });
     }
   }
 
