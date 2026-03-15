@@ -19,6 +19,8 @@ function statusStyle(status = '') {
   return { background: '#e5e7eb', color: '#374151' };
 }
 
+const LEGACY_APP_URL = 'https://legacylink.app/';
+
 export default function SponsorshipSopPage() {
   const [auth, setAuth] = useState({ name: '', email: '', role: '' });
   const [loginName, setLoginName] = useState('');
@@ -326,6 +328,7 @@ export default function SponsorshipSopPage() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {resources?.skoolUrl ? <a href={resources.skoolUrl} target="_blank" rel="noreferrer">Open Skool Community</a> : <span className="muted">Skool link pending</span>}
             {resources?.youtubeUrl ? <a href={resources.youtubeUrl} target="_blank" rel="noreferrer">Open “Whatever It Takes” YouTube</a> : <span className="muted">YouTube link pending</span>}
+            <a href={LEGACY_APP_URL} target="_blank" rel="noreferrer">Join Legacy Link App (CRM)</a>
           </div>
           {isDemo ? (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

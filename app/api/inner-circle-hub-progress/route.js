@@ -1,6 +1,8 @@
 import { loadJsonStore } from '../../../lib/blobJsonStore';
+import innerCircleUsers from '../../../data/innerCircleUsers.json';
 
 const MEMBERS_PATH = 'stores/inner-circle-hub-members.json';
+const PROGRAM_MEMBERS_PATH = 'stores/sponsorship-program-members.json';
 const DAILY_PATH = 'stores/inner-circle-hub-daily.json';
 const LEAD_ROUTER_EVENTS_PATH = 'stores/lead-router-events.json';
 const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
@@ -48,8 +50,32 @@ function personKey({ name = '', email = '', phone = '' } = {}) {
   return `n:${normalize(name).replace(/[^a-z0-9]/g, '')}`;
 }
 
+function rosterKey({ name = '', email = '' } = {}) {
+  const em = clean(email).toLowerCase();
+  if (em) return `e:${em}`;
+  const sig = nameSignature(name);
+  if (sig) return `s:${sig}`;
+  return `n:${normalize(name).replace(/[^a-z0-9]/g, '')}`;
+}
+
 function uniquePeopleCount(rows = []) {
   return new Set((rows || []).map((r) => personKey(r))).size;
+}
+
+function likelyNameMatch(a = '', b = '') {
+  const na = normalize(a);
+  const nb = normalize(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+
+  const sa = nameSignature(na).replace(/_/g, ' ');
+  const sb = nameSignature(nb).replace(/_/g, ' ');
+  if (sa && sb && sa === sb) return true;
+
+  const longEnough = Math.min(na.length, nb.length) >= 8;
+  if (longEnough && (na.includes(nb) || nb.includes(na))) return true;
+
+  return false;
 }
 
 function isOwnerMatch(row = {}, ownerName = '', ownerEmail = '') {
@@ -82,7 +108,7 @@ function isOwnerMatch(row = {}, ownerName = '', ownerEmail = '') {
     row?.submitted_by_email
   ].map(normalize);
 
-  if (n && candidates.some((c) => c === n)) return true;
+  if (n && candidates.some((c) => likelyNameMatch(c, n))) return true;
   if (e && emailCandidates.some((c) => c === e)) return true;
   return false;
 }
@@ -126,7 +152,8 @@ function kpiForMember(events = [], policyRows = [], bookingRows = [], sponsorshi
   const leadsReceived = assignedThisMonth.length;
 
   const closesRows = (policyRows || []).filter((r) => {
-    const ts = r?.submittedAt || r?.submitted_at || r?.createdAt || r?.created_at || '';
+    if (!normalize(r?.status || '').startsWith('approved')) return false;
+    const ts = r?.approvedAt || r?.approved_at || r?.updatedAt || r?.submittedAt || r?.submitted_at || '';
     return monthKeyFromIso(ts) === currentMonth && rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode);
   }).map((r) => ({
     name: clean(r?.applicantName || r?.name || r?.insuredName || ''),
@@ -184,8 +211,9 @@ function kpiForMember(events = [], policyRows = [], bookingRows = [], sponsorshi
 }
 
 export async function GET() {
-  const [members, dailyRows, events, policyRows, bookingRows, sponsorshipApps] = await Promise.all([
+  const [members, programMembers, dailyRows, events, policyRows, bookingRows, sponsorshipApps] = await Promise.all([
     loadJsonStore(MEMBERS_PATH, []),
+    loadJsonStore(PROGRAM_MEMBERS_PATH, []),
     loadJsonStore(DAILY_PATH, []),
     loadJsonStore(LEAD_ROUTER_EVENTS_PATH, []),
     loadJsonStore(POLICY_SUBMISSIONS_PATH, []),
@@ -194,7 +222,61 @@ export async function GET() {
   ]);
 
   const currentMonth = monthKey(new Date());
-  const memberRows = (members || []).filter((m) => clean(m?.email));
+
+  const rosterMap = new Map();
+  const innerCircleSet = new Set(
+    (innerCircleUsers || [])
+      .filter((u) => u?.active !== false)
+      .map((u) => rosterKey({ name: clean(u?.name), email: clean(u?.email).toLowerCase() }))
+  );
+
+  for (const m of (members || [])) {
+    const row = {
+      id: clean(m?.id),
+      applicantName: clean(m?.applicantName || m?.name),
+      email: clean(m?.email).toLowerCase(),
+      active: m?.active !== false,
+      contractSignedAt: clean(m?.contractSignedAt),
+      paymentReceivedAt: clean(m?.paymentReceivedAt),
+      onboardingUnlockedAt: clean(m?.onboardingUnlockedAt)
+    };
+    if (!row.applicantName) continue;
+    rosterMap.set(rosterKey(row), row);
+  }
+
+  for (const m of (programMembers || [])) {
+    const row = {
+      id: clean(m?.id),
+      applicantName: clean(m?.name || m?.applicantName),
+      email: clean(m?.email).toLowerCase(),
+      active: m?.active !== false,
+      contractSignedAt: '',
+      paymentReceivedAt: '',
+      onboardingUnlockedAt: ''
+    };
+    if (!row.applicantName) continue;
+    const key = rosterKey(row);
+    const existing = rosterMap.get(key) || {};
+    rosterMap.set(key, { ...row, ...existing, applicantName: existing?.applicantName || row.applicantName, email: existing?.email || row.email, active: existing?.active ?? row.active });
+  }
+
+  for (const u of (innerCircleUsers || [])) {
+    const row = {
+      id: clean(u?.id),
+      applicantName: clean(u?.name),
+      email: clean(u?.email).toLowerCase(),
+      active: u?.active !== false,
+      contractSignedAt: '',
+      paymentReceivedAt: '',
+      onboardingUnlockedAt: ''
+    };
+    if (!row.applicantName) continue;
+    const key = rosterKey(row);
+    const existing = rosterMap.get(key) || {};
+    rosterMap.set(key, { ...row, ...existing, applicantName: existing?.applicantName || row.applicantName, email: existing?.email || row.email, active: existing?.active ?? row.active });
+  }
+
+  const memberRows = Array.from(rosterMap.values());
 
   const rows = memberRows.map((m) => {
     const email = clean(m?.email).toLowerCase();
@@ -214,7 +296,8 @@ export async function GET() {
       id: clean(m?.id),
       applicantName: clean(m?.applicantName),
       email,
-      active: Boolean(m?.active),
+      active: m?.active !== false,
+      inInnerCircle: innerCircleSet.has(rosterKey({ name: clean(m?.applicantName), email })),
       contractSignedAt: clean(m?.contractSignedAt),
       paymentReceivedAt: clean(m?.paymentReceivedAt),
       onboardingUnlockedAt: clean(m?.onboardingUnlockedAt),

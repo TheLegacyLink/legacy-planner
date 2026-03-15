@@ -100,8 +100,19 @@ export default function LeadRouterPage() {
     if (onboardRes.ok && onboardData?.ok) {
       const rows = onboardData.rows || [];
       setOnboardingRows(rows);
-      const innerNames = rows.filter((r) => String(r?.group || '').toLowerCase() === 'inner').map((r) => String(r?.name || '').trim()).filter(Boolean);
-      setInnerCircleNames(innerNames);
+      const innerNamesFromOnboarding = rows
+        .filter((r) => String(r?.group || '').toLowerCase() === 'inner')
+        .map((r) => String(r?.name || '').trim())
+        .filter(Boolean);
+
+      // Fallback: if onboarding data is incomplete, use router agent roster
+      // so Inner Circle assignment controls still show the full team.
+      const fallbackFromSettings = (data?.settings?.agents || [])
+        .map((a) => String(a?.name || '').trim())
+        .filter(Boolean);
+
+      const merged = Array.from(new Set([...(innerNamesFromOnboarding || []), ...(fallbackFromSettings || [])]));
+      setInnerCircleNames(merged);
     }
 
     setLoading(false);

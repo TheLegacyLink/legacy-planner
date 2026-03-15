@@ -48,6 +48,12 @@ function clean(v = '') {
 const AGENT_NAME_ALIASES = {
   'latricia wright': 'Leticia Wright',
   'latrisha wright': 'Leticia Wright',
+  'letitia wright': 'Leticia Wright',
+  'kellen brown': 'Kelin Brown',
+  'madeline adams': 'Madalyn Adams',
+  'andrea': 'Andrea Cannon',
+  'angelica lassiter': 'Angelique Lassiter',
+  'angelic lassiter': 'Angelique Lassiter',
   'donyellrichardson': 'Donyell Richardson',
   'donyell richardson': 'Donyell Richardson',
   'danielle': 'Donyell Richardson',

@@ -112,10 +112,10 @@ export default function SponsorshipReviewPage() {
         const submitted = new Set();
         const rows = Array.isArray(policyData.rows) ? policyData.rows : [];
         for (const p of rows) {
-          const name = normalize(p?.applicantName || p?.applicant_name || '');
+          // IMPORTANT: do not classify F&G submission by name alone.
+          // Name collisions are common; only trust email/phone identifiers.
           const email = normalize(p?.applicantEmail || p?.applicant_email || p?.email || '');
           const phone = normalizePhone(p?.applicantPhone || p?.applicant_phone || p?.phone || '');
-          if (name) submitted.add(`n:${name}`);
           if (email) submitted.add(`e:${email}`);
           if (phone) submitted.add(`p:${phone}`);
         }
@@ -204,11 +204,9 @@ export default function SponsorshipReviewPage() {
   }
 
   function isFgSubmitted(r = {}) {
-    const name = normalize(`${r?.firstName || ''} ${r?.lastName || ''}`);
     const email = normalize(r?.email || '');
     const phone = normalizePhone(r?.phone || '');
-    return (name && fgSubmittedSet.has(`n:${name}`))
-      || (email && fgSubmittedSet.has(`e:${email}`))
+    return (email && fgSubmittedSet.has(`e:${email}`))
       || (phone && fgSubmittedSet.has(`p:${phone}`));
   }
 

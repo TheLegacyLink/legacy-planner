@@ -169,6 +169,8 @@ async function sendAttendeeConfirmationEmail(row = {}) {
   if (!mailer || !to) return { ok: false, skipped: true, error: 'missing_attendee_email_or_mailer' };
 
   const zoomLink = clean(process.env.INNER_CIRCLE_ZOOM_LINK || process.env.NEXT_PUBLIC_INNER_CIRCLE_ZOOM_LINK || 'https://us06web.zoom.us/j/9574933592?pwd=KiWiYeUNEXTbCIhGvIGGd5M9JKAWkY.1');
+  const appUrl = clean(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
+  const contractLink = clean(process.env.INNER_CIRCLE_CONTRACT_LINK || `${appUrl}/contract-agreement`);
   const localTime = localSlotLabel(row);
   const calLink = buildCalendarLink(row, zoomLink);
 
@@ -182,6 +184,11 @@ async function sendAttendeeConfirmationEmail(row = {}) {
     `Time: ${localTime}`,
     `Zoom Link: ${zoomLink}`,
     calLink ? `Add to Google Calendar: ${calLink}` : '',
+    '',
+    'Before we move forward with the onboarding steps, please review and complete the contracting agreement:',
+    `Contract Agreement: ${contractLink}`,
+    '',
+    'Completing this ahead of your call helps us move faster and makes your session more productive.',
     '',
     'If you need to reschedule, please reply to this email in advance.',
     '',
@@ -200,6 +207,11 @@ async function sendAttendeeConfirmationEmail(row = {}) {
         <p style="margin:0;"><strong>Zoom Link:</strong> <a href="${zoomLink}">Join Meeting</a></p>
       </div>
       ${calLink ? `<p style="margin-top:12px;"><a href="${calLink}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;">Add to Google Calendar</a></p>` : ''}
+      <div style="margin-top:14px;border:1px solid #e5e7eb;border-radius:10px;padding:14px;background:#ffffff;">
+        <p style="margin:0 0 10px;"><strong>Before we move forward with the onboarding steps</strong>, please review and complete the contracting agreement.</p>
+        <p style="margin:0 0 12px;color:#334155;">This helps speed up the process and ensures your call is focused and productive.</p>
+        <a href="${contractLink}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700;">Review Contract Agreement</a>
+      </div>
       <p>If you need to reschedule, please reply to this email in advance.</p>
       <p style="margin-top:16px;">Best regards,<br/><strong>Kimora Link</strong><br/>The Legacy Link</p>
     </div>

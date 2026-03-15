@@ -88,6 +88,61 @@ function extractCompletedRecords(payload = {}) {
     .filter((r) => r.email);
 }
 
+function xmlTag(xml = '', tag = '') {
+  const re = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i');
+  const m = String(xml || '').match(re);
+  return clean(m?.[1] || '');
+}
+
+function xmlBlocks(xml = '', tag = '') {
+  const re = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'ig');
+  const out = [];
+  let m = null;
+  while ((m = re.exec(String(xml || '')))) out.push(clean(m[1] || ''));
+  return out;
+}
+
+function decodeXmlEntities(v = '') {
+  return String(v || '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
+}
+
+function extractCompletedRecordsFromXml(raw = '') {
+  const xml = String(raw || '');
+  if (!xml) return [];
+  if (!/<Status>\s*Completed\s*<\/Status>/i.test(xml)) return [];
+
+  const envelopeId = decodeXmlEntities(xmlTag(xml, 'EnvelopeID'));
+  const completedAt = decodeXmlEntities(xmlTag(xml, 'Completed')) || nowIso();
+
+  const recipients = xmlBlocks(xml, 'RecipientStatus')
+    .map((block) => {
+      const status = decodeXmlEntities(xmlTag(block, 'Status')).toLowerCase();
+      if (status && status !== 'completed') return null;
+
+      const email = normalizeEmail(decodeXmlEntities(xmlTag(block, 'Email')));
+      if (!email) return null;
+
+      const name = decodeXmlEntities(xmlTag(block, 'UserName')) || decodeXmlEntities(xmlTag(block, 'Name'));
+      const signedAt = decodeXmlEntities(xmlTag(block, 'Signed')) || decodeXmlEntities(xmlTag(block, 'SignedDateTime')) || completedAt;
+
+      return {
+        email,
+        name,
+        signedAt,
+        envelopeId
+      };
+    })
+    .filter(Boolean);
+
+  return recipients;
+}
+
 export async function POST(req) {
   const secret = clean(process.env.DOCUSIGN_CONNECT_SECRET || '');
   if (secret) {
@@ -100,9 +155,13 @@ export async function POST(req) {
   const raw = await req.text().catch(() => '');
   const payload = safeJsonParse(raw) || {};
 
-  const records = extractCompletedRecords(payload);
+  const jsonRecords = extractCompletedRecords(payload);
+  const xmlRecords = jsonRecords.length ? [] : extractCompletedRecordsFromXml(raw);
+  const records = jsonRecords.length ? jsonRecords : xmlRecords;
+  const parsedFrom = jsonRecords.length ? 'json' : (xmlRecords.length ? 'xml' : 'none');
+
   if (!records.length) {
-    return Response.json({ ok: true, skipped: true, reason: 'no_completed_records' });
+    return Response.json({ ok: true, skipped: true, reason: 'no_completed_records', parsedFrom });
   }
 
   const rows = await loadJsonStore(STORE_PATH, []);
@@ -124,5 +183,5 @@ export async function POST(req) {
   }
 
   await saveJsonStore(STORE_PATH, list);
-  return Response.json({ ok: true, updated: records.length });
+  return Response.json({ ok: true, updated: records.length, parsedFrom });
 }

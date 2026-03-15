@@ -30,6 +30,57 @@ function normalizePremiumInput(v = '') {
   return rebuilt;
 }
 
+function roundMoney(v = 0) {
+  const n = Number(v || 0);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100) / 100;
+}
+
+function calcPreview(appType = '', monthlyPremium = 0, licensedStatus = '') {
+  const type = String(appType || '').toLowerCase();
+  const monthly = Math.max(0, Number(monthlyPremium || 0) || 0);
+  const annual = roundMoney(monthly * 12);
+  const licensed = String(licensedStatus || '').toLowerCase() === 'licensed';
+
+  let commissionRate = 0;
+  let points = 0;
+  let flatPayout = false;
+
+  if (type.includes('sponsorship')) {
+    points = 500;
+    flatPayout = true;
+  } else if (type.includes('bonus')) {
+    points = licensed ? 500 : 0;
+    flatPayout = true;
+  } else if (type.includes('inner circle')) {
+    points = 1200;
+    flatPayout = true;
+  } else if (type.includes('regular')) {
+    commissionRate = 0.7;
+    points = roundMoney(annual * commissionRate);
+  } else if (type.includes('juvenile')) {
+    commissionRate = 0.5;
+    points = roundMoney(annual * commissionRate);
+  }
+
+  const advance = flatPayout ? roundMoney(points) : roundMoney(points * 0.75);
+  const remaining = flatPayout ? 0 : roundMoney(points - advance);
+  const m10 = flatPayout ? 0 : roundMoney(remaining / 3);
+
+  return {
+    annualPremium: annual,
+    commissionRate,
+    pointsEarned: points,
+    advancePayout: advance,
+    remainingBalance: remaining,
+    month10Payout: m10,
+    month11Payout: m10,
+    month12Payout: m10,
+    flatPayout,
+    bonusEligible: type.includes('bonus') ? licensed : true
+  };
+}
+
 function prefillFromSearch() {
   if (typeof window === 'undefined') return null;
   const sp = new URLSearchParams(window.location.search);
@@ -94,6 +145,7 @@ export default function InnerCircleAppSubmitPage() {
   const [loginBusy, setLoginBusy] = useState(false);
 
   const [form, setForm] = useState({
+    appType: '',
     applicantName: '',
     applicantEmail: '',
     applicantPhone: '',
@@ -142,6 +194,12 @@ export default function InnerCircleAppSubmitPage() {
   }, []);
 
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const isAdmin = String(session?.role || '').toLowerCase() === 'admin';
+  const requiresContract = useMemo(() => {
+    const t = String(form.appType || '').toLowerCase();
+    return t.includes('sponsorship') || t.includes('bonus') || t.includes('inner circle');
+  }, [form.appType]);
 
   async function loadContractLinkInfo(email = '') {
     const em = String(email || '').trim().toLowerCase();
@@ -215,6 +273,12 @@ export default function InnerCircleAppSubmitPage() {
 
   useEffect(() => {
     const t = setTimeout(() => {
+      if (!requiresContract) {
+        setContractStatus({ loading: false, checkedEmail: '', signed: true, signedAt: '' });
+        setContractLinkInfo({ loading: false, sentAt: '', requestedByName: '' });
+        return;
+      }
+
       if (form.applicantEmail.trim() || form.applicantName.trim()) {
         checkContractSignature(form.applicantEmail, form.applicantName);
         if (form.applicantEmail.trim()) loadContractLinkInfo(form.applicantEmail);
@@ -224,9 +288,11 @@ export default function InnerCircleAppSubmitPage() {
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [form.applicantEmail, form.applicantName]);
+  }, [form.applicantEmail, form.applicantName, requiresContract]);
 
   useEffect(() => {
+    if (!requiresContract) return;
+
     const email = String(form.applicantEmail || '').trim();
     const name = String(form.applicantName || '').trim();
     if ((!email && !name) || contractStatus.signed) return;
@@ -236,7 +302,7 @@ export default function InnerCircleAppSubmitPage() {
     }, 60 * 60 * 1000);
 
     return () => clearInterval(timer);
-  }, [form.applicantEmail, form.applicantName, contractStatus.signed]);
+  }, [form.applicantEmail, form.applicantName, contractStatus.signed, requiresContract]);
 
   useEffect(() => {
     const prev = signedRef.current;
@@ -249,14 +315,15 @@ export default function InnerCircleAppSubmitPage() {
     signedRef.current = contractStatus.signed;
   }, [contractStatus.signed, contractStatus.checkedEmail]);
 
-  const isAdmin = String(session?.role || '').toLowerCase() === 'admin';
-
   const canSubmit = useMemo(() => {
     const writerOk = form.policyWriterName === 'Other'
       ? form.policyWriterOtherName.trim()
       : form.policyWriterName.trim();
 
+    const contractOk = !requiresContract || contractStatus.signed || (isAdmin && adminBypassContractGate);
+
     return (
+      form.appType.trim() &&
       form.applicantName.trim() &&
       form.applicantEmail.trim() &&
       form.applicantPhone.trim() &&
@@ -265,9 +332,63 @@ export default function InnerCircleAppSubmitPage() {
       writerOk &&
       form.state.trim() &&
       form.monthlyPremium !== '' &&
-      (contractStatus.signed || (isAdmin && adminBypassContractGate))
+      contractOk
     );
-  }, [form, contractStatus.signed, isAdmin, adminBypassContractGate]);
+  }, [form, requiresContract, contractStatus.signed, isAdmin, adminBypassContractGate]);
+
+  const payoutPreview = useMemo(() => {
+    return calcPreview(form.appType, form.monthlyPremium, form.applicantLicensedStatus);
+  }, [form.appType, form.monthlyPremium, form.applicantLicensedStatus]);
+
+  const [animatedPreview, setAnimatedPreview] = useState({
+    annualPremium: 0,
+    commissionRate: 0,
+    pointsEarned: 0,
+    advancePayout: 0,
+    remainingBalance: 0,
+    month10Payout: 0,
+    month11Payout: 0,
+    month12Payout: 0
+  });
+
+  useEffect(() => {
+    const to = { ...payoutPreview };
+
+    if (
+      typeof window === 'undefined'
+      || typeof window.requestAnimationFrame !== 'function'
+      || !window.performance
+    ) {
+      setAnimatedPreview(to);
+      return;
+    }
+
+    const start = window.performance.now();
+    const duration = 420;
+    const from = { ...animatedPreview };
+
+    let raf = 0;
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const next = {
+        annualPremium: from.annualPremium + (to.annualPremium - from.annualPremium) * eased,
+        commissionRate: from.commissionRate + (to.commissionRate - from.commissionRate) * eased,
+        pointsEarned: from.pointsEarned + (to.pointsEarned - from.pointsEarned) * eased,
+        advancePayout: from.advancePayout + (to.advancePayout - from.advancePayout) * eased,
+        remainingBalance: from.remainingBalance + (to.remainingBalance - from.remainingBalance) * eased,
+        month10Payout: from.month10Payout + (to.month10Payout - from.month10Payout) * eased,
+        month11Payout: from.month11Payout + (to.month11Payout - from.month11Payout) * eased,
+        month12Payout: from.month12Payout + (to.month12Payout - from.month12Payout) * eased
+      };
+      setAnimatedPreview(next);
+      if (t < 1) raf = window.requestAnimationFrame(tick);
+    };
+
+    raf = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payoutPreview.annualPremium, payoutPreview.commissionRate, payoutPreview.pointsEarned, payoutPreview.advancePayout, payoutPreview.remainingBalance, payoutPreview.month10Payout, payoutPreview.month11Payout, payoutPreview.month12Payout]);
 
   async function sendAgreementLinkEmail() {
     const applicantName = String(form.applicantName || '').trim();
@@ -393,9 +514,10 @@ export default function InnerCircleAppSubmitPage() {
       submittedAt: new Date().toISOString(),
       payoutStatus: 'Unpaid',
       payoutAmount: 0,
-      contractSignedAt: contractStatus.signedAt || new Date().toISOString(),
-      contractSignatureVerified: Boolean(contractStatus.signed),
-      contractGateBypassedByAdmin: Boolean(isAdmin && adminBypassContractGate && !contractStatus.signed)
+      contractRequired: requiresContract,
+      contractSignedAt: requiresContract ? (contractStatus.signedAt || '') : '',
+      contractSignatureVerified: requiresContract ? Boolean(contractStatus.signed) : true,
+      contractGateBypassedByAdmin: requiresContract ? Boolean(isAdmin && adminBypassContractGate && !contractStatus.signed) : false
     };
 
     if (typeof window !== 'undefined') {
@@ -420,6 +542,7 @@ export default function InnerCircleAppSubmitPage() {
 
     setSaved('Application submitted successfully.');
     setForm({
+      appType: '',
       applicantName: '',
       applicantEmail: '',
       applicantPhone: '',
@@ -477,7 +600,7 @@ export default function InnerCircleAppSubmitPage() {
   }
 
   return (
-    <main className="publicPage">
+    <main className="publicPage" style={{ background: 'radial-gradient(circle at top,#17120a 0%,#0b1020 42%, #05070f 100%)', minHeight: '100vh' }}>
       {showSignedToast ? (
         <div
           style={{
@@ -496,18 +619,69 @@ export default function InnerCircleAppSubmitPage() {
           ✅ Contract signed — you can submit the application now.
         </div>
       ) : null}
-      <div className="panel" style={{ maxWidth: 840 }}>
+      <div className="panel" style={{ maxWidth: 960, border: '1px solid #5f4a23', background: 'linear-gradient(180deg,#0f172a 0%, #0b1020 100%)', boxShadow: '0 24px 80px rgba(0,0,0,0.45)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <div>
-            <h3 style={{ marginTop: 0, marginBottom: 4 }}>Policy Details</h3>
-            <p className="muted" style={{ margin: 0 }}>Signed in as {session.name}</p>
+            <h3 style={{ marginTop: 0, marginBottom: 4, color: '#fff' }}>Policy Details</h3>
+            <p className="muted" style={{ margin: 0, color: '#cbd5e1' }}>Signed in as {session.name}</p>
           </div>
           <button type="button" className="ghost" onClick={logout}>Log Out</button>
         </div>
         {ref ? <p className="pill onpace">Referral code locked: {ref}</p> : null}
         {prefill ? <p className="pill">Prefilled from booked call — review and complete remaining fields.</p> : null}
+        <div style={{ border: '1px solid #5f4a23', borderRadius: 12, padding: 14, background: 'linear-gradient(135deg,#1f2937 0%,#0b1020 55%,#111827 100%)', marginBottom: 12 }}>
+          <strong style={{ color: '#f8fafc', fontSize: 24 }}>Inner Circle Policy Points + Payout Logic</strong>
+          <p className="muted" style={{ margin: '8px 0 0', color: '#d1d5db', fontSize: 18, lineHeight: 1.45 }}>
+            Every policy type has its own point value and payout formula. Sponsorship and Bonus Policies use fixed points. Regular and Juvenile Policies use annual premium multiplied by the Inner Circle commission rate, with 75% paid upfront and the remaining balance paid in months 10, 11, and 12.
+          </p>
+        </div>
 
-        <form className="settingsGrid" onSubmit={submit}>
+        <div className="policyDesktopWrap">
+        <form id="policySubmitForm" className="settingsGrid premiumPolicyForm" onSubmit={submit}>
+          <label>
+            Application Type *
+            <select value={form.appType} onChange={(e) => update('appType', e.target.value)}>
+              <option value="">Select application type</option>
+              <option value="Sponsorship App">Sponsorship App</option>
+              <option value="Bonus Policy">Bonus Policy</option>
+              <option value="Inner Circle App">Inner Circle App</option>
+              <option value="Regular App">Regular App</option>
+              <option value="Juvenile App">Juvenile App</option>
+            </select>
+            {form.appType ? (
+              <small style={{ marginTop: 6, display: 'inline-flex' }} className={requiresContract ? 'pill atrisk' : 'pill onpace'}>
+                {requiresContract ? 'Contract Required' : 'No Contract Required'}
+              </small>
+            ) : null}
+          </label>
+
+          <div style={{ gridColumn: '1 / -1', border: '1px solid #5f4a23', borderRadius: 14, padding: 14, background: 'linear-gradient(180deg,#020b22 0%,#020617 100%)' }}>
+            <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <strong style={{ color: '#fff', fontSize: 30 }}>Live Calculation Preview</strong>
+              {form.appType ? <span className="pill">{form.appType}</span> : <span className="pill offpace">Select app type</span>}
+            </div>
+            <div className="premiumPreviewGrid" style={{ display: 'grid', gap: 10, marginTop: 12, gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))' }}>
+              <div><small className="muted">💼 Annual Premium</small><div style={{ color: '#fff', fontWeight: 800 }}>${animatedPreview.annualPremium.toFixed(2)}</div></div>
+              <div><small className="muted">📊 Commission Rate</small><div style={{ color: '#fff', fontWeight: 800 }}>{Math.round((animatedPreview.commissionRate || 0) * 100)}%</div></div>
+              <div><small className="muted">⭐ Points Earned</small><div style={{ color: '#fff', fontWeight: 800 }}>{animatedPreview.pointsEarned.toFixed(2)}</div></div>
+              <div><small className="muted">💸 Advance Payout (75%)</small><div style={{ color: '#86efac', fontWeight: 800 }}>${animatedPreview.advancePayout.toFixed(2)}</div></div>
+              <div><small className="muted">🧾 Remaining Balance</small><div style={{ color: '#fff', fontWeight: 800 }}>${animatedPreview.remainingBalance.toFixed(2)}</div></div>
+              <div><small className="muted">📅 Month 10</small><div style={{ color: '#cbd5e1', fontWeight: 700 }}>${animatedPreview.month10Payout.toFixed(2)}</div></div>
+              <div><small className="muted">📅 Month 11</small><div style={{ color: '#cbd5e1', fontWeight: 700 }}>${animatedPreview.month11Payout.toFixed(2)}</div></div>
+              <div><small className="muted">📅 Month 12</small><div style={{ color: '#cbd5e1', fontWeight: 700 }}>${animatedPreview.month12Payout.toFixed(2)}</div></div>
+            </div>
+            {payoutPreview.flatPayout ? (
+              <small style={{ color: '#86efac', display: 'block', marginTop: 8 }}>
+                {form.appType === 'Inner Circle App'
+                  ? 'Inner Circle flat-rate: 1,200 points / $1,200 posts on approval (no Month 10/11/12 backend payout).'
+                  : 'Flat-rate payout: 100% paid upfront. No Month 10/11/12 backend payout.'}
+              </small>
+            ) : null}
+            {form.appType === 'Bonus Policy' && !payoutPreview.bonusEligible ? (
+              <small style={{ color: '#fca5a5', display: 'block', marginTop: 8 }}>Bonus Policy rule: applicant must be licensed to earn 500 points.</small>
+            ) : null}
+          </div>
+
           <label>
             Client Name *
             <input
@@ -528,51 +702,56 @@ export default function InnerCircleAppSubmitPage() {
           </label>
 
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            {contractStatus.loading ? <span className="pill">Checking contract signature…</span> : null}
-            {!contractStatus.loading && form.applicantEmail && contractStatus.signed ? (
-              <span className="pill onpace">Contract Signed ✅ {contractStatus.signedAt ? `(${new Date(contractStatus.signedAt).toLocaleDateString()})` : ''}</span>
-            ) : null}
-            {!contractStatus.loading && form.applicantEmail && !contractStatus.signed ? (
+            {!requiresContract ? (
+              <span className="pill onpace">No ICA required for this policy type.</span>
+            ) : (
               <>
-                <span className="pill atrisk">Contract Required Before Submit</span>
-                <button type="button" className="ghost" onClick={sendAgreementLinkEmail} disabled={contractEmailBusy}>
-                  {contractEmailBusy ? 'Sending Agreement…' : 'Send Agreement Link to Applicant'}
-                </button>
-                <button type="button" className="ghost" onClick={() => checkContractSignature(form.applicantEmail)}>
-                  Refresh Signature Status
-                </button>
-                {isAdmin ? (
+                {contractStatus.loading ? <span className="pill">Checking contract signature…</span> : null}
+                {!contractStatus.loading && form.applicantEmail && contractStatus.signed ? (
+                  <span className="pill onpace">Contract Signed ✅ {contractStatus.signedAt ? `(${new Date(contractStatus.signedAt).toLocaleDateString()})` : ''}</span>
+                ) : null}
+                {!contractStatus.loading && form.applicantEmail && !contractStatus.signed ? (
                   <>
-                    <button type="button" className="ghost" onClick={adminMarkSigned} disabled={contractEmailBusy}>
-                      Mark Signed (Admin)
+                    <span className="pill atrisk">Contract Required Before Submit</span>
+                    <button type="button" className="ghost" onClick={sendAgreementLinkEmail} disabled={contractEmailBusy}>
+                      {contractEmailBusy ? 'Sending Agreement…' : 'Send Agreement Link to Applicant'}
                     </button>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <input
-                        type="checkbox"
-                        checked={adminBypassContractGate}
-                        onChange={(e) => setAdminBypassContractGate(e.target.checked)}
-                      />
-                      Admin bypass contract gate
-                    </label>
+                    <button type="button" className="ghost" onClick={() => checkContractSignature(form.applicantEmail)}>
+                      Refresh Signature Status
+                    </button>
+                    {isAdmin ? (
+                      <>
+                        <button type="button" className="ghost" onClick={adminMarkSigned} disabled={contractEmailBusy}>
+                          Mark Signed (Admin)
+                        </button>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <input
+                            type="checkbox"
+                            checked={adminBypassContractGate}
+                            onChange={(e) => setAdminBypassContractGate(e.target.checked)}
+                          />
+                          Admin override: submit without contract
+                        </label>
+                      </>
+                    ) : null}
                   </>
                 ) : null}
-                {null}
               </>
-            ) : null}
+            )}
           </div>
-          {contractEmailMsg ? <small className="muted" style={{ gridColumn: '1 / -1' }}>{contractEmailMsg}</small> : null}
-          {contractLinkInfo.sentAt ? (
+          {requiresContract && contractEmailMsg ? <small className="muted" style={{ gridColumn: '1 / -1' }}>{contractEmailMsg}</small> : null}
+          {requiresContract && contractLinkInfo.sentAt ? (
             <small className="muted" style={{ gridColumn: '1 / -1' }}>
               Agreement link last sent: {new Date(contractLinkInfo.sentAt).toLocaleString()}
               {contractLinkInfo.requestedByName ? ` by ${contractLinkInfo.requestedByName}` : ''}
             </small>
           ) : null}
-          {contractLastCheckedAt ? (
+          {requiresContract && contractLastCheckedAt ? (
             <small className="muted" style={{ gridColumn: '1 / -1' }}>
               Signature status last checked: {new Date(contractLastCheckedAt).toLocaleString()}
             </small>
           ) : null}
-          {isAdmin && adminBypassContractGate ? (
+          {requiresContract && isAdmin && adminBypassContractGate ? (
             <small className="muted" style={{ gridColumn: '1 / -1', color: '#92400e' }}>
               Admin bypass is ON for this submission.
             </small>
@@ -678,12 +857,134 @@ export default function InnerCircleAppSubmitPage() {
 
           <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
             <button type="submit" disabled={!canSubmit}>Submit Application</button>
-            {!contractStatus.signed ? <small className="muted">Signature gate: applicant must complete ICA before submit.</small> : null}
+            {requiresContract && !contractStatus.signed ? <small className="muted">Signature gate: applicant must complete ICA before submit.</small> : null}
           </div>
         </form>
 
+        <aside className="policySidebar" aria-label="Summary and submit">
+          <div className="policySidebarCard">
+            <strong style={{ color: '#fff', fontSize: 18 }}>Submission Summary</strong>
+            <div className="policySidebarList">
+              <div><small className="muted">Application Type</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.appType || '—'}</div></div>
+              <div><small className="muted">Policy Writer</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.policyWriterName === 'Other' ? (form.policyWriterOtherName || '—') : (form.policyWriterName || '—')}</div></div>
+              <div><small className="muted">Referred By</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.referredByName || '—'}</div></div>
+              <div><small className="muted">Monthly Premium</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>${Number(form.monthlyPremium || 0).toFixed(2)}</div></div>
+              <div><small className="muted">Points Earned</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{animatedPreview.pointsEarned.toFixed(2)}</div></div>
+              <div><small className="muted">Advance Payout</small><div style={{ color: '#86efac', fontWeight: 800 }}>${animatedPreview.advancePayout.toFixed(2)}</div></div>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              {contractStatus.signed ? <span className="pill onpace">Contract Signed ✅</span> : <span className="pill atrisk">Contract Required</span>}
+            </div>
+            <button type="submit" form="policySubmitForm" className="publicPrimaryBtn" disabled={!canSubmit} style={{ width: '100%', marginTop: 12 }}>
+              Submit Application
+            </button>
+          </div>
+        </aside>
+        </div>
+
         {saved ? <p className="green">{saved}</p> : null}
       </div>
+      <style jsx global>{`
+        .premiumPolicyForm label {
+          color: #f1f5f9;
+          font-weight: 700;
+        }
+        .premiumPolicyForm input,
+        .premiumPolicyForm select {
+          background: #0f172a;
+          color: #f8fafc;
+          border: 1px solid #475569;
+          border-radius: 10px;
+          padding: 10px 12px;
+          font-size: 16px;
+        }
+        .premiumPolicyForm input::placeholder {
+          color: #94a3b8;
+        }
+        .premiumPolicyForm input:focus,
+        .premiumPolicyForm select:focus {
+          outline: none;
+          border-color: #c8a96b;
+          box-shadow: 0 0 0 2px rgba(200,169,107,.25);
+        }
+        .premiumPreviewGrid > div {
+          border: 1px solid #334155;
+          border-radius: 10px;
+          background: #0b1220;
+          padding: 10px;
+          transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+        }
+        .premiumPreviewGrid > div:hover {
+          transform: translateY(-2px);
+          border-color: #c8a96b;
+          box-shadow: 0 10px 22px rgba(0,0,0,.28);
+        }
+        .premiumPreviewGrid .muted,
+        .premiumPreviewGrid small {
+          color: #cbd5e1 !important;
+          font-size: 13px;
+        }
+        .premiumPolicyForm .rowActions button,
+        .premiumPolicyForm .publicPrimaryBtn {
+          background: linear-gradient(135deg, #c8a96b 0%, #a78647 100%) !important;
+          color: #0b1020 !important;
+          border: 1px solid #d6bd8d !important;
+          font-weight: 800;
+          border-radius: 10px;
+          transition: transform .18s ease, filter .18s ease;
+        }
+        .premiumPolicyForm .rowActions button:hover,
+        .premiumPolicyForm .publicPrimaryBtn:hover {
+          transform: translateY(-1px);
+          filter: brightness(1.05);
+        }
+        .policyDesktopWrap {
+          display: grid;
+          grid-template-columns: 1.55fr .85fr;
+          gap: 12px;
+          align-items: start;
+        }
+        .policySidebar {
+          position: sticky;
+          top: 14px;
+        }
+        .policySidebarCard {
+          border: 1px solid #5f4a23;
+          border-radius: 12px;
+          background: linear-gradient(180deg,#020b22 0%,#0b1020 100%);
+          padding: 12px;
+          transition: box-shadow .2s ease, border-color .2s ease;
+        }
+        .policySidebarCard:hover {
+          border-color: #c8a96b;
+          box-shadow: 0 14px 30px rgba(0,0,0,.32);
+        }
+        .policySidebarList {
+          display: grid;
+          gap: 8px;
+          margin-top: 10px;
+        }
+        @media (max-width: 960px) {
+          .policyDesktopWrap {
+            grid-template-columns: 1fr;
+            gap: 10px;
+          }
+          .policySidebar {
+            position: static;
+          }
+          .premiumPolicyForm label {
+            font-size: 14px;
+          }
+          .premiumPolicyForm input,
+          .premiumPolicyForm select {
+            font-size: 15px;
+            padding: 10px;
+          }
+          .premiumPreviewGrid {
+            grid-template-columns: repeat(2,minmax(140px,1fr)) !important;
+          }
+        }
+      `}</style>
     </main>
   );
 }

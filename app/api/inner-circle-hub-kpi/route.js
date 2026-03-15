@@ -157,7 +157,8 @@ export async function GET(req) {
   const leadsReceived = assignedThisMonth.length;
 
   const closesThisMonthRows = (policyRows || []).filter((r) => {
-    const ts = r?.submittedAt || r?.submitted_at || r?.createdAt || r?.created_at || '';
+    if (!normalize(r?.status || '').startsWith('approved')) return false;
+    const ts = r?.approvedAt || r?.approved_at || r?.updatedAt || r?.submittedAt || r?.submitted_at || '';
     if (monthKeyFromIso(ts) !== currentMonth) return false;
     return rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode);
   }).map((r) => ({

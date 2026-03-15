@@ -1,5 +1,8 @@
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const STORE_PATH = 'stores/contract-signatures.json';
 
 function clean(v = '') {
@@ -40,7 +43,8 @@ export async function GET(req) {
     if (row) matchedBy = 'name';
   }
 
-  return Response.json({ ok: true, signed: Boolean(row?.signedAt), row, matchedBy });
+  const signedAt = clean(row?.signedAt || row?.signed_at || row?.completedAt || row?.completed_at || '');
+  return Response.json({ ok: true, signed: Boolean(signedAt), row: row ? { ...row, signedAt } : null, matchedBy });
 }
 
 export async function POST(req) {
