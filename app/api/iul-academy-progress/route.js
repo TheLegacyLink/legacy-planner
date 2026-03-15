@@ -2,6 +2,7 @@ import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 
 const STORE_PATH = 'stores/iul-academy-progress.json';
 const ACH_PATH = 'stores/achievement-center.json';
+const SNAPSHOT_PATH = 'stores/iul-academy-leaderboard-snapshot.json';
 
 function clean(v = '') { return String(v || '').trim(); }
 function normalize(v = '') { return clean(v).toLowerCase(); }
@@ -160,6 +161,10 @@ export async function GET(req) {
   const list = Array.isArray(rows) ? rows : [];
 
   if (mode === 'leaderboard') {
+    const snapshotRows = await loadJsonStore(SNAPSHOT_PATH, []);
+    const snapshot = Array.isArray(snapshotRows) ? snapshotRows : [];
+    const prevByKey = new Map(snapshot.map((r) => [clean(r?.agentKey || ''), Number(r?.rank || 0)]));
+
     const board = list
       .map((r) => {
         const p = deriveLevels(r?.progress || emptyProgress(), r?.progress || null);
@@ -175,7 +180,17 @@ export async function GET(req) {
         };
       })
       .sort((a, b) => (Number(b.xp || 0) - Number(a.xp || 0)) || (Number(b.progressPct || 0) - Number(a.progressPct || 0)))
-      .slice(0, 25);
+      .slice(0, 25)
+      .map((r, idx) => {
+        const rank = idx + 1;
+        const prev = prevByKey.get(clean(r?.agentKey || '')) || 0;
+        const delta = prev ? (prev - rank) : 0;
+        const movement = !prev ? 'new' : (delta > 0 ? 'up' : (delta < 0 ? 'down' : 'same'));
+        return { ...r, rank, previousRank: prev || null, rankDelta: delta, movement };
+      });
+
+    const nextSnapshot = board.map((r) => ({ agentKey: clean(r.agentKey || ''), rank: Number(r.rank || 0), updatedAt: nowIso() }));
+    await saveJsonStore(SNAPSHOT_PATH, nextSnapshot);
 
     return Response.json({ ok: true, rows: board });
   }

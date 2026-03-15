@@ -533,7 +533,13 @@ export default function IulLearningAcademyPage() {
                       background: me ? '#0B1A33' : '#0B1220'
                     }}
                   >
-                    <strong style={{ color: '#93C5FD' }}>#{i + 1}</strong>
+                    <div style={{ display: 'grid', justifyItems: 'center', gap: 2 }}>
+                      <strong style={{ color: '#93C5FD' }}>#{Number(r.rank || (i + 1))}</strong>
+                      {r.movement === 'up' ? <small style={{ color: '#22C55E', fontWeight: 700 }}>▲{Math.abs(Number(r.rankDelta || 0))}</small> : null}
+                      {r.movement === 'down' ? <small style={{ color: '#EF4444', fontWeight: 700 }}>▼{Math.abs(Number(r.rankDelta || 0))}</small> : null}
+                      {r.movement === 'new' ? <small style={{ color: '#F59E0B', fontWeight: 700 }}>NEW</small> : null}
+                      {r.movement === 'same' ? <small style={{ color: '#64748B', fontWeight: 700 }}>•</small> : null}
+                    </div>
                     <div style={{ width: 30, height: 30, borderRadius: 999, background: me ? '#1D4ED8' : '#1F2937', border: '1px solid #334155', color: '#E5E7EB', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800 }}>
                       {initialsFromName(r.name || 'Agent')}
                     </div>
