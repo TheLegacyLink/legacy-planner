@@ -209,6 +209,8 @@ export default function MissionControl() {
   const [adminTab, setAdminTab] = useState('overview');
   const [payoutPolicyRows, setPayoutPolicyRows] = useState([]);
   const [payoutSponsorshipRows, setPayoutSponsorshipRows] = useState([]);
+  const [payoutStatusMap, setPayoutStatusMap] = useState({});
+  const [payoutBusyAgent, setPayoutBusyAgent] = useState('');
   const [detailsModal, setDetailsModal] = useState({ open: false, type: '' });
   const [contactsVaultSummary, setContactsVaultSummary] = useState({ total: 0, withEmail: 0, withoutEmail: 0 });
   const [contactsVaultUpdatedAt, setContactsVaultUpdatedAt] = useState('');
@@ -220,6 +222,7 @@ export default function MissionControl() {
   const [passError, setPassError] = useState('');
   const [authed, setAuthed] = useState(true);
   const scopeLabel = 'This Month';
+  const payoutMonthKey = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`;
 
   useEffect(() => {
     const cfg = loadRuntimeConfig();
@@ -516,6 +519,79 @@ export default function MissionControl() {
 
     return { rows, totals };
   }, [payoutPolicyRows, payoutSponsorshipRows, config.agents]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadPayoutStatuses() {
+      try {
+        const res = await fetch(`/api/payout-queue?month=${encodeURIComponent(payoutMonthKey)}`, { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!mounted || !res.ok || !data?.ok) return;
+        const map = {};
+        for (const r of (Array.isArray(data.rows) ? data.rows : [])) {
+          map[cleanName(r?.agent)] = { paid: Boolean(r?.paid), paidAt: r?.paidAt || '', note: r?.note || '' };
+        }
+        setPayoutStatusMap(map);
+      } catch {
+        // ignore payout status load failures
+      }
+    }
+
+    loadPayoutStatuses();
+    return () => { mounted = false; };
+  }, [payoutMonthKey, payoutRows.rows.length]);
+
+  async function setPayoutPaid(agent = '', paid = true) {
+    const a = String(agent || '').trim();
+    if (!a) return;
+    setPayoutBusyAgent(cleanName(a));
+    try {
+      const res = await fetch('/api/payout-queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: paid ? 'mark_paid' : 'mark_unpaid', month: payoutMonthKey, agent: a })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        setPayoutStatusMap((prev) => ({ ...prev, [cleanName(a)]: { paid, paidAt: data?.row?.paidAt || '' } }));
+      }
+    } catch {
+      // ignore save failures here; quick admin action
+    } finally {
+      setPayoutBusyAgent('');
+    }
+  }
+
+  function exportPayoutCsv() {
+    const header = ['Month', 'Agent', 'Sponsorship Apps', 'Insurance Apps', 'Sponsorship $', 'Insurance $', 'Estimated Payout', 'Status', 'Paid At'];
+    const lines = [header.join(',')];
+    for (const r of payoutRows.rows) {
+      const status = payoutStatusMap[cleanName(r.agent)]?.paid ? 'Paid' : 'Pending';
+      const paidAt = payoutStatusMap[cleanName(r.agent)]?.paidAt || '';
+      const vals = [
+        payoutMonthKey,
+        r.agent,
+        r.sponsorshipApps,
+        r.insuranceApps,
+        r.sponsorshipDollars,
+        r.insuranceDollars,
+        r.estimatedPayout,
+        status,
+        paidAt
+      ].map((v) => `"${String(v ?? '').replaceAll('"', '""')}"`);
+      lines.push(vals.join(','));
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `licensed-payout-queue-${payoutMonthKey}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   const dataConfidence = useMemo(() => {
     if (error) return { label: 'Low', tone: 'offpace', score: 35 };
@@ -946,6 +1022,10 @@ export default function MissionControl() {
             <p className="muted">No payout-eligible activity captured yet this month.</p>
           ) : (
             <>
+              <div className="panelRow" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+                <span className="muted">Month key: {payoutMonthKey}</span>
+                <button type="button" className="ghost" onClick={exportPayoutCsv}>Export CSV</button>
+              </div>
               <table>
                 <thead>
                   <tr>
@@ -956,6 +1036,7 @@ export default function MissionControl() {
                     <th>Insurance $</th>
                     <th>Estimated Payout</th>
                     <th>Status</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -967,14 +1048,30 @@ export default function MissionControl() {
                       <td>${Number(r.sponsorshipDollars || 0).toLocaleString()}</td>
                       <td>${Number(r.insuranceDollars || 0).toLocaleString()}</td>
                       <td><strong>${Number(r.estimatedPayout || 0).toLocaleString()}</strong></td>
-                      <td><span className="pill atrisk">Pending Month-End Payout</span></td>
+                      <td>
+                        {payoutStatusMap[cleanName(r.agent)]?.paid
+                          ? <span className="pill onpace">Paid</span>
+                          : <span className="pill atrisk">Pending Month-End Payout</span>}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className={payoutStatusMap[cleanName(r.agent)]?.paid ? 'ghost' : ''}
+                          disabled={payoutBusyAgent === cleanName(r.agent)}
+                          onClick={() => setPayoutPaid(r.agent, !payoutStatusMap[cleanName(r.agent)]?.paid)}
+                        >
+                          {payoutBusyAgent === cleanName(r.agent)
+                            ? 'Saving…'
+                            : (payoutStatusMap[cleanName(r.agent)]?.paid ? 'Mark Unpaid' : 'Mark Paid')}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
 
               <p className="muted" style={{ marginTop: 10 }}>
-                Totals — Sponsorship Apps: {payoutRows.totals.sponsorshipApps} • Insurance Apps: {payoutRows.totals.insuranceApps} • Estimated Payout: ${Number(payoutRows.totals.payout || 0).toLocaleString()}
+                Totals — Sponsorship Apps: {payoutRows.totals.sponsorshipApps} • Insurance Apps: {payoutRows.totals.insuranceApps} • Estimated Payout: ${Number(payoutRows.totals.payout || 0).toLocaleString()} • Paid: ${Number(payoutRows.rows.filter((r) => payoutStatusMap[cleanName(r.agent)]?.paid).reduce((a, r) => a + Number(r.estimatedPayout || 0), 0)).toLocaleString()} • Pending: ${Number(payoutRows.rows.filter((r) => !payoutStatusMap[cleanName(r.agent)]?.paid).reduce((a, r) => a + Number(r.estimatedPayout || 0), 0)).toLocaleString()}
               </p>
               <p className="muted">Rule logic: $1 per sponsorship app (first 10), then $5 per sponsorship app after 10 in same 30-day window; $10 per submitted insurance application. Guardrails and review holds apply.</p>
             </>
