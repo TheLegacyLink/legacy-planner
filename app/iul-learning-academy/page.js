@@ -4,18 +4,89 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 const academyContent = {
   beginner: [
-    { title: 'What is an IUL?', content: 'An IUL combines lifelong death-benefit protection with index-linked cash value growth and downside protection.', keyPoints: ['Death benefit + cash value', 'Index-linked growth', '0% floor protection'] },
-    { title: '0% Floor Protection', content: 'If the market is down, credited interest can floor at 0% (no direct market-loss hit to cash value).', keyPoints: ['Market up = credited gains', 'Market down = 0% floor', 'Protection supports consistency'] }
+    {
+      title: 'What is an IUL?',
+      content: `An Indexed Universal Life (IUL) policy is permanent life insurance with two core parts: a death benefit and a cash value account.
+
+The death benefit protects a family long-term. The cash value has growth potential tied to a market index (like the S&P 500), while preserving downside protection features.
+
+Think of it as protection first, then strategy: coverage + long-term cash value design.`,
+      keyPoints: ['Death benefit + cash value', 'Permanent coverage', 'Index-linked crediting potential', 'Protection-first structure']
+    },
+    {
+      title: '0% Floor Protection',
+      content: `The 0% floor means market downturn years do not directly credit negative index returns to the policy account.
+
+When the index rises, the policy can receive positive crediting (subject to cap/participation/spread rules). When index performance is negative, crediting may floor at 0%.
+
+This helps clients stay committed through volatility without panic exits.`,
+      keyPoints: ['Downside protection concept', 'Growth years still participate', 'Helps long-term consistency', 'Set realistic expectations']
+    }
   ],
   intermediate: [
-    { title: 'Cap & Participation', content: 'Cap rate limits max credited gain. Participation rate determines what portion of index gain is credited.', keyPoints: ['Know cap vs participation', 'Set client expectations', 'Protection over hype'] },
-    { title: 'Policy Loans & Tax Strategy', content: 'Loans against cash value can support strategic, tax-advantaged access while policy remains in force.', keyPoints: ['No credit checks', 'Potential tax-advantaged access', 'Need proper management'] }
+    {
+      title: 'Cap Rates & Participation',
+      content: `Cap rate = maximum credited rate in a period.
+Participation rate = percentage of index return used in crediting.
+
+Agents must explain these clearly so clients understand why index gains and credited gains are not always identical.
+
+Strong education here builds trust and reduces future confusion.`,
+      keyPoints: ['Cap limits upside crediting', 'Participation defines portion used', 'Not direct stock investing', 'Expectation setting is key']
+    },
+    {
+      title: 'Policy Loans & Tax Strategy',
+      content: `Policy loans are often used for strategic liquidity.
+
+Done properly, loans can support tax-advantaged access while policy remains in-force. Poor loan management can stress policy performance.
+
+Your role is to teach responsible loan use, monitoring, and annual review discipline.`,
+      keyPoints: ['Liquidity tool', 'Requires policy health monitoring', 'Annual review discipline', 'Client suitability matters']
+    }
   ],
   advanced: [
-    { title: 'Policy Design Strategy', content: 'Design quality drives outcomes. Funding strategy, age, risk tolerance, and objectives matter.', keyPoints: ['Funding discipline matters', 'Avoid under-funding', 'Design to client goal'] }
+    {
+      title: 'IUL Design Strategy',
+      content: `Design quality drives outcomes. Funding strategy, client age, timeline, risk profile, and objective alignment all matter.
+
+A well-designed case balances protection needs with accumulation goals, and avoids common mistakes such as chronic underfunding or unrealistic assumptions.
+
+Advanced agents tailor design to goal — not one-size-fits-all illustrations.`,
+      keyPoints: ['Goal-based design', 'Funding discipline', 'Avoid underfunded cases', 'Review and adjust over time']
+    },
+    {
+      title: 'Case Structuring Mindset',
+      content: `At advanced level, focus on case architecture:
+- what outcome the client actually wants,
+- what premium commitment is sustainable,
+- and how to keep the plan resilient over decades.
+
+Strong structuring produces fewer surprises and better long-term retention.`,
+      keyPoints: ['Outcome-first advising', 'Sustainable premium planning', 'Long-horizon resilience', 'Retention-focused structuring']
+    }
   ],
   expert: [
-    { title: 'Advanced Positioning', content: 'Position IUL by client profile, not product hype. Master objection handling with plain language.', keyPoints: ['Scenario-based recommendations', 'Clear objection handling', 'Client-first guidance'] }
+    {
+      title: 'Advanced Positioning & Objections',
+      content: `Expert-level communication means simplifying without overselling.
+
+Position IUL against alternatives by matching client profile, tax goals, and risk tolerance. Handle objections with plain language and confidence.
+
+Clients should leave conversations feeling clarity, not complexity.`,
+      keyPoints: ['Client-profile positioning', 'Objection mastery', 'Plain-language explanation', 'Confidence + compliance']
+    },
+    {
+      title: 'Elite Conversation Framework',
+      content: `Use a repeatable framework:
+1) Diagnose objective,
+2) Educate on mechanics,
+3) Align design to objective,
+4) Confirm commitment,
+5) Set review cadence.
+
+This creates a premium client experience and repeatable production quality.`,
+      keyPoints: ['Repeatable framework', 'High-trust communication', 'Process consistency', 'Premium advisory feel']
+    }
   ]
 };
 
@@ -429,13 +500,13 @@ export default function IulLearningAcademyPage() {
             const sectionId = `${level}_${idx}`;
             const done = completedSections.has(sectionId);
             return (
-              <div key={sectionId} style={{ border: done ? '1px solid #22c55e' : '1px solid #334155', borderRadius: 14, background: done ? '#0b1f16' : '#071022', padding: 14 }}>
+              <div key={sectionId} style={{ border: done ? '1px solid #22c55e' : '1px solid #334155', borderRadius: 14, background: done ? '#0b1f16' : '#071022', padding: 18 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <h3 style={{ margin: 0, color: '#fff' }}>{section.title}</h3>
                   <span className={`pill ${done ? 'onpace' : 'neutral'}`}>{done ? 'Mastered' : 'In Progress'}</span>
                 </div>
-                <p style={{ color: '#CBD5E1', marginTop: 8 }}>{section.content}</p>
-                <ul style={{ margin: 0, paddingLeft: 18, color: '#93C5FD' }}>
+                <p style={{ color: '#E2E8F0', marginTop: 8, fontSize: 16, lineHeight: 1.72, whiteSpace: 'pre-line' }}>{section.content}</p>
+                <ul style={{ margin: 0, paddingLeft: 20, color: '#93C5FD', fontSize: 15, lineHeight: 1.6 }}>
                   {section.keyPoints.map((k) => <li key={k}>{k}</li>)}
                 </ul>
                 <button type="button" onClick={() => completeSection(level, idx)} disabled={done} className="publicPrimaryBtn" style={{ marginTop: 10 }}>
