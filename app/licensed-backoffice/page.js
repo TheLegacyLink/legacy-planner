@@ -157,6 +157,33 @@ function tsFrom(...vals) {
 
 function sum(values = []) { return values.reduce((a, b) => a + Number(b || 0), 0); }
 
+function monthLabelFromKey(key = '') {
+  const m = String(key || '').match(/^(\d{4})-(\d{2})$/);
+  if (!m) return key || '';
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, 1);
+  return d.toLocaleDateString('en-US', { month: 'short' });
+}
+
+function isInRange(iso = '', range = 'month') {
+  const d = new Date(iso || 0);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  if (range === 'month') {
+    return d.getUTCFullYear() === now.getUTCFullYear() && d.getUTCMonth() === now.getUTCMonth();
+  }
+  if (range === 'last30') {
+    return d.getTime() >= (Date.now() - (30 * 24 * 60 * 60 * 1000));
+  }
+  if (range === 'ytd') {
+    return d.getUTCFullYear() === now.getUTCFullYear();
+  }
+  return true;
+}
+
+function fmtMoney(n = 0) {
+  return `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
 export default function LicensedBackofficePage() {
   const [email, setEmail] = useState('');
   const [loginName, setLoginName] = useState('');
@@ -172,6 +199,7 @@ export default function LicensedBackofficePage() {
   const [error, setError] = useState('');
   const [submitBusy, setSubmitBusy] = useState(false);
   const [submitMsg, setSubmitMsg] = useState('');
+  const [financeRange, setFinanceRange] = useState('month');
   const [appForm, setAppForm] = useState({
     appType: '',
     applicantName: '',
@@ -645,6 +673,108 @@ export default function LicensedBackofficePage() {
     };
   }, [session, policyRows, sponsorRows]);
 
+  const financials = useMemo(() => {
+    if (!session) return null;
+    const nameNorm = normalize(session?.name || '');
+    const isInner = isInnerCircleName(session?.name || '');
+
+    const mine = (Array.isArray(policyRows) ? policyRows : []).filter((r) => (
+      normalize(r?.policyWriterName || '') === nameNorm || normalize(r?.referredByName || '') === nameNorm
+    ));
+
+    const events = mine
+      .map((r, i) => {
+        const statusNorm = normalize(r?.status || '');
+        const payoutStatusNorm = normalize(r?.payoutStatus || '');
+        const isApproved = statusNorm.includes('approved');
+        const isPaid = payoutStatusNorm === 'paid' || Boolean(clean(r?.payoutPaidAt));
+        if (!isApproved && !isPaid) return null;
+
+        const typeNorm = normalize(r?.policyType || r?.appType || '');
+        const sourceType = typeNorm.includes('sponsorship')
+          ? 'sponsorship_bonus'
+          : (typeNorm.includes('inner circle') ? 'override' : 'direct_sales');
+
+        const fallbackRate = sourceType === 'sponsorship_bonus' ? (isInner ? 500 : 400) : 0;
+        const amount = Number(r?.payoutAmount || r?.advancePayout || r?.pointsEarned || fallbackRate || 0) || 0;
+
+        const qualifiedAt = clean(r?.approvedAt || r?.updatedAt || r?.submittedAt || '');
+        const paidAt = clean(r?.payoutPaidAt || '');
+        const expectedPayoutAt = clean(r?.payoutDueAt || (qualifiedAt ? new Date(new Date(qualifiedAt).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() : ''));
+
+        return {
+          id: clean(r?.id || `evt_${i}`),
+          referenceName: clean(r?.applicantName || 'Applicant'),
+          sourceType,
+          amount,
+          status: isPaid ? 'paid' : 'pending',
+          qualifiedAt,
+          paidAt,
+          expectedPayoutAt,
+          policyType: clean(r?.policyType || r?.appType || ''),
+        };
+      })
+      .filter(Boolean);
+
+    const allTimePaid = sum(events.filter((e) => e.status === 'paid').map((e) => e.amount));
+    const allTimePending = sum(events.filter((e) => e.status === 'pending').map((e) => e.amount));
+
+    const thisMonthPaid = sum(events.filter((e) => e.status === 'paid' && isInRange(e.paidAt || e.qualifiedAt, 'month')).map((e) => e.amount));
+    const thisMonthPending = sum(events.filter((e) => e.status === 'pending' && isInRange(e.qualifiedAt, 'month')).map((e) => e.amount));
+
+    const rangeEvents = events.filter((e) => isInRange((e.status === 'paid' ? (e.paidAt || e.qualifiedAt) : e.qualifiedAt), financeRange));
+
+    const byMonth = new Map();
+    for (const e of events) {
+      const key = monthKey(e.status === 'paid' ? (e.paidAt || e.qualifiedAt) : e.qualifiedAt);
+      if (!key) continue;
+      byMonth.set(key, (byMonth.get(key) || 0) + Number(e.amount || 0));
+    }
+    const trend = [...byMonth.entries()]
+      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .slice(-6)
+      .map(([k, v]) => ({ key: k, label: monthLabelFromKey(k), amount: Number(v || 0) }));
+
+    const sourceTotals = {
+      direct_sales: sum(rangeEvents.filter((e) => e.sourceType === 'direct_sales').map((e) => e.amount)),
+      sponsorship_bonus: sum(rangeEvents.filter((e) => e.sourceType === 'sponsorship_bonus').map((e) => e.amount)),
+      override: sum(rangeEvents.filter((e) => e.sourceType === 'override').map((e) => e.amount)),
+    };
+    const sourceSum = sum(Object.values(sourceTotals));
+
+    const upcoming = events
+      .filter((e) => e.status !== 'paid')
+      .sort((a, b) => new Date(a.expectedPayoutAt || a.qualifiedAt || 0).getTime() - new Date(b.expectedPayoutAt || b.qualifiedAt || 0).getTime())
+      .slice(0, 10);
+
+    const now = Date.now();
+    const pending = events.filter((e) => e.status === 'pending');
+    const aging = { d0_7: 0, d8_14: 0, d15p: 0 };
+    for (const e of pending) {
+      const ageDays = Math.floor((now - new Date(e.qualifiedAt || 0).getTime()) / (24 * 60 * 60 * 1000));
+      if (ageDays <= 7) aging.d0_7 += 1;
+      else if (ageDays <= 14) aging.d8_14 += 1;
+      else aging.d15p += 1;
+    }
+
+    const projectedEom = thisMonthPaid + thisMonthPending;
+
+    return {
+      allTimePaid,
+      allTimePending,
+      thisMonthPaid,
+      thisMonthPending,
+      projectedEom,
+      trend,
+      sourceTotals,
+      sourceSum,
+      upcoming,
+      aging,
+      rangeEvents,
+    };
+  }, [session, policyRows, financeRange]);
+
+
   if (!session) {
     return (
       <main style={{ minHeight: '100vh', background: 'radial-gradient(circle at top, #15213f 0%, #070b14 55%)', color: '#E5E7EB', display: 'grid', placeItems: 'center', padding: 24 }}>
@@ -725,6 +855,7 @@ export default function LicensedBackofficePage() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {[
             ['overview', 'Overview'],
+            ['financials', 'Financials'],
             ['sponsorships', 'Sponsorships'],
             ['policies', 'Policies'],
             ['submit', 'Submit App'],
@@ -830,6 +961,133 @@ export default function LicensedBackofficePage() {
                     <li>Fraud/duplicate review hold applies before payout release.</li>
                     <li>Program can be updated by company policy notice.</li>
                   </ul>
+                </div>
+              </div>
+            ) : null}
+
+
+            {tab === 'financials' && financials ? (
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {[
+                    ['month', 'This Month'],
+                    ['last30', 'Last 30 Days'],
+                    ['ytd', 'YTD'],
+                    ['all', 'All Time']
+                  ].map(([k, label]) => (
+                    <button
+                      key={`range-${k}`}
+                      onClick={() => setFinanceRange(k)}
+                      style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid #334155', background: financeRange === k ? '#1D428A' : '#0B1220', color: '#E5E7EB' }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
+                  <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(168, 85, 247, 0.12)', padding: 14 }}>
+                    <div style={{ color: '#C4B5FD', fontSize: 12 }}>All-Time Paid</div>
+                    <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.allTimePaid)}</div>
+                  </div>
+                  <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(245, 158, 11, 0.12)', padding: 14 }}>
+                    <div style={{ color: '#FCD34D', fontSize: 12 }}>All-Time Pending</div>
+                    <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.allTimePending)}</div>
+                  </div>
+                  <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(34, 197, 94, 0.12)', padding: 14 }}>
+                    <div style={{ color: '#86EFAC', fontSize: 12 }}>This Month Paid</div>
+                    <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.thisMonthPaid)}</div>
+                  </div>
+                  <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(59, 130, 246, 0.12)', padding: 14 }}>
+                    <div style={{ color: '#93C5FD', fontSize: 12 }}>This Month Pending</div>
+                    <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.thisMonthPending)}</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
+                  <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
+                    <h3 style={{ marginTop: 0, marginBottom: 10 }}>Monthly Earnings Trend</h3>
+                    {!financials.trend.length ? <p style={{ color: '#9CA3AF' }}>No trend data yet.</p> : (
+                      <div style={{ display: 'grid', gap: 8 }}>
+                        {financials.trend.map((t) => {
+                          const max = Math.max(...financials.trend.map((x) => Number(x.amount || 0)), 1);
+                          const w = Math.max(4, Math.round((Number(t.amount || 0) / max) * 100));
+                          return (
+                            <div key={t.key} style={{ display: 'grid', gridTemplateColumns: '40px 1fr 90px', gap: 8, alignItems: 'center' }}>
+                              <span style={{ color: '#9CA3AF', fontSize: 12 }}>{t.label}</span>
+                              <div style={{ height: 10, borderRadius: 999, background: '#1F2937', overflow: 'hidden' }}>
+                                <div style={{ width: `${w}%`, height: '100%', background: 'linear-gradient(90deg,#2563EB,#60A5FA)' }} />
+                              </div>
+                              <span style={{ textAlign: 'right', fontSize: 12 }}>{fmtMoney(t.amount)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
+                    <h3 style={{ marginTop: 0, marginBottom: 10 }}>Income Source Breakdown</h3>
+                    {financials.sourceSum <= 0 ? <p style={{ color: '#9CA3AF' }}>No source data in this range.</p> : (
+                      <div style={{ display: 'grid', gap: 8 }}>
+                        {[
+                          ['Direct Sales', 'direct_sales', '#3B82F6'],
+                          ['Sponsorship Bonuses', 'sponsorship_bonus', '#10B981'],
+                          ['Overrides', 'override', '#F59E0B']
+                        ].map(([label, key, color]) => {
+                          const amt = Number(financials.sourceTotals[key] || 0);
+                          const pct = financials.sourceSum > 0 ? Math.round((amt / financials.sourceSum) * 100) : 0;
+                          return (
+                            <div key={key}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                                <span>{label}</span>
+                                <span>{pct}% • {fmtMoney(amt)}</span>
+                              </div>
+                              <div style={{ height: 8, borderRadius: 999, background: '#1F2937', overflow: 'hidden' }}>
+                                <div style={{ width: `${Math.max(2, pct)}%`, height: '100%', background: color }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                    <h3 style={{ margin: 0 }}>Upcoming Payout Items</h3>
+                    <div style={{ color: '#9CA3AF', fontSize: 13 }}>Projected EOM: <strong style={{ color: '#E5E7EB' }}>{fmtMoney(financials.projectedEom)}</strong></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '10px 0' }}>
+                    <span className="pill neutral">Pending Aging 0–7d: {financials.aging.d0_7}</span>
+                    <span className="pill atrisk">8–14d: {financials.aging.d8_14}</span>
+                    <span className="pill offpace">15+d: {financials.aging.d15p}</span>
+                  </div>
+                  {!financials.upcoming.length ? <p style={{ color: '#9CA3AF' }}>No pending payout items.</p> : (
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Applicant / Policy</th>
+                          <th>Type</th>
+                          <th>Amount</th>
+                          <th>Status</th>
+                          <th>Expected</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {financials.upcoming.map((e) => (
+                          <tr key={`up-${e.id}`}>
+                            <td>{e.referenceName}</td>
+                            <td>{e.policyType || 'Policy'}</td>
+                            <td>{fmtMoney(e.amount)}</td>
+                            <td><span className="pill atrisk">Pending</span></td>
+                            <td>{dateOnly(e.expectedPayoutAt || e.qualifiedAt) || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               </div>
             ) : null}
