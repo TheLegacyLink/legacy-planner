@@ -195,6 +195,7 @@ export default function LicensedBackofficePage() {
   const [tab, setTab] = useState('overview');
   const [policyRows, setPolicyRows] = useState([]);
   const [sponsorRows, setSponsorRows] = useState([]);
+  const [onboardingDecisionRows, setOnboardingDecisionRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [submitBusy, setSubmitBusy] = useState(false);
@@ -414,15 +415,19 @@ export default function LicensedBackofficePage() {
       setLoading(true);
       setError('');
       try {
-        const [pRes, sRes] = await Promise.all([
+        const onboardingUrl = `/api/onboarding-decisions?name=${encodeURIComponent(session?.name || '')}&email=${encodeURIComponent(session?.email || '')}`;
+        const [pRes, sRes, oRes] = await Promise.all([
           fetch('/api/policy-submissions', { cache: 'no-store' }),
-          fetch('/api/sponsorship-applications', { cache: 'no-store' })
+          fetch('/api/sponsorship-applications', { cache: 'no-store' }),
+          fetch(onboardingUrl, { cache: 'no-store' })
         ]);
         const pData = await pRes.json().catch(() => ({}));
         const sData = await sRes.json().catch(() => ({}));
+        const oData = await oRes.json().catch(() => ({}));
         if (!cancelled) {
           setPolicyRows(Array.isArray(pData?.rows) ? pData.rows : []);
           setSponsorRows(Array.isArray(sData?.rows) ? sData.rows : []);
+          setOnboardingDecisionRows(Array.isArray(oData?.rows) ? oData.rows : []);
         }
       } catch {
         if (!cancelled) setError('Could not load dashboard data yet.');
@@ -673,6 +678,22 @@ export default function LicensedBackofficePage() {
       streakForNext
     };
   }, [session, policyRows, sponsorRows]);
+
+  const skippedAppDecisions = useMemo(() => {
+    if (!session) return [];
+    const nameNorm = normalize(session?.name || '');
+    const emailNorm = normalize(session?.email || '');
+    const rows = Array.isArray(onboardingDecisionRows) ? onboardingDecisionRows : [];
+    return rows.filter((r) => {
+      const decision = normalize(r?.decision || '');
+      if (!decision.includes('skip')) return false;
+      const ref = normalize(r?.referredByName || '');
+      const writer = normalize(r?.policyWriterName || '');
+      const em = normalize(r?.applicantEmail || '');
+      if (emailNorm && em === emailNorm) return true;
+      return Boolean(nameNorm && (ref === nameNorm || writer === nameNorm));
+    });
+  }, [session, onboardingDecisionRows]);
 
   const financials = useMemo(() => {
     if (!session) return null;
@@ -1310,6 +1331,10 @@ export default function LicensedBackofficePage() {
                 <h3 style={{ marginTop: 0 }}>Policy Production</h3>
                 {!metrics.myPolicies.length ? <p style={{ color: '#9CA3AF' }}>No policy records found yet under your writer/referrer name.</p> : (
                   <>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                      <span className="pill neutral">Decision Type: Submitted App</span>
+                      <span className="pill offpace">Skipped Apps (Onboarding Only): {skippedAppDecisions.length}</span>
+                    </div>
                     <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
                       {metrics.recentMonths.map((m) => (
                         <div key={m.month} style={{ border: '1px solid #2A3142', borderRadius: 10, padding: 10, background: '#020617', display: 'flex', justifyContent: 'space-between' }}>
@@ -1321,12 +1346,29 @@ export default function LicensedBackofficePage() {
                     <div style={{ display: 'grid', gap: 8 }}>
                       {metrics.approvedPolicyEntries.slice(0, 20).map((p) => (
                         <div key={p.id} style={{ border: '1px solid #2A3142', borderRadius: 10, padding: 10, background: '#020617', display: 'grid', gap: 4 }}>
-                          <strong>{p.name || 'Unnamed Applicant'}</strong>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <strong>{p.name || 'Unnamed Applicant'}</strong>
+                            <span className="pill neutral">Submitted App</span>
+                          </div>
                           <div style={{ color: '#9CA3AF' }}>{p.state || '—'} • {p.status} • {p.submittedAt || '—'}</div>
                           <div style={{ color: '#FCD34D', fontWeight: 700 }}>AP: ${Number(p.ap || 0).toLocaleString()} (Monthly: ${Number(p.monthlyPremium || 0).toLocaleString()})</div>
                         </div>
                       ))}
                     </div>
+
+                    {skippedAppDecisions.length ? (
+                      <div style={{ marginTop: 10, border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#020617' }}>
+                        <strong style={{ color: '#E5E7EB' }}>Skipped App Decisions (No Production Credit)</strong>
+                        <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+                          {skippedAppDecisions.slice(0, 8).map((r) => (
+                            <div key={`skip-pol-${r?.id || r?.createdAt}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                              <span style={{ color: '#CBD5E1' }}>{r?.applicantName || 'Applicant'}</span>
+                              <span className="pill offpace">Skipped App</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </>
                 )}
               </div>

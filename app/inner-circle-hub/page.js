@@ -188,6 +188,7 @@ export default function InnerCircleHubPage() {
   const [activityType, setActivityType] = useState('all');
   const [activityRows, setActivityRows] = useState([]);
   const [policyRows, setPolicyRows] = useState([]);
+  const [onboardingDecisionRows, setOnboardingDecisionRows] = useState([]);
   const [productionFilter, setProductionFilter] = useState('all');
   const [productionWindow, setProductionWindow] = useState('month');
   const [pointsHistoryOpen, setPointsHistoryOpen] = useState(false);
@@ -435,6 +436,21 @@ export default function InnerCircleHubPage() {
       return t.includes(productionFilter);
     });
   }, [productionWindowRows, productionFilter]);
+
+  const skippedAppDecisions = useMemo(() => {
+    const nameNorm = clean(member?.applicantName || member?.name || '').toLowerCase();
+    const emailNorm = clean(member?.email || '').toLowerCase();
+    const rows = Array.isArray(onboardingDecisionRows) ? onboardingDecisionRows : [];
+    return rows.filter((r) => {
+      const decision = clean(r?.decision || '').toLowerCase();
+      if (!decision.includes('skip')) return false;
+      const ref = clean(r?.referredByName || '').toLowerCase();
+      const writer = clean(r?.policyWriterName || '').toLowerCase();
+      const em = clean(r?.applicantEmail || '').toLowerCase();
+      if (emailNorm && em === emailNorm) return true;
+      return Boolean(nameNorm && (ref === nameNorm || writer === nameNorm));
+    });
+  }, [onboardingDecisionRows, member?.applicantName, member?.name, member?.email]);
 
   const productionStats = useMemo(() => {
     const rows = filteredProductionRows || [];
@@ -727,14 +743,17 @@ export default function InnerCircleHubPage() {
 
         const activityUrl = `/api/inner-circle-hub-activity?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}`;
 
-        const [kpiRes, dailyRes, scriptsRes, vaultRes, activityRes, progressRes, policiesRes] = await Promise.all([
+        const onboardingUrl = `/api/onboarding-decisions?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}`;
+
+        const [kpiRes, dailyRes, scriptsRes, vaultRes, activityRes, progressRes, policiesRes, onboardingRes] = await Promise.all([
           fetch(kpiUrl, { cache: 'no-store' }),
           fetch(dailyUrl, { cache: 'no-store' }),
           fetch('/api/inner-circle-hub-scripts', { cache: 'no-store' }),
           fetch('/api/inner-circle-hub-vault', { cache: 'no-store' }),
           fetch(activityUrl, { cache: 'no-store' }),
           fetch('/api/inner-circle-hub-progress', { cache: 'no-store' }),
-          fetch('/api/policy-submissions', { cache: 'no-store' })
+          fetch('/api/policy-submissions', { cache: 'no-store' }),
+          fetch(onboardingUrl, { cache: 'no-store' })
         ]);
 
         const kpiData = await kpiRes.json().catch(() => ({}));
@@ -744,6 +763,7 @@ export default function InnerCircleHubPage() {
         const activityData = await activityRes.json().catch(() => ({}));
         const progressData = await progressRes.json().catch(() => ({}));
         const policiesData = await policiesRes.json().catch(() => ({}));
+        const onboardingData = await onboardingRes.json().catch(() => ({}));
 
         if (!canceled && kpiRes.ok && kpiData?.ok) setKpi(kpiData.kpi || null);
         if (!canceled && dailyRes.ok && dailyData?.ok) {
@@ -785,6 +805,9 @@ export default function InnerCircleHubPage() {
         if (!canceled && policiesRes.ok && policiesData?.ok) {
           setPolicyRows(Array.isArray(policiesData?.rows) ? policiesData.rows : []);
         }
+        if (!canceled && onboardingRes.ok && onboardingData?.ok) {
+          setOnboardingDecisionRows(Array.isArray(onboardingData?.rows) ? onboardingData.rows : []);
+        }
       } catch {
         if (!canceled) {
           setKpi(null);
@@ -793,6 +816,7 @@ export default function InnerCircleHubPage() {
           setVault({ content: [], calls: [], onboarding: [] });
           setLeaderboard({ month: '', rows: [] });
           setPolicyRows([]);
+          setOnboardingDecisionRows([]);
         }
       }
     }
@@ -1450,6 +1474,11 @@ export default function InnerCircleHubPage() {
                 <small className="muted">Showing: {productionWindow === 'month' ? 'This Month' : productionWindow === 'lastMonth' ? 'Last Month' : 'All Time'} • {productionFilter === 'all' ? 'All Policy Types' : productionFilter}</small>
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <span className="pill neutral">Decision Type: Submitted App</span>
+                  <span className="pill offpace">Skipped Apps (Onboarding Only): {skippedAppDecisions.length}</span>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <span className="pill onpace">Policy Payout: Every Friday</span>
                   <span className="pill neutral">Licensed Incentive Payout: Monthly</span>
                 </div>
@@ -1585,6 +1614,7 @@ export default function InnerCircleHubPage() {
                               <span className="pill" style={{ background: '#1e3a8a', color: '#dbeafe', border: '1px solid #3b82f6' }}>Inner Circle</span>
                             ) : null}
                             <span className={`pill ${fgApproved ? 'onpace' : (approved ? 'neutral' : 'atrisk')}`}>{approved ? 'Approved' : (row?.status || 'Submitted')}</span>
+                            <span className="pill neutral">Decision: Submitted App</span>
                           </div>
                           <div style={{ color: '#cbd5e1', fontSize: 12, marginTop: 6 }}>
                             Commission: <strong style={{ color: '#f8fafc' }}>{commissionPct}%</strong> • Points: <strong style={{ color: '#f8fafc' }}>{points.toFixed(2)}</strong> • Advance: <strong style={{ color: '#86efac' }}>${advance.toFixed(2)}</strong>
@@ -1596,6 +1626,19 @@ export default function InnerCircleHubPage() {
                       );
                     })}
                     {!filteredProductionRows.length ? <small className="muted">No personal production records for this filter yet.</small> : null}
+                    {skippedAppDecisions.length ? (
+                      <div style={{ marginTop: 8, border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#0b1220' }}>
+                        <strong style={{ color: '#fff' }}>Skipped App Decisions (No Production Credit)</strong>
+                        <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+                          {skippedAppDecisions.slice(0, 8).map((r) => (
+                            <div key={`skip-${r?.id || r?.createdAt}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                              <span style={{ color: '#CBD5E1' }}>{r?.applicantName || 'Applicant'}</span>
+                              <span className="pill offpace">Skipped App</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>

@@ -296,6 +296,7 @@ function normalizedRecord(row = {}) {
     payoutDueAt: clean(row.payoutDueAt || ''),
     payoutAmount: Number(row.payoutAmount ?? (approvalPending ? 0 : calc.advancePayout)) || 0,
     payoutStatus: clean(row.payoutStatus || 'Unpaid') || 'Unpaid',
+    decisionType: clean(row.decisionType || 'submitted_app') || 'submitted_app',
     payoutPaidAt: clean(row.payoutPaidAt || ''),
     payoutPaidBy: clean(row.payoutPaidBy || ''),
     payoutNotes: clean(row.payoutNotes || ''),
