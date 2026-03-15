@@ -50,18 +50,46 @@ export async function GET(req) {
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
   const token = clean(body?.adminToken || '');
+  const mode = clean(body?.mode || 'upsert').toLowerCase();
   const required = clean(process.env.CONTRACT_ADMIN_TOKEN || '');
   if (!required || token !== required) {
     return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
 
+  const rows = await loadJsonStore(STORE_PATH, []);
+  const list = Array.isArray(rows) ? rows : [];
+
+  if (mode === 'bulk_upsert') {
+    const incoming = Array.isArray(body?.rows) ? body.rows : [];
+    if (!incoming.length) return Response.json({ ok: false, error: 'missing_rows' }, { status: 400 });
+
+    let upserted = 0;
+    for (const item of incoming) {
+      const email = normalizeEmail(item?.email || '');
+      if (!email) continue;
+      const idx = list.findIndex((r) => normalizeEmail(r?.email) === email);
+      const row = {
+        email,
+        name: clean(item?.name || ''),
+        envelopeId: clean(item?.envelopeId || ''),
+        signedAt: clean(item?.signedAt || nowIso()),
+        source: clean(item?.source || body?.source || 'manual_admin_bulk'),
+        updatedAt: nowIso(),
+        createdAt: idx >= 0 ? clean(list[idx]?.createdAt || nowIso()) : nowIso()
+      };
+      if (idx >= 0) list[idx] = row;
+      else list.push(row);
+      upserted += 1;
+    }
+
+    await saveJsonStore(STORE_PATH, list);
+    return Response.json({ ok: true, upserted, total: list.length });
+  }
+
   const email = normalizeEmail(body?.email || '');
   if (!email) return Response.json({ ok: false, error: 'missing_email' }, { status: 400 });
 
-  const rows = await loadJsonStore(STORE_PATH, []);
-  const list = Array.isArray(rows) ? rows : [];
   const idx = list.findIndex((r) => normalizeEmail(r?.email) === email);
-
   const row = {
     email,
     name: clean(body?.name || ''),

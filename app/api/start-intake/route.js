@@ -2,9 +2,11 @@ import nodemailer from 'nodemailer';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 
 const STORE_PATH = 'stores/start-intake.json';
+const CONTRACT_SIGNATURES_PATH = 'stores/contract-signatures.json';
 
 function clean(v = '') { return String(v || '').trim(); }
 function normalize(v = '') { return clean(v).toLowerCase(); }
+function normalizeName(v = '') { return normalize(v).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim(); }
 function nowIso() { return new Date().toISOString(); }
 
 function getEnv(name) { return String(process.env[name] || '').trim(); }
@@ -33,7 +35,46 @@ function unlicensedWelcomeHtml({ firstName = 'Agent', jamalEmail = '' } = {}) {
   return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;"><div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">${brandHeader()}<div style="padding:22px;"><h2 style="margin:0 0 12px;font-size:22px;color:#0f172a;">Welcome to The Legacy Link</h2><p>Hi ${f},</p><p>Welcome to <strong>The Legacy Link</strong> — we’re excited to have you here.</p><p>Your profile has been received. To begin your onboarding and confirm your next steps, please contact:</p><p style="margin:8px 0 14px;"><strong>Jamal</strong><br/><a href="mailto:${j}" style="color:#1d4ed8;text-decoration:none;font-weight:700;">${j}</a></p><p>He will guide you through where you are in the process and what to do next.</p><p style="margin-top:16px;">We’re glad you’re here — let’s execute.</p><p style="margin:18px 0 0;color:#475569;">— The Legacy Link Team</p></div></div></div>`;
 }
 
-async function sendWelcomeEmailByTrack(row = {}) {
+function contractRequiredHtml({ firstName = 'Agent', contractLink = '', track = 'unlicensed', jamalEmail = '' } = {}) {
+  const f = escapeHtml(firstName || 'Agent');
+  const link = escapeHtml(contractLink || '');
+  const jamal = escapeHtml(jamalEmail || '');
+  const contactLine = track === 'licensed'
+    ? '<p style="margin-top:10px;">After signing, contact your upline. If you do not know your upline, email <a href="mailto:support@thelegacylink.com" style="color:#1d4ed8;text-decoration:none;font-weight:700;">support@thelegacylink.com</a>.</p>'
+    : `<p style="margin-top:10px;">After signing, contact Jamal at <a href="mailto:${jamal}" style="color:#1d4ed8;text-decoration:none;font-weight:700;">${jamal}</a> for your onboarding next steps.</p>`;
+
+  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;"><div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">${brandHeader()}<div style="padding:22px;"><h2 style="margin:0 0 12px;font-size:22px;color:#0f172a;">Action Required: Sign Your Legacy Link Contract</h2><p>Hi ${f},</p><p>Welcome to The Legacy Link — before we can move your profile forward, please sign the contract below.</p><p><a href="${link}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700;">Sign Contract</a></p>${contactLine}<p style="margin-top:16px;">Once complete, we’ll mark your status as signed and continue activation.</p><p style="margin:18px 0 0;color:#475569;">— The Legacy Link Team</p></div></div></div>`;
+}
+
+async function resolveContractStatus({ email = '', firstName = '', lastName = '' } = {}) {
+  const rows = await loadJsonStore(CONTRACT_SIGNATURES_PATH, []);
+  const list = Array.isArray(rows) ? rows : [];
+  const e = normalize(email);
+  const n = normalizeName(`${firstName} ${lastName}`);
+
+  let row = null;
+  let matchedBy = '';
+  if (e) {
+    row = list.find((r) => normalize(r?.email || '') === e) || null;
+    if (row) matchedBy = 'email';
+  }
+  if (!row && n) {
+    row = list.find((r) => normalizeName(r?.name || '') === n) || null;
+    if (row) matchedBy = 'name';
+  }
+
+  const signedAt = clean(row?.signedAt || row?.signed_at || row?.completedAt || row?.completed_at || '');
+  return {
+    signed: Boolean(signedAt),
+    signedAt,
+    matchedBy,
+    envelopeId: clean(row?.envelopeId || ''),
+    contractRowName: clean(row?.name || '')
+  };
+}
+
+
+async function sendWelcomeEmailByTrack(row = {}, options = {}) {
   const user = getEnv('GMAIL_APP_USER');
   const pass = getEnv('GMAIL_APP_PASSWORD');
   const from = getEnv('GMAIL_FROM') || user;
@@ -43,40 +84,56 @@ async function sendWelcomeEmailByTrack(row = {}) {
   const track = normalize(row?.trackType || '');
   const firstName = clean(row?.firstName || 'Agent');
   const jamalEmail = getEnv('SPONSORSHIP_UNLICENSED_COACH_EMAIL') || getEnv('JAMAL_EMAIL') || 'support@thelegacylink.com';
+  const contractLink = getEnv('NEXT_PUBLIC_DOCUSIGN_ICA_URL') || getEnv('DOCUSIGN_ICA_URL') || 'https://thelegacylink.com/contract-agreement';
+  const contractRequired = options?.contractRequired === true;
 
-  const subject = track === 'licensed'
-    ? 'Welcome to The Legacy Link — Your Licensed Profile Is Active'
-    : 'Welcome to The Legacy Link — Let’s Get You Started';
+  const subject = contractRequired
+    ? 'Action Required: Sign Your Legacy Link Contract'
+    : (track === 'licensed' ? 'Welcome to The Legacy Link — Your Licensed Profile Is Active' : 'Welcome to The Legacy Link — Let’s Get You Started');
 
-  const text = track === 'licensed'
+  const text = contractRequired
     ? [
         `Hi ${firstName},`,
         '',
-        'Your licensed profile is now active.',
-        'Inside your portal you will find your SOP, financial tracking, and your personal referral link.',
+        'Welcome to The Legacy Link.',
+        'Before we can move your profile forward, please sign your contract:',
+        contractLink,
         '',
-        'Next step: Contact your upline directly.',
-        'If you do not know your upline, email support@thelegacylink.com.',
+        (track === 'licensed'
+          ? 'After signing, contact your upline. If unknown, email support@thelegacylink.com.'
+          : `After signing, contact Jamal: ${jamalEmail}`),
         '',
         '— The Legacy Link Team'
       ].join('\n')
-    : [
-        `Hi ${firstName},`,
-        '',
-        'Welcome to The Legacy Link.',
-        'To begin onboarding and confirm your next steps, contact Jamal:',
-        jamalEmail,
-        '',
-        '— The Legacy Link Team'
-      ].join('\n');
+    : (track === 'licensed'
+      ? [
+          `Hi ${firstName},`,
+          '',
+          'Your licensed profile is now active.',
+          'Inside your portal you will find your SOP, financial tracking, and your personal referral link.',
+          '',
+          'Next step: Contact your upline directly.',
+          'If you do not know your upline, email support@thelegacylink.com.',
+          '',
+          '— The Legacy Link Team'
+        ].join('\n')
+      : [
+          `Hi ${firstName},`,
+          '',
+          'Welcome to The Legacy Link.',
+          'To begin onboarding and confirm your next steps, contact Jamal:',
+          jamalEmail,
+          '',
+          '— The Legacy Link Team'
+        ].join('\n'));
 
-  const html = track === 'licensed'
-    ? licensedWelcomeHtml({ firstName })
-    : unlicensedWelcomeHtml({ firstName, jamalEmail });
+  const html = contractRequired
+    ? contractRequiredHtml({ firstName, contractLink, track, jamalEmail })
+    : (track === 'licensed' ? licensedWelcomeHtml({ firstName }) : unlicensedWelcomeHtml({ firstName, jamalEmail }));
 
   const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
   const info = await tx.sendMail({ from, to, subject, text, html });
-  return { ok: true, messageId: clean(info?.messageId || '') };
+  return { ok: true, messageId: clean(info?.messageId || ''), subject };
 }
 
 function normalizePhone(v = '') {
@@ -156,20 +213,36 @@ export async function POST(req) {
     source: clean(body?.source || 'community_start_portal') || 'community_start_portal',
     status: clean(previous?.status || 'intake_submitted') || 'intake_submitted',
     credentialsStatus: clean(previous?.credentialsStatus || 'pending') || 'pending',
+    contractStatus: clean(previous?.contractStatus || 'pending') || 'pending',
+    contractSignedAt: clean(previous?.contractSignedAt || ''),
+    contractMatchedBy: clean(previous?.contractMatchedBy || ''),
     welcomeEmailStatus: clean(previous?.welcomeEmailStatus || 'pending') || 'pending',
     notes: clean(body?.notes || previous?.notes || ''),
     createdAt: clean(previous?.createdAt || ts),
     updatedAt: ts
   };
 
-  // Auto-send welcome email after profile creation/update.
-  const welcome = await sendWelcomeEmailByTrack(next).catch((e) => ({ ok: false, error: clean(e?.message || 'welcome_send_failed') }));
-  const withWelcome = {
+  const contract = await resolveContractStatus({ email: next.email, firstName: next.firstName, lastName: next.lastName });
+  const contractRequired = !contract.signed;
+
+  const patched = {
     ...next,
+    contractStatus: contract.signed ? 'signed' : 'pending',
+    contractSignedAt: clean(contract.signedAt || ''),
+    contractMatchedBy: clean(contract.matchedBy || ''),
+    status: contract.signed ? 'contract_complete' : 'contract_pending',
+    credentialsStatus: contract.signed ? clean(next?.credentialsStatus || 'pending') : 'blocked_contract'
+  };
+
+  // Auto-send email after profile creation/update (contract-required email if unsigned, welcome email if signed).
+  const welcome = await sendWelcomeEmailByTrack(patched, { contractRequired }).catch((e) => ({ ok: false, error: clean(e?.message || 'welcome_send_failed') }));
+  const withWelcome = {
+    ...patched,
     welcomeEmailStatus: welcome?.ok ? 'sent' : 'failed',
     welcomeEmailSentAt: welcome?.ok ? nowIso() : clean(next?.welcomeEmailSentAt || ''),
     welcomeEmailError: welcome?.ok ? '' : clean(welcome?.error || ''),
-    welcomeEmailMessageId: clean(welcome?.messageId || '')
+    welcomeEmailMessageId: clean(welcome?.messageId || ''),
+    lastEmailTemplate: contractRequired ? 'contract_required' : 'welcome'
   };
 
   if (idx >= 0) list[idx] = withWelcome;

@@ -17,6 +17,7 @@ export default function UnlicensedStartPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [savedRow, setSavedRow] = useState(null);
 
   const canSubmit = useMemo(() => {
     return Boolean(
@@ -48,6 +49,7 @@ export default function UnlicensedStartPage() {
         setError(data?.error || 'Could not save intake right now.');
         return;
       }
+      setSavedRow(data?.row || null);
       setSaved(true);
     } catch {
       setError('Could not save intake right now.');
@@ -62,7 +64,7 @@ export default function UnlicensedStartPage() {
         <div style={{ width: 'min(680px, 96vw)', border: '1px solid #334155', borderRadius: 16, background: '#0B1220', padding: 22, textAlign: 'center' }}>
           <div style={{ fontSize: 34 }}>✅</div>
           <h1 style={{ margin: '6px 0 0' }}>Unlicensed Intake Submitted</h1>
-          <p style={{ color: '#94A3B8' }}>Your profile was captured successfully. We’ll send onboarding steps and credentials next.</p>
+          <p style={{ color: '#94A3B8' }}>{savedRow?.contractStatus === 'signed' ? 'Your profile is captured and contract is complete. We’ll send onboarding steps next.' : 'Your profile is captured. Contract signature is required before full activation. Check your email for the contract link.'}</p>
           <a href="/start" style={{ color: '#93C5FD' }}>Back to Start</a>
         </div>
       </main>
