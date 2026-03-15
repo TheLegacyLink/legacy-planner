@@ -6,7 +6,7 @@ import { loadRuntimeConfig } from '../../lib/runtimeConfig';
 const REWARDS = {
   sponsorshipApp: 1,
   bookedAppointment: 0,
-  cleanInsuranceApp: 10,
+  cleanInsuranceApp: 50,
   approvedPolicy: 500
 };
 
@@ -546,7 +546,7 @@ export default function InnerCircleHubRewardsPage() {
       <div className="panel" style={{ display: 'grid', gap: 8 }}>
         <strong style={{ color: '#ffffff' }}>Internal Reward Summary</strong>
         <p style={{ margin: 0, color: '#ffffff' }}>• $1 per sponsorship app submitted (including sponsorship approvals)</p>
-        <p style={{ margin: 0, color: '#ffffff' }}>• $10 per F&G/NLG insurance app submitted in good order (licensed agents only)</p>
+        <p style={{ margin: 0, color: '#ffffff' }}>• $50 per F&G/NLG insurance app submitted in good order (licensed agents only)</p>
         <p style={{ margin: 0, color: '#ffffff' }}>• $500 per F&G/NLG approved policy</p>
       </div>
 

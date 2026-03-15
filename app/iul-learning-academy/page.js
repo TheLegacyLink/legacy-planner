@@ -518,42 +518,38 @@ export default function IulLearningAcademyPage() {
         </div>
 
         {level === 'intermediate' && intermediateSectionsComplete && quizScore == null ? (
-          <div style={{ marginTop: 14, border: '1px solid #334155', borderRadius: 14, background: '#071022', padding: 14 }}>
+          <div style={{ marginTop: 14, border: '1px solid #334155', borderRadius: 14, background: '#0b1220', padding: 14 }}>
             <h3 style={{ marginTop: 0, color: '#fff' }}>Knowledge Check (80% to pass)</h3>
             <p style={{ color: '#9FB3CC', fontSize: 14, marginBottom: 8 }}>Question {quizIndex + 1} of {quizQuestions.length}</p>
             <p style={{ color: '#F8FAFC', fontWeight: 800, fontSize: 21, lineHeight: 1.45, marginBottom: 10 }}>{quizQuestions[quizIndex].q}</p>
-            <style>{`
-              .iulQuizOption{
-                text-align:left !important;
-                border-radius:12px !important;
-                padding:14px 14px !important;
-                font-size:17px !important;
-                font-weight:800 !important;
-                line-height:1.6 !important;
-                white-space:normal !important;
-                word-break:break-word !important;
-                min-height:62px !important;
-                display:block !important;
-                width:100% !important;
-                color:#0F172A !important;
-                -webkit-text-fill-color:#0F172A !important;
-                text-shadow:none !important;
-                opacity:1 !important;
-              }
-            `}</style>
             <div style={{ display: 'grid', gap: 8 }}>
               {quizQuestions[quizIndex].opts.map((opt, i) => (
                 <button
                   key={`opt-${i}`}
                   type="button"
-                  className="iulQuizOption"
                   onClick={() => setQuizSelected(i)}
                   style={{
-                    border: quizSelected === i ? '2px solid #92400E' : '1px solid #B45309',
-                    background: quizSelected === i ? '#FACC15' : '#FFF7CC'
+                    textAlign: 'left',
+                    borderRadius: 12,
+                    border: quizSelected === i ? '3px solid #92400E' : '2px solid #B45309',
+                    background: quizSelected === i ? '#FFFFFF' : '#FFF7CC',
+                    color: '#0B1020',
+                    WebkitTextFillColor: '#0B1020',
+                    textShadow: 'none',
+                    padding: '14px 14px',
+                    fontSize: 18,
+                    fontWeight: 800,
+                    lineHeight: 1.6,
+                    whiteSpace: 'normal',
+                    wordBreak: 'break-word',
+                    minHeight: 62,
+                    display: 'block',
+                    width: '100%',
+                    opacity: 1,
+                    filter: 'none'
                   }}
                 >
-                  <span style={{ color: '#0F172A', WebkitTextFillColor: '#0F172A' }}>{opt}</span>
+                  <span style={{ color: '#0B1020', WebkitTextFillColor: '#0B1020', fontWeight: 800 }}>{opt}</span>
                 </button>
               ))}
             </div>

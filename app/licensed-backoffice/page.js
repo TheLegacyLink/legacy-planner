@@ -1444,7 +1444,7 @@ export default function LicensedBackofficePage() {
 
             {tab === 'academy' ? (
               <div style={{ border: '1px solid #2A3142', borderRadius: 12, overflow: 'hidden', background: '#0F172A' }}>
-                <iframe title="IUL Academy" src={`/iul-learning-academy?name=${encodeURIComponent(session?.name || '')}&email=${encodeURIComponent(session?.email || '')}&licensed=1`} style={{ width: '100%', minHeight: 1400, border: 0, background: '#020617' }} />
+                <iframe title="IUL Academy" src={`/iul-learning-academy?name=${encodeURIComponent(session?.name || '')}&email=${encodeURIComponent(session?.email || '')}&licensed=1&v=20260315-2`} style={{ width: '100%', minHeight: 1400, border: 0, background: '#020617' }} />
               </div>
             ) : null}
 
