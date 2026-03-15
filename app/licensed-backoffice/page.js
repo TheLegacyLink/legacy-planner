@@ -781,6 +781,12 @@ export default function LicensedBackofficePage() {
       .sort((a, b) => new Date(a.expectedPayoutAt || a.qualifiedAt || 0).getTime() - new Date(b.expectedPayoutAt || b.qualifiedAt || 0).getTime())[0] || null;
 
     const projectedEom = thisMonthPaid + thisMonthPending;
+    const monthTotal = thisMonthPaid + thisMonthPending;
+    const paidRatio = monthTotal > 0 ? Math.round((thisMonthPaid / monthTotal) * 100) : 0;
+    const latestEventAt = events
+      .map((e) => new Date(e.paidAt || e.qualifiedAt || 0).getTime())
+      .filter((t) => Number.isFinite(t) && t > 0)
+      .sort((a, b) => b - a)[0] || 0;
 
     return {
       allTimePaid,
@@ -796,6 +802,9 @@ export default function LicensedBackofficePage() {
       filteredEvents,
       pendingTotals,
       nextPayout,
+      monthTotal,
+      paidRatio,
+      latestEventAt,
       events,
     };
   }, [session, policyRows, financeRange]);
@@ -923,7 +932,7 @@ export default function LicensedBackofficePage() {
               <h2 style={{ margin: 0, fontSize: 28 }}>Licensed Agent Back Office</h2>
               <p style={{ margin: '6px 0 0', color: '#9CA3AF' }}>{session.name} • {session.email} • {session.homeState || 'State Pending'}</p>
             </div>
-            <button onClick={logout} style={{ borderRadius: 10, border: '1px solid #334155', padding: '8px 12px', background: '#111827', color: '#E5E7EB' }}>Sign Out</button>
+            <button onClick={logout} style={{ borderRadius: 10, border: '1px solid #334155', padding: '8px 12px', background: '#111827', color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>Sign Out</button>
           </div>
         </header>
 
@@ -936,7 +945,7 @@ export default function LicensedBackofficePage() {
             ['submit', 'Submit App'],
             ['resources', 'Resources']
           ].map(([k, label]) => (
-            <button key={k} onClick={() => setTab(k)} style={{ padding: '10px 14px', borderRadius: 999, border: '1px solid #334155', background: tab === k ? '#1D428A' : '#0B1220', color: '#E5E7EB' }}>{label}</button>
+            <button key={k} onClick={() => setTab(k)} style={{ padding: '10px 14px', borderRadius: 999, border: '1px solid #334155', background: tab === k ? '#1D428A' : '#0B1220', color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>{label}</button>
           ))}
         </div>
 
@@ -1044,7 +1053,7 @@ export default function LicensedBackofficePage() {
 
             {tab === 'financials' && financials ? (
               <div style={{ display: 'grid', gap: 12 }}>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between', border: '1px solid #243046', borderRadius: 12, background: '#0B1220', padding: 10 }}>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {[
                       ['month', 'This Month'],
@@ -1067,30 +1076,31 @@ export default function LicensedBackofficePage() {
                     ) : (
                       <span className="pill neutral">Next Payout: —</span>
                     )}
+                    <span className="pill onpace">Paid Ratio: {financials.paidRatio}%</span>
                     <button type="button" className="ghost" onClick={exportFinancialCsv}>Export CSV</button>
                   </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
-                  <button type="button" onClick={() => openFinanceDrawer('All-Time Paid', financials.events.filter((e) => e.status === 'paid'))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(168, 85, 247, 0.12)', padding: 14, color: '#E5E7EB' }}>
+                  <button type="button" onClick={() => openFinanceDrawer('All-Time Paid', financials.events.filter((e) => e.status === 'paid'))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(168, 85, 247, 0.12)', padding: 14, color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>
                     <div style={{ color: '#C4B5FD', fontSize: 12 }}>All-Time Paid</div>
                     <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.allTimePaid)}</div>
                   </button>
-                  <button type="button" onClick={() => openFinanceDrawer('All-Time Pending', financials.events.filter((e) => e.status === 'pending'))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(245, 158, 11, 0.12)', padding: 14, color: '#E5E7EB' }}>
+                  <button type="button" onClick={() => openFinanceDrawer('All-Time Pending', financials.events.filter((e) => e.status === 'pending'))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(245, 158, 11, 0.12)', padding: 14, color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>
                     <div style={{ color: '#FCD34D', fontSize: 12 }}>All-Time Pending</div>
                     <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.allTimePending)}</div>
                   </button>
-                  <button type="button" onClick={() => openFinanceDrawer('This Month Paid', financials.events.filter((e) => e.status === 'paid' && isInRange(e.paidAt || e.qualifiedAt, 'month')))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(34, 197, 94, 0.12)', padding: 14, color: '#E5E7EB' }}>
+                  <button type="button" onClick={() => openFinanceDrawer('This Month Paid', financials.events.filter((e) => e.status === 'paid' && isInRange(e.paidAt || e.qualifiedAt, 'month')))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(34, 197, 94, 0.12)', padding: 14, color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>
                     <div style={{ color: '#86EFAC', fontSize: 12 }}>This Month Paid</div>
                     <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.thisMonthPaid)}</div>
                   </button>
-                  <button type="button" onClick={() => openFinanceDrawer('This Month Pending', financials.events.filter((e) => e.status === 'pending' && isInRange(e.qualifiedAt, 'month')))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(59, 130, 246, 0.12)', padding: 14, color: '#E5E7EB' }}>
+                  <button type="button" onClick={() => openFinanceDrawer('This Month Pending', financials.events.filter((e) => e.status === 'pending' && isInRange(e.qualifiedAt, 'month')))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(59, 130, 246, 0.12)', padding: 14, color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>
                     <div style={{ color: '#93C5FD', fontSize: 12 }}>This Month Pending</div>
                     <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.thisMonthPending)}</div>
                   </button>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 12 }}>
                   <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
                     <h3 style={{ marginTop: 0, marginBottom: 10 }}>Monthly Earnings Trend</h3>
                     {!financials.trend.length ? <p style={{ color: '#9CA3AF' }}>No trend data yet.</p> : (
@@ -1103,7 +1113,7 @@ export default function LicensedBackofficePage() {
                               <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 90px', gap: 8, alignItems: 'center' }}>
                                 <span style={{ color: '#9CA3AF', fontSize: 12 }}>{t.label}</span>
                                 <div style={{ height: 10, borderRadius: 999, background: '#1F2937', overflow: 'hidden' }}>
-                                  <div style={{ width: `${w}%`, height: '100%', background: 'linear-gradient(90deg,#2563EB,#60A5FA)' }} />
+                                  <div style={{ width: `${w}%`, height: '100%', background: 'linear-gradient(90deg,#2563EB,#60A5FA)', transition: 'width .35s ease' }} />
                                 </div>
                                 <span style={{ textAlign: 'right', fontSize: 12 }}>{fmtMoney(t.amount)}</span>
                               </div>
@@ -1132,7 +1142,7 @@ export default function LicensedBackofficePage() {
                                 <span>{pct}% • {fmtMoney(amt)}</span>
                               </div>
                               <div style={{ height: 8, borderRadius: 999, background: '#1F2937', overflow: 'hidden' }}>
-                                <div style={{ width: `${Math.max(2, pct)}%`, height: '100%', background: color }} />
+                                <div style={{ width: `${Math.max(2, pct)}%`, height: '100%', background: color, transition: 'width .35s ease' }} />
                               </div>
                             </button>
                           );
@@ -1145,7 +1155,7 @@ export default function LicensedBackofficePage() {
                 <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                     <h3 style={{ margin: 0 }}>Upcoming Payout Items</h3>
-                    <div style={{ color: '#9CA3AF', fontSize: 13 }}>Projected EOM: <strong style={{ color: '#E5E7EB' }}>{fmtMoney(financials.projectedEom)}</strong></div>
+                    <div style={{ color: '#9CA3AF', fontSize: 13 }}>Projected EOM: <strong style={{ color: '#E5E7EB' }}>{fmtMoney(financials.projectedEom)}</strong>{financials.latestEventAt ? <span> • Updated {dateOnly(new Date(financials.latestEventAt).toISOString())}</span> : null}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '10px 0' }}>
                     <span className="pill neutral">Pending Aging 0–7d: {financials.aging.d0_7}</span>
