@@ -108,10 +108,10 @@ function computeEffectivePoints(row = {}) {
   // Sponsorship approval is always 1 point.
   if (type === 'Sponsorship Policy') return statusApproved ? 1 : 0;
 
-  // F&G / NLG submission = 10, approval = 500.
+  // F&G / NLG submission = 50, approval = 500.
   if (isFgNlgRow(row)) {
     if (statusApproved) return 500;
-    return 10;
+    return 50;
   }
 
   if (existing > 0) return existing;
@@ -548,7 +548,7 @@ export default function InnerCircleHubPage() {
     const paidRatio = monthTotal > 0 ? Math.round((thisMonthPaid / monthTotal) * 100) : 0;
     const nextPayout = upcoming[0] || null;
 
-    // Incentive payout (1st-5th): prior month sponsorship approvals ($1) + F&G/NLG submissions ($10)
+    // Incentive payout (1st-5th): prior month sponsorship approvals ($1) + F&G/NLG submissions ($50)
     const incentiveRowsPrevMonth = rows.filter((r) => {
       const type = normalizePolicyTypeLabel(r?.policyType || r?.appType || '').toLowerCase();
       const approved = isApprovedStatus(r?.status || '');
@@ -562,7 +562,7 @@ export default function InnerCircleHubPage() {
       }
       return false;
     });
-    const monthlyIncentiveAmount = incentiveRowsPrevMonth.reduce((acc, r) => acc + (normalizePolicyTypeLabel(r?.policyType || r?.appType || '').toLowerCase().includes('sponsorship') ? 1 : 10), 0);
+    const monthlyIncentiveAmount = incentiveRowsPrevMonth.reduce((acc, r) => acc + (normalizePolicyTypeLabel(r?.policyType || r?.appType || '').toLowerCase().includes('sponsorship') ? 1 : 50), 0);
     const monthlyIncentivePayoutWindow = `${now.toLocaleDateString('en-US', { month: 'short' })} 1-${now.toLocaleDateString('en-US', { month: 'short' })} 5`;
 
     // Weekly approval payout: F&G/NLG approvals paid following Friday
@@ -1486,7 +1486,7 @@ export default function InnerCircleHubPage() {
 
                 <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
                   <div style={{ color: '#fff', fontWeight: 700 }}>Licensed Monthly Incentive Tracker</div>
-                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>$1 sponsorship approvals + $10 F&G/NLG submissions from {monthShortFromKey(productionFinancials.previousMonthKey)} pay out around {productionFinancials.monthlyIncentivePayoutWindow}.</div>
+                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>$1 sponsorship approvals + $50 F&G/NLG submissions from {monthShortFromKey(productionFinancials.previousMonthKey)} pay out around {productionFinancials.monthlyIncentivePayoutWindow}.</div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                     <span className="pill neutral">Sponsorship Submitted: {monthlyLicensedIncentive.submitted}</span>
                     <span className="pill offpace">Apps Submitted: {monthlyLicensedIncentive.appSubmitted}</span>
@@ -1506,7 +1506,7 @@ export default function InnerCircleHubPage() {
 
                 <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
                   <div style={{ color: '#fff', fontWeight: 700 }}>Points Rule</div>
-                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>Sponsorship approval = 1 point • F&G/NLG submission = 10 points • F&G/NLG approval = 500 points.</div>
+                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>Sponsorship approval = 1 point • F&G/NLG submission = 50 points • F&G/NLG approval = 500 points.</div>
                 </div>
 
                 <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
