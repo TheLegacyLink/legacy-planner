@@ -95,6 +95,12 @@ function monthKeyNext(key = '') {
   return `${y}-${String(mo).padStart(2, '0')}`;
 }
 
+function dateOnly(ts = '') {
+  const d = new Date(ts || 0);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+}
+
 function hasAnyConsecutiveMonths(byMonth = new Map(), targetAp = 0, needed = 3) {
   const keys = [...byMonth.keys()].sort();
   let streak = 0;
@@ -415,20 +421,33 @@ export default function LicensedBackofficePage() {
       .slice(0, 3)
       .map(([month, ap]) => ({ month, ap }));
 
-    const sponsorshipEntries = [...mySponsors]
-      .sort((a, b) => new Date(b?.updatedAt || b?.submitted_at || 0).getTime() - new Date(a?.updatedAt || a?.submitted_at || 0).getTime())
-      .map((r, i) => {
-        const status = clean(r?.status || 'Pending Review');
-        const isApproved = normalize(status).includes('approved');
-        return {
-          id: clean(r?.id) || `s_${i}`,
-          name: clean(`${clean(r?.firstName)} ${clean(r?.lastName)}`) || 'Unknown',
-          state: clean(r?.state),
-          status,
-          submittedAt: clean(r?.submitted_at || r?.updatedAt),
-          isApproved
-        };
-      });
+    const sponsorshipEntriesMap = new Map();
+    for (const r of mySponsors) {
+      const statusRaw = clean(r?.status || '');
+      const statusNorm = normalize(statusRaw);
+      const statusSimple = statusNorm.includes('approved') ? 'Approved' : (statusNorm.includes('declin') ? 'Declined' : '');
+      if (!statusSimple) continue; // hide pending/in-progress noise
+
+      const fullName = clean(r?.fullName || `${clean(r?.firstName)} ${clean(r?.lastName)}`) || 'Unknown';
+      const state = clean(r?.state);
+      const ts = tsFrom(r?.updatedAt, r?.submitted_at, r?.createdAt);
+      const key = clean(r?.id) || `${normalize(fullName)}|${normalize(state)}`;
+      const prev = sponsorshipEntriesMap.get(key);
+      if (!prev || ts > Number(prev.ts || 0)) {
+        sponsorshipEntriesMap.set(key, {
+          id: clean(r?.id) || key,
+          name: fullName,
+          state,
+          status: statusSimple,
+          submittedAt: dateOnly(r?.updatedAt || r?.submitted_at || r?.createdAt),
+          isApproved: statusSimple === 'Approved',
+          ts
+        });
+      }
+    }
+
+    const sponsorshipEntries = [...sponsorshipEntriesMap.values()]
+      .sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0));
 
     const approvedPolicyEntries = [...approvedPolicies]
       .sort((a, b) => new Date(b?.approvedAt || b?.submittedAt || b?.updatedAt || 0).getTime() - new Date(a?.approvedAt || a?.submittedAt || a?.updatedAt || 0).getTime())
@@ -678,7 +697,6 @@ export default function LicensedBackofficePage() {
                         <div key={r.id} style={{ border: '1px solid #2A3142', borderRadius: 10, padding: 10, background: '#020617' }}>
                           <strong>{r.name}</strong>
                           <div style={{ color: '#9CA3AF' }}>{r.state || '—'} • {r.status} • {r.submittedAt || '—'}</div>
-                          {r.isApproved ? <div style={{ color: '#86EFAC', marginTop: 4 }}>✅ Approved Sponsorship #{metrics.sponsorshipEntries.filter((x) => x.isApproved).findIndex((x) => x.id === r.id) + 1}</div> : null}
                         </div>
                       ))}
                     </div>
