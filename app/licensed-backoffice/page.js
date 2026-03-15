@@ -200,6 +200,7 @@ export default function LicensedBackofficePage() {
   const [submitBusy, setSubmitBusy] = useState(false);
   const [submitMsg, setSubmitMsg] = useState('');
   const [financeRange, setFinanceRange] = useState('month');
+  const [financeDrawer, setFinanceDrawer] = useState({ open: false, title: '', items: [] });
   const [appForm, setAppForm] = useState({
     appType: '',
     applicantName: '',
@@ -702,16 +703,28 @@ export default function LicensedBackofficePage() {
         const paidAt = clean(r?.payoutPaidAt || '');
         const expectedPayoutAt = clean(r?.payoutDueAt || (qualifiedAt ? new Date(new Date(qualifiedAt).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() : ''));
 
+        const nowMs = Date.now();
+        const expectedMs = new Date(expectedPayoutAt || 0).getTime();
+        const qualifiedMs = new Date(qualifiedAt || 0).getTime();
+        const pendingDays = qualifiedMs > 0 ? Math.max(0, Math.floor((nowMs - qualifiedMs) / (24 * 60 * 60 * 1000))) : null;
+        const daysToPayout = expectedMs > 0 ? Math.floor((expectedMs - nowMs) / (24 * 60 * 60 * 1000)) : null;
+        const holdLike = payoutStatusNorm.includes('hold') || payoutStatusNorm.includes('review');
+        const overdue = !isPaid && !holdLike && expectedMs > 0 && expectedMs < nowMs;
+
         return {
           id: clean(r?.id || `evt_${i}`),
           referenceName: clean(r?.applicantName || 'Applicant'),
           sourceType,
           amount,
           status: isPaid ? 'paid' : 'pending',
+          pendingStage: isPaid ? 'paid' : (holdLike ? 'hold' : (overdue ? 'overdue' : 'pending')),
           qualifiedAt,
           paidAt,
           expectedPayoutAt,
           policyType: clean(r?.policyType || r?.appType || ''),
+          payoutStatus: clean(r?.payoutStatus || ''),
+          pendingDays,
+          daysToPayout,
         };
       })
       .filter(Boolean);
@@ -722,7 +735,7 @@ export default function LicensedBackofficePage() {
     const thisMonthPaid = sum(events.filter((e) => e.status === 'paid' && isInRange(e.paidAt || e.qualifiedAt, 'month')).map((e) => e.amount));
     const thisMonthPending = sum(events.filter((e) => e.status === 'pending' && isInRange(e.qualifiedAt, 'month')).map((e) => e.amount));
 
-    const rangeEvents = events.filter((e) => isInRange((e.status === 'paid' ? (e.paidAt || e.qualifiedAt) : e.qualifiedAt), financeRange));
+    const filteredEvents = events.filter((e) => isInRange((e.status === 'paid' ? (e.paidAt || e.qualifiedAt) : e.qualifiedAt), financeRange));
 
     const byMonth = new Map();
     for (const e of events) {
@@ -736,9 +749,9 @@ export default function LicensedBackofficePage() {
       .map(([k, v]) => ({ key: k, label: monthLabelFromKey(k), amount: Number(v || 0) }));
 
     const sourceTotals = {
-      direct_sales: sum(rangeEvents.filter((e) => e.sourceType === 'direct_sales').map((e) => e.amount)),
-      sponsorship_bonus: sum(rangeEvents.filter((e) => e.sourceType === 'sponsorship_bonus').map((e) => e.amount)),
-      override: sum(rangeEvents.filter((e) => e.sourceType === 'override').map((e) => e.amount)),
+      direct_sales: sum(filteredEvents.filter((e) => e.sourceType === 'direct_sales').map((e) => e.amount)),
+      sponsorship_bonus: sum(filteredEvents.filter((e) => e.sourceType === 'sponsorship_bonus').map((e) => e.amount)),
+      override: sum(filteredEvents.filter((e) => e.sourceType === 'override').map((e) => e.amount)),
     };
     const sourceSum = sum(Object.values(sourceTotals));
 
@@ -757,6 +770,16 @@ export default function LicensedBackofficePage() {
       else aging.d15p += 1;
     }
 
+    const pendingTotals = {
+      pending: sum(pending.filter((e) => e.pendingStage === 'pending').map((e) => e.amount)),
+      hold: sum(pending.filter((e) => e.pendingStage === 'hold').map((e) => e.amount)),
+      overdue: sum(pending.filter((e) => e.pendingStage === 'overdue').map((e) => e.amount)),
+    };
+
+    const nextPayout = pending
+      .filter((e) => e.pendingStage !== 'hold')
+      .sort((a, b) => new Date(a.expectedPayoutAt || a.qualifiedAt || 0).getTime() - new Date(b.expectedPayoutAt || b.qualifiedAt || 0).getTime())[0] || null;
+
     const projectedEom = thisMonthPaid + thisMonthPending;
 
     return {
@@ -770,9 +793,61 @@ export default function LicensedBackofficePage() {
       sourceSum,
       upcoming,
       aging,
-      rangeEvents,
+      filteredEvents,
+      pendingTotals,
+      nextPayout,
+      events,
     };
   }, [session, policyRows, financeRange]);
+
+  function openFinanceDrawer(title = '', items = []) {
+    setFinanceDrawer({ open: true, title, items: Array.isArray(items) ? items : [] });
+  }
+
+  function closeFinanceDrawer() {
+    setFinanceDrawer({ open: false, title: '', items: [] });
+  }
+
+  function financeStatusPill(stage = '') {
+    const n = normalize(stage || '');
+    if (n === 'paid') return { cls: 'onpace', label: 'Paid' };
+    if (n === 'hold') return { cls: 'offpace', label: 'Hold' };
+    if (n === 'overdue') return { cls: 'offpace', label: 'Overdue' };
+    return { cls: 'atrisk', label: 'Pending' };
+  }
+
+  function exportFinancialCsv() {
+    if (!financials?.filteredEvents?.length) return;
+    const rows = financials.filteredEvents;
+    const header = ['Applicant', 'Type', 'Source', 'Amount', 'Status', 'Qualified At', 'Expected Payout', 'Paid At', 'Pending Days', 'Days To Payout'];
+    const lines = [header.join(',')];
+    for (const r of rows) {
+      const sourceLabel = r.sourceType === 'sponsorship_bonus' ? 'Sponsorship Bonus' : (r.sourceType === 'override' ? 'Override' : 'Direct Sales');
+      const vals = [
+        r.referenceName || '',
+        r.policyType || '',
+        sourceLabel,
+        Number(r.amount || 0),
+        financeStatusPill(r.pendingStage || r.status).label,
+        r.qualifiedAt || '',
+        r.expectedPayoutAt || '',
+        r.paidAt || '',
+        r.pendingDays == null ? '' : r.pendingDays,
+        r.daysToPayout == null ? '' : r.daysToPayout,
+      ].map((v) => `"${String(v ?? '').replaceAll('"', '""')}"`);
+      lines.push(vals.join(','));
+    }
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `licensed-financials-${financeRange}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
 
   if (!session) {
@@ -966,42 +1041,53 @@ export default function LicensedBackofficePage() {
             ) : null}
 
 
+
             {tab === 'financials' && financials ? (
               <div style={{ display: 'grid', gap: 12 }}>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {[
-                    ['month', 'This Month'],
-                    ['last30', 'Last 30 Days'],
-                    ['ytd', 'YTD'],
-                    ['all', 'All Time']
-                  ].map(([k, label]) => (
-                    <button
-                      key={`range-${k}`}
-                      onClick={() => setFinanceRange(k)}
-                      style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid #334155', background: financeRange === k ? '#1D428A' : '#0B1220', color: '#E5E7EB' }}
-                    >
-                      {label}
-                    </button>
-                  ))}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {[
+                      ['month', 'This Month'],
+                      ['last30', 'Last 30 Days'],
+                      ['ytd', 'YTD'],
+                      ['all', 'All Time']
+                    ].map(([k, label]) => (
+                      <button
+                        key={`range-${k}`}
+                        onClick={() => setFinanceRange(k)}
+                        style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid #334155', background: financeRange === k ? '#1D428A' : '#0B1220', color: '#E5E7EB' }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {financials.nextPayout ? (
+                      <span className="pill neutral">Next Payout: {dateOnly(financials.nextPayout.expectedPayoutAt || financials.nextPayout.qualifiedAt)} • {fmtMoney(financials.nextPayout.amount)}</span>
+                    ) : (
+                      <span className="pill neutral">Next Payout: —</span>
+                    )}
+                    <button type="button" className="ghost" onClick={exportFinancialCsv}>Export CSV</button>
+                  </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
-                  <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(168, 85, 247, 0.12)', padding: 14 }}>
+                  <button type="button" onClick={() => openFinanceDrawer('All-Time Paid', financials.events.filter((e) => e.status === 'paid'))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(168, 85, 247, 0.12)', padding: 14, color: '#E5E7EB' }}>
                     <div style={{ color: '#C4B5FD', fontSize: 12 }}>All-Time Paid</div>
                     <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.allTimePaid)}</div>
-                  </div>
-                  <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(245, 158, 11, 0.12)', padding: 14 }}>
+                  </button>
+                  <button type="button" onClick={() => openFinanceDrawer('All-Time Pending', financials.events.filter((e) => e.status === 'pending'))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(245, 158, 11, 0.12)', padding: 14, color: '#E5E7EB' }}>
                     <div style={{ color: '#FCD34D', fontSize: 12 }}>All-Time Pending</div>
                     <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.allTimePending)}</div>
-                  </div>
-                  <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(34, 197, 94, 0.12)', padding: 14 }}>
+                  </button>
+                  <button type="button" onClick={() => openFinanceDrawer('This Month Paid', financials.events.filter((e) => e.status === 'paid' && isInRange(e.paidAt || e.qualifiedAt, 'month')))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(34, 197, 94, 0.12)', padding: 14, color: '#E5E7EB' }}>
                     <div style={{ color: '#86EFAC', fontSize: 12 }}>This Month Paid</div>
                     <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.thisMonthPaid)}</div>
-                  </div>
-                  <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(59, 130, 246, 0.12)', padding: 14 }}>
+                  </button>
+                  <button type="button" onClick={() => openFinanceDrawer('This Month Pending', financials.events.filter((e) => e.status === 'pending' && isInRange(e.qualifiedAt, 'month')))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(59, 130, 246, 0.12)', padding: 14, color: '#E5E7EB' }}>
                     <div style={{ color: '#93C5FD', fontSize: 12 }}>This Month Pending</div>
                     <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.thisMonthPending)}</div>
-                  </div>
+                  </button>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
@@ -1013,13 +1099,15 @@ export default function LicensedBackofficePage() {
                           const max = Math.max(...financials.trend.map((x) => Number(x.amount || 0)), 1);
                           const w = Math.max(4, Math.round((Number(t.amount || 0) / max) * 100));
                           return (
-                            <div key={t.key} style={{ display: 'grid', gridTemplateColumns: '40px 1fr 90px', gap: 8, alignItems: 'center' }}>
-                              <span style={{ color: '#9CA3AF', fontSize: 12 }}>{t.label}</span>
-                              <div style={{ height: 10, borderRadius: 999, background: '#1F2937', overflow: 'hidden' }}>
-                                <div style={{ width: `${w}%`, height: '100%', background: 'linear-gradient(90deg,#2563EB,#60A5FA)' }} />
+                            <button key={t.key} type="button" onClick={() => openFinanceDrawer(`Earnings in ${t.label}`, financials.events.filter((e) => monthKey(e.status === 'paid' ? (e.paidAt || e.qualifiedAt) : e.qualifiedAt) === t.key))} style={{ background: 'transparent', color: '#E5E7EB', border: 0, textAlign: 'left', padding: 0 }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 90px', gap: 8, alignItems: 'center' }}>
+                                <span style={{ color: '#9CA3AF', fontSize: 12 }}>{t.label}</span>
+                                <div style={{ height: 10, borderRadius: 999, background: '#1F2937', overflow: 'hidden' }}>
+                                  <div style={{ width: `${w}%`, height: '100%', background: 'linear-gradient(90deg,#2563EB,#60A5FA)' }} />
+                                </div>
+                                <span style={{ textAlign: 'right', fontSize: 12 }}>{fmtMoney(t.amount)}</span>
                               </div>
-                              <span style={{ textAlign: 'right', fontSize: 12 }}>{fmtMoney(t.amount)}</span>
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -1038,7 +1126,7 @@ export default function LicensedBackofficePage() {
                           const amt = Number(financials.sourceTotals[key] || 0);
                           const pct = financials.sourceSum > 0 ? Math.round((amt / financials.sourceSum) * 100) : 0;
                           return (
-                            <div key={key}>
+                            <button key={key} type="button" onClick={() => openFinanceDrawer(`${label} (${financeRange.toUpperCase()})`, financials.filteredEvents.filter((e) => e.sourceType === key))} style={{ background: 'transparent', border: 0, color: '#E5E7EB', padding: 0, textAlign: 'left' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
                                 <span>{label}</span>
                                 <span>{pct}% • {fmtMoney(amt)}</span>
@@ -1046,7 +1134,7 @@ export default function LicensedBackofficePage() {
                               <div style={{ height: 8, borderRadius: 999, background: '#1F2937', overflow: 'hidden' }}>
                                 <div style={{ width: `${Math.max(2, pct)}%`, height: '100%', background: color }} />
                               </div>
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -1063,6 +1151,9 @@ export default function LicensedBackofficePage() {
                     <span className="pill neutral">Pending Aging 0–7d: {financials.aging.d0_7}</span>
                     <span className="pill atrisk">8–14d: {financials.aging.d8_14}</span>
                     <span className="pill offpace">15+d: {financials.aging.d15p}</span>
+                    <span className="pill atrisk">Pending: {fmtMoney(financials.pendingTotals.pending)}</span>
+                    <span className="pill offpace">Hold: {fmtMoney(financials.pendingTotals.hold)}</span>
+                    <span className="pill offpace">Overdue: {fmtMoney(financials.pendingTotals.overdue)}</span>
                   </div>
                   {!financials.upcoming.length ? <p style={{ color: '#9CA3AF' }}>No pending payout items.</p> : (
                     <table>
@@ -1073,24 +1164,85 @@ export default function LicensedBackofficePage() {
                           <th>Amount</th>
                           <th>Status</th>
                           <th>Expected</th>
+                          <th></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {financials.upcoming.map((e) => (
-                          <tr key={`up-${e.id}`}>
-                            <td>{e.referenceName}</td>
-                            <td>{e.policyType || 'Policy'}</td>
-                            <td>{fmtMoney(e.amount)}</td>
-                            <td><span className="pill atrisk">Pending</span></td>
-                            <td>{dateOnly(e.expectedPayoutAt || e.qualifiedAt) || '—'}</td>
-                          </tr>
-                        ))}
+                        {financials.upcoming.map((e) => {
+                          const pill = financeStatusPill(e.pendingStage || e.status);
+                          return (
+                            <tr key={`up-${e.id}`}>
+                              <td>{e.referenceName}</td>
+                              <td>{e.policyType || 'Policy'}</td>
+                              <td>{fmtMoney(e.amount)}</td>
+                              <td><span className={`pill ${pill.cls}`}>{pill.label}</span></td>
+                              <td>{dateOnly(e.expectedPayoutAt || e.qualifiedAt) || '—'}</td>
+                              <td>
+                                <button type="button" className="ghost" onClick={() => openFinanceDrawer(`Payout Detail: ${e.referenceName}`, [e])}>View</button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   )}
                 </div>
+
+                {financeDrawer.open ? (
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    onClick={closeFinanceDrawer}
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 70, display: 'grid', justifyItems: 'end' }}
+                  >
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ width: 'min(720px, 96vw)', height: '100vh', overflow: 'auto', background: '#0B1220', borderLeft: '1px solid #334155', padding: 16 }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                        <h3 style={{ margin: 0 }}>{financeDrawer.title}</h3>
+                        <button type="button" className="ghost" onClick={closeFinanceDrawer}>Close</button>
+                      </div>
+                      <p style={{ color: '#9CA3AF', marginTop: 6 }}>Rows: {financeDrawer.items.length}</p>
+                      {!financeDrawer.items.length ? (
+                        <p style={{ color: '#9CA3AF' }}>No rows for this selection.</p>
+                      ) : (
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Applicant</th>
+                              <th>Type</th>
+                              <th>Amount</th>
+                              <th>Status</th>
+                              <th>Qualified</th>
+                              <th>Expected</th>
+                              <th>Paid</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {financeDrawer.items.map((e, i) => {
+                              const pill = financeStatusPill(e.pendingStage || e.status);
+                              return (
+                                <tr key={`${e.id || 'row'}-${i}`}>
+                                  <td>{e.referenceName || '—'}</td>
+                                  <td>{e.policyType || 'Policy'}</td>
+                                  <td>{fmtMoney(e.amount)}</td>
+                                  <td><span className={`pill ${pill.cls}`}>{pill.label}</span></td>
+                                  <td>{dateOnly(e.qualifiedAt) || '—'}</td>
+                                  <td>{dateOnly(e.expectedPayoutAt) || '—'}</td>
+                                  <td>{dateOnly(e.paidAt) || '—'}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
+
 
             {tab === 'sponsorships' ? (
               <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
