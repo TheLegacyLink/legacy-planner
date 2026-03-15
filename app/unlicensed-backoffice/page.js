@@ -21,6 +21,7 @@ const US_STATE_OPTIONS = [
 
 const STEP_META = [
   { key: 'prelicensingStarted', title: 'Start Pre-Licensing', note: 'Enroll and begin your pre-licensing course.' },
+  { key: 'watchedWhateverItTakes', title: 'Watch “Whatever It Takes” + Comment', note: 'Watch https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX and leave a comment to confirm completion.' },
   { key: 'examPassed', title: 'Pass State Exam', note: 'Mark complete after passing your resident state exam.' },
   { key: 'residentLicenseObtained', title: 'Obtain Resident License', note: 'Resident state + license number required before complete.' },
   { key: 'licenseDetailsSubmitted', title: 'Submit License Details + NPN', note: 'Submit NPN and licensing details.' },

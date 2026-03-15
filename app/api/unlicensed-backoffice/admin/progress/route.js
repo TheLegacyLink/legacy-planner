@@ -6,6 +6,7 @@ function clean(v = '') { return String(v || '').trim(); }
 
 const STAGES = [
   { key: 'prelicensingStarted', label: 'Pre-Licensing Started' },
+  { key: 'watchedWhateverItTakes', label: 'Watched Whatever It Takes' },
   { key: 'examPassed', label: 'Exam Passed' },
   { key: 'residentLicenseObtained', label: 'Resident License Obtained' },
   { key: 'licenseDetailsSubmitted', label: 'License + NPN Submitted' },
