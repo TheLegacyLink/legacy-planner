@@ -520,11 +520,30 @@ export default function IulLearningAcademyPage() {
         {level === 'intermediate' && intermediateSectionsComplete && quizScore == null ? (
           <div style={{ marginTop: 14, border: '1px solid #334155', borderRadius: 14, background: '#071022', padding: 14 }}>
             <h3 style={{ marginTop: 0, color: '#fff' }}>Knowledge Check (80% to pass)</h3>
-            <p style={{ color: '#9FB3CC' }}>Question {quizIndex + 1} of {quizQuestions.length}</p>
-            <p style={{ color: '#E5E7EB', fontWeight: 700 }}>{quizQuestions[quizIndex].q}</p>
+            <p style={{ color: '#9FB3CC', fontSize: 14, marginBottom: 8 }}>Question {quizIndex + 1} of {quizQuestions.length}</p>
+            <p style={{ color: '#E5E7EB', fontWeight: 700, fontSize: 20, lineHeight: 1.45, marginBottom: 10 }}>{quizQuestions[quizIndex].q}</p>
             <div style={{ display: 'grid', gap: 8 }}>
               {quizQuestions[quizIndex].opts.map((opt, i) => (
-                <button key={`opt-${i}`} type="button" onClick={() => setQuizSelected(i)} style={{ textAlign: 'left', borderRadius: 10, border: quizSelected === i ? '1px solid #3B82F6' : '1px solid #334155', background: quizSelected === i ? '#1E3A8A' : '#0B1220', color: '#E5E7EB', padding: '10px 12px' }}>
+                <button
+                  key={`opt-${i}`}
+                  type="button"
+                  onClick={() => setQuizSelected(i)}
+                  style={{
+                    textAlign: 'left',
+                    borderRadius: 12,
+                    border: quizSelected === i ? '1px solid #60A5FA' : '1px solid #334155',
+                    background: quizSelected === i ? '#1E3A8A' : '#0B1220',
+                    color: '#F8FAFC',
+                    padding: '14px 14px',
+                    fontSize: 16,
+                    lineHeight: 1.55,
+                    whiteSpace: 'normal',
+                    wordBreak: 'break-word',
+                    minHeight: 62,
+                    display: 'block',
+                    width: '100%'
+                  }}
+                >
                   {opt}
                 </button>
               ))}
