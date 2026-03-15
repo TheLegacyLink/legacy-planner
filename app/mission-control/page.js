@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { loadRuntimeConfig } from '../../lib/runtimeConfig';
+import licensedAgents from '../../data/licensedAgents.json';
 
 const DEFAULTS = loadRuntimeConfig();
-const PAGE_PASSCODE = 'LegacyLink216';
+const PAGE_PASSCODE = 'LegacyLink2026';
 const PASSCODE_STORAGE_KEY = 'legacy-mission-control-passcode-ok-v1';
 
 function byScope(obj, scope, aliases = []) {
@@ -25,6 +26,16 @@ function byScope(obj, scope, aliases = []) {
 
 function cleanName(value = '') {
   return String(value).toLowerCase().replace('dr. ', '').trim();
+}
+
+function licensedDisplayName(raw = '') {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  if (value.includes(',')) {
+    const [last, first] = value.split(',').map((x) => String(x || '').trim());
+    return `${first} ${last}`.trim();
+  }
+  return value;
 }
 
 function toLocalTime(iso, timezone) {
@@ -195,6 +206,9 @@ export default function MissionControl() {
   const [sponsorshipSyncIssue, setSponsorshipSyncIssue] = useState('');
   const [manualReviewCount, setManualReviewCount] = useState(0);
   const [bookingQueue, setBookingQueue] = useState([]);
+  const [adminTab, setAdminTab] = useState('overview');
+  const [payoutPolicyRows, setPayoutPolicyRows] = useState([]);
+  const [payoutSponsorshipRows, setPayoutSponsorshipRows] = useState([]);
   const [detailsModal, setDetailsModal] = useState({ open: false, type: '' });
   const [contactsVaultSummary, setContactsVaultSummary] = useState({ total: 0, withEmail: 0, withoutEmail: 0 });
   const [contactsVaultUpdatedAt, setContactsVaultUpdatedAt] = useState('');
@@ -287,9 +301,10 @@ export default function MissionControl() {
         };
 
         // Priority 1: internal Policy Submission flow (prevents duplicate credit from later Base44 entries)
+        let policyRows = [];
         if (policySubmissionsRes.ok) {
           const policyJson = await policySubmissionsRes.json().catch(() => ({}));
-          const policyRows = Array.isArray(policyJson?.rows) ? policyJson.rows : [];
+          policyRows = Array.isArray(policyJson?.rows) ? policyJson.rows : [];
 
           for (const r of policyRows) {
             const submitted = new Date(r?.submittedAt || r?.createdAt || r?.updatedAt || 0);
@@ -300,9 +315,10 @@ export default function MissionControl() {
 
         // Sponsorship application feed is used for referral quality/manual review counts only.
         // It should NOT count as "App Submitted" (FNG).
+        let reviewRows = [];
         if (manualReviewRes.ok) {
           const reviewJson = await manualReviewRes.json().catch(() => ({}));
-          const reviewRows = Array.isArray(reviewJson?.rows) ? reviewJson.rows : [];
+          reviewRows = Array.isArray(reviewJson?.rows) ? reviewJson.rows : [];
           reviewCount = reviewRows.filter((r) => String(r?.decision_bucket || '').toLowerCase() === 'manual_review').length;
 
           const monthReferralSeen = new Set();
@@ -362,6 +378,8 @@ export default function MissionControl() {
         setTodaySponsorshipDetails(todayDetails);
         setTodayApplicationDetails(todayAppDetailsRows);
         setBookingQueue(queueRows);
+        setPayoutPolicyRows(policyRows);
+        setPayoutSponsorshipRows(reviewRows);
         setSponsorshipSyncIssue(sponsorshipIssue);
         setManualReviewCount(reviewCount);
         setLastSyncAt(new Date().toISOString());
@@ -444,6 +462,60 @@ export default function MissionControl() {
     }
     return [...map.entries()].map(([agent, count]) => ({ agent, count })).sort((a, b) => b.count - a.count);
   }, [todayApplicationDetails]);
+
+
+  const payoutRows = useMemo(() => {
+    const rosterRaw = Array.isArray(licensedAgents) ? licensedAgents : [];
+    const roster = [...new Set(rosterRaw.map((r) => cleanName(licensedDisplayName(r?.full_name || r?.name || ''))).filter(Boolean))];
+    const innerCircle = new Set((config.agents || []).map((n) => cleanName(n)));
+    const owners = new Set(['angelique lassiter', 'jamal holmes']);
+    const eligible = roster.filter((n) => !innerCircle.has(n) && !owners.has(n));
+
+    const byAgent = new Map();
+    const add = (agent, field, inc = 1) => {
+      const key = cleanName(agent);
+      if (!key || !eligible.includes(key)) return;
+      const prev = byAgent.get(key) || { agent, sponsorshipApps: 0, insuranceApps: 0 };
+      prev[field] = Number(prev[field] || 0) + inc;
+      byAgent.set(key, prev);
+    };
+
+    const sponsorSeen = new Set();
+    for (const r of (payoutSponsorshipRows || [])) {
+      const dt = new Date(r?.submitted_at || r?.updatedAt || r?.createdAt || 0);
+      if (!sameMonthYear(dt)) continue;
+      const mapped = mapApplicationToAgent(r, eligible);
+      const key = applicantKey(r);
+      if (!mapped || sponsorSeen.has(`${mapped}|${key}`)) continue;
+      sponsorSeen.add(`${mapped}|${key}`);
+      add(mapped, 'sponsorshipApps', 1);
+    }
+
+    for (const r of (payoutPolicyRows || [])) {
+      const dt = new Date(r?.submittedAt || r?.updatedAt || r?.createdAt || 0);
+      if (!sameMonthYear(dt)) continue;
+      const mapped = mapApplicationToAgent(r, eligible);
+      if (!mapped) continue;
+      add(mapped, 'insuranceApps', 1);
+    }
+
+    const rows = [...byAgent.values()].map((r) => {
+      const s = Number(r.sponsorshipApps || 0);
+      const p = Number(r.insuranceApps || 0);
+      const sponsorshipDollars = (Math.min(10, s) * 1) + (Math.max(0, s - 10) * 5);
+      const insuranceDollars = p * 10;
+      return { ...r, sponsorshipDollars, insuranceDollars, estimatedPayout: sponsorshipDollars + insuranceDollars };
+    }).sort((a, b) => b.estimatedPayout - a.estimatedPayout || a.agent.localeCompare(b.agent));
+
+    const totals = rows.reduce((acc, r) => {
+      acc.sponsorshipApps += Number(r.sponsorshipApps || 0);
+      acc.insuranceApps += Number(r.insuranceApps || 0);
+      acc.payout += Number(r.estimatedPayout || 0);
+      return acc;
+    }, { sponsorshipApps: 0, insuranceApps: 0, payout: 0 });
+
+    return { rows, totals };
+  }, [payoutPolicyRows, payoutSponsorshipRows, config.agents]);
 
   const dataConfidence = useMemo(() => {
     if (error) return { label: 'Low', tone: 'offpace', score: 35 };
@@ -555,6 +627,15 @@ export default function MissionControl() {
         </div>
       </div>
 
+      <div className="panel" style={{ marginBottom: '1rem' }}>
+        <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <strong>Mission Control Tabs:</strong>
+          <button type="button" className={adminTab === 'overview' ? '' : 'ghost'} onClick={() => setAdminTab('overview')}>Overview</button>
+          <button type="button" className={adminTab === 'payout' ? '' : 'ghost'} onClick={() => setAdminTab('payout')}>Payout Queue</button>
+        </div>
+      </div>
+
+      <div style={{ display: adminTab === 'overview' ? 'block' : 'none' }}>
       <div className="panel" style={{ marginBottom: '1rem' }}>
         <div className="panelRow" style={{ gap: '1rem', flexWrap: 'wrap' }}>
           <div>
@@ -848,6 +929,57 @@ export default function MissionControl() {
             </tbody>
           </table>
         )}
+      </div>
+
+      </div>
+
+      <div style={{ display: adminTab === 'payout' ? 'block' : 'none' }}>
+        <div className="panel">
+          <div className="panelRow" style={{ gap: '1rem', flexWrap: 'wrap' }}>
+            <div>
+              <h3>Licensed Incentive Payout Queue ({scopeLabel})</h3>
+              <span className="muted">Licensed-only payout preview. Excludes Inner Circle + Agency Owners. Paid monthly.</span>
+            </div>
+          </div>
+
+          {!payoutRows.rows.length ? (
+            <p className="muted">No payout-eligible activity captured yet this month.</p>
+          ) : (
+            <>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Licensed Agent</th>
+                    <th>Sponsorship Apps</th>
+                    <th>Insurance Apps</th>
+                    <th>Sponsorship $</th>
+                    <th>Insurance $</th>
+                    <th>Estimated Payout</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payoutRows.rows.map((r) => (
+                    <tr key={r.agent}>
+                      <td>{r.agent}</td>
+                      <td>{r.sponsorshipApps}</td>
+                      <td>{r.insuranceApps}</td>
+                      <td>${Number(r.sponsorshipDollars || 0).toLocaleString()}</td>
+                      <td>${Number(r.insuranceDollars || 0).toLocaleString()}</td>
+                      <td><strong>${Number(r.estimatedPayout || 0).toLocaleString()}</strong></td>
+                      <td><span className="pill atrisk">Pending Month-End Payout</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <p className="muted" style={{ marginTop: 10 }}>
+                Totals — Sponsorship Apps: {payoutRows.totals.sponsorshipApps} • Insurance Apps: {payoutRows.totals.insuranceApps} • Estimated Payout: ${Number(payoutRows.totals.payout || 0).toLocaleString()}
+              </p>
+              <p className="muted">Rule logic: $1 per sponsorship app (first 10), then $5 per sponsorship app after 10 in same 30-day window; $10 per submitted insurance application. Guardrails and review holds apply.</p>
+            </>
+          )}
+        </div>
       </div>
 
     </AppShell>
