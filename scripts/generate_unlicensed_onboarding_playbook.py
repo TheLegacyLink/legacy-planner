@@ -86,10 +86,10 @@ def build():
       'If blocked, send support a screenshot and short issue summary.'
     ], st)); story.append(Spacer(1,8))
 
-    story.append(section('Step 3 — Join Legacy Link App (CRM)', [
-      'Join app: https://legacylink.app/',
-      'Confirm profile setup and basic access.',
-      'Track all notes, follow-up, and activity inside CRM.'
+    story.append(section('Step 3 — Open Legacy Link Back Office', [
+      'Open back office: https://innercirclelink.com/licensed-backoffice',
+      'Complete first login setup and confirm profile/basic access.',
+      'Track all notes, follow-up, and activity inside your back office workflow.'
     ], st)); story.append(Spacer(1,8))
 
     story.append(section('Step 4 — Community + Skool Training', [

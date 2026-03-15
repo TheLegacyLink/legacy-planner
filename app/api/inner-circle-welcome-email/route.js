@@ -355,7 +355,7 @@ function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, 
 
   const onboardingRows = [
     `<li style="margin-bottom:10px;"><strong>Review your onboarding agreement first:</strong><br/><a href="${safeContract}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeContract}</a></li>`,
-    `<li style="margin-bottom:10px;"><strong>Join the Legacy Link App (CRM):</strong><br/><a href="${safeApp}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeApp}</a></li>`
+    `<li style="margin-bottom:10px;"><strong>${isInnerCircle ? 'Join the Legacy Link App (CRM):' : 'Open your Legacy Link Back Office:'}</strong><br/><a href="${safeApp}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeApp}</a></li>`
   ];
 
   if (isInnerCircle) {
@@ -377,7 +377,7 @@ function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, 
             <li>Log your first daily production activity in Tracker</li>
             <li>Drop a quick intro in Telegram</li>`
     : `<li>Review the attached role-specific onboarding playbook</li>
-            <li>Complete account setup in Legacy Link App</li>
+            <li>Complete account setup in Legacy Link Back Office</li>
             <li>Run your first daily activity block and tracker update</li>
             <li>Connect with your coach for next production targets</li>`;
 
@@ -455,12 +455,14 @@ export async function POST(req) {
   const body = await req.json().catch(() => ({}));
   const to = clean(body?.to || 'kimora@thelegacylink.com');
   const name = clean(body?.name || 'Kimora');
-  const appUrl = clean(body?.appUrl || body?.customLinks?.app || process.env.INNER_CIRCLE_APP_URL || 'https://legacylink.app/');
-  const skoolUrl = clean(body?.skoolUrl || body?.customLinks?.skool || process.env.SPONSORSHIP_SKOOL_URL || 'https://www.skool.com/legacylink/about');
-  const requestedTempPassword = clean(body?.tempPassword || '');
   const roleInput = clean(body?.role || body?.agentType || body?.agentRole || (body?.licensed === true ? 'licensed' : (body?.licensed === false ? 'unlicensed' : '')));
   const roleConfig = resolveRoleConfig(roleInput);
   const isInnerCircle = roleConfig.roleKey === 'inner-circle';
+  const defaultBackofficeUrl = clean(process.env.NEXT_PUBLIC_LICENSED_BACKOFFICE_URL || 'https://innercirclelink.com/licensed-backoffice');
+  const defaultInnerAppUrl = clean(process.env.INNER_CIRCLE_APP_URL || 'https://legacylink.app/');
+  const appUrl = clean(body?.appUrl || body?.customLinks?.app || (isInnerCircle ? defaultInnerAppUrl : defaultBackofficeUrl));
+  const skoolUrl = clean(body?.skoolUrl || body?.customLinks?.skool || process.env.SPONSORSHIP_SKOOL_URL || 'https://www.skool.com/legacylink/about');
+  const requestedTempPassword = clean(body?.tempPassword || '');
   const tempPassword = isInnerCircle ? (requestedTempPassword || generateTempPassword()) : '';
   const telegramUrl = isInnerCircle ? clean(body?.telegramUrl || body?.customLinks?.telegram || 'https://t.me/+9GyGIETNM1QxZWRh') : '';
   const hubUrl = isInnerCircle ? clean(body?.hubUrl || body?.customLinks?.hub || process.env.NEXT_PUBLIC_INNER_CIRCLE_HUB_URL || 'https://innercirclelink.com/inner-circle-hub') : '';
@@ -493,7 +495,7 @@ export async function POST(req) {
     `Welcome to The Legacy Link ${roleConfig.label}! Here is your onboarding access:`,
     '',
     `Step 1 (Required First): Onboarding Agreement: ${contractLink}`,
-    `Step 2: Join the Legacy Link App (CRM): ${appUrl}`
+    `Step 2: ${isInnerCircle ? 'Join the Legacy Link App (CRM)' : 'Open your Legacy Link Back Office'}: ${appUrl}`
   ];
 
   if (isInnerCircle) {

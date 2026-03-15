@@ -17,7 +17,7 @@ Complete each step in order and maintain daily execution discipline.
 - Upload/submit any required onboarding details.
 - If blocked, contact support with screenshot + short description.
 
-## Step 3 — Join Legacy Link App (CRM)
+## Step 3 — Open Legacy Link Back Office
 - Join app: **https://legacylink.app/**
 - Complete profile setup and confirm login.
 - Track all lead notes and follow-up activity in CRM.

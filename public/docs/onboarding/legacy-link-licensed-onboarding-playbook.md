@@ -17,7 +17,7 @@ Complete each step in order, then execute daily standards with clean CRM updates
 - Confirm any required documents are uploaded.
 - If blocked, send support a screenshot + short issue summary.
 
-## Step 3 — Join Legacy Link App (CRM)
+## Step 3 — Open Legacy Link Back Office
 - Join the app: **https://legacylink.app/**
 - Confirm access and set up your profile.
 - Start using CRM immediately for all lead notes and follow-up tracking.
