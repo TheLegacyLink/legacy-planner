@@ -211,6 +211,8 @@ export default function MissionControl() {
   const [payoutSponsorshipRows, setPayoutSponsorshipRows] = useState([]);
   const [payoutStatusMap, setPayoutStatusMap] = useState({});
   const [payoutBusyAgent, setPayoutBusyAgent] = useState('');
+  const [unlicensedProgressRows, setUnlicensedProgressRows] = useState([]);
+  const [unlicensedStageCounts, setUnlicensedStageCounts] = useState({});
   const [detailsModal, setDetailsModal] = useState({ open: false, type: '' });
   const [contactsVaultSummary, setContactsVaultSummary] = useState({ total: 0, withEmail: 0, withoutEmail: 0 });
   const [contactsVaultUpdatedAt, setContactsVaultUpdatedAt] = useState('');
@@ -946,6 +948,53 @@ export default function MissionControl() {
           </div>
         </div>
       ) : null}
+
+      <div className="panel" style={{ marginBottom: '1rem' }}>
+        <div className="panelRow" style={{ gap: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <h3>Unlicensed License Sprint Pipeline</h3>
+            <span className="muted">Track unlicensed agents by onboarding stage.</span>
+          </div>
+        </div>
+
+        {Object.keys(unlicensedStageCounts || {}).length ? (
+          <div className="panelRow" style={{ gap: '.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+            {Object.entries(unlicensedStageCounts).map(([label, count]) => (
+              <span key={label} className="pill neutral">{label}: {count}</span>
+            ))}
+          </div>
+        ) : null}
+
+        {!unlicensedProgressRows.length ? (
+          <p className="muted">No unlicensed progress rows yet.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Resident State</th>
+                <th>Current Stage</th>
+                <th>Progress</th>
+                <th>Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {unlicensedProgressRows.slice(0, 50).map((r) => (
+                <tr key={`${r.email}-${r.name}`}>
+                  <td>{r.name || '—'}</td>
+                  <td>{r.email || '—'}</td>
+                  <td>{r.residentState || '—'}</td>
+                  <td>{r.stageLabel || 'Not Started'}</td>
+                  <td>{Number(r.completionPct || 0)}%</td>
+                  <td>{fmtDate(r.updatedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
 
       <div className="panel">
         <div className="panelRow" style={{ gap: '1rem', flexWrap: 'wrap' }}>
