@@ -172,7 +172,8 @@ export default function LicensedBackofficePage() {
     policyWriterName: '',
     state: session?.homeState || '',
     policyNumber: '',
-    monthlyPremium: ''
+    monthlyPremium: '',
+    annualPremium: ''
   });
   const [googleReady, setGoogleReady] = useState(false);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
@@ -427,6 +428,7 @@ export default function LicensedBackofficePage() {
           state,
           policyNumber: clean(appForm.policyNumber || ''),
           monthlyPremium: Number(appForm.monthlyPremium || 0) || 0,
+          annualPremium: Number(appForm.annualPremium || 0) || 0,
           status: 'Submitted'
         },
         skipSopProvision: true
@@ -454,7 +456,8 @@ export default function LicensedBackofficePage() {
         applicantEmail: '',
         applicantPhone: '',
         policyNumber: '',
-        monthlyPremium: ''
+        monthlyPremium: '',
+        annualPremium: ''
       }));
       setTab('policies');
       setSubmitMsg('Policy app submitted successfully.');
@@ -873,7 +876,10 @@ export default function LicensedBackofficePage() {
                   <input value={appForm.referredByName} onChange={(e) => setAppForm((p) => ({ ...p, referredByName: e.target.value }))} placeholder="Referred by *" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
                   <input value={appForm.policyWriterName} onChange={(e) => setAppForm((p) => ({ ...p, policyWriterName: e.target.value }))} placeholder="Policy written by *" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
                   <input value={appForm.policyNumber} onChange={(e) => setAppForm((p) => ({ ...p, policyNumber: e.target.value }))} placeholder="Policy number (optional)" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
-                  <input value={appForm.monthlyPremium} onChange={(e) => setAppForm((p) => ({ ...p, monthlyPremium: e.target.value }))} placeholder="Monthly premium" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
+                  <input value={appForm.monthlyPremium} onChange={(e) => setAppForm((p) => ({ ...p, monthlyPremium: e.target.value }))} placeholder={String(appForm.appType || '').toLowerCase().includes('regular') || String(appForm.appType || '').toLowerCase().includes('juvenile') ? "Monthly premium (optional)" : "Monthly premium"} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
+                  {(String(appForm.appType || '').toLowerCase().includes('regular') || String(appForm.appType || '').toLowerCase().includes('juvenile')) ? (
+                    <input value={appForm.annualPremium} onChange={(e) => setAppForm((p) => ({ ...p, annualPremium: e.target.value }))} placeholder="Annualized premium (AP)" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
+                  ) : null}
                 </div>
                 <div style={{ color: '#9CA3AF', fontSize: 13 }}>Estimated Sponsorship Policy payout: <strong style={{ color: '#E5E7EB' }}>{String(appForm.appType || '').toLowerCase().includes('sponsorship') ? `$${isInnerCircleName(clean(appForm.policyWriterName || session?.name || '')) ? 500 : 400}` : 'Based on policy type rules'}</strong></div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

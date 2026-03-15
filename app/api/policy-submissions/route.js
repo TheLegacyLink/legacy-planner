@@ -108,6 +108,13 @@ function clampMonthlyPremium(value = 0) {
   return Math.round(n * 100) / 100;
 }
 
+function clampAnnualPremium(value = 0) {
+  const n = Number(value || 0);
+  if (Number.isNaN(n) || n < 0) return 0;
+  if (n > 1000000) return 1000000;
+  return Math.round(n * 100) / 100;
+}
+
 function roundMoney(value = 0) {
   const n = Number(value || 0);
   if (!Number.isFinite(n)) return 0;
@@ -138,10 +145,14 @@ function sponsorshipFlatRate({ policyWriterName = '', referredByName = '', submi
   return 400;
 }
 
-function computePolicyPayoutFields({ policyType = '', monthlyPremium = 0, licensed = false, policyWriterName = '', referredByName = '', submittedByRole = '' } = {}) {
+function computePolicyPayoutFields({ policyType = '', monthlyPremium = 0, annualPremium = 0, licensed = false, policyWriterName = '', referredByName = '', submittedByRole = '' } = {}) {
   const type = normalizePolicyType(policyType);
   const monthly = clampMonthlyPremium(monthlyPremium);
-  const annualPremium = roundMoney(monthly * 12);
+  const annualFromMonthly = roundMoney(monthly * 12);
+  const annualInput = clampAnnualPremium(annualPremium || 0);
+  const annualPremiumValue = (type === 'Regular Policy' || type === 'Juvenile Policy') && annualInput > 0
+    ? annualInput
+    : annualFromMonthly;
 
   let commissionRate = 0;
   let pointsEarned = 0;
@@ -158,10 +169,10 @@ function computePolicyPayoutFields({ policyType = '', monthlyPremium = 0, licens
     flatPayout = true;
   } else if (type === 'Regular Policy') {
     commissionRate = 0.7;
-    pointsEarned = roundMoney(annualPremium * commissionRate);
+    pointsEarned = roundMoney(annualPremiumValue * commissionRate);
   } else if (type === 'Juvenile Policy') {
     commissionRate = 0.5;
-    pointsEarned = roundMoney(annualPremium * commissionRate);
+    pointsEarned = roundMoney(annualPremiumValue * commissionRate);
   }
 
   const advancePayout = flatPayout ? roundMoney(pointsEarned) : roundMoney(pointsEarned * 0.75);
@@ -171,7 +182,7 @@ function computePolicyPayoutFields({ policyType = '', monthlyPremium = 0, licens
   return {
     policyType: type,
     monthlyPremium: monthly,
-    annualPremium,
+    annualPremium: annualPremiumValue,
     commissionRate,
     pointsEarned: roundMoney(pointsEarned),
     advancePayout,
@@ -213,6 +224,7 @@ function normalizedRecord(row = {}) {
   const calc = computePolicyPayoutFields({
     policyType,
     monthlyPremium: row.monthlyPremium || 0,
+    annualPremium: row.annualPremium || 0,
     licensed: isLicensedValue(applicantLicensedStatus),
     policyWriterName: row.policyWriterName || '',
     referredByName: row.referredByName || row.referrer || '',
@@ -271,6 +283,7 @@ function applyPolicyMath(row = {}, { preservePayoutAmount = false } = {}) {
   const calc = computePolicyPayoutFields({
     policyType,
     monthlyPremium: row?.monthlyPremium || 0,
+    annualPremium: row?.annualPremium || 0,
     licensed: isLicensedValue(licensedStatus),
     policyWriterName: row?.policyWriterName || '',
     referredByName: row?.referredByName || row?.referrer || '',
@@ -1113,6 +1126,7 @@ export async function PATCH(req) {
     referredByName: patch.referredByName != null ? clean(patch.referredByName) : store[idx].referredByName,
     policyWriterName: patch.policyWriterName != null ? clean(patch.policyWriterName) : store[idx].policyWriterName,
     monthlyPremium: patch.monthlyPremium != null ? clampMonthlyPremium(patch.monthlyPremium || 0) : store[idx].monthlyPremium,
+    annualPremium: patch.annualPremium != null ? clampAnnualPremium(patch.annualPremium || 0) : store[idx].annualPremium,
     status: nextStatus,
     approvedAt,
     payoutDueAt,
