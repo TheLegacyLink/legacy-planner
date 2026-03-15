@@ -75,6 +75,56 @@ function monthKey(ts = '') {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
+function monthKeyPrev(key = '') {
+  const m = String(key || '').match(/^(\d{4})-(\d{2})$/);
+  if (!m) return '';
+  let y = Number(m[1]);
+  let mo = Number(m[2]);
+  mo -= 1;
+  if (mo < 1) { mo = 12; y -= 1; }
+  return `${y}-${String(mo).padStart(2, '0')}`;
+}
+
+function monthKeyNext(key = '') {
+  const m = String(key || '').match(/^(\d{4})-(\d{2})$/);
+  if (!m) return '';
+  let y = Number(m[1]);
+  let mo = Number(m[2]);
+  mo += 1;
+  if (mo > 12) { mo = 1; y += 1; }
+  return `${y}-${String(mo).padStart(2, '0')}`;
+}
+
+function hasAnyConsecutiveMonths(byMonth = new Map(), targetAp = 0, needed = 3) {
+  const keys = [...byMonth.keys()].sort();
+  let streak = 0;
+  let prev = '';
+  for (const key of keys) {
+    const ap = Number(byMonth.get(key) || 0);
+    if (ap >= Number(targetAp || 0)) {
+      if (!prev || monthKeyNext(prev) === key) streak += 1;
+      else streak = 1;
+      if (streak >= needed) return true;
+    } else {
+      streak = 0;
+    }
+    prev = key;
+  }
+  return false;
+}
+
+function currentStreakForTarget(byMonth = new Map(), targetAp = 0) {
+  let key = monthKey(new Date().toISOString());
+  let streak = 0;
+  for (let i = 0; i < 24; i += 1) {
+    const ap = Number(byMonth.get(key) || 0);
+    if (ap >= Number(targetAp || 0)) streak += 1;
+    else break;
+    key = monthKeyPrev(key);
+  }
+  return streak;
+}
+
 function tsFrom(...vals) {
   for (const v of vals) {
     const t = new Date(v || 0).getTime();
@@ -304,29 +354,37 @@ export default function LicensedBackofficePage() {
 
     const approvedPolicies = myPolicies.filter((r) => normalize(r?.status || '').includes('approved'));
 
-    const monthlyAp = sum(approvedPolicies.map((r) => Number(r?.monthlyPremium || 0) * 12));
+    const byMonth = new Map();
+    for (const r of approvedPolicies) {
+      const key = monthKey(r?.submittedAt || r?.updatedAt || r?.approvedAt || r?.createdAt || '');
+      if (!key) continue;
+      byMonth.set(key, (byMonth.get(key) || 0) + (Number(r?.monthlyPremium || 0) * 12));
+    }
+
+    const currentMonthKey = monthKey(new Date().toISOString());
+    const currentMonthAp = Number(byMonth.get(currentMonthKey) || 0);
+    const lifetimePlacedAp = sum(approvedPolicies.map((r) => Number(r?.monthlyPremium || 0) * 12));
 
     const startTier = resolveStartingTier(session?.name || '');
+    const baselineTier = tierByComp(startTier?.comp || 0) || COMP_LADDER[0];
 
-    let currentTier = COMP_LADDER[0];
-    let nextTier = COMP_LADDER[1] || null;
-    for (let i = 0; i < COMP_LADDER.length; i += 1) {
-      const t = COMP_LADDER[i];
-      if (monthlyAp >= t.ap) {
-        currentTier = t;
-        nextTier = COMP_LADDER[i + 1] || null;
+    let currentTier = baselineTier;
+    while (true) {
+      const candidate = COMP_LADDER.find((t) => Number(t.level) === Number(currentTier.level) + 1);
+      if (!candidate) break;
+      if (hasAnyConsecutiveMonths(byMonth, candidate.ap, 3)) {
+        currentTier = candidate;
+        continue;
       }
+      break;
     }
 
-    const baselineTier = tierByComp(startTier?.comp || 0);
-    if (baselineTier && Number(currentTier?.comp || 0) < Number(baselineTier?.comp || 0)) {
-      currentTier = baselineTier;
-      nextTier = COMP_LADDER.find((t) => Number(t.level) === Number(baselineTier.level) + 1) || null;
-    }
-
+    const nextTier = COMP_LADDER.find((t) => Number(t.level) === Number(currentTier.level) + 1) || null;
+    const apToNext = nextTier ? Math.max(0, Number(nextTier.ap || 0) - currentMonthAp) : 0;
     const progress = nextTier
-      ? Math.max(0, Math.min(100, ((monthlyAp - currentTier.ap) / Math.max(1, (nextTier.ap - currentTier.ap))) * 100))
+      ? Math.max(0, Math.min(100, ((currentMonthAp - Number(currentTier.ap || 0)) / Math.max(1, (Number(nextTier.ap || 0) - Number(currentTier.ap || 0)))) * 100))
       : 100;
+    const streakForNext = nextTier ? currentStreakForTarget(byMonth, nextTier.ap) : 3;
 
     const mySponsors = sponsorRows.filter((r) => normalize(r?.referralName || '') === nameNorm);
     const approvedSponsors = mySponsors.filter((r) => normalize(r?.status || '').includes('approved'));
@@ -351,13 +409,6 @@ export default function LicensedBackofficePage() {
     const sponsorDollars30 = (Math.min(10, sponsorCount30) * 1) + (Math.max(0, sponsorCount30 - 10) * 5);
     const policyDollars30 = policyCount30 * 10;
     const incentiveEstimate30 = sponsorDollars30 + policyDollars30;
-
-    const byMonth = new Map();
-    for (const r of approvedPolicies) {
-      const key = monthKey(r?.submittedAt || r?.updatedAt || '');
-      if (!key) continue;
-      byMonth.set(key, (byMonth.get(key) || 0) + (Number(r?.monthlyPremium || 0) * 12));
-    }
 
     const recentMonths = [...byMonth.entries()]
       .sort((a, b) => (a[0] < b[0] ? 1 : -1))
@@ -397,15 +448,15 @@ export default function LicensedBackofficePage() {
       { key: 'sa1', label: 'First Approved Sponsor', earned: approvedSponsors.length >= 1 },
       { key: 'sa5', label: '5 Approved Sponsors', earned: approvedSponsors.length >= 5 },
       { key: 'p1', label: 'First Approved Policy', earned: approvedPolicies.length >= 1 },
-      { key: 'ap5', label: '$5K AP Builder', earned: monthlyAp >= 5000 },
-      { key: 'ap10', label: '$10K AP Momentum', earned: monthlyAp >= 10000 },
+      { key: 'ap5', label: '$5K AP Builder', earned: currentMonthAp >= 5000 },
+      { key: 'ap10', label: '$10K AP Momentum', earned: currentMonthAp >= 10000 },
       { key: 'tier', label: `Tier L${currentTier.level} Unlocked`, earned: currentTier.level >= 2 }
     ];
 
     return {
       myPolicies,
       approvedPolicies,
-      monthlyAp,
+      monthlyAp: currentMonthAp,
       currentTier,
       nextTier,
       progress,
@@ -421,7 +472,10 @@ export default function LicensedBackofficePage() {
       policyCount30,
       sponsorDollars30,
       policyDollars30,
-      incentiveEstimate30
+      incentiveEstimate30,
+      lifetimePlacedAp,
+      apToNext,
+      streakForNext
     };
   }, [session, policyRows, sponsorRows]);
 
@@ -529,9 +583,9 @@ export default function LicensedBackofficePage() {
                   </div>
                 </div>
                 <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
-                  <div style={{ color: '#9CA3AF', fontSize: 12 }}>Placed AP (approved policies)</div>
-                  <div style={{ fontSize: 24, fontWeight: 700 }}>${metrics.monthlyAp.toLocaleString()}</div>
-                  <div style={{ color: '#9CA3AF' }}>Personal production basis</div>
+                  <div style={{ color: '#9CA3AF', fontSize: 12 }}>Placed AP (Current Month)</div>
+                  <div style={{ fontSize: 24, fontWeight: 700 }}>${Number(metrics.monthlyAp || 0).toLocaleString()}</div>
+                  <div style={{ color: '#9CA3AF' }}>Personal production basis • Lifetime placed AP: ${Number(metrics.lifetimePlacedAp || 0).toLocaleString()}</div>
                 </div>
                 <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
                   <div style={{ color: '#9CA3AF', fontSize: 12 }}>Sponsorships Brought In</div>
@@ -556,9 +610,14 @@ export default function LicensedBackofficePage() {
                   </div>
                   <div style={{ color: '#9CA3AF', marginTop: 6 }}>
                     {metrics.nextTier
-                      ? `${Math.max(0, metrics.nextTier.ap - metrics.monthlyAp).toLocaleString()} AP to next level`
+                      ? `${Number(metrics.apToNext || 0).toLocaleString()} AP to next level this month`
                       : 'You are at max level'}
                   </div>
+                  {metrics.nextTier ? (
+                    <div style={{ color: '#93C5FD', marginTop: 4, fontSize: 12 }}>
+                      Promotion streak for L{metrics.nextTier.level}: {Math.min(3, Number(metrics.streakForNext || 0))}/3 consecutive qualifying months
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ) : null}
