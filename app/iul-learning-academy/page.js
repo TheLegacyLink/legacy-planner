@@ -119,7 +119,7 @@ function LevelBadge({ level, unlocked, current, done, completedAt }) {
           borderRadius: 999,
           border: `1px solid ${current ? c : '#334155'}`,
           background: current ? c : '#0B1220',
-          color: quizSelected === i ? '#FDE68A' : '#FCD34D',
+          color: '#F8FAFC',
           opacity: unlocked ? 1 : 0.55,
           cursor: unlocked ? 'pointer' : 'not-allowed',
           fontWeight: 700,
