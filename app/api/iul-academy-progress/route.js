@@ -28,19 +28,29 @@ function emptyProgress() {
     completedSections: [],
     quizScore: null,
     quizPassed: false,
+    quizAttempts: [],
     advancedCompleted: false,
+    advancedSubmissions: [],
     expertCompleted: false,
+    expertSessions: [],
     xp: 0,
     levelUnlocked: {
       beginner: false,
       intermediate: false,
       advanced: false,
       expert: false
-    }
+    },
+    levelCompletedAt: {
+      beginner: '',
+      intermediate: '',
+      advanced: '',
+      expert: ''
+    },
+    lastActivityAt: ''
   };
 }
 
-function deriveLevels(progress = {}) {
+function deriveLevels(progress = {}, previousProgress = null) {
   const completed = new Set(Array.isArray(progress.completedSections) ? progress.completedSections : []);
   const beginnerComplete = ['beginner_0', 'beginner_1'].every((k) => completed.has(k));
   const intermediateComplete = ['intermediate_0', 'intermediate_1'].every((k) => completed.has(k));
@@ -58,6 +68,23 @@ function deriveLevels(progress = {}) {
     expert: expertSections && expertCompleted
   };
 
+  const baseCompletedAt = {
+    ...(previousProgress?.levelCompletedAt || {}),
+    ...(progress?.levelCompletedAt || {})
+  };
+
+  const nextCompletedAt = {
+    beginner: clean(baseCompletedAt.beginner || ''),
+    intermediate: clean(baseCompletedAt.intermediate || ''),
+    advanced: clean(baseCompletedAt.advanced || ''),
+    expert: clean(baseCompletedAt.expert || '')
+  };
+
+  const ts = nowIso();
+  for (const lv of ['beginner', 'intermediate', 'advanced', 'expert']) {
+    if (levelUnlocked[lv] && !nextCompletedAt[lv]) nextCompletedAt[lv] = ts;
+  }
+
   const badgeKeys = [];
   if (levelUnlocked.beginner) badgeKeys.push('academy.iul_beginner');
   if (levelUnlocked.intermediate) badgeKeys.push('academy.iul_intermediate');
@@ -70,8 +97,18 @@ function deriveLevels(progress = {}) {
     advancedCompleted,
     expertCompleted,
     levelUnlocked,
+    levelCompletedAt: nextCompletedAt,
     badgeKeys
   };
+}
+
+function calcProgressPct(progress = {}) {
+  const completed = new Set(Array.isArray(progress?.completedSections) ? progress.completedSections : []);
+  const totalSections = 7; // 6 sections + quiz + advanced + expert = handled below
+  const quizPassed = Number(progress?.quizScore || 0) >= 80 || Boolean(progress?.quizPassed);
+  const doneCount = completed.size + (quizPassed ? 1 : 0) + (progress?.advancedCompleted ? 1 : 0) + (progress?.expertCompleted ? 1 : 0);
+  const denom = totalSections + 2;
+  return Math.min(100, Math.round((doneCount / denom) * 100));
 }
 
 async function mergeAchievementBadges({ email = '', name = '', badgeKeys = [] } = {}) {
@@ -117,16 +154,39 @@ async function mergeAchievementBadges({ email = '', name = '', badgeKeys = [] } 
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
+  const mode = clean(searchParams.get('mode') || 'one').toLowerCase();
+
+  const rows = await loadJsonStore(STORE_PATH, []);
+  const list = Array.isArray(rows) ? rows : [];
+
+  if (mode === 'leaderboard') {
+    const board = list
+      .map((r) => {
+        const p = deriveLevels(r?.progress || emptyProgress(), r?.progress || null);
+        return {
+          agentKey: clean(r?.agentKey || ''),
+          name: clean(r?.name || r?.email || 'Agent'),
+          email: clean(r?.email || ''),
+          xp: Number(p?.xp || 0),
+          progressPct: calcProgressPct(p),
+          expertCompleted: Boolean(p?.expertCompleted),
+          expertCompletedAt: clean(p?.levelCompletedAt?.expert || ''),
+          lastActivityAt: clean(p?.lastActivityAt || r?.updatedAt || '')
+        };
+      })
+      .sort((a, b) => (Number(b.xp || 0) - Number(a.xp || 0)) || (Number(b.progressPct || 0) - Number(a.progressPct || 0)))
+      .slice(0, 25);
+
+    return Response.json({ ok: true, rows: board });
+  }
+
   const email = clean(searchParams.get('email') || '');
   const name = clean(searchParams.get('name') || '');
   const key = agentKeyFrom({ email, name });
   if (!key) return Response.json({ ok: false, error: 'missing_identity' }, { status: 400 });
 
-  const rows = await loadJsonStore(STORE_PATH, []);
-  const list = Array.isArray(rows) ? rows : [];
   const row = list.find((r) => clean(r?.agentKey) === key) || null;
-
-  const progress = deriveLevels(row?.progress || emptyProgress());
+  const progress = deriveLevels(row?.progress || emptyProgress(), row?.progress || null);
   return Response.json({ ok: true, row: row ? { ...row, progress } : { agentKey: key, email: normalize(email), name: clean(name), progress } });
 }
 
@@ -151,16 +211,45 @@ export async function POST(req) {
     progress: emptyProgress()
   };
 
+  const prev = base?.progress || emptyProgress();
+
   const merged = {
     ...emptyProgress(),
-    ...(base?.progress || {}),
+    ...prev,
     ...incoming,
-    completedSections: uniq([...(base?.progress?.completedSections || []), ...(incoming?.completedSections || [])]),
-    quizScore: incoming?.quizScore == null ? (base?.progress?.quizScore ?? null) : Number(incoming.quizScore),
-    xp: Number(incoming?.xp == null ? (base?.progress?.xp || 0) : incoming.xp) || 0
+    completedSections: uniq([...(prev?.completedSections || []), ...(incoming?.completedSections || [])]),
+    quizScore: incoming?.quizScore == null ? (prev?.quizScore ?? null) : Number(incoming.quizScore),
+    quizAttempts: [
+      ...(Array.isArray(prev?.quizAttempts) ? prev.quizAttempts : []),
+      ...(incoming?.quizAttempt ? [{
+        score: Number(incoming.quizAttempt?.score || 0),
+        correct: Number(incoming.quizAttempt?.correct || 0),
+        total: Number(incoming.quizAttempt?.total || 0),
+        at: clean(incoming.quizAttempt?.at || nowIso())
+      }] : [])
+    ].slice(-20),
+    advancedSubmissions: [
+      ...(Array.isArray(prev?.advancedSubmissions) ? prev.advancedSubmissions : []),
+      ...(incoming?.advancedSubmission ? [{
+        summary: clean(incoming.advancedSubmission?.summary || ''),
+        at: clean(incoming.advancedSubmission?.at || nowIso())
+      }] : [])
+    ].slice(-20),
+    expertSessions: [
+      ...(Array.isArray(prev?.expertSessions) ? prev.expertSessions : []),
+      ...(incoming?.expertSession ? [{
+        transcript: clean(incoming.expertSession?.transcript || ''),
+        score: Number(incoming.expertSession?.score || 0),
+        grade: clean(incoming.expertSession?.grade || ''),
+        feedback: clean(incoming.expertSession?.feedback || ''),
+        at: clean(incoming.expertSession?.at || nowIso())
+      }] : [])
+    ].slice(-30),
+    xp: Number(incoming?.xp == null ? (prev?.xp || 0) : incoming.xp) || 0,
+    lastActivityAt: nowIso()
   };
 
-  const progress = deriveLevels(merged);
+  const progress = deriveLevels(merged, prev);
   const ach = await mergeAchievementBadges({ email, name, badgeKeys: progress.badgeKeys });
 
   const next = {

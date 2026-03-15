@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const academyContent = {
   beginner: [
@@ -29,33 +29,66 @@ const quizQuestions = [
 
 function clean(v = '') { return String(v || '').trim(); }
 
-function LevelBadge({ level, unlocked, current, done }) {
-  const colors = {
-    beginner: '#2563EB',
-    intermediate: '#D97706',
-    advanced: '#7C3AED',
-    expert: '#059669'
-  };
+function LevelBadge({ level, unlocked, current, done, completedAt }) {
+  const colors = { beginner: '#2563EB', intermediate: '#D97706', advanced: '#7C3AED', expert: '#059669' };
   const c = colors[level] || '#334155';
   return (
-    <button
-      type="button"
-      style={{
-        padding: '8px 14px',
-        borderRadius: 999,
-        border: `1px solid ${current ? c : '#334155'}`,
-        background: current ? c : '#0B1220',
-        color: '#F8FAFC',
-        opacity: unlocked ? 1 : 0.55,
-        cursor: unlocked ? 'pointer' : 'not-allowed',
-        fontWeight: 700,
-        textTransform: 'capitalize'
-      }}
-      disabled={!unlocked}
-    >
-      {level} {done ? '✅' : (!unlocked ? '🔒' : '')}
-    </button>
+    <div style={{ display: 'grid', gap: 4, justifyItems: 'center' }}>
+      <button
+        type="button"
+        style={{
+          padding: '8px 14px',
+          borderRadius: 999,
+          border: `1px solid ${current ? c : '#334155'}`,
+          background: current ? c : '#0B1220',
+          color: '#F8FAFC',
+          opacity: unlocked ? 1 : 0.55,
+          cursor: unlocked ? 'pointer' : 'not-allowed',
+          fontWeight: 700,
+          textTransform: 'capitalize'
+        }}
+        disabled={!unlocked}
+      >
+        {level} {done ? '✅' : (!unlocked ? '🔒' : '')}
+      </button>
+      {done && completedAt ? <small style={{ color: '#94A3B8' }}>{new Date(completedAt).toLocaleDateString()}</small> : <small style={{ color: '#64748B' }}> </small>}
+    </div>
   );
+}
+
+function analyzeTranscript(transcript = '') {
+  const text = clean(transcript).toLowerCase();
+  const words = text.split(/\s+/).filter(Boolean);
+  const keywordGroups = [
+    ['death benefit', 'death-benefit'],
+    ['cash value'],
+    ['0% floor', 'floor'],
+    ['cap', 'cap rate'],
+    ['participation'],
+    ['tax', 'tax-free'],
+    ['loan', 'policy loan']
+  ];
+
+  let covered = 0;
+  for (const g of keywordGroups) {
+    if (g.some((k) => text.includes(k))) covered += 1;
+  }
+
+  const coveragePct = Math.round((covered / keywordGroups.length) * 100);
+  const lengthScore = Math.min(100, Math.round((words.length / 140) * 100));
+  const fillerCount = (text.match(/\b(um|uh|like|you know)\b/g) || []).length;
+  const clarity = Math.max(50, 100 - fillerCount * 6);
+
+  const score = Math.round((coveragePct * 0.5) + (lengthScore * 0.25) + (clarity * 0.25));
+  const grade = score >= 90 ? 'A' : score >= 80 ? 'B' : score >= 70 ? 'C' : 'D';
+  const feedback = [
+    `Coverage: ${covered}/${keywordGroups.length} core concepts`,
+    `Delivery length: ${words.length} words`,
+    `Clarity estimate: ${clarity}%`,
+    score >= 80 ? 'Strong pitch foundation. Keep refining examples.' : 'Add more core terms: floor, cap, participation, tax strategy, and policy loans.'
+  ].join(' • ');
+
+  return { score, grade, feedback, covered, words: words.length };
 }
 
 export default function IulLearningAcademyPage() {
@@ -68,12 +101,26 @@ export default function IulLearningAcademyPage() {
   const [quizAnswers, setQuizAnswers] = useState([]);
   const [quizSelected, setQuizSelected] = useState(null);
   const [quizScore, setQuizScore] = useState(null);
+  const [quizAttempts, setQuizAttempts] = useState([]);
   const [advancedWriteup, setAdvancedWriteup] = useState('');
   const [advancedDone, setAdvancedDone] = useState(false);
+  const [advancedSubmissions, setAdvancedSubmissions] = useState([]);
   const [expertDone, setExpertDone] = useState(false);
+  const [expertSessions, setExpertSessions] = useState([]);
+  const [expertFeedback, setExpertFeedback] = useState(null);
+  const [expertTranscript, setExpertTranscript] = useState('');
   const [xp, setXp] = useState(0);
+  const [levelCompletedAt, setLevelCompletedAt] = useState({ beginner: '', intermediate: '', advanced: '', expert: '' });
+  const [leaderboard, setLeaderboard] = useState([]);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
+  const [recording, setRecording] = useState(false);
+  const [recordedMs, setRecordedMs] = useState(0);
+
+  const recorderRef = useRef(null);
+  const streamRef = useRef(null);
+  const speechRef = useRef(null);
+  const timerRef = useRef(null);
 
   useEffect(() => {
     let canceled = false;
@@ -100,13 +147,15 @@ export default function IulLearningAcademyPage() {
         const idName = clean(licensedProfile?.name || localMember?.applicantName || localMember?.name || qName || '');
         const idEmail = clean(licensedProfile?.email || localMember?.email || qEmail || '').toLowerCase();
 
-        const [innerRes, progRes] = await Promise.all([
+        const [innerRes, progRes, boardRes] = await Promise.all([
           fetch('/api/inner-circle-hub-members', { cache: 'no-store' }),
-          fetch(`/api/iul-academy-progress?email=${encodeURIComponent(idEmail)}&name=${encodeURIComponent(idName)}`, { cache: 'no-store' })
+          fetch(`/api/iul-academy-progress?email=${encodeURIComponent(idEmail)}&name=${encodeURIComponent(idName)}`, { cache: 'no-store' }),
+          fetch('/api/iul-academy-progress?mode=leaderboard', { cache: 'no-store' })
         ]);
 
         const innerData = innerRes.ok ? await innerRes.json().catch(() => ({})) : {};
         const progData = progRes.ok ? await progRes.json().catch(() => ({})) : {};
+        const boardData = boardRes.ok ? await boardRes.json().catch(() => ({})) : {};
 
         const innerRows = Array.isArray(innerData?.rows) ? innerData.rows : [];
         const innerActive = innerRows.some((r) => Boolean(r?.active) && ((idEmail && clean(r?.email || '').toLowerCase() === idEmail) || (idName && clean(r?.applicantName || r?.name || '').toLowerCase() === idName.toLowerCase())));
@@ -114,13 +163,17 @@ export default function IulLearningAcademyPage() {
         const licensed = Boolean(licensedProfile?.email || qLicensed || innerActive || localMember?.active);
         if (!canceled) {
           setIdentity({ name: idName, email: idEmail, licensed, inner: innerActive });
-
           const p = progData?.row?.progress || {};
           setCompletedSections(new Set(Array.isArray(p.completedSections) ? p.completedSections : []));
           setQuizScore(p.quizScore == null ? null : Number(p.quizScore));
+          setQuizAttempts(Array.isArray(p.quizAttempts) ? p.quizAttempts : []);
           setAdvancedDone(Boolean(p.advancedCompleted));
+          setAdvancedSubmissions(Array.isArray(p.advancedSubmissions) ? p.advancedSubmissions : []);
           setExpertDone(Boolean(p.expertCompleted));
+          setExpertSessions(Array.isArray(p.expertSessions) ? p.expertSessions : []);
           setXp(Number(p.xp || 0));
+          setLevelCompletedAt({ ...(p.levelCompletedAt || { beginner: '', intermediate: '', advanced: '', expert: '' }) });
+          setLeaderboard(Array.isArray(boardData?.rows) ? boardData.rows : []);
         }
       } catch {
         if (!canceled) setError('Could not load academy right now.');
@@ -131,6 +184,13 @@ export default function IulLearningAcademyPage() {
 
     load();
     return () => { canceled = true; };
+  }, []);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    try { speechRef.current?.stop?.(); } catch {}
+    try { recorderRef.current?.stop?.(); } catch {}
+    if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
   }, []);
 
   const beginnerComplete = ['beginner_0', 'beginner_1'].every((k) => completedSections.has(k));
@@ -165,8 +225,11 @@ export default function IulLearningAcademyPage() {
         completedSections: [...completedSections],
         quizScore,
         quizPassed,
+        quizAttempts,
         advancedCompleted: advancedDone,
+        advancedSubmissions,
         expertCompleted: expertDone,
+        expertSessions,
         xp,
         ...overrides
       };
@@ -180,10 +243,12 @@ export default function IulLearningAcademyPage() {
         if (toastMsg) setToast(toastMsg);
         const newBadges = Array.isArray(data?.newlyUnlockedBadges) ? data.newlyUnlockedBadges.length : 0;
         if (newBadges) setToast(`🎉 ${newBadges} IUL badge${newBadges > 1 ? 's' : ''} unlocked!`);
+        const p = data?.row?.progress || {};
+        setLevelCompletedAt({ ...(p.levelCompletedAt || levelCompletedAt) });
       }
     } finally {
       setSaving(false);
-      setTimeout(() => setToast(''), 2500);
+      setTimeout(() => setToast(''), 2600);
     }
   }
 
@@ -192,9 +257,10 @@ export default function IulLearningAcademyPage() {
     if (completedSections.has(key)) return;
     const next = new Set(completedSections);
     next.add(key);
+    const nextXp = xp + 50;
     setCompletedSections(next);
-    setXp((x) => x + 50);
-    persistProgress({ completedSections: [...next], xp: xp + 50 }, '+50 XP saved');
+    setXp(nextXp);
+    persistProgress({ completedSections: [...next], xp: nextXp }, '+50 XP saved');
   }
 
   function submitQuizAnswer() {
@@ -206,13 +272,27 @@ export default function IulLearningAcademyPage() {
       setQuizSelected(null);
       return;
     }
+
     const correct = next.filter((a, i) => a === quizQuestions[i].a).length;
     const score = Math.round((correct / quizQuestions.length) * 100);
+    const bonus = score >= 80 ? 150 : 0;
+    const attempt = { score, correct, total: quizQuestions.length, at: new Date().toISOString() };
+    const attempts = [...quizAttempts, attempt].slice(-20);
+    const nextXp = xp + bonus;
+
     setQuizAnswers(next);
     setQuizScore(score);
-    const bonus = score >= 80 ? 150 : 0;
-    if (bonus) setXp((x) => x + bonus);
-    persistProgress({ quizScore: score, quizPassed: score >= 80, xp: xp + bonus }, score >= 80 ? 'Quiz passed — Advanced unlocked' : 'Quiz saved. Retry for 80%+');
+    setQuizAttempts(attempts);
+    setXp(nextXp);
+
+    persistProgress({ quizScore: score, quizPassed: score >= 80, quizAttempts: attempts, quizAttempt: attempt, xp: nextXp }, score >= 80 ? 'Quiz passed — Advanced unlocked' : 'Quiz saved. Retry for 80%+');
+  }
+
+  function retakeQuiz() {
+    setQuizIndex(0);
+    setQuizAnswers([]);
+    setQuizSelected(null);
+    setQuizScore(null);
   }
 
   function submitAdvanced() {
@@ -221,20 +301,83 @@ export default function IulLearningAcademyPage() {
       setTimeout(() => setToast(''), 2200);
       return;
     }
+    const nextXp = xp + 200;
+    const submission = { summary: clean(advancedWriteup), at: new Date().toISOString() };
+    const subs = [...advancedSubmissions, submission].slice(-20);
     setAdvancedDone(true);
-    setXp((x) => x + 200);
-    persistProgress({ advancedCompleted: true, xp: xp + 200 }, 'Advanced challenge completed');
+    setAdvancedSubmissions(subs);
+    setXp(nextXp);
+    persistProgress({ advancedCompleted: true, advancedSubmissions: subs, advancedSubmission: submission, xp: nextXp }, 'Advanced challenge completed');
   }
 
-  function completeExpert() {
-    setExpertDone(true);
-    setXp((x) => x + 250);
-    persistProgress({ expertCompleted: true, xp: xp + 250 }, 'Expert session completed');
+  async function startRecording() {
+    if (recording) return;
+    setExpertTranscript('');
+    setExpertFeedback(null);
+    setRecordedMs(0);
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    streamRef.current = stream;
+
+    const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    recorderRef.current = mr;
+    mr.start();
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SR) {
+      const sr = new SR();
+      sr.continuous = true;
+      sr.interimResults = true;
+      let finalText = '';
+      sr.onresult = (evt) => {
+        let interim = '';
+        for (let i = evt.resultIndex; i < evt.results.length; i++) {
+          const t = evt.results[i][0].transcript;
+          if (evt.results[i].isFinal) finalText += ` ${t}`;
+          else interim += ` ${t}`;
+        }
+        setExpertTranscript(clean(`${finalText} ${interim}`));
+      };
+      sr.start();
+      speechRef.current = sr;
+    }
+
+    setRecording(true);
+    timerRef.current = setInterval(() => setRecordedMs((x) => x + 1), 1000);
   }
 
-  if (loading) {
-    return <main className="publicPage"><div className="panel">Loading IUL Academy…</div></main>;
+  function stopRecording() {
+    if (!recording) return;
+    setRecording(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+    try { speechRef.current?.stop?.(); } catch {}
+    try { recorderRef.current?.stop?.(); } catch {}
+    if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
   }
+
+  function analyzeAndSaveExpert() {
+    const result = analyzeTranscript(expertTranscript);
+    const session = {
+      transcript: expertTranscript,
+      score: result.score,
+      grade: result.grade,
+      feedback: result.feedback,
+      at: new Date().toISOString()
+    };
+    const sessions = [...expertSessions, session].slice(-30);
+    const bonus = result.score >= 75 ? 250 : 100;
+    const nextXp = xp + bonus;
+    const done = result.score >= 75;
+
+    setExpertSessions(sessions);
+    setExpertFeedback(result);
+    setExpertDone(done);
+    setXp(nextXp);
+
+    persistProgress({ expertSessions: sessions, expertSession: session, expertCompleted: done, xp: nextXp }, done ? 'Expert session passed' : 'Expert session saved — improve and retry');
+  }
+
+  if (loading) return <main className="publicPage"><div className="panel">Loading IUL Academy…</div></main>;
 
   if (!identity.licensed && !identity.inner) {
     return (
@@ -251,7 +394,7 @@ export default function IulLearningAcademyPage() {
 
   return (
     <main className="publicPage" style={{ background: 'radial-gradient(1200px 560px at 8% -8%, rgba(59,130,246,.18), transparent 60%), #020617', minHeight: '100vh' }}>
-      <div className="panel" style={{ maxWidth: 980, margin: '18px auto', border: '1px solid #1f2f48', background: '#0B1220' }}>
+      <div className="panel" style={{ maxWidth: 1060, margin: '18px auto', border: '1px solid #1f2f48', background: '#0B1220' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 34 }}>🎓</div>
           <h1 style={{ margin: '6px 0 0', color: '#fff' }}>IUL Learning Academy</h1>
@@ -266,7 +409,7 @@ export default function IulLearningAcademyPage() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 14 }}>
           {['beginner', 'intermediate', 'advanced', 'expert'].map((lv) => (
             <span key={`lv-${lv}`} onClick={() => levelUnlocked[lv] && setLevel(lv)}>
-              <LevelBadge level={lv} unlocked={levelUnlocked[lv]} current={level === lv} done={levelDone[lv]} />
+              <LevelBadge level={lv} unlocked={levelUnlocked[lv]} current={level === lv} done={levelDone[lv]} completedAt={levelCompletedAt?.[lv] || ''} />
             </span>
           ))}
         </div>
@@ -317,7 +460,11 @@ export default function IulLearningAcademyPage() {
         {level === 'intermediate' && quizScore != null ? (
           <div className="panel" style={{ marginTop: 12, border: `1px solid ${quizPassed ? '#22c55e' : '#7f1d1d'}`, background: quizPassed ? '#0b1f16' : '#2a0d14' }}>
             <strong style={{ color: '#fff' }}>Quiz Score: {quizScore}%</strong>
-            <p style={{ margin: '6px 0 0', color: quizPassed ? '#86EFAC' : '#fecaca' }}>{quizPassed ? 'Passed — Advanced unlocked' : 'Need 80% to unlock Advanced. Refresh and retry.'}</p>
+            <p style={{ margin: '6px 0 0', color: quizPassed ? '#86EFAC' : '#fecaca' }}>{quizPassed ? 'Passed — Advanced unlocked' : 'Need 80% to unlock Advanced.'}</p>
+            <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="ghost" onClick={retakeQuiz}>Retake Quiz</button>
+              {quizAttempts.slice(-3).map((a, i) => <span key={`qa-${i}`} className="pill neutral">{new Date(a.at).toLocaleDateString()} • {a.score}%</span>)}
+            </div>
           </div>
         ) : null}
 
@@ -329,18 +476,49 @@ export default function IulLearningAcademyPage() {
             <button type="button" onClick={submitAdvanced} disabled={advancedDone} className="publicPrimaryBtn" style={{ marginTop: 10 }}>
               {advancedDone ? '✅ Advanced Completed' : 'Submit Advanced (+200 XP)'}
             </button>
+            {advancedSubmissions.length ? <p style={{ color: '#94A3B8', marginTop: 8 }}>Last submitted: {new Date(advancedSubmissions[advancedSubmissions.length - 1].at).toLocaleString()}</p> : null}
           </div>
         ) : null}
 
         {level === 'expert' && levelUnlocked.expert ? (
           <div style={{ marginTop: 14, border: '1px solid #334155', borderRadius: 14, background: '#071022', padding: 14 }}>
             <h3 style={{ marginTop: 0, color: '#fff' }}>Expert Practice Studio</h3>
-            <p style={{ color: '#9FB3CC' }}>Record + AI coaching can be added next. For now, mark completion when your expert session is done.</p>
-            <button type="button" onClick={completeExpert} disabled={expertDone} className="publicPrimaryBtn">
-              {expertDone ? '✅ Expert Completed' : 'Mark Expert Session Complete (+250 XP)'}
+            <p style={{ color: '#9FB3CC' }}>Record your pitch, generate transcript, and get rubric scoring.</p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {!recording ? <button type="button" className="publicPrimaryBtn" onClick={startRecording}>🎙 Start Recording</button> : <button type="button" className="ghost" onClick={stopRecording}>⏹ Stop Recording</button>}
+              <span className="pill neutral">Duration: {recordedMs}s</span>
+            </div>
+            <textarea value={expertTranscript} onChange={(e) => setExpertTranscript(e.target.value)} placeholder="Transcript appears here (or paste your script)" style={{ width: '100%', minHeight: 120, borderRadius: 10, border: '1px solid #334155', background: '#0B1220', color: '#E5E7EB', padding: 10, marginTop: 10 }} />
+            <button type="button" onClick={analyzeAndSaveExpert} className="publicPrimaryBtn" style={{ marginTop: 10 }}>
+              Analyze & Save Session
             </button>
+
+            {expertFeedback ? (
+              <div className="panel" style={{ marginTop: 10, border: '1px solid #334155', background: '#0B1220' }}>
+                <strong style={{ color: '#fff' }}>Rubric Score: {expertFeedback.score} ({expertFeedback.grade})</strong>
+                <p style={{ margin: '6px 0 0', color: '#CBD5E1' }}>{expertFeedback.feedback}</p>
+              </div>
+            ) : null}
+
+            {expertSessions.length ? <p style={{ color: '#94A3B8', marginTop: 8 }}>Recent sessions: {expertSessions.slice(-3).map((s) => `${new Date(s.at).toLocaleDateString()} (${s.score})`).join(' • ')}</p> : null}
           </div>
         ) : null}
+
+        <div style={{ marginTop: 14, border: '1px solid #334155', borderRadius: 14, background: '#071022', padding: 14 }}>
+          <h3 style={{ marginTop: 0, color: '#fff' }}>Academy Leaderboard</h3>
+          {!leaderboard.length ? <p className="muted">No leaderboard data yet.</p> : (
+            <div style={{ display: 'grid', gap: 6 }}>
+              {leaderboard.slice(0, 10).map((r, i) => (
+                <div key={`lb-${r.agentKey || i}`} style={{ display: 'grid', gridTemplateColumns: '26px 1fr auto auto', gap: 8, alignItems: 'center', border: '1px solid #334155', borderRadius: 10, padding: '8px 10px', background: '#0B1220' }}>
+                  <strong style={{ color: '#93C5FD' }}>#{i + 1}</strong>
+                  <span style={{ color: '#E5E7EB' }}>{r.name || 'Agent'}</span>
+                  <span className="pill neutral">XP: {Number(r.xp || 0)}</span>
+                  <span className="pill onpace">{Number(r.progressPct || 0)}%</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </main>
   );
