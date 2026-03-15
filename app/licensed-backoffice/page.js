@@ -36,6 +36,39 @@ const COMP_LADDER = [
   { level: 14, title: 'Legacy Titan', comp: 115, ap: 40000 }
 ];
 
+
+const SPECIAL_TIER_BY_NAME = {
+  'angelique lassiter': 90,
+  'jamal holmes': 90,
+};
+
+const INNER_CIRCLE_DEFAULT_70 = new Set([
+  'kimora link',
+  'mahogany burns',
+  'leticia wright',
+  'letitia wright',
+  'kelin brown',
+  'kellen brown',
+  'madalyn adams',
+  'madeline adams',
+  'breanna james',
+  'brianna james',
+  'shannon maxwell',
+  'andrea cannon'
+]);
+
+function tierByComp(comp = 0) {
+  return COMP_LADDER.find((t) => Number(t?.comp || 0) === Number(comp || 0)) || null;
+}
+
+function resolveStartingTier(name = '') {
+  const n = normalize(name);
+  if (!n) return { status: 'pending', comp: null, reason: 'Unknown tier (pending setup)' };
+  if (SPECIAL_TIER_BY_NAME[n]) return { status: 'set', comp: SPECIAL_TIER_BY_NAME[n], reason: 'Agency Owner tier' };
+  if (INNER_CIRCLE_DEFAULT_70.has(n)) return { status: 'set', comp: 70, reason: 'Inner Circle default tier' };
+  return { status: 'set', comp: 50, reason: 'Sponsorship default tier' };
+}
+
 function monthKey(ts = '') {
   const d = new Date(ts || 0);
   if (Number.isNaN(d.getTime())) return '';
@@ -265,6 +298,8 @@ export default function LicensedBackofficePage() {
 
     const monthlyAp = sum(approvedPolicies.map((r) => Number(r?.monthlyPremium || 0) * 12));
 
+    const startTier = resolveStartingTier(session?.name || '');
+
     let currentTier = COMP_LADDER[0];
     let nextTier = COMP_LADDER[1] || null;
     for (let i = 0; i < COMP_LADDER.length; i += 1) {
@@ -273,6 +308,12 @@ export default function LicensedBackofficePage() {
         currentTier = t;
         nextTier = COMP_LADDER[i + 1] || null;
       }
+    }
+
+    const baselineTier = tierByComp(startTier?.comp || 0);
+    if (baselineTier && Number(currentTier?.comp || 0) < Number(baselineTier?.comp || 0)) {
+      currentTier = baselineTier;
+      nextTier = COMP_LADDER.find((t) => Number(t.level) === Number(baselineTier.level) + 1) || null;
     }
 
     const progress = nextTier
@@ -346,7 +387,8 @@ export default function LicensedBackofficePage() {
       recentMonths,
       sponsorshipEntries,
       approvedPolicyEntries,
-      badges
+      badges,
+      startTier
     };
   }, [session, policyRows, sponsorRows]);
 
@@ -449,6 +491,9 @@ export default function LicensedBackofficePage() {
                   <div style={{ color: '#9CA3AF', fontSize: 12 }}>Current Tier</div>
                   <div style={{ fontSize: 24, fontWeight: 700 }}>L{metrics.currentTier.level} • {metrics.currentTier.comp}%</div>
                   <div style={{ color: '#9CA3AF' }}>{metrics.currentTier.title}</div>
+                  <div style={{ color: '#94A3B8', marginTop: 6, fontSize: 12 }}>
+                    Start Tier: {metrics.startTier?.status === 'pending' ? 'Pending' : `${metrics.startTier?.comp}%`} {metrics.startTier?.reason ? `• ${metrics.startTier.reason}` : ''}
+                  </div>
                 </div>
                 <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
                   <div style={{ color: '#9CA3AF', fontSize: 12 }}>Placed AP (approved policies)</div>
