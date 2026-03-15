@@ -394,7 +394,11 @@ export default function InnerCircleHubPage() {
       .sort((a, b) => new Date(a.expectedPayoutAt || a.qualifiedAt || 0).getTime() - new Date(b.expectedPayoutAt || b.qualifiedAt || 0).getTime())
       .slice(0, 8);
 
-    return { allTimePaid, allTimePending, thisMonthPaid, thisMonthPending, trend, sourceTotals, sourceSum, upcoming };
+    const monthTotal = thisMonthPaid + thisMonthPending;
+    const paidRatio = monthTotal > 0 ? Math.round((thisMonthPaid / monthTotal) * 100) : 0;
+    const nextPayout = upcoming[0] || null;
+
+    return { allTimePaid, allTimePending, thisMonthPaid, thisMonthPending, trend, sourceTotals, sourceSum, upcoming, monthTotal, paidRatio, nextPayout };
   }, [personalProduction.rows]);
 
 
@@ -1217,7 +1221,7 @@ export default function InnerCircleHubPage() {
                   <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>Filter by policy type to quickly see flat-rate vs commission-based production.</p>
                 </div>
 
-                <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between', border: '1px solid #243046', borderRadius: 12, background: '#0B1220', padding: 10 }}>
                   <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
                     <button type="button" className={productionFilter === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('all')}>All Policies</button>
                     <button type="button" className={productionFilter === 'sponsorship' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('sponsorship')}>Sponsorship</button>
@@ -1226,10 +1230,12 @@ export default function InnerCircleHubPage() {
                     <button type="button" className={productionFilter === 'inner circle' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('inner circle')}>Inner Circle</button>
                     <button type="button" className={productionFilter === 'juvenile' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('juvenile')}>Juvenile</button>
                   </div>
-                  <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+                  <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                     <button type="button" className={productionWindow === 'month' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionWindow('month')}>This Month</button>
                     <button type="button" className={productionWindow === 'lastMonth' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionWindow('lastMonth')}>Last Month</button>
                     <button type="button" className={productionWindow === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionWindow('all')}>All Time</button>
+                    {productionFinancials.nextPayout ? <span className="pill neutral">Next Payout: {new Date(productionFinancials.nextPayout.expectedPayoutAt || productionFinancials.nextPayout.qualifiedAt).toLocaleDateString()} • ${Number(productionFinancials.nextPayout.amount || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span> : <span className="pill neutral">Next Payout: —</span>}
+                    <span className="pill onpace">Paid Ratio: {productionFinancials.paidRatio}%</span>
                   </div>
                 </div>
 
