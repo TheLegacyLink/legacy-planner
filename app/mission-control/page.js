@@ -954,6 +954,12 @@ export default function MissionControl() {
           <div>
             <h3>Unlicensed License Sprint Pipeline</h3>
             <span className="muted">Track unlicensed agents by onboarding stage.</span>
+            <div className="panelRow" style={{ gap: '.5rem', marginTop: '.5rem' }}>
+              <button type="button" onClick={runUnlicensedNudges} disabled={nudgeRunState.running}>
+                {nudgeRunState.running ? 'Running Nudges…' : 'Run 7/14/21 + Eligible Nudges'}
+              </button>
+              {nudgeRunState.message ? <span className="muted">{nudgeRunState.message}</span> : null}
+            </div>
           </div>
         </div>
 
