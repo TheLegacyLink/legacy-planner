@@ -933,7 +933,12 @@ export default function LicensedBackofficePage() {
               <p style={{ margin: '6px 0 0', color: '#9CA3AF' }}>{session.name} • {session.email} • {session.homeState || 'State Pending'}</p>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <a href="/inner-circle-hub" className="ghost" style={{ textDecoration: 'none' }}>Open Inner Circle</a>
+              <div style={{ border: '1px solid #334155', borderRadius: 12, padding: '8px 10px', background: '#0B1220', minWidth: 160, textAlign: 'center' }}>
+                <div style={{ color: '#64748B', fontWeight: 700, fontSize: 12, letterSpacing: '.04em', textTransform: 'uppercase' }}>Inner Circle</div>
+                <a href="https://thelegacylink.com/inner-circle" target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 6, padding: '6px 10px', borderRadius: 999, border: '1px solid #475569', background: '#111827', color: '#CBD5E1', textDecoration: 'none', fontWeight: 700, fontSize: 12 }}>
+                  Upgrade
+                </a>
+              </div>
               <button onClick={logout} style={{ borderRadius: 10, border: '1px solid #334155', padding: '8px 12px', background: '#111827', color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>Sign Out</button>
             </div>
           </div>
