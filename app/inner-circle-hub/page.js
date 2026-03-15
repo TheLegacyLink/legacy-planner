@@ -1251,23 +1251,23 @@ export default function InnerCircleHubPage() {
                   <strong style={{ color: '#fff', fontSize: 18 }}>VIP First 7 Days</strong>
                   <p style={{ color: '#e5e7eb', marginTop: 8, marginBottom: 10, fontSize: 15 }}>Your premium onboarding sprint. Keep this simple and complete one block per day.</p>
                   <ul style={{ margin: '10px 0 0', paddingLeft: 0, listStyle: 'none', color: '#F8FAFC', display: 'grid', gap: 10, fontWeight: 700, lineHeight: 1.6, fontSize: 16 }}>
-                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px' }}><span style={{ color: '#FDE68A' }}>Day 1:</span> Login, set environment, review scripts, save tracker baseline</li>
-                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px' }}><span style={{ color: '#FDE68A' }}>Day 2:</span> Start 25+ outbound conversations</li>
-                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px' }}><span style={{ color: '#FDE68A' }}>Day 3:</span> Book your first conversation and tighten follow-up</li>
-                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px' }}><span style={{ color: '#FDE68A' }}>Day 4:</span> Run discovery flow + objection handling reps</li>
-                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px' }}><span style={{ color: '#FDE68A' }}>Day 5:</span> Push for sponsorship submit and FNG action</li>
-                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px' }}><span style={{ color: '#FDE68A' }}>Day 6:</span> Fill pipeline gaps and post authority content</li>
-                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px' }}><span style={{ color: '#FDE68A' }}>Day 7:</span> Review KPI, plan week two, set stretch target</li>
+                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px', color: '#F8FAFC', fontSize: 16, lineHeight: 1.6 }}><span style={{ color: '#FDE68A' }}>Day 1:</span> Login, set environment, review scripts, save tracker baseline</li>
+                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px', color: '#F8FAFC', fontSize: 16, lineHeight: 1.6 }}><span style={{ color: '#FDE68A' }}>Day 2:</span> Start 25+ outbound conversations</li>
+                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px', color: '#F8FAFC', fontSize: 16, lineHeight: 1.6 }}><span style={{ color: '#FDE68A' }}>Day 3:</span> Book your first conversation and tighten follow-up</li>
+                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px', color: '#F8FAFC', fontSize: 16, lineHeight: 1.6 }}><span style={{ color: '#FDE68A' }}>Day 4:</span> Run discovery flow + objection handling reps</li>
+                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px', color: '#F8FAFC', fontSize: 16, lineHeight: 1.6 }}><span style={{ color: '#FDE68A' }}>Day 5:</span> Push for sponsorship submit and FNG action</li>
+                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px', color: '#F8FAFC', fontSize: 16, lineHeight: 1.6 }}><span style={{ color: '#FDE68A' }}>Day 6:</span> Fill pipeline gaps and post authority content</li>
+                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px', color: '#F8FAFC', fontSize: 16, lineHeight: 1.6 }}><span style={{ color: '#FDE68A' }}>Day 7:</span> Review KPI, plan week two, set stretch target</li>
                   </ul>
                 </div>
 
                 <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 16, background: '#071022' }}>
                   <strong style={{ color: '#fff', fontSize: 18 }}>Days 8–14 Fast Track</strong>
                   <p style={{ color: '#cbd5e1', marginTop: 8, marginBottom: 10, fontSize: 15 }}>Move in sequence. Execute daily. Keep momentum high.</p>
-                  <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#f1f5f9', display: 'grid', gap: 10, fontWeight: 600, lineHeight: 1.5, fontSize: 15 }}>
-                    <li><span style={{ color: '#93c5fd' }}>Day 8–10:</span> Scale outbound and stack booked calls</li>
-                    <li><span style={{ color: '#93c5fd' }}>Day 11–12:</span> Submit additional apps and recover warm leads</li>
-                    <li><span style={{ color: '#93c5fd' }}>Day 13–14:</span> Tighten close rate, lock in consistency</li>
+                  <ul style={{ margin: '10px 0 0', paddingLeft: 0, listStyle: 'none', color: '#F8FAFC', display: 'grid', gap: 10, fontWeight: 700, lineHeight: 1.6, fontSize: 16 }}>
+                    <li style={{ background: '#111827', border: '1px solid #475569', borderRadius: 10, padding: '11px 13px', color: '#F8FAFC', fontWeight: 800, lineHeight: 1.65 }}><span style={{ color: '#93c5fd' }}>Day 8–10:</span> <span style={{ color: '#F8FAFC' }}>Scale outbound and stack booked calls</span></li>
+                    <li style={{ background: '#111827', border: '1px solid #475569', borderRadius: 10, padding: '11px 13px', color: '#F8FAFC', fontWeight: 800, lineHeight: 1.65 }}><span style={{ color: '#93c5fd' }}>Day 11–12:</span> <span style={{ color: '#F8FAFC' }}>Submit additional apps and recover warm leads</span></li>
+                    <li style={{ background: '#111827', border: '1px solid #475569', borderRadius: 10, padding: '11px 13px', color: '#F8FAFC', fontWeight: 800, lineHeight: 1.65 }}><span style={{ color: '#93c5fd' }}>Day 13–14:</span> <span style={{ color: '#F8FAFC' }}>Tighten close rate, lock in consistency</span></li>
                   </ul>
                 </div>
               </div>
