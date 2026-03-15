@@ -951,6 +951,7 @@ export default function LicensedBackofficePage() {
             ['sponsorships', 'Sponsorships'],
             ['policies', 'Policies'],
             ['submit', 'Submit App'],
+            ['awards', 'Achievement Center'],
             ['resources', 'Resources']
           ].map(([k, label]) => (
             <button key={k} onClick={() => setTab(k)} style={{ padding: '10px 14px', borderRadius: 999, border: '1px solid #334155', background: tab === k ? '#1D428A' : '#0B1220', color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>{label}</button>
@@ -1395,6 +1396,12 @@ export default function LicensedBackofficePage() {
                   <a href="/inner-circle-app-submit" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Open full app submit page</a>
                   {submitMsg ? <span style={{ color: submitMsg.toLowerCase().includes('fail') || submitMsg.toLowerCase().includes('required') ? '#FCA5A5' : '#86EFAC' }}>{submitMsg}</span> : null}
                 </div>
+              </div>
+            ) : null}
+
+            {tab === 'awards' ? (
+              <div style={{ border: '1px solid #2A3142', borderRadius: 12, overflow: 'hidden', background: '#0F172A' }}>
+                <iframe title="Achievement Center" src="/achievement-center" style={{ width: '100%', minHeight: 1200, border: 0, background: '#020617' }} />
               </div>
             ) : null}
 

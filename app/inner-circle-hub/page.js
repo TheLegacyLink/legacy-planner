@@ -153,6 +153,7 @@ function availableTabs(member = {}) {
     { key: 'tracker', label: 'KPI Tracker' },
     { key: 'production', label: 'My Production' },
     { key: 'rewards', label: 'VIP Rewards' },
+    { key: 'awards', label: 'Achievement Center' },
     { key: 'links', label: 'My VIP Links' }
   ];
   return all.filter((t) => modules?.[t.key] !== false);
@@ -1612,6 +1613,23 @@ export default function InnerCircleHubPage() {
                     title="Inner Circle Activity Rewards"
                     src="/inner-circle-hub-rewards"
                     style={{ width: '100%', minHeight: '1200px', border: 0, background: '#020617' }}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {tab === 'awards' ? (
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 12, background: '#071022' }}>
+                  <strong style={{ color: '#fff' }}>Achievement Center</strong>
+                  <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>Auto badge unlocks + progress tracking synced across Licensed and Inner Circle.</p>
+                </div>
+
+                <div style={{ border: '1px solid #1f2937', borderRadius: 12, overflow: 'hidden', background: '#020617' }}>
+                  <iframe
+                    title="Achievement Center"
+                    src="/achievement-center"
+                    style={{ width: '100%', minHeight: '1350px', border: 0, background: '#020617' }}
                   />
                 </div>
               </div>
