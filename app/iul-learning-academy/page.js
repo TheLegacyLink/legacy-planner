@@ -119,7 +119,7 @@ function LevelBadge({ level, unlocked, current, done, completedAt }) {
           borderRadius: 999,
           border: `1px solid ${current ? c : '#334155'}`,
           background: current ? c : '#0B1220',
-          color: '#F8FAFC',
+          color: quizSelected === i ? '#FDE68A' : '#FCD34D',
           opacity: unlocked ? 1 : 0.55,
           cursor: unlocked ? 'pointer' : 'not-allowed',
           fontWeight: 700,
@@ -521,7 +521,7 @@ export default function IulLearningAcademyPage() {
           <div style={{ marginTop: 14, border: '1px solid #334155', borderRadius: 14, background: '#071022', padding: 14 }}>
             <h3 style={{ marginTop: 0, color: '#fff' }}>Knowledge Check (80% to pass)</h3>
             <p style={{ color: '#9FB3CC', fontSize: 14, marginBottom: 8 }}>Question {quizIndex + 1} of {quizQuestions.length}</p>
-            <p style={{ color: '#E5E7EB', fontWeight: 700, fontSize: 20, lineHeight: 1.45, marginBottom: 10 }}>{quizQuestions[quizIndex].q}</p>
+            <p style={{ color: '#FDE68A', fontWeight: 800, fontSize: 21, lineHeight: 1.45, marginBottom: 10 }}>{quizQuestions[quizIndex].q}</p>
             <div style={{ display: 'grid', gap: 8 }}>
               {quizQuestions[quizIndex].opts.map((opt, i) => (
                 <button
@@ -532,8 +532,8 @@ export default function IulLearningAcademyPage() {
                     textAlign: 'left',
                     borderRadius: 12,
                     border: quizSelected === i ? '1px solid #60A5FA' : '1px solid #334155',
-                    background: quizSelected === i ? '#1E3A8A' : '#0B1220',
-                    color: '#F8FAFC',
+                    background: quizSelected === i ? '#1f2937' : '#0a0f1a',
+                    color: quizSelected === i ? '#FDE68A' : '#FCD34D',
                     padding: '14px 14px',
                     fontSize: 16,
                     lineHeight: 1.55,
