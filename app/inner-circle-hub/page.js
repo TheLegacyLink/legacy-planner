@@ -309,7 +309,45 @@ export default function InnerCircleHubPage() {
       return false;
     };
 
-    const mine = (policyRows || []).filter((r) => isMine(r));
+    const minePolicies = (policyRows || []).filter((r) => isMine(r));
+
+    const existingApprovedSponsorshipKeys = new Set(
+      minePolicies
+        .filter((r) => clean(r?.status || '').toLowerCase().includes('approved'))
+        .filter((r) => clean(r?.policyType || r?.appType || '').toLowerCase().includes('sponsorship'))
+        .map((r) => nameSig(r?.applicantName || r?.name || ''))
+        .filter(Boolean)
+    );
+
+    const syntheticSponsorshipApprovals = (activityRows || [])
+      .filter((r) => clean(r?.type || '').toLowerCase() === 'decision')
+      .filter((r) => clean(r?.decision || '').toLowerCase() === 'approved' || clean(r?.detail || '').toLowerCase().includes('approved'))
+      .map((r, idx) => {
+        const personName = clean(r?.name || 'Applicant');
+        const key = nameSig(personName);
+        if (!key || existingApprovedSponsorshipKeys.has(key)) return null;
+        return {
+          id: `syn_sp_${key}_${idx}`,
+          applicantName: personName,
+          policyType: 'Sponsorship Policy',
+          appType: 'Sponsorship Policy',
+          status: 'Approved',
+          pointsEarned: 500,
+          advancePayout: 500,
+          payoutAmount: 500,
+          commissionRate: 0,
+          remainingBalance: 0,
+          month10Payout: 0,
+          month11Payout: 0,
+          month12Payout: 0,
+          approvedAt: clean(r?.at || ''),
+          submittedAt: clean(r?.at || ''),
+          source: 'sponsorship_approval'
+        };
+      })
+      .filter(Boolean);
+
+    const mine = [...minePolicies, ...syntheticSponsorshipApprovals];
 
     const byType = {
       sponsorship: 0,
@@ -329,8 +367,8 @@ export default function InnerCircleHubPage() {
       else if (t.includes('inner circle')) byType.innerCircle += 1;
       else if (t.includes('regular')) byType.regular += 1;
       else if (t.includes('juvenile')) byType.juvenile += 1;
-      totalPoints += Number(row?.pointsEarned || 0) || 0;
-      advanceTotal += Number(row?.advancePayout || row?.payoutAmount || 0) || 0;
+      totalPoints += Number(computeEffectivePoints(row) || 0);
+      advanceTotal += Number(computeEffectiveAdvance(row, computeEffectivePoints(row)) || 0);
     }
 
     const sorted = [...mine].sort((a, b) => rowTs(b) - rowTs(a));
@@ -341,7 +379,7 @@ export default function InnerCircleHubPage() {
       totalPoints,
       advanceTotal
     };
-  }, [policyRows, member?.applicantName, member?.name, member?.email]);
+  }, [policyRows, activityRows, member?.applicantName, member?.name, member?.email]);
 
   const productionWindowRows = useMemo(() => {
     const rows = personalProduction.rows || [];
