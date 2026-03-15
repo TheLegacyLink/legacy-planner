@@ -1265,9 +1265,9 @@ export default function InnerCircleHubPage() {
                   <strong style={{ color: '#fff', fontSize: 18 }}>Days 8–14 Fast Track</strong>
                   <p style={{ color: '#cbd5e1', marginTop: 8, marginBottom: 10, fontSize: 15 }}>Move in sequence. Execute daily. Keep momentum high.</p>
                   <ul style={{ margin: '10px 0 0', paddingLeft: 0, listStyle: 'none', color: '#F8FAFC', display: 'grid', gap: 10, fontWeight: 700, lineHeight: 1.6, fontSize: 16 }}>
-                    <li style={{ background: '#111827', border: '1px solid #475569', borderRadius: 10, padding: '11px 13px', color: '#F8FAFC', fontWeight: 800, lineHeight: 1.65 }}><span style={{ color: '#93c5fd' }}>Day 8–10:</span> <span style={{ color: '#F8FAFC' }}>Scale outbound and stack booked calls</span></li>
-                    <li style={{ background: '#111827', border: '1px solid #475569', borderRadius: 10, padding: '11px 13px', color: '#F8FAFC', fontWeight: 800, lineHeight: 1.65 }}><span style={{ color: '#93c5fd' }}>Day 11–12:</span> <span style={{ color: '#F8FAFC' }}>Submit additional apps and recover warm leads</span></li>
-                    <li style={{ background: '#111827', border: '1px solid #475569', borderRadius: 10, padding: '11px 13px', color: '#F8FAFC', fontWeight: 800, lineHeight: 1.65 }}><span style={{ color: '#93c5fd' }}>Day 13–14:</span> <span style={{ color: '#F8FAFC' }}>Tighten close rate, lock in consistency</span></li>
+                    <li style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: 10, padding: '11px 13px', color: '#0F172A', fontWeight: 800, lineHeight: 1.65 }}><span style={{ color: '#1D4ED8' }}>Day 8–10:</span> <span style={{ color: '#0F172A' }}>Scale outbound and stack booked calls</span></li>
+                    <li style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: 10, padding: '11px 13px', color: '#0F172A', fontWeight: 800, lineHeight: 1.65 }}><span style={{ color: '#1D4ED8' }}>Day 11–12:</span> <span style={{ color: '#0F172A' }}>Submit additional apps and recover warm leads</span></li>
+                    <li style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: 10, padding: '11px 13px', color: '#0F172A', fontWeight: 800, lineHeight: 1.65 }}><span style={{ color: '#1D4ED8' }}>Day 13–14:</span> <span style={{ color: '#0F172A' }}>Tighten close rate, lock in consistency</span></li>
                   </ul>
                 </div>
               </div>

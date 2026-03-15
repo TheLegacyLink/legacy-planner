@@ -521,7 +521,7 @@ export default function IulLearningAcademyPage() {
           <div style={{ marginTop: 14, border: '1px solid #334155', borderRadius: 14, background: '#071022', padding: 14 }}>
             <h3 style={{ marginTop: 0, color: '#fff' }}>Knowledge Check (80% to pass)</h3>
             <p style={{ color: '#9FB3CC', fontSize: 14, marginBottom: 8 }}>Question {quizIndex + 1} of {quizQuestions.length}</p>
-            <p style={{ color: '#FDE68A', fontWeight: 800, fontSize: 21, lineHeight: 1.45, marginBottom: 10 }}>{quizQuestions[quizIndex].q}</p>
+            <p style={{ color: '#111827', fontWeight: 800, fontSize: 21, lineHeight: 1.45, marginBottom: 10 }}>{quizQuestions[quizIndex].q}</p>
             <div style={{ display: 'grid', gap: 8 }}>
               {quizQuestions[quizIndex].opts.map((opt, i) => (
                 <button
@@ -531,10 +531,10 @@ export default function IulLearningAcademyPage() {
                   style={{
                     textAlign: 'left',
                     borderRadius: 12,
-                    border: quizSelected === i ? '1px solid #FCD34D' : '1px solid #475569',
-                    background: quizSelected === i ? '#111827' : '#0b1220',
-                    color: '#FDE68A',
-                    WebkitTextFillColor: '#FDE68A',
+                    border: quizSelected === i ? '2px solid #92400E' : '1px solid #B45309',
+                    background: quizSelected === i ? '#FACC15' : '#FDE68A',
+                    color: '#111827',
+                    WebkitTextFillColor: '#111827',
                     textShadow: '0 0 0 rgba(0,0,0,0)',
                     padding: '14px 14px',
                     fontSize: 17,
