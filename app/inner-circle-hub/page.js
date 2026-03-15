@@ -65,40 +65,47 @@ function isApprovedStatus(status = '') {
   return clean(status).toLowerCase().includes('approved');
 }
 
+function isFgNlgRow(row = {}) {
+  const carrier = clean(row?.carrier || '').toLowerCase();
+  const product = clean(row?.productName || '').toLowerCase();
+  const type = normalizePolicyTypeLabel(row?.policyType || row?.appType || '').toLowerCase();
+  return carrier.includes('f&g')
+    || carrier.includes('f and g')
+    || carrier.includes('fidelity')
+    || carrier.includes('national life')
+    || carrier.includes('nlg')
+    || product.includes('nlg')
+    || product.includes('f&g')
+    || product.includes('f and g')
+    || type.includes('inner circle');
+}
+
 function computeEffectivePoints(row = {}) {
   const existing = Number(row?.pointsEarned || 0) || 0;
   const statusApproved = isApprovedStatus(row?.status || '');
   const type = normalizePolicyTypeLabel(row?.policyType || row?.appType || '');
 
-  if (!statusApproved) return existing;
+  // Sponsorship approval is always 1 point.
+  if (type === 'Sponsorship Policy') return statusApproved ? 1 : 0;
+
+  // F&G / NLG submission = 10, approval = 500.
+  if (isFgNlgRow(row)) {
+    if (statusApproved) return 500;
+    return 10;
+  }
+
   if (existing > 0) return existing;
-
-  if (type === 'Sponsorship Policy') return 500;
-  if (type === 'Bonus Policy') return 500;
-  if (type === 'Inner Circle Policy') {
-    const carrier = clean(row?.carrier || '').toLowerCase();
-    const product = clean(row?.productName || '').toLowerCase();
-    const nlgFlex = carrier.includes('national life') || product.includes('flex life');
-    return nlgFlex ? 1200 : 500;
-  }
-
-  if (type === 'Regular Policy' || type === 'Juvenile Policy') {
-    const annual = Number(row?.annualPremium || 0) || ((Number(row?.monthlyPremium || 0) || 0) * 12);
-    const rate = Number(row?.commissionRate || 0) || (type === 'Regular Policy' ? 0.7 : 0.5);
-    const pts = Number((annual * rate).toFixed(2));
-    return Number.isFinite(pts) ? pts : 0;
-  }
-
-  return existing;
+  return statusApproved ? existing : 0;
 }
 
 function computeEffectiveAdvance(row = {}, points = 0) {
   const existing = Number(row?.advancePayout || row?.payoutAmount || 0) || 0;
   if (existing > 0) return existing;
   const type = normalizePolicyTypeLabel(row?.policyType || row?.appType || '');
-  if (!isApprovedStatus(row?.status || '')) return existing;
-  if (type === 'Sponsorship Policy' || type === 'Bonus Policy' || type === 'Inner Circle Policy') return Number(points || 0);
-  return Number((Number(points || 0) * 0.75).toFixed(2));
+  if (type === 'Sponsorship Policy') return isApprovedStatus(row?.status || '') ? 1 : 0;
+  if (isFgNlgRow(row)) return Number(points || 0);
+  if (!isApprovedStatus(row?.status || '')) return 0;
+  return Number(points || 0);
 }
 
 function inWindow(ts = 0, windowKey = 'all') {
@@ -332,9 +339,9 @@ export default function InnerCircleHubPage() {
           policyType: 'Sponsorship Policy',
           appType: 'Sponsorship Policy',
           status: 'Approved',
-          pointsEarned: 500,
-          advancePayout: 500,
-          payoutAmount: 500,
+          pointsEarned: 1,
+          advancePayout: 1,
+          payoutAmount: 1,
           commissionRate: 0,
           remainingBalance: 0,
           month10Payout: 0,
@@ -1407,6 +1414,7 @@ export default function InnerCircleHubPage() {
                       const isInner = typeNorm.includes('inner circle');
                       const isSponsorship = typeNorm.includes('sponsorship');
                       const approved = isApprovedStatus(row?.status || '');
+                      const fgApproved = approved && isFgNlgRow(row);
                       const commissionPct = Math.round((Number(row?.commissionRate || 0) || 0) * 100);
                       const points = Number(computeEffectivePoints(row) || 0);
                       const advance = Number(computeEffectiveAdvance(row, points) || 0);
@@ -1415,11 +1423,11 @@ export default function InnerCircleHubPage() {
                         <div
                           key={row?.id}
                           style={{
-                            border: approved ? '1px solid #22c55e' : '1px solid #334155',
-                            boxShadow: approved ? '0 0 0 1px rgba(34,197,94,0.28), 0 0 20px rgba(34,197,94,0.16)' : 'none',
+                            border: fgApproved ? '1px solid #22c55e' : '1px solid #334155',
+                            boxShadow: fgApproved ? '0 0 0 1px rgba(34,197,94,0.28), 0 0 20px rgba(34,197,94,0.16)' : 'none',
                             borderRadius: 10,
                             padding: 10,
-                            background: approved ? 'linear-gradient(180deg,#0b1620 0%,#0b1220 100%)' : '#0b1220'
+                            background: fgApproved ? 'linear-gradient(180deg,#0b1620 0%,#0b1220 100%)' : '#0b1220'
                           }}
                         >
                           <div style={{ color: '#f8fafc', fontWeight: 700, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
@@ -1430,7 +1438,7 @@ export default function InnerCircleHubPage() {
                             {isInner ? (
                               <span className="pill" style={{ background: '#1e3a8a', color: '#dbeafe', border: '1px solid #3b82f6' }}>Inner Circle</span>
                             ) : null}
-                            <span className={`pill ${approved ? 'onpace' : 'atrisk'}`}>{approved ? 'Approved' : (row?.status || 'Submitted')}</span>
+                            <span className={`pill ${fgApproved ? 'onpace' : (approved ? 'neutral' : 'atrisk')}`}>{approved ? 'Approved' : (row?.status || 'Submitted')}</span>
                           </div>
                           <div style={{ color: '#cbd5e1', fontSize: 12, marginTop: 6 }}>
                             Commission: <strong style={{ color: '#f8fafc' }}>{commissionPct}%</strong> • Points: <strong style={{ color: '#f8fafc' }}>{points.toFixed(2)}</strong> • Advance: <strong style={{ color: '#86efac' }}>${advance.toFixed(2)}</strong>

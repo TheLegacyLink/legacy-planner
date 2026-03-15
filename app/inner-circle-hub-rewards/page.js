@@ -7,7 +7,7 @@ const REWARDS = {
   sponsorshipApp: 1,
   bookedAppointment: 0,
   cleanInsuranceApp: 10,
-  approvedPolicy: 0
+  approvedPolicy: 500
 };
 
 const PAYOUT_LABELS = ['Pending Review', 'Approved', 'Paid', 'Reversed', 'Ineligible'];
@@ -191,11 +191,27 @@ function qualifiesCleanInsuranceApp(row = {}) {
   return Boolean(clean(row?.applicantName || row?.name) && (clean(row?.state) || clean(row?.policyNumber)));
 }
 
+function isFgNlgPolicy(row = {}) {
+  const carrier = normalize(row?.carrier || row?.carrierName || '');
+  const product = normalize(row?.productName || row?.product || '');
+  const policyType = normalize(row?.policyType || row?.appType || '');
+  return carrier.includes('f&g')
+    || carrier.includes('f and g')
+    || carrier.includes('fidelity')
+    || carrier.includes('national life')
+    || carrier.includes('nlg')
+    || product.includes('f&g')
+    || product.includes('f and g')
+    || product.includes('nlg')
+    || policyType.includes('inner circle');
+}
+
 function qualifiesApprovedPolicy(row = {}) {
   const status = normalize(row?.status || "");
   if (normalize(row?.complianceStatus || "").includes("issue")) return false;
   if (normalize(row?.agentStatus || "").includes("inactive") || normalize(row?.agentStatus || "").includes("suspend")) return false;
-  return status.includes("approved");
+  if (!status.includes("approved")) return false;
+  return isFgNlgPolicy(row);
 }
 
 function buildStreak(activityDates = []) {
@@ -529,8 +545,9 @@ export default function InnerCircleHubRewardsPage() {
 
       <div className="panel" style={{ display: 'grid', gap: 8 }}>
         <strong style={{ color: '#ffffff' }}>Internal Reward Summary</strong>
-        <p style={{ margin: 0, color: '#ffffff' }}>• $1 per sponsorship app submitted</p>
-        <p style={{ margin: 0, color: '#ffffff' }}>• $10 per clean insurance app submitted in good order (licensed agents only)</p>
+        <p style={{ margin: 0, color: '#ffffff' }}>• $1 per sponsorship app submitted (including sponsorship approvals)</p>
+        <p style={{ margin: 0, color: '#ffffff' }}>• $10 per F&G/NLG insurance app submitted in good order (licensed agents only)</p>
+        <p style={{ margin: 0, color: '#ffffff' }}>• $500 per F&G/NLG approved policy</p>
       </div>
 
 
@@ -571,7 +588,7 @@ export default function InnerCircleHubRewardsPage() {
             <p className="muted">Sponsorship apps: {block.v.appCount}</p>
             <p className="muted">Bookings (tracking only): {block.v.bookingCount}</p>
             <p className="muted">Policies submitted (Closes): {block.v.cleanCount}</p>
-            <p className="muted">Approved policies (tracking only): {block.v.approvedCount}</p>
+            <p className="muted">Approved policies: {block.v.approvedCount}</p>
             <p style={{ marginBottom: 0 }}><strong>Total earned: {money(block.v.earned)}</strong></p>
           </div>
         ))}
@@ -666,7 +683,7 @@ export default function InnerCircleHubRewardsPage() {
       </div>
 
       <div className="panel" style={{ borderColor: '#1f2937', background: '#0b1220' }}>
-        <small className="muted">Footer Note: All rewards are subject to verification, compliance review, and active member status. Invalid, duplicate, incomplete, fake, canceled, or non-qualifying activity does not count.</small>
+        <small className="muted">Footer Note: All rewards are subject to verification, compliance review, and active member status. Invalid, duplicate, incomplete, fake, canceled, or non-qualifying activity does not count. $500 approval reward applies only to F&G/NLG approved policies.</small>
         <small className="muted" style={{ display: 'block', marginTop: 6 }}>Payout Status Labels: {PAYOUT_LABELS.join(' • ')}</small>
       </div>
 
