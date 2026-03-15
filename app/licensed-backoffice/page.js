@@ -295,6 +295,44 @@ export default function LicensedBackofficePage() {
       .slice(0, 3)
       .map(([month, ap]) => ({ month, ap }));
 
+    const sponsorshipEntries = [...mySponsors]
+      .sort((a, b) => new Date(b?.updatedAt || b?.submitted_at || 0).getTime() - new Date(a?.updatedAt || a?.submitted_at || 0).getTime())
+      .map((r, i) => {
+        const status = clean(r?.status || 'Pending Review');
+        const isApproved = normalize(status).includes('approved');
+        return {
+          id: clean(r?.id) || `s_${i}`,
+          name: clean(`${clean(r?.firstName)} ${clean(r?.lastName)}`) || 'Unknown',
+          state: clean(r?.state),
+          status,
+          submittedAt: clean(r?.submitted_at || r?.updatedAt),
+          isApproved
+        };
+      });
+
+    const approvedPolicyEntries = [...approvedPolicies]
+      .sort((a, b) => new Date(b?.approvedAt || b?.submittedAt || b?.updatedAt || 0).getTime() - new Date(a?.approvedAt || a?.submittedAt || a?.updatedAt || 0).getTime())
+      .map((r, i) => ({
+        id: clean(r?.id) || `p_${i}`,
+        name: clean(r?.applicantName),
+        ap: Number(r?.monthlyPremium || 0) * 12,
+        monthlyPremium: Number(r?.monthlyPremium || 0),
+        state: clean(r?.state),
+        status: clean(r?.status || 'Approved'),
+        submittedAt: clean(r?.submittedAt || r?.updatedAt || r?.approvedAt)
+      }));
+
+    const badges = [
+      { key: 's1', label: 'First Sponsor', earned: mySponsors.length >= 1 },
+      { key: 's3', label: '3 Sponsors', earned: mySponsors.length >= 3 },
+      { key: 'sa1', label: 'First Approved Sponsor', earned: approvedSponsors.length >= 1 },
+      { key: 'sa5', label: '5 Approved Sponsors', earned: approvedSponsors.length >= 5 },
+      { key: 'p1', label: 'First Approved Policy', earned: approvedPolicies.length >= 1 },
+      { key: 'ap5', label: '$5K AP Builder', earned: monthlyAp >= 5000 },
+      { key: 'ap10', label: '$10K AP Momentum', earned: monthlyAp >= 10000 },
+      { key: 'tier', label: `Tier L${currentTier.level} Unlocked`, earned: currentTier.level >= 2 }
+    ];
+
     return {
       myPolicies,
       approvedPolicies,
@@ -305,7 +343,10 @@ export default function LicensedBackofficePage() {
       mySponsors,
       approvedSponsors,
       bookedSponsors,
-      recentMonths
+      recentMonths,
+      sponsorshipEntries,
+      approvedPolicyEntries,
+      badges
     };
   }, [session, policyRows, sponsorRows]);
 
@@ -439,18 +480,46 @@ export default function LicensedBackofficePage() {
               </div>
             ) : null}
 
+            {tab === 'overview' ? (
+              <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
+                <h3 style={{ marginTop: 0 }}>Milestone Badges</h3>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {metrics.badges.map((b) => (
+                    <span
+                      key={b.key}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: 999,
+                        border: `1px solid ${b.earned ? '#B45309' : '#334155'}`,
+                        background: b.earned ? 'linear-gradient(120deg,#F59E0B,#C2410C)' : '#0B1220',
+                        color: b.earned ? '#fff' : '#94A3B8',
+                        fontWeight: 700,
+                        fontSize: 12
+                      }}
+                    >
+                      {b.earned ? '🏅' : '🔒'} {b.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             {tab === 'sponsorships' ? (
               <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
                 <h3 style={{ marginTop: 0 }}>My Sponsorship Pipeline</h3>
-                {!metrics.mySponsors.length ? <p style={{ color: '#9CA3AF' }}>No sponsorship records tied to your referral name yet.</p> : (
-                  <div style={{ display: 'grid', gap: 8 }}>
-                    {metrics.mySponsors.slice(0, 15).map((r) => (
-                      <div key={r.id} style={{ border: '1px solid #2A3142', borderRadius: 10, padding: 10, background: '#020617' }}>
-                        <strong>{clean(r.firstName)} {clean(r.lastName)}</strong>
-                        <div style={{ color: '#9CA3AF' }}>{clean(r.state)} • {clean(r.status) || 'Pending'} • {clean(r.submitted_at)}</div>
-                      </div>
-                    ))}
-                  </div>
+                {!metrics.sponsorshipEntries.length ? <p style={{ color: '#9CA3AF' }}>No sponsorship records tied to your referral name yet.</p> : (
+                  <>
+                    <p style={{ color: '#9CA3AF', marginTop: 0 }}>Approved sponsorships: <strong style={{ color: '#E5E7EB' }}>{metrics.approvedSponsors.length}</strong></p>
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      {metrics.sponsorshipEntries.slice(0, 20).map((r, idx) => (
+                        <div key={r.id} style={{ border: '1px solid #2A3142', borderRadius: 10, padding: 10, background: '#020617' }}>
+                          <strong>{r.name}</strong>
+                          <div style={{ color: '#9CA3AF' }}>{r.state || '—'} • {r.status} • {r.submittedAt || '—'}</div>
+                          {r.isApproved ? <div style={{ color: '#86EFAC', marginTop: 4 }}>✅ Approved Sponsorship #{metrics.sponsorshipEntries.filter((x) => x.isApproved).findIndex((x) => x.id === r.id) + 1}</div> : null}
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
             ) : null}
@@ -467,7 +536,16 @@ export default function LicensedBackofficePage() {
                         </div>
                       ))}
                     </div>
-                    <div style={{ color: '#9CA3AF' }}>Approved policies: {metrics.approvedPolicies.length} of {metrics.myPolicies.length} total submissions.</div>
+                    <div style={{ color: '#9CA3AF', marginBottom: 10 }}>Approved policies: {metrics.approvedPolicies.length} of {metrics.myPolicies.length} total submissions.</div>
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      {metrics.approvedPolicyEntries.slice(0, 20).map((p) => (
+                        <div key={p.id} style={{ border: '1px solid #2A3142', borderRadius: 10, padding: 10, background: '#020617', display: 'grid', gap: 4 }}>
+                          <strong>{p.name || 'Unnamed Applicant'}</strong>
+                          <div style={{ color: '#9CA3AF' }}>{p.state || '—'} • {p.status} • {p.submittedAt || '—'}</div>
+                          <div style={{ color: '#FCD34D', fontWeight: 700 }}>AP: ${Number(p.ap || 0).toLocaleString()} (Monthly: ${Number(p.monthlyPremium || 0).toLocaleString()})</div>
+                        </div>
+                      ))}
+                    </div>
                   </>
                 )}
               </div>
