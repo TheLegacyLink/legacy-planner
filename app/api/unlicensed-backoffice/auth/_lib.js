@@ -28,16 +28,17 @@ function isUnlicensed(row = {}) {
   return v === 'false' || v === '' || v === '0';
 }
 
-export async function resolveUnlicensedProfile({ email = '', fullName = '', phone = '' } = {}) {
+export async function resolveUnlicensedProfile({ email = '', fullName = '' } = {}) {
   const rows = await loadJsonStore(APPS_PATH, []);
   const list = (Array.isArray(rows) ? rows : []).filter(isUnlicensed);
 
   const e = norm(email);
-  const p = digits(phone);
   const n = norm(fullName);
 
+  if (!e || !n) return { ok: false, error: 'email_and_full_name_required' };
+
   // Preview/testing allowlist (temporary helper)
-  const preview = UNLICENSED_PREVIEW_USERS.find((u) => norm(u?.email) === e);
+  const preview = UNLICENSED_PREVIEW_USERS.find((u) => norm(u?.email) === e && norm(u?.name) === n);
   if (preview) {
     return {
       ok: true,
@@ -52,20 +53,11 @@ export async function resolveUnlicensedProfile({ email = '', fullName = '', phon
     };
   }
 
-  let hit = null;
-  if (e) hit = list.find((r) => norm(r?.email) === e) || null;
-
-  if (!hit && (p || n)) {
-    const scored = list.map((r) => {
-      let score = 0;
-      const rn = norm(`${clean(r?.firstName)} ${clean(r?.lastName)}`);
-      const rp = digits(r?.phone);
-      if (p && rp && (p === rp || p.endsWith(rp) || rp.endsWith(p))) score += 100;
-      if (n && rn && n === rn) score += 90;
-      return { r, score };
-    }).filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
-    hit = scored[0]?.r || null;
-  }
+  const hit = list.find((r) => {
+    const re = norm(r?.email);
+    const rn = norm(`${clean(r?.firstName)} ${clean(r?.lastName)}`);
+    return re === e && rn === n;
+  }) || null;
 
   if (!hit) return { ok: false, error: 'not_found' };
 

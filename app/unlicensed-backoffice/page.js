@@ -31,7 +31,7 @@ const STEP_META = [
 export default function UnlicensedBackofficePage() {
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
+  // Phone removed: unlicensed login requires full name + email exact match.
   const [code, setCode] = useState('');
   const [codeRequested, setCodeRequested] = useState(false);
   const [token, setToken] = useState('');
@@ -77,7 +77,7 @@ export default function UnlicensedBackofficePage() {
       const res = await fetch('/api/unlicensed-backoffice/auth/request-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, fullName, phone })
+        body: JSON.stringify({ email, fullName })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
@@ -166,10 +166,7 @@ export default function UnlicensedBackofficePage() {
           </div>
           <div style={{ padding: 24, display: 'grid', gap: 10 }}>
             <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full name" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
-            </div>
+            <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full name (must match your application)" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
             {!codeRequested ? (
               <button onClick={requestCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>Send Login Code</button>
             ) : (
@@ -178,7 +175,7 @@ export default function UnlicensedBackofficePage() {
                 <button onClick={verifyCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>Verify & Enter</button>
               </>
             )}
-            {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>This lane is focused on pre-licensing → exam → resident license → NPN.</small>}
+            {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Sign-in requires exact match on full name + email from your unlicensed application.</small>}
           </div>
         </section>
       </main>
