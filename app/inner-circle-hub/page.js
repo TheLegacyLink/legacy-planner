@@ -51,6 +51,26 @@ function monthShortFromKey(key = '') {
   return d.toLocaleDateString('en-US', { month: 'short' });
 }
 
+function followingWeekFridayIso(fromIso = '') {
+  const d = new Date(fromIso || Date.now());
+  if (Number.isNaN(d.getTime())) return '';
+  const day = d.getDay();
+  const mondayOffset = (day + 6) % 7;
+  const monday = new Date(d);
+  monday.setHours(12, 0, 0, 0);
+  monday.setDate(monday.getDate() - mondayOffset);
+  const nextWeekFriday = new Date(monday);
+  nextWeekFriday.setDate(monday.getDate() + 11);
+  nextWeekFriday.setHours(12, 0, 0, 0);
+  return nextWeekFriday.toISOString();
+}
+
+function monthKeyFromIso(iso = '') {
+  const d = new Date(iso || 0);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 function normalizePolicyTypeLabel(v = '') {
   const t = clean(v).toLowerCase();
   if (t.includes('sponsorship')) return 'Sponsorship Policy';
@@ -434,16 +454,24 @@ export default function InnerCircleHubPage() {
 
   const productionFinancials = useMemo(() => {
     const rows = personalProduction.rows || [];
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const previousMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const previousMonthKey = `${previousMonthDate.getFullYear()}-${String(previousMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
     const events = rows.map((r, i) => {
       const t = clean(r?.policyType || r?.appType || '').toLowerCase();
       const sourceType = t.includes('sponsorship') ? 'sponsorship' : (t.includes('inner circle') ? 'inner_circle' : 'other');
       const approvedAt = clean(r?.approvedAt || r?.updatedAt || r?.submittedAt || r?.createdAt || '');
+      const submittedAt = clean(r?.submittedAt || r?.createdAt || r?.updatedAt || approvedAt || '');
       const paidAt = clean(r?.payoutPaidAt || '');
       const payoutStatus = clean(r?.payoutStatus || '').toLowerCase();
       const paid = payoutStatus === 'paid' || Boolean(paidAt);
+      const approved = isApprovedStatus(r?.status || '');
+      const fgNlg = isFgNlgRow(r);
       const points = computeEffectivePoints(r);
       const amount = computeEffectiveAdvance(r, points);
-      const expectedPayoutAt = clean(r?.payoutDueAt || (approvedAt ? new Date(new Date(approvedAt).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() : ''));
+      const expectedPayoutAt = clean(r?.payoutDueAt || (approved && fgNlg ? followingWeekFridayIso(approvedAt || submittedAt) : (approvedAt ? new Date(new Date(approvedAt).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() : '')));
       return {
         id: clean(r?.id || `prod_${i}`),
         applicant: clean(r?.applicantName || 'Applicant'),
@@ -452,6 +480,9 @@ export default function InnerCircleHubPage() {
         status: paid ? 'paid' : 'pending',
         amount,
         points,
+        approved,
+        fgNlg,
+        submittedAt,
         qualifiedAt: approvedAt,
         paidAt,
         expectedPayoutAt
@@ -461,7 +492,6 @@ export default function InnerCircleHubPage() {
     const allTimePaid = events.filter((e) => e.status === 'paid').reduce((a, e) => a + e.amount, 0);
     const allTimePending = events.filter((e) => e.status === 'pending').reduce((a, e) => a + e.amount, 0);
 
-    const now = new Date();
     const isThisMonth = (iso = '') => {
       const d = new Date(iso || 0);
       if (Number.isNaN(d.getTime())) return false;
@@ -469,11 +499,11 @@ export default function InnerCircleHubPage() {
     };
 
     const thisMonthPaid = events.filter((e) => e.status === 'paid' && isThisMonth(e.paidAt || e.qualifiedAt)).reduce((a, e) => a + e.amount, 0);
-    const thisMonthPending = events.filter((e) => e.status === 'pending' && isThisMonth(e.qualifiedAt)).reduce((a, e) => a + e.amount, 0);
+    const thisMonthPending = events.filter((e) => e.status === 'pending' && isThisMonth(e.qualifiedAt || e.submittedAt)).reduce((a, e) => a + e.amount, 0);
 
     const byMonth = new Map();
     for (const e of events) {
-      const d = new Date((e.status === 'paid' ? (e.paidAt || e.qualifiedAt) : e.qualifiedAt) || 0);
+      const d = new Date((e.status === 'paid' ? (e.paidAt || e.qualifiedAt) : (e.qualifiedAt || e.submittedAt)) || 0);
       if (Number.isNaN(d.getTime())) continue;
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       byMonth.set(key, (byMonth.get(key) || 0) + Number(e.amount || 0));
@@ -492,24 +522,70 @@ export default function InnerCircleHubPage() {
 
     const upcoming = events
       .filter((e) => e.status === 'pending')
-      .sort((a, b) => new Date(a.expectedPayoutAt || a.qualifiedAt || 0).getTime() - new Date(b.expectedPayoutAt || b.qualifiedAt || 0).getTime())
+      .sort((a, b) => new Date(a.expectedPayoutAt || a.qualifiedAt || a.submittedAt || 0).getTime() - new Date(b.expectedPayoutAt || b.qualifiedAt || b.submittedAt || 0).getTime())
       .slice(0, 8);
 
     const monthTotal = thisMonthPaid + thisMonthPending;
     const paidRatio = monthTotal > 0 ? Math.round((thisMonthPaid / monthTotal) * 100) : 0;
     const nextPayout = upcoming[0] || null;
 
-    return { allTimePaid, allTimePending, thisMonthPaid, thisMonthPending, trend, sourceTotals, sourceSum, upcoming, monthTotal, paidRatio, nextPayout };
+    // Incentive payout (1st-5th): prior month sponsorship approvals ($1) + F&G/NLG submissions ($10)
+    const incentiveRowsPrevMonth = rows.filter((r) => {
+      const type = normalizePolicyTypeLabel(r?.policyType || r?.appType || '').toLowerCase();
+      const approved = isApprovedStatus(r?.status || '');
+      if (type.includes('sponsorship') && approved) {
+        const k = monthKeyFromIso(clean(r?.approvedAt || r?.updatedAt || r?.submittedAt || r?.createdAt || ''));
+        return k === previousMonthKey;
+      }
+      if (isFgNlgRow(r)) {
+        const k = monthKeyFromIso(clean(r?.submittedAt || r?.createdAt || r?.updatedAt || ''));
+        return k === previousMonthKey;
+      }
+      return false;
+    });
+    const monthlyIncentiveAmount = incentiveRowsPrevMonth.reduce((acc, r) => acc + (normalizePolicyTypeLabel(r?.policyType || r?.appType || '').toLowerCase().includes('sponsorship') ? 1 : 10), 0);
+    const monthlyIncentivePayoutWindow = `${now.toLocaleDateString('en-US', { month: 'short' })} 1-${now.toLocaleDateString('en-US', { month: 'short' })} 5`;
+
+    // Weekly approval payout: F&G/NLG approvals paid following Friday
+    const approvalPending = events
+      .filter((e) => e.fgNlg && e.approved && e.status !== 'paid')
+      .sort((a, b) => new Date(a.expectedPayoutAt || 0).getTime() - new Date(b.expectedPayoutAt || 0).getTime());
+
+    const nextApprovalPayoutDate = approvalPending[0]?.expectedPayoutAt || '';
+    const nextApprovalPayoutAmount = nextApprovalPayoutDate
+      ? approvalPending.filter((e) => (monthKeyFromIso(e.expectedPayoutAt) === monthKeyFromIso(nextApprovalPayoutDate)) && (new Date(e.expectedPayoutAt).toDateString() === new Date(nextApprovalPayoutDate).toDateString())).reduce((a, e) => a + Number(e.amount || 0), 0)
+      : 0;
+
+    return {
+      allTimePaid,
+      allTimePending,
+      thisMonthPaid,
+      thisMonthPending,
+      trend,
+      sourceTotals,
+      sourceSum,
+      upcoming,
+      monthTotal,
+      paidRatio,
+      nextPayout,
+      monthlyIncentiveAmount,
+      monthlyIncentivePayoutWindow,
+      previousMonthKey,
+      currentMonthKey,
+      nextApprovalPayoutDate,
+      nextApprovalPayoutAmount
+    };
   }, [personalProduction.rows]);
 
 
 
   const monthlyLicensedIncentive = useMemo(() => {
-    const submitted = Number(activityStats?.monthly?.sponsorshipSubmitted || 0) || 0;
-    const appSubmitted = Number(activityStats?.monthly?.fngSubmitted || 0) || 0;
-    const total = (submitted * 1) + (appSubmitted * 10);
-    return { submitted, appSubmitted, total };
-  }, [activityStats]);
+    return {
+      submitted: Number(activityStats?.monthly?.sponsorshipSubmitted || 0) || 0,
+      appSubmitted: Number(activityStats?.monthly?.fngSubmitted || 0) || 0,
+      total: Number(productionFinancials?.monthlyIncentiveAmount || 0)
+    };
+  }, [activityStats, productionFinancials]);
 
   const periodTotals = useMemo(() => {
     const key = trackerPeriod === 'weekly' ? 'weekly' : trackerPeriod === 'monthly' ? 'monthly' : 'daily';
@@ -1357,17 +1433,26 @@ export default function InnerCircleHubPage() {
 
                 <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
                   <div style={{ color: '#fff', fontWeight: 700 }}>Licensed Monthly Incentive Tracker</div>
-                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>$1 per Sponsorship Submitted • $10 per App Submitted (paid monthly)</div>
+                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>$1 sponsorship approvals + $10 F&G/NLG submissions from {monthShortFromKey(productionFinancials.previousMonthKey)} pay out around {productionFinancials.monthlyIncentivePayoutWindow}.</div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                     <span className="pill neutral">Sponsorship Submitted: {monthlyLicensedIncentive.submitted}</span>
                     <span className="pill offpace">Apps Submitted: {monthlyLicensedIncentive.appSubmitted}</span>
-                    <span className="pill onpace">Monthly Total: ${monthlyLicensedIncentive.total}</span>
+                    <span className="pill onpace">Est. Payout (1st-5th): ${monthlyLicensedIncentive.total}</span>
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
+                  <div style={{ color: '#fff', fontWeight: 700 }}>Weekly Approval Payout (Following Friday)</div>
+                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>F&G/NLG approvals are queued for payout the following Friday.</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                    <span className="pill neutral">Next Friday: {productionFinancials.nextApprovalPayoutDate ? new Date(productionFinancials.nextApprovalPayoutDate).toLocaleDateString() : '—'}</span>
+                    <span className="pill onpace">Est. Approval Payout: ${Number(productionFinancials.nextApprovalPayoutAmount || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                   </div>
                 </div>
 
                 <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
                   <div style={{ color: '#fff', fontWeight: 700 }}>Points Rule</div>
-                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>All Sponsorship Policies = 500 points on approval. Approved policies earn points even if legacy row points were missing.</div>
+                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>Sponsorship approval = 1 point • F&G/NLG submission = 10 points • F&G/NLG approval = 500 points.</div>
                 </div>
 
                 <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))' }}>
