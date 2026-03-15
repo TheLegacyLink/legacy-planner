@@ -313,7 +313,7 @@ export default function LicensedBackofficePage() {
         <section style={{ width: 'min(560px, 95vw)', border: '1px solid #2A3142', borderRadius: 16, background: 'rgba(17,24,39,0.92)', boxShadow: '0 20px 60px rgba(0,0,0,0.45)' }}>
           <div style={{ padding: '24px 26px', borderBottom: '1px solid #2A3142', background: 'linear-gradient(120deg, #1D428A, #006BB6)' }}>
             <h1 style={{ margin: 0, fontSize: 32, lineHeight: 1 }}>THE LEGACY LINK</h1>
-            <p style={{ margin: '8px 0 0', opacity: 0.95 }}>Licensed Agent Back Office (Exclusive Preview)</p>
+            <p style={{ margin: '8px 0 0', opacity: 0.95 }}>Licensed Agent Back Office (Exclusive Preview • Auth v2)</p>
           </div>
           <div style={{ padding: 24, display: 'grid', gap: 12 }}>
             <label style={{ fontSize: 14, color: '#9CA3AF' }}>Sign in (licensed-only)</label>
