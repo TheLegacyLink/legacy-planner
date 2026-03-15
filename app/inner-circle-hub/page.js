@@ -1250,14 +1250,14 @@ export default function InnerCircleHubPage() {
                 <div style={{ border: '1px solid #5f4a23', borderRadius: 12, padding: 16, background: '#111827' }}>
                   <strong style={{ color: '#fff', fontSize: 18 }}>VIP First 7 Days</strong>
                   <p style={{ color: '#e5e7eb', marginTop: 8, marginBottom: 10, fontSize: 15 }}>Your premium onboarding sprint. Keep this simple and complete one block per day.</p>
-                  <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: '#f1f5f9', display: 'grid', gap: 10, fontWeight: 600, lineHeight: 1.5, fontSize: 15 }}>
-                    <li><span style={{ color: '#c8a96b' }}>Day 1:</span> Login, set environment, review scripts, save tracker baseline</li>
-                    <li><span style={{ color: '#c8a96b' }}>Day 2:</span> Start 25+ outbound conversations</li>
-                    <li><span style={{ color: '#c8a96b' }}>Day 3:</span> Book your first conversation and tighten follow-up</li>
-                    <li><span style={{ color: '#c8a96b' }}>Day 4:</span> Run discovery flow + objection handling reps</li>
-                    <li><span style={{ color: '#c8a96b' }}>Day 5:</span> Push for sponsorship submit and FNG action</li>
-                    <li><span style={{ color: '#c8a96b' }}>Day 6:</span> Fill pipeline gaps and post authority content</li>
-                    <li><span style={{ color: '#c8a96b' }}>Day 7:</span> Review KPI, plan week two, set stretch target</li>
+                  <ul style={{ margin: '10px 0 0', paddingLeft: 0, listStyle: 'none', color: '#F8FAFC', display: 'grid', gap: 10, fontWeight: 700, lineHeight: 1.6, fontSize: 16 }}>
+                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px' }}><span style={{ color: '#FDE68A' }}>Day 1:</span> Login, set environment, review scripts, save tracker baseline</li>
+                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px' }}><span style={{ color: '#FDE68A' }}>Day 2:</span> Start 25+ outbound conversations</li>
+                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px' }}><span style={{ color: '#FDE68A' }}>Day 3:</span> Book your first conversation and tighten follow-up</li>
+                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px' }}><span style={{ color: '#FDE68A' }}>Day 4:</span> Run discovery flow + objection handling reps</li>
+                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px' }}><span style={{ color: '#FDE68A' }}>Day 5:</span> Push for sponsorship submit and FNG action</li>
+                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px' }}><span style={{ color: '#FDE68A' }}>Day 6:</span> Fill pipeline gaps and post authority content</li>
+                    <li style={{ background: '#1f2937', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px' }}><span style={{ color: '#FDE68A' }}>Day 7:</span> Review KPI, plan week two, set stretch target</li>
                   </ul>
                 </div>
 
