@@ -28,6 +28,13 @@ const quizQuestions = [
 ];
 
 function clean(v = '') { return String(v || '').trim(); }
+function normalize(v = '') { return clean(v).toLowerCase(); }
+function initialsFromName(v = '') {
+  const parts = clean(v).split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'LL';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase();
+}
 
 function LevelBadge({ level, unlocked, current, done, completedAt }) {
   const colors = { beginner: '#2563EB', intermediate: '#D97706', advanced: '#7C3AED', expert: '#059669' };
@@ -507,15 +514,38 @@ export default function IulLearningAcademyPage() {
         <div style={{ marginTop: 14, border: '1px solid #334155', borderRadius: 14, background: '#071022', padding: 14 }}>
           <h3 style={{ marginTop: 0, color: '#fff' }}>Academy Leaderboard</h3>
           {!leaderboard.length ? <p className="muted">No leaderboard data yet.</p> : (
-            <div style={{ display: 'grid', gap: 6 }}>
-              {leaderboard.slice(0, 10).map((r, i) => (
-                <div key={`lb-${r.agentKey || i}`} style={{ display: 'grid', gridTemplateColumns: '26px 1fr auto auto', gap: 8, alignItems: 'center', border: '1px solid #334155', borderRadius: 10, padding: '8px 10px', background: '#0B1220' }}>
-                  <strong style={{ color: '#93C5FD' }}>#{i + 1}</strong>
-                  <span style={{ color: '#E5E7EB' }}>{r.name || 'Agent'}</span>
-                  <span className="pill neutral">XP: {Number(r.xp || 0)}</span>
-                  <span className="pill onpace">{Number(r.progressPct || 0)}%</span>
-                </div>
-              ))}
+            <div style={{ display: 'grid', gap: 8 }}>
+              {leaderboard.slice(0, 10).map((r, i) => {
+                const me = (identity?.email && normalize(r?.email || '') === normalize(identity.email))
+                  || (identity?.name && normalize(r?.name || '') === normalize(identity.name));
+                return (
+                  <div
+                    key={`lb-${r.agentKey || i}`}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '26px 34px 1fr auto auto',
+                      gap: 8,
+                      alignItems: 'center',
+                      border: me ? '1px solid #3B82F6' : '1px solid #334155',
+                      boxShadow: me ? '0 0 0 1px rgba(59,130,246,.25)' : 'none',
+                      borderRadius: 10,
+                      padding: '8px 10px',
+                      background: me ? '#0B1A33' : '#0B1220'
+                    }}
+                  >
+                    <strong style={{ color: '#93C5FD' }}>#{i + 1}</strong>
+                    <div style={{ width: 30, height: 30, borderRadius: 999, background: me ? '#1D4ED8' : '#1F2937', border: '1px solid #334155', color: '#E5E7EB', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800 }}>
+                      {initialsFromName(r.name || 'Agent')}
+                    </div>
+                    <div style={{ display: 'grid', gap: 2 }}>
+                      <span style={{ color: '#E5E7EB', fontWeight: 600 }}>{r.name || 'Agent'} {me ? <span style={{ color: '#93C5FD' }}>(You)</span> : null}</span>
+                      <small style={{ color: '#64748B' }}>{r.expertCompleted ? 'Expert Complete' : 'In Progress'}</small>
+                    </div>
+                    <span className="pill neutral">XP: {Number(r.xp || 0)}</span>
+                    <span className="pill onpace">{Number(r.progressPct || 0)}%</span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
