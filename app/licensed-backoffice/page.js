@@ -163,13 +163,16 @@ export default function LicensedBackofficePage() {
   const [submitBusy, setSubmitBusy] = useState(false);
   const [submitMsg, setSubmitMsg] = useState('');
   const [appForm, setAppForm] = useState({
+    appType: '',
     applicantName: '',
     applicantEmail: '',
     applicantPhone: '',
+    applicantLicensedStatus: 'Licensed',
+    referredByName: '',
+    policyWriterName: '',
     state: session?.homeState || '',
-    policyType: '',
-    monthlyPremium: '',
-    referredByName: ''
+    policyNumber: '',
+    monthlyPremium: ''
   });
   const [googleReady, setGoogleReady] = useState(false);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
@@ -347,7 +350,9 @@ export default function LicensedBackofficePage() {
     setAppForm((prev) => ({
       ...prev,
       state: prev.state || clean(session?.homeState || ''),
-      referredByName: prev.referredByName || clean(session?.name || '')
+      referredByName: prev.referredByName || clean(session?.name || ''),
+      policyWriterName: prev.policyWriterName || clean(session?.name || ''),
+      applicantLicensedStatus: prev.applicantLicensedStatus || 'Licensed'
     }));
   }, [session]);
 
@@ -382,15 +387,25 @@ export default function LicensedBackofficePage() {
     if (!session?.name || !session?.email) return;
 
     const applicantName = clean(appForm.applicantName);
-    const policyType = clean(appForm.policyType);
+    const appType = clean(appForm.appType);
     const state = clean(appForm.state).toUpperCase();
+    const referredByName = clean(appForm.referredByName || session?.name || '');
+    const policyWriterName = clean(appForm.policyWriterName || session?.name || '');
 
     if (!applicantName) {
       setSubmitMsg('Applicant name is required.');
       return;
     }
-    if (!policyType) {
-      setSubmitMsg('Policy type is required.');
+    if (!appType) {
+      setSubmitMsg('Application type is required.');
+      return;
+    }
+    if (!referredByName) {
+      setSubmitMsg('Referred by is required.');
+      return;
+    }
+    if (!policyWriterName) {
+      setSubmitMsg('Policy written by is required.');
       return;
     }
 
@@ -399,17 +414,18 @@ export default function LicensedBackofficePage() {
     try {
       const payload = {
         record: {
-          appType: policyType,
-          policyType,
+          appType,
+          policyType: appType,
           applicantName,
           applicantEmail: clean(appForm.applicantEmail).toLowerCase(),
           applicantPhone: clean(appForm.applicantPhone),
-          applicantLicensedStatus: 'Licensed',
-          referredByName: clean(appForm.referredByName || session?.name || ''),
-          policyWriterName: clean(session?.name || ''),
+          applicantLicensedStatus: clean(appForm.applicantLicensedStatus || 'Licensed'),
+          referredByName,
+          policyWriterName,
           submittedBy: clean(session?.email || ''),
           submittedByRole: isInnerCircleName(session?.name || '') ? 'inner_circle_licensed_backoffice' : 'licensed_backoffice_agent',
           state,
+          policyNumber: clean(appForm.policyNumber || ''),
           monthlyPremium: Number(appForm.monthlyPremium || 0) || 0,
           status: 'Submitted'
         },
@@ -431,7 +447,15 @@ export default function LicensedBackofficePage() {
         const next = [data.row, ...(Array.isArray(prev) ? prev : [])];
         return next;
       });
-      setAppForm((prev) => ({ ...prev, applicantName: '', applicantEmail: '', applicantPhone: '', policyType: '', monthlyPremium: '' }));
+      setAppForm((prev) => ({
+        ...prev,
+        appType: '',
+        applicantName: '',
+        applicantEmail: '',
+        applicantPhone: '',
+        policyNumber: '',
+        monthlyPremium: ''
+      }));
       setTab('policies');
       setSubmitMsg('Policy app submitted successfully.');
     } catch {
@@ -828,28 +852,35 @@ export default function LicensedBackofficePage() {
             {tab === 'submit' ? (
               <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14, display: 'grid', gap: 10 }}>
                 <h3 style={{ marginTop: 0, marginBottom: 0 }}>Submit Policy App</h3>
-                <p style={{ color: '#9CA3AF', margin: 0 }}>Required: policy type. Writer info auto-fills from your logged-in profile.</p>
+                <p style={{ color: '#9CA3AF', margin: 0 }}>Same flow structure as Inner Circle App Submit, but inside Licensed Back Office with your writer info prefilled.</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <input value={appForm.applicantName} onChange={(e) => setAppForm((p) => ({ ...p, applicantName: e.target.value }))} placeholder="Applicant full name *" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
-                  <input value={appForm.state} onChange={(e) => setAppForm((p) => ({ ...p, state: e.target.value }))} placeholder="State *" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
+                  <select value={appForm.appType} onChange={(e) => setAppForm((p) => ({ ...p, appType: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}>
+                    <option value="">Application type *</option>
+                    <option value="Sponsorship App">Sponsorship App</option>
+                    <option value="Bonus Policy">Bonus Policy</option>
+                    <option value="Inner Circle App">Inner Circle App</option>
+                    <option value="Regular App">Regular App</option>
+                    <option value="Juvenile App">Juvenile App</option>
+                  </select>
+                  <input value={appForm.applicantName} onChange={(e) => setAppForm((p) => ({ ...p, applicantName: e.target.value }))} placeholder="Client name *" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
                   <input value={appForm.applicantEmail} onChange={(e) => setAppForm((p) => ({ ...p, applicantEmail: e.target.value }))} placeholder="Applicant email" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
                   <input value={appForm.applicantPhone} onChange={(e) => setAppForm((p) => ({ ...p, applicantPhone: e.target.value }))} placeholder="Applicant phone" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
-                  <select value={appForm.policyType} onChange={(e) => setAppForm((p) => ({ ...p, policyType: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}>
-                    <option value="">Select policy type *</option>
-                    <option value="Sponsorship Policy">Sponsorship Policy</option>
-                    <option value="Regular Policy">Regular Policy</option>
-                    <option value="Juvenile Policy">Juvenile Policy</option>
-                    <option value="Bonus Policy">Bonus Policy</option>
-                    <option value="Inner Circle Policy">Inner Circle Policy</option>
+                  <select value={appForm.applicantLicensedStatus} onChange={(e) => setAppForm((p) => ({ ...p, applicantLicensedStatus: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}>
+                    <option value="Licensed">Licensed</option>
+                    <option value="Unlicensed">Unlicensed</option>
                   </select>
-                  <input value={appForm.monthlyPremium} onChange={(e) => setAppForm((p) => ({ ...p, monthlyPremium: e.target.value }))} placeholder="Monthly premium (optional)" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
+                  <input value={appForm.state} onChange={(e) => setAppForm((p) => ({ ...p, state: e.target.value.toUpperCase() }))} placeholder="State *" maxLength={2} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
+                  <input value={appForm.referredByName} onChange={(e) => setAppForm((p) => ({ ...p, referredByName: e.target.value }))} placeholder="Referred by *" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
+                  <input value={appForm.policyWriterName} onChange={(e) => setAppForm((p) => ({ ...p, policyWriterName: e.target.value }))} placeholder="Policy written by *" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
+                  <input value={appForm.policyNumber} onChange={(e) => setAppForm((p) => ({ ...p, policyNumber: e.target.value }))} placeholder="Policy number (optional)" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
+                  <input value={appForm.monthlyPremium} onChange={(e) => setAppForm((p) => ({ ...p, monthlyPremium: e.target.value }))} placeholder="Monthly premium" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
                 </div>
-                <input value={appForm.referredByName} onChange={(e) => setAppForm((p) => ({ ...p, referredByName: e.target.value }))} placeholder="Referred by" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
-                <div style={{ color: '#9CA3AF', fontSize: 13 }}>Estimated Sponsorship Policy payout: <strong style={{ color: '#E5E7EB' }}>{appForm.policyType === 'Sponsorship Policy' ? `$${isInnerCircleName(session?.name || '') ? 500 : 400}` : 'Based on policy type rules'}</strong></div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ color: '#9CA3AF', fontSize: 13 }}>Estimated Sponsorship Policy payout: <strong style={{ color: '#E5E7EB' }}>{String(appForm.appType || '').toLowerCase().includes('sponsorship') ? `$${isInnerCircleName(clean(appForm.policyWriterName || session?.name || '')) ? 500 : 400}` : 'Based on policy type rules'}</strong></div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button type="button" onClick={submitPolicyFromBackoffice} disabled={submitBusy} style={{ padding: '10px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
                     {submitBusy ? 'Submitting…' : 'Submit App'}
                   </button>
+                  <a href="/inner-circle-app-submit" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Open full app submit page</a>
                   {submitMsg ? <span style={{ color: submitMsg.toLowerCase().includes('fail') || submitMsg.toLowerCase().includes('required') ? '#FCA5A5' : '#86EFAC' }}>{submitMsg}</span> : null}
                 </div>
               </div>
