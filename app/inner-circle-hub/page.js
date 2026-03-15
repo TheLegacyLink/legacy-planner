@@ -188,7 +188,7 @@ export default function InnerCircleHubPage() {
   const [activityRows, setActivityRows] = useState([]);
   const [policyRows, setPolicyRows] = useState([]);
   const [productionFilter, setProductionFilter] = useState('all');
-  const [productionWindow, setProductionWindow] = useState('all');
+  const [productionWindow, setProductionWindow] = useState('month');
   const [activitySummary, setActivitySummary] = useState({ submitted: 0, approved: 0, declined: 0, booked: 0, fng: 0, completed: 0 });
   const [activityStats, setActivityStats] = useState({
     daily: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 },
@@ -556,6 +556,21 @@ export default function InnerCircleHubPage() {
       ? approvalPending.filter((e) => (monthKeyFromIso(e.expectedPayoutAt) === monthKeyFromIso(nextApprovalPayoutDate)) && (new Date(e.expectedPayoutAt).toDateString() === new Date(nextApprovalPayoutDate).toDateString())).reduce((a, e) => a + Number(e.amount || 0), 0)
       : 0;
 
+    const pointsByMonth = new Map();
+    for (const e of events) {
+      const key = monthKeyFromIso(e.qualifiedAt || e.submittedAt || e.paidAt || '');
+      if (!key) continue;
+      pointsByMonth.set(key, (pointsByMonth.get(key) || 0) + Number(e.points || 0));
+    }
+    const pointsHistory = [...pointsByMonth.entries()]
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .slice(0, 6)
+      .map(([key, points]) => ({ key, label: monthShortFromKey(key), points: Number(points || 0) }));
+
+    const thisMonthPoints = Number(pointsByMonth.get(currentMonthKey) || 0);
+    const lastMonthPoints = Number(pointsByMonth.get(previousMonthKey) || 0);
+    const lifetimePoints = events.reduce((a, e) => a + Number(e.points || 0), 0);
+
     return {
       allTimePaid,
       allTimePending,
@@ -573,7 +588,11 @@ export default function InnerCircleHubPage() {
       previousMonthKey,
       currentMonthKey,
       nextApprovalPayoutDate,
-      nextApprovalPayoutAmount
+      nextApprovalPayoutAmount,
+      thisMonthPoints,
+      lastMonthPoints,
+      lifetimePoints,
+      pointsHistory
     };
   }, [personalProduction.rows]);
 
@@ -1454,6 +1473,21 @@ export default function InnerCircleHubPage() {
                 <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
                   <div style={{ color: '#fff', fontWeight: 700 }}>Points Rule</div>
                   <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>Sponsorship approval = 1 point • F&G/NLG submission = 10 points • F&G/NLG approval = 500 points.</div>
+                </div>
+
+                <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
+                  <div style={{ color: '#fff', fontWeight: 700 }}>Monthly Points Rollover</div>
+                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>Points reset every month for leaderboard pacing, but previous month totals are always retained for history.</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                    <span className="pill onpace">This Month: {Number(productionFinancials.thisMonthPoints || 0).toLocaleString()}</span>
+                    <span className="pill neutral">Last Month: {Number(productionFinancials.lastMonthPoints || 0).toLocaleString()}</span>
+                    <span className="pill offpace">Lifetime: {Number(productionFinancials.lifetimePoints || 0).toLocaleString()}</span>
+                  </div>
+                  <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {(productionFinancials.pointsHistory || []).map((m) => (
+                      <span key={`pts-${m.key}`} className="pill neutral">{m.label}: {Number(m.points || 0).toLocaleString()}</span>
+                    ))}
+                  </div>
                 </div>
 
                 <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))' }}>
