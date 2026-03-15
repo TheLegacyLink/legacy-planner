@@ -1081,22 +1081,45 @@ export default function LicensedBackofficePage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
-                  <button type="button" onClick={() => openFinanceDrawer('All-Time Paid', financials.events.filter((e) => e.status === 'paid'))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(168, 85, 247, 0.12)', padding: 14, color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>
-                    <div style={{ color: '#C4B5FD', fontSize: 12 }}>All-Time Paid</div>
-                    <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.allTimePaid)}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(290px,1fr))', gap: 16 }}>
+                  <button
+                    type="button"
+                    onClick={() => openFinanceDrawer('All-Time Paid', financials.events.filter((e) => e.status === 'paid'))}
+                    style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 16, background: 'rgba(168, 85, 247, 0.14)', padding: 20, minHeight: 170, color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}
+                  >
+                    <div style={{ color: '#C4B5FD', fontSize: 14, marginBottom: 8, letterSpacing: '.2px' }}>All-Time Paid</div>
+                    <div style={{ fontSize: 38, fontWeight: 800, lineHeight: 1.08, marginBottom: 8 }}>{fmtMoney(financials.allTimePaid)}</div>
+                    <div style={{ color: '#CBD5E1', fontSize: 18, lineHeight: 1.35 }}>Total commissions already paid out.</div>
                   </button>
-                  <button type="button" onClick={() => openFinanceDrawer('All-Time Pending', financials.events.filter((e) => e.status === 'pending'))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(245, 158, 11, 0.12)', padding: 14, color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>
-                    <div style={{ color: '#FCD34D', fontSize: 12 }}>All-Time Pending</div>
-                    <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.allTimePending)}</div>
+
+                  <button
+                    type="button"
+                    onClick={() => openFinanceDrawer('All-Time Pending', financials.events.filter((e) => e.status === 'pending'))}
+                    style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 16, background: 'rgba(245, 158, 11, 0.14)', padding: 20, minHeight: 170, color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}
+                  >
+                    <div style={{ color: '#FCD34D', fontSize: 14, marginBottom: 8, letterSpacing: '.2px' }}>All-Time Pending</div>
+                    <div style={{ fontSize: 38, fontWeight: 800, lineHeight: 1.08, marginBottom: 8 }}>{fmtMoney(financials.allTimePending)}</div>
+                    <div style={{ color: '#CBD5E1', fontSize: 18, lineHeight: 1.35 }}>Approved commissions waiting for payout.</div>
                   </button>
-                  <button type="button" onClick={() => openFinanceDrawer('This Month Paid', financials.events.filter((e) => e.status === 'paid' && isInRange(e.paidAt || e.qualifiedAt, 'month')))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(34, 197, 94, 0.12)', padding: 14, color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>
-                    <div style={{ color: '#86EFAC', fontSize: 12 }}>This Month Paid</div>
-                    <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.thisMonthPaid)}</div>
+
+                  <button
+                    type="button"
+                    onClick={() => openFinanceDrawer('This Month Paid', financials.events.filter((e) => e.status === 'paid' && isInRange(e.paidAt || e.qualifiedAt, 'month')))}
+                    style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 16, background: 'rgba(34, 197, 94, 0.14)', padding: 20, minHeight: 170, color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}
+                  >
+                    <div style={{ color: '#86EFAC', fontSize: 14, marginBottom: 8, letterSpacing: '.2px' }}>This Month Paid</div>
+                    <div style={{ fontSize: 38, fontWeight: 800, lineHeight: 1.08, marginBottom: 8 }}>{fmtMoney(financials.thisMonthPaid)}</div>
+                    <div style={{ color: '#CBD5E1', fontSize: 18, lineHeight: 1.35 }}>Paid to you in the current month.</div>
                   </button>
-                  <button type="button" onClick={() => openFinanceDrawer('This Month Pending', financials.events.filter((e) => e.status === 'pending' && isInRange(e.qualifiedAt, 'month')))} style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 12, background: 'rgba(59, 130, 246, 0.12)', padding: 14, color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>
-                    <div style={{ color: '#93C5FD', fontSize: 12 }}>This Month Pending</div>
-                    <div style={{ fontSize: 26, fontWeight: 800 }}>{fmtMoney(financials.thisMonthPending)}</div>
+
+                  <button
+                    type="button"
+                    onClick={() => openFinanceDrawer('This Month Pending', financials.events.filter((e) => e.status === 'pending' && isInRange(e.qualifiedAt, 'month')))}
+                    style={{ textAlign: 'left', border: '1px solid #2A3142', borderRadius: 16, background: 'rgba(59, 130, 246, 0.14)', padding: 20, minHeight: 170, color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}
+                  >
+                    <div style={{ color: '#93C5FD', fontSize: 14, marginBottom: 8, letterSpacing: '.2px' }}>This Month Pending</div>
+                    <div style={{ fontSize: 38, fontWeight: 800, lineHeight: 1.08, marginBottom: 8 }}>{fmtMoney(financials.thisMonthPending)}</div>
+                    <div style={{ color: '#CBD5E1', fontSize: 18, lineHeight: 1.35 }}>Still processing for this month.</div>
                   </button>
                 </div>
 
