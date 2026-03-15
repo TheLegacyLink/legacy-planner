@@ -1672,7 +1672,7 @@ export default function InnerCircleHubPage() {
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, overflow: 'hidden', background: '#020617' }}>
                   <iframe
                     title="IUL Academy"
-                    src={`/iul-learning-academy?name=${encodeURIComponent(member?.applicantName || member?.name || '')}&email=${encodeURIComponent(member?.email || '')}&licensed=1&v=20260315-2`}
+                    src={`/iul-learning-academy?name=${encodeURIComponent(member?.applicantName || member?.name || '')}&email=${encodeURIComponent(member?.email || '')}&licensed=1&v=20260315-3`}
                     style={{ width: '100%', minHeight: '1450px', border: 0, background: '#020617' }}
                   />
                 </div>

@@ -495,6 +495,18 @@ export default function IulLearningAcademyPage() {
         {toast ? <div className="panel" style={{ marginTop: 10, border: '1px solid #334155', background: '#071022', color: '#BFDBFE' }}>{toast}</div> : null}
         {error ? <div className="panel" style={{ marginTop: 10, border: '1px solid #7f1d1d', background: '#2a0d14', color: '#fecaca' }}>{error}</div> : null}
 
+        <style>{`
+          .iul-answer-option, .iul-answer-option * {
+            color: #0B1020 !important;
+            -webkit-text-fill-color: #0B1020 !important;
+            text-shadow: none !important;
+            opacity: 1 !important;
+            filter: none !important;
+            mix-blend-mode: normal !important;
+            forced-color-adjust: none !important;
+          }
+        `}</style>
+
         <div style={{ display: 'grid', gap: 12, marginTop: 14 }}>
           {sections.map((section, idx) => {
             const sectionId = `${level}_${idx}`;
@@ -527,6 +539,7 @@ export default function IulLearningAcademyPage() {
                 <button
                   key={`opt-${i}`}
                   type="button"
+                  className="iul-answer-option"
                   onClick={() => setQuizSelected(i)}
                   style={{
                     textAlign: 'left',
@@ -546,10 +559,12 @@ export default function IulLearningAcademyPage() {
                     display: 'block',
                     width: '100%',
                     opacity: 1,
-                    filter: 'none'
+                    filter: 'none',
+                    colorScheme: 'light',
+                    forcedColorAdjust: 'none'
                   }}
                 >
-                  <span style={{ color: '#0B1020', WebkitTextFillColor: '#0B1020', fontWeight: 800 }}>{opt}</span>
+                  <span className="iul-answer-option" style={{ color: '#0B1020', WebkitTextFillColor: '#0B1020', fontWeight: 800 }}>{opt}</span>
                 </button>
               ))}
             </div>
