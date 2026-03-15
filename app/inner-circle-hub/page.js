@@ -28,6 +28,35 @@ function toNum(v = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
 }
+
+function normName(v = '') {
+  return clean(v).toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function nameSig(v = '') {
+  const parts = normName(v).split(' ').filter(Boolean);
+  if (!parts.length) return '';
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]}_${parts[parts.length - 1]}`;
+}
+function rowTs(row = {}) {
+  const raw = row?.approvedAt || row?.submittedAt || row?.updatedAt || row?.createdAt || row?.created_at || row?.approved_at || '';
+  const t = new Date(raw || 0).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+function inWindow(ts = 0, windowKey = 'all') {
+  if (!ts || windowKey === 'all') return Boolean(ts);
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  if (windowKey === 'month') {
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }
+  if (windowKey === 'lastMonth') {
+    const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return d.getFullYear() === lm.getFullYear() && d.getMonth() === lm.getMonth();
+  }
+  return true;
+}
 function availableTabs(member = {}) {
   const modules = member?.modules || {};
   const all = [
@@ -74,6 +103,7 @@ export default function InnerCircleHubPage() {
   const [activityRows, setActivityRows] = useState([]);
   const [policyRows, setPolicyRows] = useState([]);
   const [productionFilter, setProductionFilter] = useState('all');
+  const [productionWindow, setProductionWindow] = useState('all');
   const [activitySummary, setActivitySummary] = useState({ submitted: 0, approved: 0, declined: 0, booked: 0, fng: 0, completed: 0 });
   const [activityStats, setActivityStats] = useState({
     daily: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 },
@@ -184,14 +214,44 @@ export default function InnerCircleHubPage() {
   }, [activityRows, activityType]);
 
   const personalProduction = useMemo(() => {
-    const myName = clean(member?.applicantName || '').toLowerCase();
+    const ownerNames = [
+      clean(member?.applicantName || ''),
+      clean(member?.name || '')
+    ].filter(Boolean);
+    const ownerEmail = clean(member?.email || '').toLowerCase();
+    const ownerNorm = new Set(ownerNames.map(normName).filter(Boolean));
+    const ownerSig = new Set(ownerNames.map(nameSig).filter(Boolean));
 
-    const mine = (policyRows || []).filter((r) => {
-      const writer = clean(r?.policyWriterName || r?.assignedInnerCircleAgent || '').toLowerCase();
-      const submittedBy = clean(r?.submittedBy || '').toLowerCase();
-      const owner = writer || submittedBy;
-      return myName && owner === myName;
-    });
+    const isMine = (r = {}) => {
+      const nameCandidates = [
+        r?.policyWriterName,
+        r?.assignedInnerCircleAgent,
+        r?.submittedBy,
+        r?.referredByName,
+        r?.referredBy,
+        r?.owner,
+        r?.agent,
+        r?.agentName
+      ].map(clean).filter(Boolean);
+      const emailCandidates = [
+        r?.policyWriterEmail,
+        r?.submittedByEmail,
+        r?.referredByEmail,
+        r?.agentEmail,
+        r?.ownerEmail,
+        r?.email
+      ].map((v) => clean(v).toLowerCase()).filter(Boolean);
+
+      if (ownerEmail && emailCandidates.some((e) => e === ownerEmail)) return true;
+      for (const c of nameCandidates) {
+        const n = normName(c);
+        const sig = nameSig(c);
+        if ((n && ownerNorm.has(n)) || (sig && ownerSig.has(sig))) return true;
+      }
+      return false;
+    };
+
+    const mine = (policyRows || []).filter((r) => isMine(r));
 
     const byType = {
       sponsorship: 0,
@@ -215,7 +275,7 @@ export default function InnerCircleHubPage() {
       advanceTotal += Number(row?.advancePayout || row?.payoutAmount || 0) || 0;
     }
 
-    const sorted = [...mine].sort((a, b) => new Date(b?.submittedAt || 0).getTime() - new Date(a?.submittedAt || 0).getTime());
+    const sorted = [...mine].sort((a, b) => rowTs(b) - rowTs(a));
 
     return {
       rows: sorted,
@@ -223,19 +283,37 @@ export default function InnerCircleHubPage() {
       totalPoints,
       advanceTotal
     };
-  }, [policyRows, member?.applicantName]);
+  }, [policyRows, member?.applicantName, member?.name, member?.email]);
+
+  const productionWindowRows = useMemo(() => {
+    const rows = personalProduction.rows || [];
+    return rows.filter((row) => inWindow(rowTs(row), productionWindow));
+  }, [personalProduction.rows, productionWindow]);
+
+  const productionByType = useMemo(() => {
+    const byType = { sponsorship: 0, bonus: 0, innerCircle: 0, regular: 0, juvenile: 0 };
+    for (const row of (productionWindowRows || [])) {
+      const t = clean(row?.policyType || row?.appType || '').toLowerCase();
+      if (t.includes('sponsorship')) byType.sponsorship += 1;
+      else if (t.includes('bonus')) byType.bonus += 1;
+      else if (t.includes('inner circle')) byType.innerCircle += 1;
+      else if (t.includes('regular')) byType.regular += 1;
+      else if (t.includes('juvenile')) byType.juvenile += 1;
+    }
+    return byType;
+  }, [productionWindowRows]);
 
   const filteredProductionRows = useMemo(() => {
-    if (productionFilter === 'all') return personalProduction.rows;
-    return (personalProduction.rows || []).filter((row) => {
+    if (productionFilter === 'all') return productionWindowRows;
+    return (productionWindowRows || []).filter((row) => {
       const t = clean(row?.policyType || row?.appType || '').toLowerCase();
       return t.includes(productionFilter);
     });
-  }, [personalProduction.rows, productionFilter]);
+  }, [productionWindowRows, productionFilter]);
 
   const productionStats = useMemo(() => {
     const rows = filteredProductionRows || [];
-    const approved = rows.filter((r) => clean(r?.status).toLowerCase() === 'approved').length;
+    const approved = rows.filter((r) => clean(r?.status).toLowerCase().includes('approved')).length;
     const approvalRate = rows.length ? Math.round((approved / rows.length) * 100) : 0;
 
     const totals = rows.reduce((acc, row) => ({
@@ -969,14 +1047,23 @@ export default function InnerCircleHubPage() {
                   <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>Filter by policy type to quickly see flat-rate vs commission-based production.</p>
                 </div>
 
-                <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
-                  <button type="button" className={productionFilter === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('all')}>All Policies</button>
-                  <button type="button" className={productionFilter === 'sponsorship' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('sponsorship')}>Sponsorship</button>
-                  <button type="button" className={productionFilter === 'bonus' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('bonus')}>Bonus</button>
-                  <button type="button" className={productionFilter === 'regular' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('regular')}>Regular</button>
-                  <button type="button" className={productionFilter === 'inner circle' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('inner circle')}>Inner Circle</button>
-                  <button type="button" className={productionFilter === 'juvenile' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('juvenile')}>Juvenile</button>
+                <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                  <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+                    <button type="button" className={productionFilter === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('all')}>All Policies</button>
+                    <button type="button" className={productionFilter === 'sponsorship' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('sponsorship')}>Sponsorship</button>
+                    <button type="button" className={productionFilter === 'bonus' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('bonus')}>Bonus</button>
+                    <button type="button" className={productionFilter === 'regular' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('regular')}>Regular</button>
+                    <button type="button" className={productionFilter === 'inner circle' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('inner circle')}>Inner Circle</button>
+                    <button type="button" className={productionFilter === 'juvenile' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('juvenile')}>Juvenile</button>
+                  </div>
+                  <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+                    <button type="button" className={productionWindow === 'month' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionWindow('month')}>This Month</button>
+                    <button type="button" className={productionWindow === 'lastMonth' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionWindow('lastMonth')}>Last Month</button>
+                    <button type="button" className={productionWindow === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionWindow('all')}>All Time</button>
+                  </div>
                 </div>
+
+                <small className="muted">Showing: {productionWindow === 'month' ? 'This Month' : productionWindow === 'lastMonth' ? 'Last Month' : 'All Time'} • {productionFilter === 'all' ? 'All Policy Types' : productionFilter}</small>
 
                 <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))' }}>
                   <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 12, background: '#111827' }}><small className="muted">Total Policies</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{productionStats.count}</div></div>
@@ -990,11 +1077,11 @@ export default function InnerCircleHubPage() {
                   <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
                     <strong style={{ color: '#fff' }}>Policy Type Breakdown</strong>
                     <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-                      <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0b1220', color: '#e2e8f0' }}>Sponsorship Policies: <strong style={{ color: '#f8fafc' }}>{personalProduction.byType.sponsorship}</strong> <small className="muted">(flat 500 pts to referrer)</small></div>
-                      <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0b1220', color: '#e2e8f0' }}>Bonus Policies: <strong style={{ color: '#f8fafc' }}>{personalProduction.byType.bonus}</strong> <small className="muted">(flat 500 pts licensed only)</small></div>
-                      <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0b1220', color: '#e2e8f0' }}>Inner Circle Policies: <strong style={{ color: '#f8fafc' }}>{personalProduction.byType.innerCircle}</strong> <small className="muted">(flat 1,200 pts / $1,200)</small></div>
-                      <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0b1220', color: '#e2e8f0' }}>Regular Policies: <strong style={{ color: '#f8fafc' }}>{personalProduction.byType.regular}</strong> <small className="muted">(70% commission model)</small></div>
-                      <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0b1220', color: '#e2e8f0' }}>Juvenile Policies: <strong style={{ color: '#f8fafc' }}>{personalProduction.byType.juvenile}</strong> <small className="muted">(50% commission model)</small></div>
+                      <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0b1220', color: '#e2e8f0' }}>Sponsorship Policies: <strong style={{ color: '#f8fafc' }}>{productionByType.sponsorship}</strong> <small className="muted">(flat 500 pts to referrer)</small></div>
+                      <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0b1220', color: '#e2e8f0' }}>Bonus Policies: <strong style={{ color: '#f8fafc' }}>{productionByType.bonus}</strong> <small className="muted">(flat 500 pts licensed only)</small></div>
+                      <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0b1220', color: '#e2e8f0' }}>Inner Circle Policies: <strong style={{ color: '#f8fafc' }}>{productionByType.innerCircle}</strong> <small className="muted">(flat 1,200 pts / $1,200)</small></div>
+                      <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0b1220', color: '#e2e8f0' }}>Regular Policies: <strong style={{ color: '#f8fafc' }}>{productionByType.regular}</strong> <small className="muted">(70% commission model)</small></div>
+                      <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#0b1220', color: '#e2e8f0' }}>Juvenile Policies: <strong style={{ color: '#f8fafc' }}>{productionByType.juvenile}</strong> <small className="muted">(50% commission model)</small></div>
                     </div>
                   </div>
 
