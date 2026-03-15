@@ -117,8 +117,55 @@ const UNLOCK_RULES = [
   { badge_key: 'seasonal.fall_finish', check: () => false },
 ];
 
-function BadgeCard({ badge, isUnlocked, isNew }) {
+const PROGRESS_RULES = {
+  'identity.licensed': { label: 'Licensed status', target: 1, value: (s) => (s.isLicensed ? 1 : 0), type: 'count' },
+
+  'performance.first_submission': { label: 'Policies submitted', target: 1, value: (s) => s.policiesSubmitted || 0, type: 'count' },
+  'performance.first_policy': { label: 'Policies issued', target: 1, value: (s) => s.policiesIssued || 0, type: 'count' },
+  'performance.policies_5': { label: 'Policies issued', target: 5, value: (s) => s.policiesIssued || 0, type: 'count' },
+  'performance.policies_10': { label: 'Policies issued', target: 10, value: (s) => s.policiesIssued || 0, type: 'count' },
+  'performance.strong_link': { label: 'Policies issued', target: 10, value: (s) => s.policiesIssued || 0, type: 'count' },
+  'performance.crm_learned': { label: 'SOP steps', target: 1, value: (s) => s.sopStepsCompleted || 0, type: 'count' },
+  'performance.official_link': { label: 'SOP steps', target: 13, value: (s) => s.sopStepsCompleted || 0, type: 'count' },
+
+  'income.earnings_1k': { label: 'Lifetime earnings', target: 1000, value: (s) => s.lifetimeEarnings || 0, type: 'money' },
+  'income.earnings_5k': { label: 'Lifetime earnings', target: 5000, value: (s) => s.lifetimeEarnings || 0, type: 'money' },
+  'income.earnings_10k': { label: 'Lifetime earnings', target: 10000, value: (s) => s.lifetimeEarnings || 0, type: 'money' },
+  'income.earnings_25k': { label: 'Lifetime earnings', target: 25000, value: (s) => s.lifetimeEarnings || 0, type: 'money' },
+  'income.earnings_50k': { label: 'Lifetime earnings', target: 50000, value: (s) => s.lifetimeEarnings || 0, type: 'money' },
+  'income.earnings_75k': { label: 'Lifetime earnings', target: 75000, value: (s) => s.lifetimeEarnings || 0, type: 'money' },
+  'income.earnings_100k': { label: 'Lifetime net income', target: 100000, value: (s) => s.lifetimeNetIncome || 0, type: 'money' },
+
+  'community.plugged_in': { label: 'Skool joined', target: 1, value: (s) => (s.joinedSkool ? 1 : 0), type: 'count' },
+  'community.first_service': { label: 'Service entries', target: 1, value: (s) => s.communityServicesApproved || 0, type: 'count' },
+  'community.service_5h': { label: 'Service hours', target: 5, value: (s) => s.communityServiceHours || 0, type: 'count' },
+  'community.service_20h': { label: 'Service hours', target: 20, value: (s) => s.communityServiceHours || 0, type: 'count' },
+
+  'team.team_10': { label: 'Downline', target: 10, value: (s) => s.downlineCount || 0, type: 'count' },
+  'team.team_50': { label: 'Downline', target: 50, value: (s) => s.downlineCount || 0, type: 'count' },
+  'team.team_100': { label: 'Downline', target: 100, value: (s) => s.downlineCount || 0, type: 'count' },
+
+  'bonus.wheel_qualifier': { label: 'Issued this month', target: 8, value: (s) => s.policiesIssuedThisMonth || 0, type: 'count' },
+};
+
+function fmtProgressValue(value = 0, type = 'count') {
+  if (type === 'money') return `$${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  return String(Number(value || 0));
+}
+
+function progressForBadge(badgeKey = '', stats = {}) {
+  const rule = PROGRESS_RULES[badgeKey];
+  if (!rule) return { pct: 0, current: 0, target: 0, label: 'Manual unlock', type: 'count', manual: true };
+  const current = Number(rule.value(stats) || 0);
+  const target = Number(rule.target || 0);
+  const pct = target > 0 ? Math.max(0, Math.min(100, Math.round((current / target) * 100))) : 0;
+  return { pct, current, target, label: rule.label, type: rule.type, manual: false };
+}
+
+
+function BadgeCard({ badge, isUnlocked, isNew, progress }) {
   const color = CATEGORY_CONFIG[badge.category]?.color || '#64748b';
+  const progressPct = Number(progress?.pct || 0);
   return (
     <div style={{
       border: isUnlocked ? `2px solid ${color}` : '1px solid #334155',
@@ -140,11 +187,41 @@ function BadgeCard({ badge, isUnlocked, isNew }) {
       </div>
       <div style={{ fontWeight: 800, color: isUnlocked ? '#F8FAFC' : '#CBD5E1' }}>{badge.name}</div>
       <div style={{ fontSize: 12, color: '#94A3B8', minHeight: 34 }}>{badge.description}</div>
+
+      {!isUnlocked ? (
+        <div style={{ width: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#93A3B8', marginBottom: 4 }}>
+            <span>{progress?.manual ? 'Manual' : progress?.label}</span>
+            {!progress?.manual ? <span>{fmtProgressValue(progress?.current, progress?.type)} / {fmtProgressValue(progress?.target, progress?.type)}</span> : <span>Admin only</span>}
+          </div>
+          <div style={{ height: 8, borderRadius: 999, background: '#1F2937', overflow: 'hidden' }}>
+            <div style={{ width: `${progressPct}%`, height: '100%', background: `linear-gradient(90deg, ${color}, #60A5FA)`, transition: 'width .3s ease' }} />
+          </div>
+        </div>
+      ) : null}
+
       <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center', padding: '4px 10px', borderRadius: 999, border: `1px solid ${isUnlocked ? color : '#475569'}`, color: isUnlocked ? '#fff' : '#94A3B8', fontSize: 12 }}>
         <span>{CATEGORY_CONFIG[badge.category]?.emoji}</span>
         <span>{badge.category}</span>
         {isUnlocked ? <span>✅</span> : null}
       </div>
+    </div>
+  );
+}
+
+function ConfettiBurst({ show = false }) {
+  if (!show) return null;
+  const pieces = Array.from({ length: 22 }).map((_, i) => ({
+    left: `${5 + (i * 4.2)}%`,
+    delay: `${(i % 6) * 0.06}s`,
+    emoji: ['🎉','✨','🏅','💙','⭐'][i % 5]
+  }));
+  return (
+    <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 120 }}>
+      <style>{`@keyframes fallConfetti{0%{transform:translateY(-20px) scale(.8);opacity:0}12%{opacity:1}100%{transform:translateY(68vh) rotate(360deg);opacity:0}}`}</style>
+      {pieces.map((p, idx) => (
+        <span key={`cf-${idx}`} style={{ position: 'absolute', left: p.left, top: '-10px', fontSize: 20, animation: `fallConfetti 1.6s ease-out ${p.delay}` }}>{p.emoji}</span>
+      ))}
     </div>
   );
 }
@@ -159,9 +236,18 @@ export default function AchievementCenterPage() {
   const [justUnlocked, setJustUnlocked] = useState([]);
   const [checking, setChecking] = useState(false);
   const [toast, setToast] = useState('');
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [adminMode, setAdminMode] = useState(false);
+  const [adminSaving, setAdminSaving] = useState(false);
+  const [adminManualKeys, setAdminManualKeys] = useState(new Set());
   const bootRef = useRef(false);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const qp = new URLSearchParams(window.location.search || '');
+      setAdminMode(qp.get('admin') === '1');
+    }
+
     let canceled = false;
 
     async function load() {
@@ -195,7 +281,9 @@ export default function AchievementCenterPage() {
         setPolicyRows(Array.isArray(policyData?.rows) ? policyData.rows : []);
         setSponsorshipRows(Array.isArray(sponsorData?.rows) ? sponsorData.rows : []);
         setStoredUnlocked(new Set(Array.isArray(badgeData?.row?.unlockedKeys) ? badgeData.row.unlockedKeys : []));
-        setManualUnlocked(new Set(Array.isArray(badgeData?.row?.manualKeys) ? badgeData.row.manualKeys : []));
+        const manual = new Set(Array.isArray(badgeData?.row?.manualKeys) ? badgeData.row.manualKeys : []);
+        setManualUnlocked(manual);
+        setAdminManualKeys(new Set(manual));
       } finally {
         if (!canceled) setLoading(false);
       }
@@ -286,12 +374,42 @@ export default function AchievementCenterPage() {
         setStoredUnlocked(merged);
         const newly = Array.isArray(data?.newUnlocked) ? data.newUnlocked : [];
         setJustUnlocked(newly);
-        if (newly.length) setToast(`🎉 ${newly.length} new badge${newly.length > 1 ? 's' : ''} unlocked!`);
+        if (newly.length) {
+          setToast(`🎉 ${newly.length} new badge${newly.length > 1 ? 's' : ''} unlocked!`);
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 1800);
+        }
         else setToast('No new badges yet — keep pushing!');
         setTimeout(() => setToast(''), 3000);
       }
     } finally {
       setChecking(false);
+    }
+  }
+
+
+
+  async function saveManualSeasonal() {
+    if (!adminMode) return;
+    setAdminSaving(true);
+    try {
+      const keys = [...adminManualKeys];
+      const res = await fetch('/api/achievement-center', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_manual', email: identity.email, name: identity.name, manualKeys: keys })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        const manual = new Set(Array.isArray(data?.row?.manualKeys) ? data.row.manualKeys : keys);
+        const stored = new Set(Array.isArray(data?.row?.unlockedKeys) ? data.row.unlockedKeys : []);
+        setManualUnlocked(manual);
+        setStoredUnlocked(stored);
+        setToast('Seasonal badges updated.');
+        setTimeout(() => setToast(''), 2200);
+      }
+    } finally {
+      setAdminSaving(false);
     }
   }
 
@@ -307,6 +425,8 @@ export default function AchievementCenterPage() {
   const completionPct = totalCount ? Math.round((unlockedCount / totalCount) * 100) : 0;
 
   return (
+    <>
+    <ConfettiBurst show={showConfetti} />
     <main className="publicPage" style={{ background: 'radial-gradient(1200px 540px at 8% -10%, rgba(59,130,246,.25), transparent 60%), radial-gradient(900px 520px at 94% 8%, rgba(16,185,129,.16), transparent 55%), #020617', minHeight: '100vh' }}>
       <div className="panel" style={{ maxWidth: 1220, margin: '20px auto', padding: 16, border: '1px solid #1f2f48', background: 'linear-gradient(180deg,#081124 0%,#070d1c 100%)' }}>
         <div style={{ textAlign: 'center', marginBottom: 22 }}>
@@ -325,6 +445,26 @@ export default function AchievementCenterPage() {
 
         {toast ? <div className="panel" style={{ border: '1px solid #334155', background: '#0B1220', color: '#BFDBFE' }}>{toast}</div> : null}
 
+        {adminMode ? (
+          <div className="panel" style={{ border: '1px solid #334155', background: '#0B1220' }}>
+            <strong style={{ color: '#F8FAFC' }}>Admin Mini Panel — Seasonal Badges</strong>
+            <p className="muted" style={{ marginTop: 6 }}>Manual awards for seasonal badges only.</p>
+            <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))' }}>
+              {MASTER_BADGES.filter((b) => b.category === 'Seasonal').map((b) => (
+                <label key={`adm-${b.badge_key}`} style={{ display: 'flex', gap: 8, alignItems: 'center', border: '1px solid #334155', borderRadius: 10, padding: '8px 10px', color: '#CBD5E1' }}>
+                  <input
+                    type="checkbox"
+                    checked={adminManualKeys.has(b.badge_key)}
+                    onChange={(e) => setAdminManualKeys((prev) => { const n = new Set(prev); if (e.target.checked) n.add(b.badge_key); else n.delete(b.badge_key); return n; })}
+                  />
+                  <span>{b.emoji} {b.name}</span>
+                </label>
+              ))}
+            </div>
+            <button type="button" className="publicPrimaryBtn" style={{ marginTop: 10 }} onClick={saveManualSeasonal} disabled={adminSaving}>{adminSaving ? 'Saving…' : 'Save Seasonal Awards'}</button>
+          </div>
+        ) : null}
+
         {Object.entries(groupedBadges).map(([category, badges]) => (
           <section key={category} style={{ marginTop: 18 }}>
             <h2 style={{ color: '#F8FAFC', marginBottom: 10 }}>{CATEGORY_CONFIG[category]?.emoji} {category}</h2>
@@ -335,6 +475,7 @@ export default function AchievementCenterPage() {
                   badge={badge}
                   isUnlocked={unlockedKeys.has(badge.badge_key)}
                   isNew={justUnlocked.includes(badge.badge_key)}
+                  progress={progressForBadge(badge.badge_key, stats)}
                 />
               ))}
             </div>
@@ -342,5 +483,6 @@ export default function AchievementCenterPage() {
         ))}
       </div>
     </main>
+    </>
   );
 }
