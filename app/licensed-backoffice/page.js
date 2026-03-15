@@ -75,6 +75,14 @@ function monthKey(ts = '') {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
+function tsFrom(...vals) {
+  for (const v of vals) {
+    const t = new Date(v || 0).getTime();
+    if (Number.isFinite(t) && t > 0) return t;
+  }
+  return 0;
+}
+
 function sum(values = []) { return values.reduce((a, b) => a + Number(b || 0), 0); }
 
 export default function LicensedBackofficePage() {
@@ -324,6 +332,26 @@ export default function LicensedBackofficePage() {
     const approvedSponsors = mySponsors.filter((r) => normalize(r?.status || '').includes('approved'));
     const bookedSponsors = mySponsors.filter((r) => normalize(r?.status || '').includes('booked'));
 
+    const nowMs = Date.now();
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    const rollingStart = nowMs - thirtyDaysMs;
+
+    const sponsorAppsRolling30 = mySponsors.filter((r) => {
+      const t = tsFrom(r?.submitted_at, r?.updatedAt, r?.createdAt);
+      return t >= rollingStart && t <= nowMs;
+    });
+
+    const policySubmittedRolling30 = myPolicies.filter((r) => {
+      const t = tsFrom(r?.submittedAt, r?.updatedAt, r?.approvedAt, r?.createdAt);
+      return t >= rollingStart && t <= nowMs;
+    });
+
+    const sponsorCount30 = sponsorAppsRolling30.length;
+    const policyCount30 = policySubmittedRolling30.length;
+    const sponsorDollars30 = (Math.min(10, sponsorCount30) * 1) + (Math.max(0, sponsorCount30 - 10) * 5);
+    const policyDollars30 = policyCount30 * 10;
+    const incentiveEstimate30 = sponsorDollars30 + policyDollars30;
+
     const byMonth = new Map();
     for (const r of approvedPolicies) {
       const key = monthKey(r?.submittedAt || r?.updatedAt || '');
@@ -388,7 +416,12 @@ export default function LicensedBackofficePage() {
       sponsorshipEntries,
       approvedPolicyEntries,
       badges,
-      startTier
+      startTier,
+      sponsorCount30,
+      policyCount30,
+      sponsorDollars30,
+      policyDollars30,
+      incentiveEstimate30
     };
   }, [session, policyRows, sponsorRows]);
 
@@ -509,6 +542,11 @@ export default function LicensedBackofficePage() {
                   <div style={{ color: '#9CA3AF', fontSize: 12 }}>Contracted Carriers</div>
                   <div style={{ fontSize: 18, fontWeight: 700 }}>{(session.carriersActive || []).length || 0}</div>
                   <div style={{ color: '#9CA3AF' }}>{(session.carriersActive || []).length ? session.carriersActive.join(' • ') : 'No active carriers mapped yet'}</div>
+                </div>
+                <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 12 }}>Estimated Incentive (Rolling 30 Days)</div>
+                  <div style={{ fontSize: 24, fontWeight: 700 }}>${Number(metrics.incentiveEstimate30 || 0).toLocaleString()}</div>
+                  <div style={{ color: '#9CA3AF' }}>Sponsorship Apps: {metrics.sponsorCount30} → ${Number(metrics.sponsorDollars30 || 0).toLocaleString()} • Insurance Submits: {metrics.policyCount30} → ${Number(metrics.policyDollars30 || 0).toLocaleString()}</div>
                 </div>
                 <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
                   <div style={{ color: '#9CA3AF', fontSize: 12 }}>Next Tier Progress</div>
