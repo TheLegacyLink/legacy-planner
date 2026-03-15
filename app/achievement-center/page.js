@@ -32,6 +32,11 @@ const MASTER_BADGES = [
 
   { id: 'bonus_wheel_qualifier', name: 'Bonus Wheel Qualifier', description: '8+ issued policies in a month', category: 'Bonus', emoji: '🎰', badge_key: 'bonus.wheel_qualifier' },
 
+  { id: 'academy_iul_beginner', name: 'IUL Foundations', description: 'Complete Beginner level in IUL Learning Academy', category: 'Academy', emoji: '📘', badge_key: 'academy.iul_beginner' },
+  { id: 'academy_iul_intermediate', name: 'IUL Practitioner', description: 'Pass Intermediate (80%+ quiz)', category: 'Academy', emoji: '🧠', badge_key: 'academy.iul_intermediate' },
+  { id: 'academy_iul_advanced', name: 'IUL Strategist', description: 'Complete Advanced challenge', category: 'Academy', emoji: '🧭', badge_key: 'academy.iul_advanced' },
+  { id: 'academy_iul_expert', name: 'IUL Expert Certified', description: 'Complete Expert practice studio', category: 'Academy', emoji: '🏅', badge_key: 'academy.iul_expert' },
+
   { id: 'seasonal_summer_surge', name: 'Summer Surge', description: 'Crush your summer activity goals', category: 'Seasonal', emoji: '🌞', badge_key: 'seasonal.summer_surge' },
   { id: 'seasonal_holiday_hero', name: 'Holiday Hero', description: 'Finish the year strong during the holidays', category: 'Seasonal', emoji: '🎄', badge_key: 'seasonal.holiday_hero' },
   { id: 'seasonal_new_year_starter', name: 'New Year Starter', description: 'Kick off the new year with momentum', category: 'Seasonal', emoji: '🎉', badge_key: 'seasonal.new_year_starter' },
@@ -46,6 +51,7 @@ const CATEGORY_CONFIG = {
   Community: { emoji: '❤️', color: '#EC4899' },
   Team: { emoji: '👥', color: '#8B5CF6' },
   Bonus: { emoji: '🎁', color: '#F59E0B' },
+  Academy: { emoji: '🎓', color: '#06B6D4' },
   Seasonal: { emoji: '🌞', color: '#FACC15' },
 };
 
@@ -145,6 +151,11 @@ const UNLOCK_RULES = [
   { badge_key: 'team.team_100', check: (s) => s.downlineCount >= 100 },
 
   { badge_key: 'bonus.wheel_qualifier', check: (s) => s.policiesIssuedThisMonth >= 8 },
+
+  { badge_key: 'academy.iul_beginner', check: () => false },
+  { badge_key: 'academy.iul_intermediate', check: () => false },
+  { badge_key: 'academy.iul_advanced', check: () => false },
+  { badge_key: 'academy.iul_expert', check: () => false },
 
   { badge_key: 'seasonal.summer_surge', check: () => false },
   { badge_key: 'seasonal.holiday_hero', check: () => false },

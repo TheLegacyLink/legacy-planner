@@ -972,6 +972,7 @@ export default function LicensedBackofficePage() {
             ['sponsorships', 'Sponsorships'],
             ['policies', 'Policies'],
             ['submit', 'Submit App'],
+            ['academy', 'IUL Academy'],
             ['awards', 'Achievement Center'],
             ['resources', 'Resources']
           ].map(([k, label]) => (
@@ -1438,6 +1439,12 @@ export default function LicensedBackofficePage() {
                   <a href="/inner-circle-app-submit" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Open full app submit page</a>
                   {submitMsg ? <span style={{ color: submitMsg.toLowerCase().includes('fail') || submitMsg.toLowerCase().includes('required') ? '#FCA5A5' : '#86EFAC' }}>{submitMsg}</span> : null}
                 </div>
+              </div>
+            ) : null}
+
+            {tab === 'academy' ? (
+              <div style={{ border: '1px solid #2A3142', borderRadius: 12, overflow: 'hidden', background: '#0F172A' }}>
+                <iframe title="IUL Academy" src={`/iul-learning-academy?name=${encodeURIComponent(session?.name || '')}&email=${encodeURIComponent(session?.email || '')}&licensed=1`} style={{ width: '100%', minHeight: 1400, border: 0, background: '#020617' }} />
               </div>
             ) : null}
 

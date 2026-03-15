@@ -153,6 +153,7 @@ function availableTabs(member = {}) {
     { key: 'tracker', label: 'KPI Tracker' },
     { key: 'production', label: 'My Production' },
     { key: 'rewards', label: 'VIP Rewards' },
+    { key: 'academy', label: 'IUL Academy' },
     { key: 'awards', label: 'Achievement Center' },
     { key: 'links', label: 'My VIP Links' }
   ];
@@ -1656,6 +1657,23 @@ export default function InnerCircleHubPage() {
                     title="Inner Circle Activity Rewards"
                     src="/inner-circle-hub-rewards"
                     style={{ width: '100%', minHeight: '1200px', border: 0, background: '#020617' }}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {tab === 'academy' ? (
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 12, background: '#071022' }}>
+                  <strong style={{ color: '#fff' }}>IUL Learning Academy</strong>
+                  <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>Structured Beginner → Expert training with progress save and badge unlocks.</p>
+                </div>
+
+                <div style={{ border: '1px solid #1f2937', borderRadius: 12, overflow: 'hidden', background: '#020617' }}>
+                  <iframe
+                    title="IUL Academy"
+                    src={`/iul-learning-academy?name=${encodeURIComponent(member?.applicantName || member?.name || '')}&email=${encodeURIComponent(member?.email || '')}&licensed=1`}
+                    style={{ width: '100%', minHeight: '1450px', border: 0, background: '#020617' }}
                   />
                 </div>
               </div>
