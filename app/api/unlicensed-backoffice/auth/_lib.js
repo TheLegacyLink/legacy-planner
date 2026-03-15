@@ -6,6 +6,16 @@ const APPS_PATH = 'stores/sponsorship-applications.json';
 export const CODES_PATH = 'stores/unlicensed-backoffice-login-codes.json';
 export const SESSIONS_PATH = 'stores/unlicensed-backoffice-sessions.json';
 
+const UNLICENSED_PREVIEW_USERS = [
+  {
+    email: 'kimora@thelegacylink.com',
+    name: 'Kimora Preview User',
+    phone: '',
+    state: 'GA',
+    applicationId: 'preview_unlicensed_kimora'
+  }
+];
+
 function clean(v = '') { return String(v || '').trim(); }
 function norm(v = '') { return clean(v).toLowerCase().replace(/\s+/g, ' '); }
 function digits(v = '') { return clean(v).replace(/\D+/g, ''); }
@@ -25,6 +35,21 @@ export async function resolveUnlicensedProfile({ email = '', fullName = '', phon
   const e = norm(email);
   const p = digits(phone);
   const n = norm(fullName);
+
+  // Preview/testing allowlist (temporary helper)
+  const preview = UNLICENSED_PREVIEW_USERS.find((u) => norm(u?.email) === e);
+  if (preview) {
+    return {
+      ok: true,
+      profile: {
+        email: clean(preview.email).toLowerCase(),
+        name: clean(preview.name),
+        phone: clean(preview.phone),
+        state: clean(preview.state),
+        applicationId: clean(preview.applicationId)
+      }
+    };
+  }
 
   let hit = null;
   if (e) hit = list.find((r) => norm(r?.email) === e) || null;
