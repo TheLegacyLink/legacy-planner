@@ -1,6 +1,6 @@
-import { loadJsonStore, saveJsonStore } from '../../../../../../lib/blobJsonStore';
+import { loadJsonStore, saveJsonStore } from '../../../../../lib/blobJsonStore';
 import { CODES_PATH, issueSession, sha256 } from '../_lib';
-import { clean } from '../../../../../../lib/licensedAgentMatch';
+import { clean } from '../../../../../lib/licensedAgentMatch';
 
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));

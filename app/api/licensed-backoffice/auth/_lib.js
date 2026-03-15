@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import { createHash, randomBytes } from 'crypto';
-import { loadJsonStore, saveJsonStore } from '../../../../../lib/blobJsonStore';
-import { clean, findLicensedByEmail, isStrongAliasMatch, matchLicensedAgent } from '../../../../../lib/licensedAgentMatch';
+import { loadJsonStore, saveJsonStore } from '../../../../lib/blobJsonStore';
+import { clean, findLicensedByEmail, isStrongAliasMatch, matchLicensedAgent } from '../../../../lib/licensedAgentMatch';
 
 export const ALIASES_PATH = 'stores/licensed-backoffice-email-aliases.json';
 export const ALIAS_REVIEW_PATH = 'stores/licensed-backoffice-alias-review.json';

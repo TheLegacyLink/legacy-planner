@@ -1,4 +1,4 @@
-import { clean } from '../../../../../../lib/licensedAgentMatch';
+import { clean } from '../../../../../lib/licensedAgentMatch';
 import { issueSession, resolveLicensedProfile } from '../_lib';
 
 export async function POST(req) {

@@ -1,5 +1,5 @@
 import { sessionFromToken } from '../_lib';
-import { clean } from '../../../../../../lib/licensedAgentMatch';
+import { clean } from '../../../../../lib/licensedAgentMatch';
 
 export async function GET(req) {
   const auth = clean(req.headers.get('authorization'));
