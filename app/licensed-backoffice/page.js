@@ -932,7 +932,10 @@ export default function LicensedBackofficePage() {
               <h2 style={{ margin: 0, fontSize: 28 }}>Licensed Agent Back Office</h2>
               <p style={{ margin: '6px 0 0', color: '#9CA3AF' }}>{session.name} • {session.email} • {session.homeState || 'State Pending'}</p>
             </div>
-            <button onClick={logout} style={{ borderRadius: 10, border: '1px solid #334155', padding: '8px 12px', background: '#111827', color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>Sign Out</button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <a href="/inner-circle-hub" className="ghost" style={{ textDecoration: 'none' }}>Open Inner Circle</a>
+              <button onClick={logout} style={{ borderRadius: 10, border: '1px solid #334155', padding: '8px 12px', background: '#111827', color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>Sign Out</button>
+            </div>
           </div>
         </header>
 

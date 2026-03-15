@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'crypto';
 import nodemailer from 'nodemailer';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import { sessionFromToken } from '../licensed-backoffice/auth/_lib';
 
 const STORE_PATH = 'stores/inner-circle-hub-members.json';
 
@@ -119,6 +120,27 @@ export async function POST(req) {
   const body = await req.json().catch(() => ({}));
   const action = clean(body?.action || '').toLowerCase();
   const rows = await loadJsonStore(STORE_PATH, []);
+
+  if (action === 'authenticate_from_licensed') {
+    const auth = clean(req.headers.get('authorization'));
+    const token = auth.toLowerCase().startsWith('bearer ') ? clean(auth.slice(7)) : '';
+    if (!token) return Response.json({ ok: false, error: 'missing_token' }, { status: 401 });
+
+    const licensed = await sessionFromToken(token);
+    if (!licensed?.email) return Response.json({ ok: false, error: 'invalid_session' }, { status: 401 });
+
+    const idxs = matchingIndexesByEmail(rows, licensed.email);
+    if (!idxs.length) return Response.json({ ok: false, error: 'inner_circle_not_found' }, { status: 404 });
+
+    const active = idxs.map((i) => rows[i]).find((r) => Boolean(r?.active));
+    if (!active) return Response.json({ ok: false, error: 'onboarding_locked' }, { status: 403 });
+
+    const member = {
+      ...safeMember(active),
+      applicantName: clean(active?.applicantName || licensed?.name || active?.email)
+    };
+    return Response.json({ ok: true, member });
+  }
 
   if (action === 'authenticate') {
     const email = clean(body?.email).toLowerCase();

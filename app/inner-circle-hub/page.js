@@ -43,6 +43,14 @@ function rowTs(row = {}) {
   const t = new Date(raw || 0).getTime();
   return Number.isFinite(t) ? t : 0;
 }
+
+function monthShortFromKey(key = '') {
+  const m = String(key || '').match(/^(\d{4})-(\d{2})$/);
+  if (!m) return key || '';
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, 1);
+  return d.toLocaleDateString('en-US', { month: 'short' });
+}
+
 function inWindow(ts = 0, windowKey = 'all') {
   if (!ts || windowKey === 'all') return Boolean(ts);
   const d = new Date(ts);
@@ -325,6 +333,71 @@ export default function InnerCircleHubPage() {
     return { ...totals, count: rows.length, approved, approvalRate };
   }, [filteredProductionRows]);
 
+  const productionFinancials = useMemo(() => {
+    const rows = personalProduction.rows || [];
+    const events = rows.map((r, i) => {
+      const t = clean(r?.policyType || r?.appType || '').toLowerCase();
+      const sourceType = t.includes('sponsorship') ? 'sponsorship' : (t.includes('inner circle') ? 'inner_circle' : 'other');
+      const approvedAt = clean(r?.approvedAt || r?.updatedAt || r?.submittedAt || r?.createdAt || '');
+      const paidAt = clean(r?.payoutPaidAt || '');
+      const payoutStatus = clean(r?.payoutStatus || '').toLowerCase();
+      const paid = payoutStatus === 'paid' || Boolean(paidAt);
+      const amount = Number(r?.advancePayout || r?.payoutAmount || 0) || 0;
+      const expectedPayoutAt = clean(r?.payoutDueAt || (approvedAt ? new Date(new Date(approvedAt).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() : ''));
+      return {
+        id: clean(r?.id || `prod_${i}`),
+        applicant: clean(r?.applicantName || 'Applicant'),
+        policyType: clean(r?.policyType || r?.appType || ''),
+        sourceType,
+        status: paid ? 'paid' : 'pending',
+        amount,
+        qualifiedAt: approvedAt,
+        paidAt,
+        expectedPayoutAt
+      };
+    });
+
+    const allTimePaid = events.filter((e) => e.status === 'paid').reduce((a, e) => a + e.amount, 0);
+    const allTimePending = events.filter((e) => e.status === 'pending').reduce((a, e) => a + e.amount, 0);
+
+    const now = new Date();
+    const isThisMonth = (iso = '') => {
+      const d = new Date(iso || 0);
+      if (Number.isNaN(d.getTime())) return false;
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    };
+
+    const thisMonthPaid = events.filter((e) => e.status === 'paid' && isThisMonth(e.paidAt || e.qualifiedAt)).reduce((a, e) => a + e.amount, 0);
+    const thisMonthPending = events.filter((e) => e.status === 'pending' && isThisMonth(e.qualifiedAt)).reduce((a, e) => a + e.amount, 0);
+
+    const byMonth = new Map();
+    for (const e of events) {
+      const d = new Date((e.status === 'paid' ? (e.paidAt || e.qualifiedAt) : e.qualifiedAt) || 0);
+      if (Number.isNaN(d.getTime())) continue;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      byMonth.set(key, (byMonth.get(key) || 0) + Number(e.amount || 0));
+    }
+    const trend = [...byMonth.entries()]
+      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .slice(-6)
+      .map(([key, amount]) => ({ key, label: monthShortFromKey(key), amount: Number(amount || 0) }));
+
+    const sourceTotals = {
+      sponsorship: events.filter((e) => e.sourceType === 'sponsorship').reduce((a, e) => a + e.amount, 0),
+      inner_circle: events.filter((e) => e.sourceType === 'inner_circle').reduce((a, e) => a + e.amount, 0),
+      other: events.filter((e) => e.sourceType === 'other').reduce((a, e) => a + e.amount, 0)
+    };
+    const sourceSum = sourceTotals.sponsorship + sourceTotals.inner_circle + sourceTotals.other;
+
+    const upcoming = events
+      .filter((e) => e.status === 'pending')
+      .sort((a, b) => new Date(a.expectedPayoutAt || a.qualifiedAt || 0).getTime() - new Date(b.expectedPayoutAt || b.qualifiedAt || 0).getTime())
+      .slice(0, 8);
+
+    return { allTimePaid, allTimePending, thisMonthPaid, thisMonthPending, trend, sourceTotals, sourceSum, upcoming };
+  }, [personalProduction.rows]);
+
+
   const periodTotals = useMemo(() => {
     const key = trackerPeriod === 'weekly' ? 'weekly' : trackerPeriod === 'monthly' ? 'monthly' : 'daily';
     const s = activityStats?.[key] || {};
@@ -532,6 +605,39 @@ export default function InnerCircleHubPage() {
     }
   }, [member]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || member) return;
+    let canceled = false;
+
+    async function tryLicensedSession() {
+      const token = clean(window.localStorage.getItem('licensed_backoffice_token') || '');
+      if (!token) return;
+
+      try {
+        const res = await fetch('/api/inner-circle-hub-members', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ action: 'authenticate_from_licensed' })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!canceled && res.ok && data?.ok && data?.member) {
+          setMember(data.member);
+          localStorage.setItem(SESSION_KEY, JSON.stringify(data.member));
+          setError('');
+        }
+      } catch {
+        // silent fallback to manual login
+      }
+    }
+
+    tryLicensedSession();
+    return () => { canceled = true; };
+  }, [member]);
+
   async function login(e) {
     e.preventDefault();
     setError('');
@@ -659,6 +765,7 @@ export default function InnerCircleHubPage() {
           <p style={{ margin: 0, color: '#c8a96b', fontWeight: 700, letterSpacing: '.06em' }}>THE LEGACY LINK</p>
           <h2 style={{ marginTop: 8, marginBottom: 6, color: '#fff' }}>Inner Circle — VIP Lounge</h2>
           <p style={{ marginTop: 0, color: '#cbd5e1' }}>Member Login</p>
+          <p style={{ marginTop: -4, color: '#93c5fd', fontSize: 13 }}>If you’re already signed into Licensed Back Office, this page will auto-connect.</p>
           {!forgotMode ? (
             <form onSubmit={login} className="settingsGrid" style={{ rowGap: 12 }}>
               <label style={{ color: '#e2e8f0' }}>Email<input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
@@ -1004,7 +1111,70 @@ export default function InnerCircleHubPage() {
             {tab === 'tracker' ? (
               <div style={{ display: 'grid', gap: 12 }}>
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
-                  <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+  
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(290px,1fr))', gap: 16 }}>
+                  <div style={{ border: '1px solid #2A3142', borderRadius: 16, background: 'rgba(168, 85, 247, 0.14)', padding: 20, minHeight: 150 }}>
+                    <div style={{ color: '#C4B5FD', fontSize: 14, marginBottom: 8 }}>All-Time Paid</div>
+                    <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1.08 }}>${productionFinancials.allTimePaid.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                  </div>
+                  <div style={{ border: '1px solid #2A3142', borderRadius: 16, background: 'rgba(245, 158, 11, 0.14)', padding: 20, minHeight: 150 }}>
+                    <div style={{ color: '#FCD34D', fontSize: 14, marginBottom: 8 }}>All-Time Pending</div>
+                    <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1.08 }}>${productionFinancials.allTimePending.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                  </div>
+                  <div style={{ border: '1px solid #2A3142', borderRadius: 16, background: 'rgba(34, 197, 94, 0.14)', padding: 20, minHeight: 150 }}>
+                    <div style={{ color: '#86EFAC', fontSize: 14, marginBottom: 8 }}>This Month Paid</div>
+                    <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1.08 }}>${productionFinancials.thisMonthPaid.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                  </div>
+                  <div style={{ border: '1px solid #2A3142', borderRadius: 16, background: 'rgba(59, 130, 246, 0.14)', padding: 20, minHeight: 150 }}>
+                    <div style={{ color: '#93C5FD', fontSize: 14, marginBottom: 8 }}>This Month Pending</div>
+                    <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1.08 }}>${productionFinancials.thisMonthPending.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 12 }}>
+                  <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
+                    <strong style={{ color: '#fff' }}>Monthly Earnings Trend</strong>
+                    <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+                      {productionFinancials.trend.map((t) => {
+                        const max = Math.max(...productionFinancials.trend.map((x) => Number(x.amount || 0)), 1);
+                        const w = Math.max(4, Math.round((Number(t.amount || 0) / max) * 100));
+                        return (
+                          <div key={`prod-trend-${t.key}`} style={{ display: 'grid', gridTemplateColumns: '42px 1fr 100px', gap: 8, alignItems: 'center' }}>
+                            <span style={{ color: '#9CA3AF', fontSize: 12 }}>{t.label}</span>
+                            <div style={{ height: 10, borderRadius: 999, background: '#1F2937', overflow: 'hidden' }}><div style={{ width: `${w}%`, height: '100%', background: 'linear-gradient(90deg,#2563EB,#60A5FA)' }} /></div>
+                            <span style={{ color: '#E5E7EB', fontSize: 12, textAlign: 'right' }}>${Number(t.amount || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                          </div>
+                        );
+                      })}
+                      {!productionFinancials.trend.length ? <small className="muted">No trend data yet.</small> : null}
+                    </div>
+                  </div>
+
+                  <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
+                    <strong style={{ color: '#fff' }}>Income Source Breakdown</strong>
+                    <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+                      {[
+                        ['Sponsorship', 'sponsorship', '#10B981'],
+                        ['Inner Circle', 'inner_circle', '#3B82F6'],
+                        ['Other Policies', 'other', '#F59E0B']
+                      ].map(([label, key, color]) => {
+                        const amt = Number(productionFinancials.sourceTotals[key] || 0);
+                        const pct = productionFinancials.sourceSum > 0 ? Math.round((amt / productionFinancials.sourceSum) * 100) : 0;
+                        return (
+                          <div key={`prod-src-${key}`}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                              <span>{label}</span>
+                              <span>{pct}% • ${amt.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                            </div>
+                            <div style={{ height: 8, borderRadius: 999, background: '#1F2937', overflow: 'hidden' }}><div style={{ width: `${Math.max(2, pct)}%`, height: '100%', background: color }} /></div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
                     <strong style={{ color: '#fff', fontSize: 17 }}>Production Tracker</strong>
                     <div className="panelRow" style={{ gap: 6, flexWrap: 'wrap' }}>
                       <button type="button" className={trackerPeriod === 'daily' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setTrackerPeriod('daily')}>Daily</button>
