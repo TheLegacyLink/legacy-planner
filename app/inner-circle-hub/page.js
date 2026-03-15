@@ -1305,6 +1305,11 @@ export default function InnerCircleHubPage() {
 
                 <small className="muted">Showing: {productionWindow === 'month' ? 'This Month' : productionWindow === 'lastMonth' ? 'Last Month' : 'All Time'} • {productionFilter === 'all' ? 'All Policy Types' : productionFilter}</small>
 
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <span className="pill onpace">Policy Payout: Every Friday</span>
+                  <span className="pill neutral">Licensed Incentive Payout: Monthly</span>
+                </div>
+
                 <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
                   <div style={{ color: '#fff', fontWeight: 700 }}>Licensed Monthly Incentive Tracker</div>
                   <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>$1 per Sponsorship Submitted • $10 per App Submitted (paid monthly)</div>
