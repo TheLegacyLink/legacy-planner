@@ -206,6 +206,7 @@ export default function InnerCircleAppSubmitPage() {
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const isAdmin = String(session?.role || '').toLowerCase() === 'admin';
+  const isInnerCircleType = useMemo(() => String(form.appType || '').toLowerCase().includes('inner circle'), [form.appType]);
   const requiresContract = useMemo(() => {
     const t = String(form.appType || '').toLowerCase();
     return t.includes('sponsorship') || t.includes('bonus') || t.includes('inner circle');
@@ -325,6 +326,12 @@ export default function InnerCircleAppSubmitPage() {
     }
     signedRef.current = contractStatus.signed;
   }, [contractStatus.signed, contractStatus.checkedEmail]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (!isInnerCircleType) return;
+    setAdminMarkedAppReceived(true);
+  }, [isAdmin, isInnerCircleType]);
 
   const canSubmit = useMemo(() => {
     const writerOk = form.policyWriterName === 'Other'
@@ -749,6 +756,11 @@ export default function InnerCircleAppSubmitPage() {
                         <button type="button" className="ghost" onClick={adminMarkSigned} disabled={contractEmailBusy}>
                           Mark Signed (Admin)
                         </button>
+                        {isInnerCircleType ? (
+                          <button type="button" className="ghost" onClick={() => setAdminMarkedAppReceived(true)}>
+                            Quick Action: Mark Received (Inner Circle)
+                          </button>
+                        ) : null}
                         <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <input
                             type="checkbox"
