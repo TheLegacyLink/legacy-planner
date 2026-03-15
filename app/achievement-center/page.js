@@ -256,6 +256,11 @@ export default function AchievementCenterPage() {
         const localMember = typeof window !== 'undefined' ? JSON.parse(window.localStorage.getItem('inner_hub_member_v1') || 'null') : null;
         const token = typeof window !== 'undefined' ? clean(window.localStorage.getItem('licensed_backoffice_token') || '') : '';
 
+        const qp = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || '') : new URLSearchParams('');
+        const qName = clean(qp.get('name') || '');
+        const qEmail = clean(qp.get('email') || '').toLowerCase();
+        const qLicensed = qp.get('licensed') === '1';
+
         let licensedProfile = null;
         if (token) {
           const meRes = await fetch('/api/licensed-backoffice/auth/me', { headers: { Authorization: `Bearer ${token}` } });
@@ -263,21 +268,30 @@ export default function AchievementCenterPage() {
           if (meData?.ok && meData?.profile) licensedProfile = meData.profile;
         }
 
-        const idName = clean(licensedProfile?.name || localMember?.applicantName || localMember?.name || '');
-        const idEmail = clean(licensedProfile?.email || localMember?.email || '').toLowerCase();
+        const idName = clean(licensedProfile?.name || localMember?.applicantName || localMember?.name || qName || '');
+        const idEmail = clean(licensedProfile?.email || localMember?.email || qEmail || '').toLowerCase();
 
-        const [policyRes, sponsorRes, badgeRes] = await Promise.all([
+        const [policyRes, sponsorRes, badgeRes, innerRes] = await Promise.all([
           fetch('/api/policy-submissions', { cache: 'no-store' }),
           fetch('/api/sponsorship-applications', { cache: 'no-store' }),
-          fetch(`/api/achievement-center?email=${encodeURIComponent(idEmail)}&name=${encodeURIComponent(idName)}`, { cache: 'no-store' })
+          fetch(`/api/achievement-center?email=${encodeURIComponent(idEmail)}&name=${encodeURIComponent(idName)}`, { cache: 'no-store' }),
+          fetch('/api/inner-circle-hub-members', { cache: 'no-store' })
         ]);
 
         const policyData = policyRes.ok ? await policyRes.json().catch(() => ({})) : {};
         const sponsorData = sponsorRes.ok ? await sponsorRes.json().catch(() => ({})) : {};
         const badgeData = badgeRes.ok ? await badgeRes.json().catch(() => ({})) : {};
+        const innerData = innerRes.ok ? await innerRes.json().catch(() => ({})) : {};
+
+        const innerRows = Array.isArray(innerData?.rows) ? innerData.rows : [];
+        const innerActive = innerRows.some((r) => {
+          const e = clean(r?.email || '').toLowerCase();
+          const n = clean(r?.applicantName || r?.name || '').toLowerCase();
+          return Boolean(r?.active) && ((idEmail && e === idEmail) || (idName && n === idName.toLowerCase()));
+        });
 
         if (canceled) return;
-        setIdentity({ name: idName, email: idEmail, isLicensed: Boolean(licensedProfile?.email) });
+        setIdentity({ name: idName, email: idEmail, isLicensed: Boolean(licensedProfile?.email || localMember?.active || qLicensed || innerActive) });
         setPolicyRows(Array.isArray(policyData?.rows) ? policyData.rows : []);
         setSponsorshipRows(Array.isArray(sponsorData?.rows) ? sponsorData.rows : []);
         setStoredUnlocked(new Set(Array.isArray(badgeData?.row?.unlockedKeys) ? badgeData.row.unlockedKeys : []));
@@ -416,9 +430,10 @@ export default function AchievementCenterPage() {
   useEffect(() => {
     if (bootRef.current) return;
     if (loading) return;
+    if (!identity?.name && !identity?.email) return;
     bootRef.current = true;
     runUnlockCheck('auto_load');
-  }, [loading]);
+  }, [loading, identity?.name, identity?.email]);
 
   const unlockedCount = unlockedKeys.size;
   const totalCount = MASTER_BADGES.length;

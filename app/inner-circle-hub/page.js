@@ -1671,7 +1671,7 @@ export default function InnerCircleHubPage() {
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, overflow: 'hidden', background: '#020617' }}>
                   <iframe
                     title="Achievement Center"
-                    src="/achievement-center"
+                    src={`/achievement-center?name=${encodeURIComponent(member?.applicantName || member?.name || '')}&email=${encodeURIComponent(member?.email || '')}&licensed=1`}
                     style={{ width: '100%', minHeight: '1350px', border: 0, background: '#020617' }}
                   />
                 </div>

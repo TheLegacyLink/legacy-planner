@@ -1443,7 +1443,7 @@ export default function LicensedBackofficePage() {
 
             {tab === 'awards' ? (
               <div style={{ border: '1px solid #2A3142', borderRadius: 12, overflow: 'hidden', background: '#0F172A' }}>
-                <iframe title="Achievement Center" src="/achievement-center" style={{ width: '100%', minHeight: 1200, border: 0, background: '#020617' }} />
+                <iframe title="Achievement Center" src={`/achievement-center?name=${encodeURIComponent(session?.name || '')}&email=${encodeURIComponent(session?.email || '')}&licensed=1`} style={{ width: '100%', minHeight: 1200, border: 0, background: '#020617' }} />
               </div>
             ) : null}
 
