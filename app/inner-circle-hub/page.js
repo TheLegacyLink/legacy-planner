@@ -1444,6 +1444,7 @@ export default function InnerCircleHubPage() {
                 <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
                   <div style={{ color: '#fff', fontWeight: 700 }}>Weekly Approval Payout (Following Friday)</div>
                   <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>F&G/NLG approvals are queued for payout the following Friday.</div>
+                  <div style={{ color: '#94A3B8', marginTop: 4, fontSize: 12 }}>Cutoff: approvals logged by Thursday 11:59 PM CT roll into the next Friday cycle.</div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                     <span className="pill neutral">Next Friday: {productionFinancials.nextApprovalPayoutDate ? new Date(productionFinancials.nextApprovalPayoutDate).toLocaleDateString() : '—'}</span>
                     <span className="pill onpace">Est. Approval Payout: ${Number(productionFinancials.nextApprovalPayoutAmount || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
