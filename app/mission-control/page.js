@@ -958,9 +958,17 @@ export default function MissionControl() {
         </div>
 
         {Object.keys(unlicensedStageCounts || {}).length ? (
-          <div className="panelRow" style={{ gap: '.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+          <div className="panelRow" style={{ gap: '.5rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
             {Object.entries(unlicensedStageCounts).map(([label, count]) => (
               <span key={label} className="pill neutral">{label}: {count}</span>
+            ))}
+          </div>
+        ) : null}
+
+        {Object.keys(unlicensedBonusCounts || {}).length ? (
+          <div className="panelRow" style={{ gap: '.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+            {Object.entries(unlicensedBonusCounts).map(([label, count]) => (
+              <span key={`bonus-${label}`} className={`pill ${label === 'Eligible' ? 'onpace' : label === 'Expired' ? 'atrisk' : 'neutral'}`}>Bonus {label}: {count}</span>
             ))}
           </div>
         ) : null}
@@ -976,6 +984,9 @@ export default function MissionControl() {
                 <th>Resident State</th>
                 <th>Current Stage</th>
                 <th>Progress</th>
+                <th>Bonus Eligibility</th>
+                <th>Referrer Bonus</th>
+                <th>Days Left</th>
                 <th>Updated</th>
               </tr>
             </thead>
@@ -987,6 +998,9 @@ export default function MissionControl() {
                   <td>{r.residentState || '—'}</td>
                   <td>{r.stageLabel || 'Not Started'}</td>
                   <td>{Number(r.completionPct || 0)}%</td>
+                  <td>{r.bonusStatus || 'In Progress'}</td>
+                  <td>{r.referrerName ? `${r.referrerName} ($${Number(r.referrerBonus || 100).toLocaleString()})` : `Pending Mapping ($${Number(r.referrerBonus || 100).toLocaleString()})`}</td>
+                  <td>{r.daysLeft == null ? '—' : r.daysLeft}</td>
                   <td>{fmtDate(r.updatedAt)}</td>
                 </tr>
               ))}

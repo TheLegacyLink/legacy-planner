@@ -21,25 +21,32 @@ export async function GET(req) {
 
   const rows = await loadJsonStore(STORE_PATH, []);
   const list = Array.isArray(rows) ? rows : [];
-  const row = list.find((r) => clean(r?.email).toLowerCase() === clean(profile?.email).toLowerCase());
+  const idx = list.findIndex((r) => clean(r?.email).toLowerCase() === clean(profile?.email).toLowerCase());
 
-  return Response.json({
-    ok: true,
-    profile,
-    progress: row || {
-      email: clean(profile?.email).toLowerCase(),
-      name: clean(profile?.name),
-      steps: { ...DEFAULT_STEPS },
-      fields: {
-        examPassDate: '',
-        residentState: clean(profile?.state),
-        residentLicenseNumber: '',
-        residentLicenseActiveDate: '',
-        npn: ''
-      },
-      updatedAt: ''
-    }
-  });
+  const fallback = {
+    email: clean(profile?.email).toLowerCase(),
+    name: clean(profile?.name),
+    referrerName: clean(profile?.referrerName),
+    sprintStartedAt: clean(profile?.sessionCreatedAt) || new Date().toISOString(),
+    steps: { ...DEFAULT_STEPS },
+    fields: {
+      examPassDate: '',
+      residentState: clean(profile?.state),
+      residentLicenseNumber: '',
+      residentLicenseActiveDate: '',
+      npn: ''
+    },
+    bonusRule: { agentBonus: 100, referrerBonus: 100, deadlineDays: 30 },
+    updatedAt: ''
+  };
+
+  const progress = idx >= 0 ? { ...fallback, ...(list[idx] || {}), steps: { ...DEFAULT_STEPS, ...((list[idx] || {}).steps || {}) }, fields: { ...fallback.fields, ...((list[idx] || {}).fields || {}) } } : fallback;
+
+  if (idx < 0) {
+    await saveJsonStore(STORE_PATH, [...list, progress]);
+  }
+
+  return Response.json({ ok: true, profile, progress });
 }
 
 export async function POST(req) {
@@ -59,6 +66,8 @@ export async function POST(req) {
   const base = idx >= 0 ? list[idx] : {
     email: clean(profile?.email).toLowerCase(),
     name: clean(profile?.name),
+    referrerName: clean(profile?.referrerName),
+    sprintStartedAt: clean(profile?.sessionCreatedAt) || new Date().toISOString(),
     steps: { ...DEFAULT_STEPS },
     fields: {
       examPassDate: '',
@@ -66,11 +75,13 @@ export async function POST(req) {
       residentLicenseNumber: '',
       residentLicenseActiveDate: '',
       npn: ''
-    }
+    },
+    bonusRule: { agentBonus: 100, referrerBonus: 100, deadlineDays: 30 }
   };
 
   const next = {
     ...base,
+    bonusRule: { agentBonus: 100, referrerBonus: 100, deadlineDays: 30, ...(base.bonusRule || {}) },
     steps: {
       ...DEFAULT_STEPS,
       ...(base.steps || {}),

@@ -46,7 +46,8 @@ export async function resolveUnlicensedProfile({ email = '', fullName = '', phon
         name: clean(preview.name),
         phone: clean(preview.phone),
         state: clean(preview.state),
-        applicationId: clean(preview.applicationId)
+        applicationId: clean(preview.applicationId),
+        referrerName: clean(preview.referrerName || '')
       }
     };
   }
@@ -75,7 +76,8 @@ export async function resolveUnlicensedProfile({ email = '', fullName = '', phon
       name: clean(`${clean(hit?.firstName)} ${clean(hit?.lastName)}`),
       phone: clean(hit?.phone),
       state: clean(hit?.state),
-      applicationId: clean(hit?.id)
+      applicationId: clean(hit?.id),
+      referrerName: clean(hit?.referralName || hit?.referredBy || '')
     }
   };
 }
@@ -121,5 +123,13 @@ export async function sessionFromToken(token = '') {
   if (!hit) return null;
   const exp = new Date(hit?.expiresAt || 0).getTime();
   if (!Number.isFinite(exp) || exp <= Date.now()) return null;
-  return { email: clean(hit?.email).toLowerCase(), name: clean(hit?.name), phone: clean(hit?.phone), state: clean(hit?.state), applicationId: clean(hit?.applicationId) };
+  return {
+    email: clean(hit?.email).toLowerCase(),
+    name: clean(hit?.name),
+    phone: clean(hit?.phone),
+    state: clean(hit?.state),
+    applicationId: clean(hit?.applicationId),
+    referrerName: clean(hit?.referrerName),
+    sessionCreatedAt: clean(hit?.createdAt)
+  };
 }
