@@ -288,6 +288,51 @@ function dedupeReschedules(rows = []) {
   return { rows: out, changed };
 }
 
+function toHistorySummary(rows = []) {
+  const byKey = new Map();
+
+  for (const row of rows || []) {
+    const sourceId = clean(row?.source_application_id || row?.id || '');
+    const name = clean(row?.applicant_name || `${clean(row?.applicant_first_name || '')} ${clean(row?.applicant_last_name || '')}`.trim());
+    const email = normalize(row?.applicant_email || '');
+    const phone = phoneKey(row?.applicant_phone || '');
+    const key = sourceId || email || phone || normalize(name);
+    if (!key) continue;
+
+    const requested = clean(row?.requested_at_est || '');
+    const createdAt = clean(row?.created_at || row?.updated_at || '');
+    const existing = byKey.get(key);
+
+    const next = {
+      key,
+      source_application_id: sourceId,
+      applicant_name: name,
+      applicant_email: clean(row?.applicant_email || ''),
+      applicant_phone: clean(row?.applicant_phone || ''),
+      applicant_state: clean(row?.applicant_state || ''),
+      first_seen_at: existing?.first_seen_at || createdAt,
+      latest_requested_at_est: requested || existing?.latest_requested_at_est || '',
+      latest_claimed_by: clean(row?.claimed_by || existing?.latest_claimed_by || ''),
+      latest_claim_status: clean(row?.claim_status || existing?.latest_claim_status || ''),
+      seen_versions: Number(existing?.seen_versions || 0) + 1
+    };
+
+    if (existing?.first_seen_at) {
+      const a = new Date(existing.first_seen_at || 0).getTime();
+      const b = new Date(createdAt || 0).getTime();
+      next.first_seen_at = (a && b) ? (a <= b ? existing.first_seen_at : createdAt) : (existing.first_seen_at || createdAt);
+    }
+
+    byKey.set(key, next);
+  }
+
+  return Array.from(byKey.values()).sort((a, b) => {
+    const ta = new Date(a.first_seen_at || 0).getTime();
+    const tb = new Date(b.first_seen_at || 0).getTime();
+    return (tb || 0) - (ta || 0);
+  });
+}
+
 function parseRequestedAtEst(raw = '') {
   const v = clean(raw);
   if (!v) return 0;
@@ -450,6 +495,27 @@ export async function POST(req) {
   const mode = normalize(body?.mode || 'upsert');
   const state = await getStore();
   const store = state.rows;
+
+  if (mode === 'history_report') {
+    const maxSnapshots = Math.max(1, Math.min(200, Number(body?.maxSnapshots || 120)));
+    const snapshots = await loadHistoricStoreSnapshots(STORE_PATH, maxSnapshots);
+
+    const merged = [...store];
+    for (const snap of snapshots) {
+      for (const row of (snap || [])) {
+        if (!row || typeof row !== 'object') continue;
+        merged.push({ ...row });
+      }
+    }
+
+    const summary = toHistorySummary(merged);
+    return Response.json({
+      ok: true,
+      snapshotsScanned: snapshots.length,
+      totalUniqueBookedEver: summary.length,
+      rows: summary
+    });
+  }
 
   if (mode === 'restore_recent') {
     const maxSnapshots = Math.max(1, Math.min(100, Number(body?.maxSnapshots || 40)));
