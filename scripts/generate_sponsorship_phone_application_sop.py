@@ -118,17 +118,15 @@ def build():
         f'Send contract link: {CONTRACT_URL}',
         'Walk them through signing while on the call.',
         'Confirm contract is fully signed before continuing.',
-        'Check suitability: confirm whether this prospect is suitable to move forward with the sponsorship application.'
+        'Check suitability: confirm whether this prospect is suitable to move forward with the company policy.'
     ], st, bg='#13261A'))
     story.append(Spacer(1, 8))
 
     story.append(section('Step 5 — Application Submission (After Contract Only)', [
         'Proceed only after contract completion and suitability confirmation.',
-        f'Agent must submit the app on the Legacy Link website here: {APPLICATION_URL}',
-        'Do not submit this on the insurance carrier website.',
-        'Complete sponsorship application accurately.',
-        'Review all fields before final submit.',
+        'If prospect is suitable and chooses to move forward with the policy app, continue to complete the application and review all fields before submitting.',
         'If prospect is not suitable or decides they do not need a policy, agent still submits the app on the Legacy Link website so onboarding can begin.',
+        f'Agent must submit the app on the Legacy Link website here: {APPLICATION_URL}',
         'In that case, click the button indicating they are not moving forward with the company insurance policy.',
         'Confirm successful submission and next steps.'
     ], st))
