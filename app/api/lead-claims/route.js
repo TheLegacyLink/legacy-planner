@@ -38,6 +38,19 @@ const AGENT_TIMEZONE_BY_NAME = {
 
 const ZONE_OFFSET = { ET: -5, CT: -6, MT: -7, PT: -8, AKT: -9, HT: -10, AT: -4 };
 
+const MANUAL_BOOKING_FALLBACK = [
+  { id: 'lc_fb_rochelle_g', source_application_id: 'manual_rochelle_g_20260315', applicant_name: 'Rochelle G', applicant_state: 'GA', requested_at_est: '2026-03-15 8:30 PM', referred_by: 'Link' },
+  { id: 'lc_fb_haneef_s', source_application_id: 'manual_haneef_s_20260316', applicant_name: 'Haneef S', applicant_state: 'CO', requested_at_est: '2026-03-16 9:00 AM', referred_by: 'Link' },
+  { id: 'lc_fb_juan_v', source_application_id: 'manual_juan_v_20260316', applicant_name: 'Juan V', applicant_state: 'OK', requested_at_est: '2026-03-16 11:00 AM', referred_by: 'Link' },
+  { id: 'lc_fb_leaundra_c', source_application_id: 'manual_leaundra_c_20260317', applicant_name: 'LeAundra C', applicant_state: 'AL', requested_at_est: '2026-03-17 11:00 AM CT', referred_by: 'Link' },
+  { id: 'lc_fb_james_f', source_application_id: 'manual_james_f_20260317', applicant_name: 'James F', applicant_state: 'AZ', requested_at_est: '2026-03-17 1:00 PM', referred_by: 'Link' },
+  { id: 'lc_fb_curtis_c', source_application_id: 'manual_curtis_c_20260317', applicant_name: 'Curtis C', applicant_state: 'OH', requested_at_est: '2026-03-17 1:30 PM', referred_by: 'Link' },
+  { id: 'lc_fb_latoya_l', source_application_id: 'manual_latoya_l_20260318', applicant_name: 'LaToya L', applicant_state: 'MD', requested_at_est: '2026-03-18 1:00 PM', referred_by: 'Link' },
+  { id: 'lc_fb_teewanna_c', source_application_id: 'manual_teewanna_c_20260318', applicant_name: 'Teewanna C', applicant_state: 'GA', requested_at_est: '2026-03-18 8:30 PM', referred_by: 'Link' },
+  { id: 'lc_fb_javion_b', source_application_id: 'manual_javion_b_20260319', applicant_name: 'Javion B', applicant_state: 'VA', requested_at_est: '2026-03-19 11:00 AM', referred_by: 'Link' },
+  { id: 'lc_fb_lenord_l', source_application_id: 'manual_lenord_l_20260320', applicant_name: 'Lenord L', applicant_state: 'VA', requested_at_est: '2026-03-20 12:00 PM', referred_by: 'Link' }
+];
+
 function clean(v = '') {
   return String(v || '').trim();
 }
@@ -590,6 +603,45 @@ function toBonusClaimRow(row = {}) {
   };
 }
 
+function applyManualBookingFallback(rows = []) {
+  const list = Array.isArray(rows) ? [...rows] : [];
+  let changed = false;
+
+  const existingBySource = new Set(list.map((r) => clean(r?.source_application_id)).filter(Boolean));
+  const existingByName = new Set(list.map((r) => applicantNameKey(r?.applicant_name || '')).filter(Boolean));
+
+  for (const m of MANUAL_BOOKING_FALLBACK) {
+    const source = clean(m?.source_application_id);
+    const nameKey = applicantNameKey(m?.applicant_name || '');
+    if ((source && existingBySource.has(source)) || (nameKey && existingByName.has(nameKey))) continue;
+
+    list.push({
+      id: clean(m?.id) || `lc_fb_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      source_type: 'sponsorship',
+      source_application_id: source,
+      applicant_name: clean(m?.applicant_name),
+      applicant_email: '',
+      applicant_phone: '',
+      applicant_state: clean(m?.applicant_state).toUpperCase(),
+      requested_at_est: clean(m?.requested_at_est),
+      booking_timezone: clean(m?.booking_timezone || inferTimezoneFromState(m?.applicant_state) || 'ET'),
+      referred_by: resolveReferrerName(m?.referred_by || 'Link') || 'Kimora Link',
+      claim_status: 'Priority Hold',
+      claimed_by: '',
+      claimed_at: '',
+      priority_agent: resolveReferrerName('Link') || 'Kimora Link',
+      priority_expires_at: plus24hIso(nowIso()),
+      priority_released: false,
+      created_at: nowIso(),
+      updated_at: nowIso(),
+      notes: 'Manual fallback booking restore'
+    });
+    changed = true;
+  }
+
+  return { rows: list, changed };
+}
+
 function dedupeClaimRows(rows = []) {
   const map = new Map();
 
@@ -724,9 +776,10 @@ export async function GET(req) {
     loadJsonStore(BONUS_BOOKINGS_PATH, [])
   ]);
 
-  const sponsorRefreshed = refreshExpiredPriority(sponsorStoreRaw);
+  const sponsorFallback = applyManualBookingFallback(sponsorStoreRaw);
+  const sponsorRefreshed = refreshExpiredPriority(sponsorFallback.rows);
   const sponsorRows = sponsorRefreshed.rows;
-  if (sponsorRefreshed.changed) await saveJsonStore(SPONSORSHIP_BOOKINGS_PATH, sponsorRows);
+  if (sponsorFallback.changed || sponsorRefreshed.changed) await saveJsonStore(SPONSORSHIP_BOOKINGS_PATH, sponsorRows);
 
   const bonusClaimRows = (bonusRowsRaw || []).map((r) => applyPriorityDefaults(toBonusClaimRow(r)));
 
@@ -785,11 +838,15 @@ export async function POST(req) {
 
   if (!actor) return Response.json({ ok: false, error: 'invalid_actor' }, { status: 401 });
 
-  const [sponsorRows, bonusRows, settings] = await Promise.all([
+  const [sponsorRowsRaw, bonusRows, settings] = await Promise.all([
     loadJsonStore(SPONSORSHIP_BOOKINGS_PATH, []),
     loadJsonStore(BONUS_BOOKINGS_PATH, []),
     getClaimSettings()
   ]);
+
+  const sponsorFallback = applyManualBookingFallback(sponsorRowsRaw);
+  const sponsorRows = sponsorFallback.rows;
+  if (sponsorFallback.changed) await saveJsonStore(SPONSORSHIP_BOOKINGS_PATH, sponsorRows);
 
   if (action === 'set_weekly_claim_cap') {
     if (!isManagerRole(actor.role)) {
