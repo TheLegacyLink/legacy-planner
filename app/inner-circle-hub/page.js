@@ -277,9 +277,15 @@ export default function InnerCircleHubPage() {
       .map((r) => {
         const leads = toNum(r?.kpi?.leadsReceived);
         const bookings = toNum(r?.kpi?.bookingsThisMonth);
-        const submitted = toNum(r?.trackerTotals?.sponsorshipApps);
+        const submitted = Math.max(
+          toNum(r?.trackerTotals?.sponsorshipApps),
+          toNum(r?.kpi?.sponsorshipSubmittedThisMonth)
+        );
         const approved = toNum(r?.kpi?.sponsorshipApprovedThisMonth);
-        const fng = toNum(r?.trackerTotals?.fngSubmittedApps);
+        const fng = Math.max(
+          toNum(r?.trackerTotals?.fngSubmittedApps),
+          toNum(r?.kpi?.policySubmittedThisMonth)
+        );
         const completed = toNum(r?.kpi?.closesThisMonth);
         return {
           name: clean(r?.applicantName),
@@ -1555,7 +1561,7 @@ export default function InnerCircleHubPage() {
                     <button type="button" className={activityType === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('all')}>All</button>
                     <button type="button" className={activityType === 'booked' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('booked')}>Booked ({activitySummary.booked || 0})</button>
                     <button type="button" className={activityType === 'decision' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('decision')}>Sponsorship ({(activitySummary.approved || 0) + (activitySummary.declined || 0)})</button>
-                    <button type="button" className={activityType === 'fng' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('fng')}>FNG Submitted ({activitySummary.fng || 0})</button>
+                    <button type="button" className={activityType === 'fng' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('fng')}>Policy Submitted ({activitySummary.fng || 0})</button>
                     <button type="button" className={activityType === 'completed' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('completed')}>Application Approved ({activitySummary.completed || 0})</button>
                   </div>
 
@@ -1563,7 +1569,7 @@ export default function InnerCircleHubPage() {
                     <small className="muted">Legend:</small>
                     <span className="pill onpace">Booked</span>
                     <span className="pill" style={{ background: '#1e3a8a', color: '#dbeafe', border: '1px solid #1d4ed8' }}>Sponsorship</span>
-                    <span className="pill offpace">FNG Submitted</span>
+                    <span className="pill offpace">Policy Submitted</span>
                     <span className="pill onpace">Application Approved</span>
                   </div>
 
@@ -1580,7 +1586,7 @@ export default function InnerCircleHubPage() {
                           ? (row?.decision === 'declined' ? 'Declined' : 'Approved')
                           : row?.type === 'completed'
                             ? 'Application Approved'
-                            : 'FNG Submitted';
+                            : 'Policy Submitted';
                       const fngHref = `/inner-circle-app-submit?name=${encodeURIComponent(row?.name || '')}&email=${encodeURIComponent(row?.email || '')}&phone=${encodeURIComponent(row?.phone || '')}&referredBy=${encodeURIComponent(member?.applicantName || '')}`;
                       return (
                         <div key={`${row?.type}_${row?.name}_${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 8, border: row?.type === 'booked' ? '1px solid #22c55e' : '1px solid #1f2937', boxShadow: row?.type === 'booked' ? '0 0 0 1px rgba(34,197,94,0.25), 0 0 14px rgba(34,197,94,0.20)' : 'none', borderRadius: 8, padding: '8px 10px', background: '#030a17' }}>
@@ -1783,7 +1789,7 @@ export default function InnerCircleHubPage() {
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>Bookings (Auto)<input type="number" min="0" value={periodTotals.bookings} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>Sponsorship Submitted (Auto)<input type="number" min="0" value={periodTotals.sponsorshipApps} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
                     <label style={{ color: '#dbeafe', fontWeight: 600 }}>Sponsorship Approved (Auto)<input type="number" min="0" value={periodTotals.sponsorshipApproved} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
-                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>FNG Submitted (Auto)<input type="number" min="0" value={periodTotals.fngSubmittedApps} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Policy Submitted (Auto)<input type="number" min="0" value={periodTotals.fngSubmittedApps} disabled readOnly style={{ background: '#111827', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} /></label>
                   </div>
                   <button type="button" className="publicPrimaryBtn" onClick={saveTracker} disabled={savingTracker} style={{ marginTop: 10 }}>{savingTracker ? 'Saving...' : 'Save Daily Calls'}</button>
                 </div>

@@ -113,7 +113,7 @@ function isOwnerMatch(row = {}, ownerName = '', ownerEmail = '') {
   return false;
 }
 
-function rowMatchesOwner(row = {}, ownerName = '', ownerEmail = '', ownerRefCode = '') {
+function rowMatchesOwner(row = {}, ownerName = '', ownerEmail = '', ownerRefCodes = []) {
   if (isOwnerMatch(row, ownerName, ownerEmail)) return true;
   const refCandidates = [
     row?.refCode,
@@ -125,17 +125,22 @@ function rowMatchesOwner(row = {}, ownerName = '', ownerEmail = '', ownerRefCode
     row?.source_ref_code,
     row?.agent_ref_code
   ].map((v) => clean(v).toLowerCase());
-  return Boolean(ownerRefCode && refCandidates.some((r) => r && r === ownerRefCode));
+  const codeSet = new Set((Array.isArray(ownerRefCodes) ? ownerRefCodes : [ownerRefCodes]).map((v) => clean(v).toLowerCase()).filter(Boolean));
+  if (!codeSet.size) return false;
+  return refCandidates.some((r) => r && codeSet.has(r));
 }
 
 function kpiForMember(events = [], policyRows = [], bookingRows = [], sponsorshipApps = [], member = {}, currentMonth = '') {
   const ownerName = clean(member?.applicantName);
   const ownerEmail = clean(member?.email);
-  const ownerRefCode = refCodeFromName(ownerName);
+  const ownerRefCodes = Array.from(new Set([
+    refCodeFromName(ownerName),
+    normalize(ownerName) === 'kimora link' ? 'link' : ''
+  ].filter(Boolean)));
   const appById = new Map((sponsorshipApps || []).map((a) => [clean(a?.id), a]));
   const ownerAppKeys = new Set(
     (sponsorshipApps || [])
-      .filter((a) => rowMatchesOwner(a, ownerName, ownerEmail, ownerRefCode))
+      .filter((a) => rowMatchesOwner(a, ownerName, ownerEmail, ownerRefCodes))
       .map((a) => personKey({
         name: clean(`${a?.firstName || ''} ${a?.lastName || ''}` || a?.name || ''),
         email: clean(a?.email || ''),
@@ -147,14 +152,32 @@ function kpiForMember(events = [], policyRows = [], bookingRows = [], sponsorshi
     const type = normalize(r?.type || '');
     const isAssign = type.includes('assign') || type.includes('release_to_agent') || type.includes('released');
     const ts = r?.createdAt || r?.created_at || r?.timestamp || r?.at || '';
-    return isAssign && monthKeyFromIso(ts) === currentMonth && rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode);
+    return isAssign && monthKeyFromIso(ts) === currentMonth && rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes);
   });
   const leadsReceived = assignedThisMonth.length;
 
   const closesRows = (policyRows || []).filter((r) => {
     if (!normalize(r?.status || '').startsWith('approved')) return false;
     const ts = r?.approvedAt || r?.approved_at || r?.updatedAt || r?.submittedAt || r?.submitted_at || '';
-    return monthKeyFromIso(ts) === currentMonth && rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode);
+    return monthKeyFromIso(ts) === currentMonth && rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes);
+  }).map((r) => ({
+    name: clean(r?.applicantName || r?.name || r?.insuredName || ''),
+    email: clean(r?.applicantEmail || r?.email || ''),
+    phone: clean(r?.applicantPhone || r?.phone || '')
+  }));
+
+  const sponsorshipSubmittedRows = (sponsorshipApps || []).filter((r) => {
+    const ts = r?.submitted_at || r?.createdAt || r?.updatedAt || '';
+    return monthKeyFromIso(ts) === currentMonth && rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes);
+  }).map((r) => ({
+    name: clean(`${r?.firstName || ''} ${r?.lastName || ''}` || r?.name || ''),
+    email: clean(r?.email || ''),
+    phone: clean(r?.phone || '')
+  }));
+
+  const policySubmittedRows = (policyRows || []).filter((r) => {
+    const ts = r?.submittedAt || r?.submitted_at || r?.createdAt || r?.created_at || r?.updatedAt || '';
+    return monthKeyFromIso(ts) === currentMonth && rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes);
   }).map((r) => ({
     name: clean(r?.applicantName || r?.name || r?.insuredName || ''),
     email: clean(r?.applicantEmail || r?.email || ''),
@@ -167,9 +190,9 @@ function kpiForMember(events = [], policyRows = [], bookingRows = [], sponsorshi
     const status = normalize(r?.booking_status || 'booked');
     const bookingQualified = ['booked', 'confirmed', 'completed'].includes(status);
     if (!bookingQualified) return false;
-    if (rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode)) return true;
+    if (rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes)) return true;
     const app = appById.get(clean(r?.source_application_id || ''));
-    if (app && rowMatchesOwner(app, ownerName, ownerEmail, ownerRefCode)) return true;
+    if (app && rowMatchesOwner(app, ownerName, ownerEmail, ownerRefCodes)) return true;
 
     const bookingPersonKey = personKey({
       name: clean(r?.applicant_name || r?.name || ''),
@@ -187,7 +210,7 @@ function kpiForMember(events = [], policyRows = [], bookingRows = [], sponsorshi
     const status = normalize(r?.status || '');
     if (!status.includes('approved')) return false;
     const ts = r?.approved_at || r?.reviewedAt || r?.updatedAt || r?.submitted_at || '';
-    return monthKeyFromIso(ts) === currentMonth && rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode);
+    return monthKeyFromIso(ts) === currentMonth && rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes);
   }).map((r) => ({
     name: clean(`${r?.firstName || ''} ${r?.lastName || ''}` || r?.name || ''),
     email: clean(r?.email || ''),
@@ -197,6 +220,8 @@ function kpiForMember(events = [], policyRows = [], bookingRows = [], sponsorshi
   const closesThisMonth = uniquePeopleCount(closesRows);
   const bookingsThisMonth = uniquePeopleCount(bookingRowsMonth);
   const sponsorshipApprovedThisMonth = uniquePeopleCount(approvedRows);
+  const sponsorshipSubmittedThisMonth = uniquePeopleCount(sponsorshipSubmittedRows);
+  const policySubmittedThisMonth = uniquePeopleCount(policySubmittedRows);
   const closeRate = leadsReceived > 0 ? (closesThisMonth / leadsReceived) * 100 : 0;
   const grossEarned = sponsorshipApprovedThisMonth * 500;
 
@@ -205,6 +230,8 @@ function kpiForMember(events = [], policyRows = [], bookingRows = [], sponsorshi
     bookingsThisMonth,
     closesThisMonth,
     sponsorshipApprovedThisMonth,
+    sponsorshipSubmittedThisMonth,
+    policySubmittedThisMonth,
     closeRate: Number(closeRate.toFixed(1)),
     grossEarned
   };
