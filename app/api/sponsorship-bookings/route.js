@@ -398,12 +398,38 @@ function applyManualRestores(rows = []) {
   return { rows: out, changed };
 }
 
+async function mergeRecentSnapshots(rows = [], maxSnapshots = 20) {
+  const snapshots = await loadHistoricStoreSnapshots(STORE_PATH, maxSnapshots);
+  if (!snapshots.length) return { rows, changed: false, snapshotsScanned: 0 };
+
+  const merged = [...(rows || [])];
+  for (const snap of snapshots) {
+    for (const row of (snap || [])) {
+      if (!row || typeof row !== 'object') continue;
+      if (isExpiredRow(row)) continue;
+      merged.push({ ...row });
+    }
+  }
+
+  const deduped = dedupeReschedules(merged);
+  return {
+    rows: deduped.rows || rows,
+    changed: Boolean(deduped.changed),
+    snapshotsScanned: snapshots.length
+  };
+}
+
 async function getStore() {
   const loaded = await loadJsonStore(STORE_PATH, []);
   const refreshed = refreshExpired(loaded);
   const restored = applyManualRestores(refreshed.rows || []);
-  const deduped = dedupeReschedules(restored.rows || []);
-  return { rows: deduped.rows, changed: Boolean(refreshed.changed || restored.changed || deduped.changed) };
+  const recovered = await mergeRecentSnapshots(restored.rows || [], 20);
+  const deduped = dedupeReschedules(recovered.rows || []);
+  return {
+    rows: deduped.rows,
+    changed: Boolean(refreshed.changed || restored.changed || recovered.changed || deduped.changed),
+    snapshotsScanned: recovered.snapshotsScanned || 0
+  };
 }
 
 async function writeStore(rows) {
