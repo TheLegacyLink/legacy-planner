@@ -46,9 +46,11 @@ This SOP defines the **required call flow** for submitting a sponsorship applica
 
 ## Step 5 — Application Submission (Only After Contract)
 - Only proceed once contract is completed and suitability is confirmed.
-- Direct prospect to submit here: **https://innercirclelink.com/sponsorship-application**
+- Agent must submit the app on the Legacy Link website here: **https://innercirclelink.com/sponsorship-application**
+- Do **not** submit this on the insurance carrier website.
 - Complete sponsorship application accurately and review all fields.
-- If prospect is not suitable or decides not to move forward, instruct them to still submit the application and select the section indicating they are not moving forward.
+- If prospect is not suitable or decides they do not need a policy, agent still submits the app on the Legacy Link website so onboarding can begin.
+- In that case, click the button indicating they are **not moving forward with the company insurance policy**.
 - Confirm submission success and recap what happens next.
 
 ## Step 6 — Close Out + Next Steps
