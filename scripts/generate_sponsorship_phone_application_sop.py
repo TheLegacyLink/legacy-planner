@@ -11,6 +11,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'public' / 'docs' / 'onboarding' / 'legacy-link-sponsorship-phone-application-sop.pdf'
 CONTRACT_URL = 'https://innercirclelink.com/contract-agreement'
+APPLICATION_URL = 'https://innercirclelink.com/sponsorship-application'
 
 
 def styles():
@@ -78,7 +79,8 @@ def build():
         'Joining the agency is NOT contingent on purchasing/submitting a policy.',
         'Contract must be completed first.',
         'Do not proceed to starting the application until contract is signed.',
-        f'Required Contract Link: {CONTRACT_URL}'
+        f'Required Contract Link: {CONTRACT_URL}',
+        f'Required Application Link: {APPLICATION_URL}'
     ], st, bg='#2B1212'))
     story.append(Spacer(1, 8))
 
@@ -112,25 +114,29 @@ def build():
     ], st))
     story.append(Spacer(1, 8))
 
-    story.append(section('Step 4 — Contract Signature (Mandatory)', [
+    story.append(section('Step 4 — Contract Signature + Suitability Check (Mandatory)', [
         f'Send contract link: {CONTRACT_URL}',
         'Walk them through signing while on the call.',
-        'Confirm contract is fully signed before continuing.'
+        'Confirm contract is fully signed before continuing.',
+        'Check suitability: confirm whether this prospect is suitable to move forward with the sponsorship application.'
     ], st, bg='#13261A'))
     story.append(Spacer(1, 8))
 
     story.append(section('Step 5 — Application Submission (After Contract Only)', [
-        'Proceed only after contract completion.',
+        'Proceed only after contract completion and suitability confirmation.',
+        f'Direct prospect to submit here: {APPLICATION_URL}',
         'Complete sponsorship application accurately.',
         'Review all fields before final submit.',
+        'If prospect is not suitable or decides not to move forward, instruct them to still submit the application and select the section indicating they are not moving forward.',
         'Confirm successful submission and next steps.'
     ], st))
     story.append(Spacer(1, 8))
 
-    story.append(section('Step 6 — Close Out + CRM', [
+    story.append(section('Step 6 — Close Out + Next Steps', [
         'Thank them for their time.',
+        f'Let them know to submit the app here: {APPLICATION_URL}',
         'Reconfirm timeline and follow-up process.',
-        'Log complete call notes in CRM immediately.'
+        'Check in within the next 48 hours to make sure everything is moving smoothly.'
     ], st))
 
     doc.build(story, onFirstPage=page_bg, onLaterPages=page_bg)

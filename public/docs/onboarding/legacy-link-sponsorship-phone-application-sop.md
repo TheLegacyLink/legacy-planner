@@ -11,6 +11,9 @@ This SOP defines the **required call flow** for submitting a sponsorship applica
 ## Contract Link (Required)
 - **https://innercirclelink.com/contract-agreement**
 
+## Application Link (Required)
+- **https://innercirclelink.com/sponsorship-application**
+
 ## Approved Applicant Routing (Applies to Everyone Approved)
 - This routing applies to **every approved applicant**.
 - If someone is **licensed** and decides not to do the bonus policy, help them with the contracting process.
@@ -35,20 +38,24 @@ This SOP defines the **required call flow** for submitting a sponsorship applica
 - Clearly state: joining the agency is not contingent on doing a policy.
 - Confirm they understand before moving forward.
 
-## Step 4 — Send Contract + Get Signature (Mandatory)
+## Step 4 — Send Contract + Get Signature + Suitability Check (Mandatory)
 - Send contract link: **https://innercirclelink.com/contract-agreement**
 - Walk them through signing while still on the call.
-- Confirm contract is fully signed.
+- Confirm contract is fully signed before continuing.
+- Check suitability: confirm whether this prospect is suitable to move forward with the sponsorship application.
 
 ## Step 5 — Application Submission (Only After Contract)
-- Only proceed once contract is completed.
+- Only proceed once contract is completed and suitability is confirmed.
+- Direct prospect to submit here: **https://innercirclelink.com/sponsorship-application**
 - Complete sponsorship application accurately and review all fields.
+- If prospect is not suitable or decides not to move forward, instruct them to still submit the application and select the section indicating they are not moving forward.
 - Confirm submission success and recap what happens next.
 
 ## Step 6 — Close Out + Next Steps
 - Thank them for their time.
+- Let them know to submit the app here: **https://innercirclelink.com/sponsorship-application**
 - Reconfirm expected timeline and follow-up process.
-- Log complete notes in CRM immediately after call.
+- Check in with them within the next 48 hours to make sure everything is moving smoothly.
 
 ---
 
