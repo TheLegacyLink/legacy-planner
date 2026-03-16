@@ -124,10 +124,11 @@ def build():
 
     story.append(section('Step 5 — Application Submission (After Contract Only)', [
         'Proceed only after contract completion and suitability confirmation.',
-        'If prospect is suitable and chooses to move forward with the policy app, continue to complete the application and review all fields before submitting.',
-        'If prospect is not suitable or decides they do not need a policy, agent still submits the app on the Legacy Link website so onboarding can begin.',
+        'If prospect is suitable and chooses to move forward with the company policy, continue to complete the application on F&G or National Life Group, and review all fields before submitting.',
+        'If prospect is not suitable or decides they do not need or do not want the company policy, agent still submits the app on the Legacy Link website so onboarding can begin.',
+        'Whether they move forward with completing the company policy or not, the application still needs to be submitted on the Legacy Link website.',
         f'Agent must submit the app on the Legacy Link website here: {APPLICATION_URL}',
-        'In that case, click the button indicating they are not moving forward with the company insurance policy.',
+        'If they are not suitable, do not want the company policy, or do not need the company policy, use the button labeled Applicant Skip App and submit the same information through that path.',
         'Confirm successful submission and next steps.'
     ], st))
     story.append(Spacer(1, 8))
