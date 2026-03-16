@@ -2277,7 +2277,7 @@ export default function InnerCircleHubPage() {
                 {vipPdfLinks.map((item) => {
                   const locked = Boolean(item?.locked);
                   return (
-                    <div key={item.name} style={{ border: `1px solid ${locked ? '#475569' : '#1f2937'}`, borderRadius: 12, padding: 12, background: locked ? '#0f172a' : '#020617', display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8, opacity: locked ? 0.72 : 1 }}>
+                    <div key={item.name} title={locked ? 'Unlocks after 10 submitted sponsorship apps.' : ''} style={{ border: `1px solid ${locked ? '#475569' : '#1f2937'}`, borderRadius: 12, padding: 12, background: locked ? '#0f172a' : '#020617', display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8, opacity: locked ? 0.72 : 1 }}>
                       <strong style={{ color: '#fff' }}>{item.name}</strong>
                       {locked ? (
                         <span className="pill" style={{ background: '#374151', color: '#e5e7eb', border: '1px solid #6b7280' }}>Locked</span>
