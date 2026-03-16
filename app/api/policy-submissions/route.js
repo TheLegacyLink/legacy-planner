@@ -14,6 +14,7 @@ const INVITES_PATH = 'stores/sponsorship-sop-invites.json';
 const AUTH_USERS_PATH = 'stores/sponsorship-sop-auth-users.json';
 const SPONSORSHIP_BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
 const ONBOARDING_DECISIONS_PATH = 'stores/onboarding-decisions.json';
+const TEAM_HIERARCHY_PATH = 'stores/team-hierarchy.json';
 
 const DEFAULT_SKOOL_URL = 'https://www.skool.com/legacylink/about';
 const DEFAULT_YOUTUBE_URL = 'https://youtu.be/SVvU9SvCH9o?si=H9BNtEDzglTuvJaI';
@@ -68,6 +69,13 @@ function isLicensedValue(v = '') {
 
 function normalize(v = '') {
   return clean(v).toLowerCase().replace(/\s+/g, ' ');
+}
+
+function personKey(name = '', email = '') {
+  const em = normalize(email);
+  if (em) return `em:${em}`;
+  const nm = normalize(name).replace(/[^a-z0-9 ]+/g, '').replace(/\s+/g, '_');
+  return nm ? `nm:${nm}` : '';
 }
 
 function refCodeFromName(name = '') {
@@ -241,6 +249,51 @@ async function appendOnboardingDecision(row = {}) {
   });
   await saveJsonStore(ONBOARDING_DECISIONS_PATH, rows);
   return rows[0];
+}
+
+async function upsertTeamHierarchyLink({ referredByName = '', referredByEmail = '', applicantName = '', applicantEmail = '', policyType = '', appType = '', submittedAt = '' } = {}) {
+  const parentName = clean(referredByName);
+  const parentEmail = clean(referredByEmail).toLowerCase();
+  const childName = clean(applicantName);
+  const childEmail = clean(applicantEmail).toLowerCase();
+
+  if ((!parentName && !parentEmail) || (!childName && !childEmail)) {
+    return { ok: false, skipped: true, reason: 'missing_parent_or_child' };
+  }
+
+  const parentKey = personKey(parentName, parentEmail);
+  const childKey = personKey(childName, childEmail);
+  if (!parentKey || !childKey || parentKey === childKey) {
+    return { ok: false, skipped: true, reason: 'invalid_keys' };
+  }
+
+  const list = await loadJsonStore(TEAM_HIERARCHY_PATH, []);
+  const rows = Array.isArray(list) ? list : [];
+  const idx = rows.findIndex((r) => clean(r?.childKey) === childKey);
+  const stamp = nowIso();
+
+  const next = {
+    id: idx >= 0 ? clean(rows[idx]?.id) : `th_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    parentKey,
+    parentName: parentName || clean(rows[idx]?.parentName || ''),
+    parentEmail: parentEmail || clean(rows[idx]?.parentEmail || ''),
+    childKey,
+    childName: childName || clean(rows[idx]?.childName || ''),
+    childEmail: childEmail || clean(rows[idx]?.childEmail || ''),
+    source: 'policy_submission',
+    rating: Number(idx >= 0 ? rows[idx]?.rating : 0) || 0,
+    note: clean(idx >= 0 ? rows[idx]?.note : ''),
+    lastAppType: clean(policyType || appType || (idx >= 0 ? rows[idx]?.lastAppType : '')),
+    lastEventAt: clean(submittedAt || (idx >= 0 ? rows[idx]?.lastEventAt : '') || stamp),
+    createdAt: idx >= 0 ? clean(rows[idx]?.createdAt || stamp) : stamp,
+    updatedAt: stamp
+  };
+
+  if (idx >= 0) rows[idx] = next;
+  else rows.unshift(next);
+
+  await saveJsonStore(TEAM_HIERARCHY_PATH, rows);
+  return { ok: true, row: next };
 }
 
 function normalizedRecord(row = {}) {
@@ -989,9 +1042,17 @@ export async function POST(req) {
     }
 
     const decision = await appendOnboardingDecision(row);
+    const hierarchy = await upsertTeamHierarchyLink({
+      referredByName: row?.referredByName,
+      referredByEmail: row?.referredByEmail,
+      applicantName: row?.applicantName,
+      applicantEmail: row?.applicantEmail,
+      appType: 'Applicant Skip App',
+      submittedAt: nowIso()
+    }).catch((e) => ({ ok: false, error: clean(e?.message || 'hierarchy_link_failed') }));
     const sop = await ensureSopProvisionFromActSubmit(row).catch((e) => ({ ok: false, error: clean(e?.message || 'sop_provision_failed') }));
 
-    return Response.json({ ok: true, decision, sop, noProductionCredit: true });
+    return Response.json({ ok: true, decision, hierarchy, sop, noProductionCredit: true });
   }
 
   if (mode === 'import_base44') {
@@ -1121,12 +1182,22 @@ export async function POST(req) {
   // Bookings are now only auto-expired in sponsorship-bookings route at 24h after booked time.
   const removedFromBookingQueue = 0;
 
+  const hierarchy = await upsertTeamHierarchyLink({
+    referredByName: finalRow?.referredByName,
+    referredByEmail: finalRow?.referredByEmail,
+    applicantName: finalRow?.applicantName,
+    applicantEmail: finalRow?.applicantEmail,
+    policyType: finalRow?.policyType,
+    appType: finalRow?.appType,
+    submittedAt: finalRow?.submittedAt
+  }).catch((e) => ({ ok: false, error: clean(e?.message || 'hierarchy_link_failed') }));
+
   const skipSopProvision = Boolean(body?.skipSopProvision) || normalize(finalRow?.submittedByRole || '').includes('licensed_backoffice');
   const sop = skipSopProvision
     ? { ok: true, skipped: true, reason: 'skip_sop_provision' }
     : await ensureSopProvisionFromActSubmit(finalRow).catch((e) => ({ ok: false, error: clean(e?.message || 'sop_provision_failed') }));
 
-  return Response.json({ ok: true, row: finalRow, sop, removedFromBookingQueue, bookingQueueRetention: 'preserved' });
+  return Response.json({ ok: true, row: finalRow, hierarchy, sop, removedFromBookingQueue, bookingQueueRetention: 'preserved' });
 }
 
 export async function PATCH(req) {

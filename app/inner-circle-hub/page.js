@@ -152,6 +152,7 @@ function availableTabs(member = {}) {
     { key: 'vault', label: 'Resource Vault' },
     { key: 'tracker', label: 'KPI Tracker' },
     { key: 'production', label: 'My Production' },
+    { key: 'team', label: 'Team Tree' },
     { key: 'rewards', label: 'VIP Rewards' },
     { key: 'academy', label: 'IUL Academy' },
     { key: 'awards', label: 'Achievement Center' },
@@ -190,6 +191,8 @@ export default function InnerCircleHubPage() {
   const [activityRows, setActivityRows] = useState([]);
   const [policyRows, setPolicyRows] = useState([]);
   const [onboardingDecisionRows, setOnboardingDecisionRows] = useState([]);
+  const [teamHierarchyRows, setTeamHierarchyRows] = useState([]);
+  const [teamExpanded, setTeamExpanded] = useState({});
   const [productionFilter, setProductionFilter] = useState('all');
   const [productionWindow, setProductionWindow] = useState('month');
   const [pointsHistoryOpen, setPointsHistoryOpen] = useState(false);
@@ -469,6 +472,86 @@ export default function InnerCircleHubPage() {
       return Boolean(nameNorm && (ref === nameNorm || writer === nameNorm));
     });
   }, [onboardingDecisionRows, member?.applicantName, member?.name, member?.email]);
+
+  const teamCards = useMemo(() => {
+    const makeKey = (name = '', email = '') => {
+      const em = clean(email).toLowerCase();
+      if (em) return `em:${em}`;
+      const nm = normName(name).replace(/\s+/g, '_');
+      return nm ? `nm:${nm}` : '';
+    };
+
+    const viewerKey = makeKey(member?.applicantName || member?.name || '', member?.email || '');
+    const rows = Array.isArray(teamHierarchyRows) ? teamHierarchyRows : [];
+    if (!viewerKey || !rows.length) return [];
+
+    const byParent = new Map();
+    for (const r of rows) {
+      const p = clean(r?.parentKey);
+      if (!p) continue;
+      if (!byParent.has(p)) byParent.set(p, []);
+      byParent.get(p).push(r);
+    }
+
+    const direct = byParent.get(viewerKey) || [];
+    const now = Date.now();
+    const inDays = (ts = 0, d = 30) => ts > 0 && (now - ts) <= d * 24 * 60 * 60 * 1000;
+
+    const countDescendants = (childKey = '') => {
+      if (!childKey) return 0;
+      const stack = [...(byParent.get(childKey) || [])];
+      let n = 0;
+      while (stack.length) {
+        const cur = stack.pop();
+        n += 1;
+        const kids = byParent.get(clean(cur?.childKey)) || [];
+        if (kids.length) stack.push(...kids);
+      }
+      return n;
+    };
+
+    const cards = direct.map((r) => {
+      const childName = clean(r?.childName || 'Member');
+      const childNorm = normName(childName);
+      const activity = (policyRows || [])
+        .filter((p) => {
+          const candidates = [p?.submittedBy, p?.policyWriterName, p?.assignedInnerCircleAgent].map(normName).filter(Boolean);
+          return candidates.includes(childNorm);
+        })
+        .sort((a, b) => rowTs(b) - rowTs(a));
+
+      const submitted30 = activity.filter((a) => inDays(rowTs(a), 30)).length;
+      const submitted7 = activity.filter((a) => inDays(rowTs(a), 7)).length;
+      const latest = activity[0] || null;
+      const latestType = latest ? normalizePolicyTypeLabel(latest?.policyType || latest?.appType || 'App') : 'No app yet';
+      const descendants = countDescendants(clean(r?.childKey));
+      const coachRating = Number(r?.rating || 0) || 0;
+
+      const score = Math.min(100,
+        (submitted30 * 15)
+        + (submitted7 > 0 ? 20 : 0)
+        + Math.min(20, descendants * 5)
+        + (coachRating * 8)
+      );
+
+      const momentumLabel = score >= 70 ? 'Lean In' : score >= 35 ? 'Build' : 'Reconnect';
+
+      return {
+        ...r,
+        childName,
+        submitted30,
+        submitted7,
+        latestType,
+        latestAt: latest ? (latest?.submittedAt || latest?.updatedAt || latest?.createdAt || '') : '',
+        descendants,
+        coachRating,
+        score,
+        momentumLabel
+      };
+    });
+
+    return cards.sort((a, b) => b.score - a.score || b.submitted30 - a.submitted30 || a.childName.localeCompare(b.childName));
+  }, [teamHierarchyRows, policyRows, member?.applicantName, member?.name, member?.email]);
 
   const productionStats = useMemo(() => {
     const rows = filteredProductionRows || [];
@@ -766,8 +849,9 @@ export default function InnerCircleHubPage() {
         const activityUrl = `/api/inner-circle-hub-activity?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}`;
 
         const onboardingUrl = `/api/onboarding-decisions?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}`;
+        const teamUrl = `/api/team-hierarchy?viewerName=${encodeURIComponent(member?.applicantName || member?.name || '')}&viewerEmail=${encodeURIComponent(member?.email || '')}`;
 
-        const [kpiRes, dailyRes, scriptsRes, vaultRes, activityRes, progressRes, policiesRes, onboardingRes] = await Promise.all([
+        const [kpiRes, dailyRes, scriptsRes, vaultRes, activityRes, progressRes, policiesRes, onboardingRes, teamRes] = await Promise.all([
           fetch(kpiUrl, { cache: 'no-store' }),
           fetch(dailyUrl, { cache: 'no-store' }),
           fetch('/api/inner-circle-hub-scripts', { cache: 'no-store' }),
@@ -775,7 +859,8 @@ export default function InnerCircleHubPage() {
           fetch(activityUrl, { cache: 'no-store' }),
           fetch('/api/inner-circle-hub-progress', { cache: 'no-store' }),
           fetch('/api/policy-submissions', { cache: 'no-store' }),
-          fetch(onboardingUrl, { cache: 'no-store' })
+          fetch(onboardingUrl, { cache: 'no-store' }),
+          fetch(teamUrl, { cache: 'no-store' })
         ]);
 
         const kpiData = await kpiRes.json().catch(() => ({}));
@@ -786,6 +871,7 @@ export default function InnerCircleHubPage() {
         const progressData = await progressRes.json().catch(() => ({}));
         const policiesData = await policiesRes.json().catch(() => ({}));
         const onboardingData = await onboardingRes.json().catch(() => ({}));
+        const teamData = await teamRes.json().catch(() => ({}));
 
         if (!canceled && kpiRes.ok && kpiData?.ok) setKpi(kpiData.kpi || null);
         if (!canceled && dailyRes.ok && dailyData?.ok) {
@@ -830,6 +916,9 @@ export default function InnerCircleHubPage() {
         if (!canceled && onboardingRes.ok && onboardingData?.ok) {
           setOnboardingDecisionRows(Array.isArray(onboardingData?.rows) ? onboardingData.rows : []);
         }
+        if (!canceled && teamRes.ok && teamData?.ok) {
+          setTeamHierarchyRows(Array.isArray(teamData?.rows) ? teamData.rows : []);
+        }
       } catch {
         if (!canceled) {
           setKpi(null);
@@ -839,6 +928,7 @@ export default function InnerCircleHubPage() {
           setLeaderboard({ month: '', rows: [] });
           setPolicyRows([]);
           setOnboardingDecisionRows([]);
+          setTeamHierarchyRows([]);
         }
       }
     }
@@ -1014,6 +1104,18 @@ export default function InnerCircleHubPage() {
     } finally {
       setSavingTracker(false);
     }
+  }
+
+  async function saveTeamRating(row = {}, rating = 0) {
+    const id = clean(row?.id || '');
+    if (!id) return;
+    const nextRating = Number(rating || 0) || 0;
+    setTeamHierarchyRows((prev) => (Array.isArray(prev) ? prev.map((r) => clean(r?.id) === id ? { ...r, rating: nextRating } : r) : prev));
+    await fetch('/api/team-hierarchy', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, rating: nextRating })
+    }).catch(() => null);
   }
 
   if (!member) {
@@ -1461,6 +1563,79 @@ export default function InnerCircleHubPage() {
                     Sponsorship Submitted: {periodTotals.sponsorshipApps} • Sponsorship Approved: {periodTotals.sponsorshipApproved} • FNG Submitted: {periodTotals.fngSubmittedApps} • App Total: {periodTotals.appsTotal}
                   </p>
                   <small className="muted">Entries Loaded: {dailyRows.length}</small>
+                </div>
+              </div>
+            ) : null}
+
+            {tab === 'team' ? (
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div style={{ border: '1px solid #5f4a23', borderRadius: 14, padding: 16, background: 'linear-gradient(135deg,#1f2937 0%,#0b1020 55%,#111827 100%)' }}>
+                  <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                    <strong style={{ color: '#fff', fontSize: 17 }}>Team Tree (Interactive)</strong>
+                    <small className="muted">Focus on who is taking steps toward you</small>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                    <span className="pill neutral">Direct Team: {teamCards.length}</span>
+                    <span className="pill onpace">Total Downline: {teamCards.reduce((a, c) => a + Number(c?.descendants || 0), 0)}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))' }}>
+                  {teamCards.map((card) => {
+                    const expanded = Boolean(teamExpanded?.[card.id]);
+                    const children = (teamHierarchyRows || []).filter((r) => clean(r?.parentKey) === clean(card?.childKey));
+                    return (
+                      <div key={card.id} style={{ border: '1px solid #334155', borderRadius: 14, background: '#0B1220', padding: 14 }}>
+                        <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                          <div>
+                            <div style={{ color: '#fff', fontWeight: 700 }}>{card.childName}</div>
+                            <small className="muted">{card.childEmail || 'No email on file'}</small>
+                          </div>
+                          <span className={`pill ${card.score >= 70 ? 'onpace' : card.score >= 35 ? 'neutral' : 'offpace'}`}>{card.momentumLabel} • {card.score}</span>
+                        </div>
+
+                        <div style={{ marginTop: 8, color: '#cbd5e1', fontSize: 13 }}>
+                          Latest App: <strong style={{ color: '#f8fafc' }}>{card.latestType}</strong>
+                          {card.latestAt ? <span style={{ color: '#94a3b8' }}> • {new Date(card.latestAt).toLocaleDateString()}</span> : null}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                          <span className="pill neutral">7d Apps: {card.submitted7}</span>
+                          <span className="pill neutral">30d Apps: {card.submitted30}</span>
+                          <span className="pill neutral">Downline: {card.descendants}</span>
+                        </div>
+
+                        <div className="panelRow" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                          <label style={{ color: '#cbd5e1', fontSize: 12 }}>Coach Rating
+                            <select value={Number(card.coachRating || 0)} onChange={(e) => saveTeamRating(card, Number(e.target.value || 0))} style={{ marginLeft: 8, background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '6px 8px' }}>
+                              <option value={0}>Unrated</option>
+                              <option value={1}>1</option>
+                              <option value={2}>2</option>
+                              <option value={3}>3</option>
+                              <option value={4}>4</option>
+                              <option value={5}>5</option>
+                            </select>
+                          </label>
+                          {children.length ? (
+                            <button type="button" className="ghost" onClick={() => setTeamExpanded((p) => ({ ...p, [card.id]: !expanded }))}>
+                              {expanded ? 'Hide Children' : `View Children (${children.length})`}
+                            </button>
+                          ) : null}
+                        </div>
+
+                        {expanded && children.length ? (
+                          <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
+                            {children.map((c) => (
+                              <div key={c.id} style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: '8px 10px', color: '#e2e8f0', fontSize: 13 }}>
+                                {c?.childName || 'Member'}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                  {!teamCards.length ? <small className="muted">No team links yet. As referred apps are submitted, your team tree will populate automatically.</small> : null}
                 </div>
               </div>
             ) : null}
