@@ -311,28 +311,11 @@ export default function InnerCircleHubPage() {
     const ownerNorm = new Set(ownerNames.map(normName).filter(Boolean));
     const ownerSig = new Set(ownerNames.map(nameSig).filter(Boolean));
 
-    const isMine = (r = {}) => {
-      const nameCandidates = [
-        r?.policyWriterName,
-        r?.assignedInnerCircleAgent,
-        r?.submittedBy,
-        r?.referredByName,
-        r?.referredBy,
-        r?.owner,
-        r?.agent,
-        r?.agentName
-      ].map(clean).filter(Boolean);
-      const emailCandidates = [
-        r?.policyWriterEmail,
-        r?.submittedByEmail,
-        r?.referredByEmail,
-        r?.agentEmail,
-        r?.ownerEmail,
-        r?.email
-      ].map((v) => clean(v).toLowerCase()).filter(Boolean);
-
-      if (ownerEmail && emailCandidates.some((e) => e === ownerEmail)) return true;
-      for (const c of nameCandidates) {
+    const matchesOwnerByEmailOrName = (emails = [], names = []) => {
+      const emailList = emails.map((v) => clean(v).toLowerCase()).filter(Boolean);
+      const nameList = names.map(clean).filter(Boolean);
+      if (ownerEmail && emailList.some((e) => e === ownerEmail)) return true;
+      for (const c of nameList) {
         const n = normName(c);
         const sig = nameSig(c);
         if ((n && ownerNorm.has(n)) || (sig && ownerSig.has(sig))) return true;
@@ -340,7 +323,22 @@ export default function InnerCircleHubPage() {
       return false;
     };
 
-    const minePolicies = (policyRows || []).filter((r) => isMine(r));
+    const minePolicies = (policyRows || []).map((r) => {
+      const ownerIsSubmitter = matchesOwnerByEmailOrName(
+        [r?.policyWriterEmail, r?.submittedByEmail, r?.agentEmail, r?.ownerEmail, r?.email],
+        [r?.policyWriterName, r?.assignedInnerCircleAgent, r?.submittedBy, r?.owner, r?.agent, r?.agentName]
+      );
+      const ownerIsReferrer = matchesOwnerByEmailOrName(
+        [r?.referredByEmail],
+        [r?.referredByName, r?.referredBy, r?.referrer]
+      );
+      if (!ownerIsSubmitter && !ownerIsReferrer) return null;
+      return {
+        ...r,
+        __ownerIsSubmitter: ownerIsSubmitter,
+        __ownerIsReferrer: ownerIsReferrer
+      };
+    }).filter(Boolean);
 
     const existingApprovedSponsorshipKeys = new Set(
       minePolicies
@@ -373,12 +371,31 @@ export default function InnerCircleHubPage() {
           month12Payout: 0,
           approvedAt: clean(r?.at || ''),
           submittedAt: clean(r?.at || ''),
-          source: 'sponsorship_approval'
+          source: 'sponsorship_approval',
+          __ownerIsSubmitter: false,
+          __ownerIsReferrer: true
         };
       })
       .filter(Boolean);
 
-    const mine = [...minePolicies, ...syntheticSponsorshipApprovals];
+    const mine = [...minePolicies, ...syntheticSponsorshipApprovals].map((row) => {
+      const approved = isApprovedStatus(row?.status || '');
+      const fgNlg = isFgNlgRow(row);
+      const submitterCredit = Boolean(row?.__ownerIsSubmitter);
+
+      let effectivePoints = Number(computeEffectivePoints(row) || 0);
+      if (fgNlg && !approved) {
+        // Submission credit belongs to whoever submitted the policy app.
+        effectivePoints = submitterCredit ? 50 : 0;
+      }
+
+      const effectiveAdvance = Number(computeEffectiveAdvance(row, effectivePoints) || 0);
+      return {
+        ...row,
+        __effectivePoints: effectivePoints,
+        __effectiveAdvance: effectiveAdvance
+      };
+    });
 
     const byType = {
       sponsorship: 0,
@@ -398,8 +415,8 @@ export default function InnerCircleHubPage() {
       else if (t.includes('inner circle')) byType.innerCircle += 1;
       else if (t.includes('regular')) byType.regular += 1;
       else if (t.includes('juvenile')) byType.juvenile += 1;
-      totalPoints += Number(computeEffectivePoints(row) || 0);
-      advanceTotal += Number(computeEffectiveAdvance(row, computeEffectivePoints(row)) || 0);
+      totalPoints += Number((row?.__effectivePoints ?? computeEffectivePoints(row)) || 0);
+      advanceTotal += Number((row?.__effectiveAdvance ?? computeEffectiveAdvance(row, Number((row?.__effectivePoints ?? computeEffectivePoints(row)) || 0))) || 0);
     }
 
     const sorted = [...mine].sort((a, b) => rowTs(b) - rowTs(a));
@@ -459,8 +476,8 @@ export default function InnerCircleHubPage() {
     const approvalRate = rows.length ? Math.round((approved / rows.length) * 100) : 0;
 
     const totals = rows.reduce((acc, row) => {
-      const points = computeEffectivePoints(row);
-      const advance = computeEffectiveAdvance(row, points);
+      const points = Number((row?.__effectivePoints ?? computeEffectivePoints(row)) || 0);
+      const advance = Number((row?.__effectiveAdvance ?? computeEffectiveAdvance(row, points)) || 0);
       return {
         points: acc.points + points,
         advance: acc.advance + advance,
@@ -488,8 +505,8 @@ export default function InnerCircleHubPage() {
       const paid = payoutStatus === 'paid' || Boolean(paidAt);
       const approved = isApprovedStatus(r?.status || '');
       const fgNlg = isFgNlgRow(r);
-      const points = computeEffectivePoints(r);
-      const amount = computeEffectiveAdvance(r, points);
+      const points = Number((r?.__effectivePoints ?? computeEffectivePoints(r)) || 0);
+      const amount = Number((r?.__effectiveAdvance ?? computeEffectiveAdvance(r, points)) || 0);
       const expectedPayoutAt = clean(r?.payoutDueAt || (approved && fgNlg ? followingWeekFridayIso(approvedAt || submittedAt) : (approvedAt ? new Date(new Date(approvedAt).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() : '')));
       return {
         id: clean(r?.id || `prod_${i}`),
@@ -558,11 +575,13 @@ export default function InnerCircleHubPage() {
       }
       if (isFgNlgRow(r)) {
         const k = monthKeyFromIso(clean(r?.submittedAt || r?.createdAt || r?.updatedAt || ''));
-        return k === previousMonthKey;
+        return k === previousMonthKey && Boolean(r?.__ownerIsSubmitter);
       }
       return false;
     });
-    const monthlyIncentiveAmount = incentiveRowsPrevMonth.reduce((acc, r) => acc + (normalizePolicyTypeLabel(r?.policyType || r?.appType || '').toLowerCase().includes('sponsorship') ? 1 : 50), 0);
+    const prevMonthSponsorshipApprovalsCount = incentiveRowsPrevMonth.filter((r) => normalizePolicyTypeLabel(r?.policyType || r?.appType || '').toLowerCase().includes('sponsorship')).length;
+    const prevMonthFngSubmittedCount = incentiveRowsPrevMonth.filter((r) => !normalizePolicyTypeLabel(r?.policyType || r?.appType || '').toLowerCase().includes('sponsorship')).length;
+    const monthlyIncentiveAmount = (prevMonthSponsorshipApprovalsCount * 1) + (prevMonthFngSubmittedCount * 50);
     const monthlyIncentivePayoutWindow = `${now.toLocaleDateString('en-US', { month: 'short' })} 1-${now.toLocaleDateString('en-US', { month: 'short' })} 5`;
 
     // Weekly approval payout: F&G/NLG approvals paid following Friday
@@ -605,6 +624,8 @@ export default function InnerCircleHubPage() {
       nextPayout,
       monthlyIncentiveAmount,
       monthlyIncentivePayoutWindow,
+      prevMonthSponsorshipApprovalsCount,
+      prevMonthFngSubmittedCount,
       previousMonthKey,
       currentMonthKey,
       nextApprovalPayoutDate,
@@ -621,11 +642,11 @@ export default function InnerCircleHubPage() {
 
   const monthlyLicensedIncentive = useMemo(() => {
     return {
-      submitted: Number(activityStats?.monthly?.sponsorshipSubmitted || 0) || 0,
-      appSubmitted: Number(activityStats?.monthly?.fngSubmitted || 0) || 0,
+      submitted: Number(productionFinancials?.prevMonthSponsorshipApprovalsCount || 0) || 0,
+      appSubmitted: Number(productionFinancials?.prevMonthFngSubmittedCount || 0) || 0,
       total: Number(productionFinancials?.monthlyIncentiveAmount || 0)
     };
-  }, [activityStats, productionFinancials]);
+  }, [productionFinancials]);
 
   const periodTotals = useMemo(() => {
     const key = trackerPeriod === 'weekly' ? 'weekly' : trackerPeriod === 'monthly' ? 'monthly' : 'daily';
@@ -1474,39 +1495,41 @@ export default function InnerCircleHubPage() {
 
                 <small className="muted">Showing: {productionWindow === 'month' ? 'This Month' : productionWindow === 'lastMonth' ? 'Last Month' : 'All Time'} • {productionFilter === 'all' ? 'All Policy Types' : productionFilter}</small>
 
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <span className="pill neutral">Decision Type: Submitted App</span>
-                  <span className="pill offpace">Skipped Apps (Onboarding Only): {skippedAppDecisions.length}</span>
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <span className="pill onpace">Policy Payout: Every Friday</span>
-                  <span className="pill neutral">Licensed Incentive Payout: Monthly</span>
-                </div>
-
-                <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
-                  <div style={{ color: '#fff', fontWeight: 700 }}>Licensed Monthly Incentive Tracker</div>
-                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>$1 sponsorship approvals + $50 F&G/NLG submissions from {monthShortFromKey(productionFinancials.previousMonthKey)} pay out around {productionFinancials.monthlyIncentivePayoutWindow}.</div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                    <span className="pill neutral">Sponsorship Submitted: {monthlyLicensedIncentive.submitted}</span>
-                    <span className="pill offpace">Apps Submitted: {monthlyLicensedIncentive.appSubmitted}</span>
-                    <span className="pill onpace">Est. Payout (1st-5th): ${monthlyLicensedIncentive.total}</span>
+                <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 10 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <span className="pill neutral">Decision: Submitted App</span>
+                    <span className="pill offpace">Skipped Apps: {skippedAppDecisions.length}</span>
+                    <span className="pill onpace">Policy Payout: Every Friday</span>
+                    <span className="pill neutral">Licensed Incentive: Monthly</span>
                   </div>
                 </div>
 
-                <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
-                  <div style={{ color: '#fff', fontWeight: 700 }}>Weekly Approval Payout (Following Friday)</div>
-                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>F&G/NLG approvals are queued for payout the following Friday.</div>
-                  <div style={{ color: '#94A3B8', marginTop: 4, fontSize: 12 }}>Cutoff: approvals logged by Thursday 11:59 PM CT roll into the next Friday cycle.</div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                    <span className="pill neutral">Next Friday: {productionFinancials.nextApprovalPayoutDate ? new Date(productionFinancials.nextApprovalPayoutDate).toLocaleDateString() : '—'}</span>
-                    <span className="pill onpace">Est. Approval Payout: ${Number(productionFinancials.nextApprovalPayoutAmount || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))' }}>
+                  <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
+                    <div style={{ color: '#fff', fontWeight: 700 }}>Licensed Monthly Incentive Tracker</div>
+                    <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>$1 sponsorship approvals + $50 F&G/NLG submissions from {monthShortFromKey(productionFinancials.previousMonthKey)} pay out around {productionFinancials.monthlyIncentivePayoutWindow}.</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                      <span className="pill neutral">Sponsorship Submitted: {monthlyLicensedIncentive.submitted}</span>
+                      <span className="pill offpace">Apps Submitted: {monthlyLicensedIncentive.appSubmitted}</span>
+                      <span className="pill onpace">Est. Payout (1st-5th): ${monthlyLicensedIncentive.total}</span>
+                    </div>
+                  </div>
+
+                  <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
+                    <div style={{ color: '#fff', fontWeight: 700 }}>Weekly Approval Payout (Following Friday)</div>
+                    <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>F&G/NLG approvals are queued for payout the following Friday.</div>
+                    <div style={{ color: '#94A3B8', marginTop: 4, fontSize: 12 }}>Cutoff: approvals logged by Thursday 11:59 PM CT roll into the next Friday cycle.</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                      <span className="pill neutral">Next Friday: {productionFinancials.nextApprovalPayoutDate ? new Date(productionFinancials.nextApprovalPayoutDate).toLocaleDateString() : '—'}</span>
+                      <span className="pill onpace">Est. Approval Payout: ${Number(productionFinancials.nextApprovalPayoutAmount || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                    </div>
                   </div>
                 </div>
 
                 <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
                   <div style={{ color: '#fff', fontWeight: 700 }}>Points Rule</div>
-                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>Sponsorship approval = 1 point • F&G/NLG submission = 50 points • F&G/NLG approval = 500 points.</div>
+                  <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>Sponsorship approval = 1 point • F&G/NLG approval = 500 points.</div>
+                  <div style={{ color: '#CBD5E1', marginTop: 4, fontSize: 13 }}>F&G/NLG submission = 50 points to the submitting agent (policy writer), even if the referrer is different.</div>
                 </div>
 
                 <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
@@ -1592,8 +1615,8 @@ export default function InnerCircleHubPage() {
                       const approved = isApprovedStatus(row?.status || '');
                       const fgApproved = approved && isFgNlgRow(row);
                       const commissionPct = Math.round((Number(row?.commissionRate || 0) || 0) * 100);
-                      const points = Number(computeEffectivePoints(row) || 0);
-                      const advance = Number(computeEffectiveAdvance(row, points) || 0);
+                      const points = Number((row?.__effectivePoints ?? computeEffectivePoints(row)) || 0);
+                      const advance = Number((row?.__effectiveAdvance ?? computeEffectiveAdvance(row, points)) || 0);
 
                       return (
                         <div
@@ -1616,6 +1639,11 @@ export default function InnerCircleHubPage() {
                             ) : null}
                             <span className={`pill ${fgApproved ? 'onpace' : (approved ? 'neutral' : 'atrisk')}`}>{approved ? 'Approved' : (row?.status || 'Submitted')}</span>
                             <span className="pill neutral">Decision: Submitted App</span>
+                            {isFgNlgRow(row) && !approved ? (
+                              <span className={`pill ${row?.__ownerIsSubmitter ? 'onpace' : 'neutral'}`}>
+                                {row?.__ownerIsSubmitter ? 'Submission Credit: +50 (You submitted)' : 'Submission Credit: 0 (Referrer view)'}
+                              </span>
+                            ) : null}
                           </div>
                           <div style={{ color: '#cbd5e1', fontSize: 12, marginTop: 6 }}>
                             Commission: <strong style={{ color: '#f8fafc' }}>{commissionPct}%</strong> • Points: <strong style={{ color: '#f8fafc' }}>{points.toFixed(2)}</strong> • Advance: <strong style={{ color: '#86efac' }}>${advance.toFixed(2)}</strong>
