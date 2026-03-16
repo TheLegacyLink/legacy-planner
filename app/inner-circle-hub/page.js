@@ -81,6 +81,14 @@ function normalizePolicyTypeLabel(v = '') {
   return clean(v);
 }
 
+function normalizeLicenseFlag(v = '') {
+  const t = clean(v).toLowerCase();
+  if (!t) return '';
+  if (t.includes('licensed') || t === 'yes' || t === 'true') return 'licensed';
+  if (t.includes('unlicensed') || t === 'no' || t === 'false') return 'unlicensed';
+  return '';
+}
+
 function isApprovedStatus(status = '') {
   return clean(status).toLowerCase().includes('approved');
 }
@@ -193,6 +201,9 @@ export default function InnerCircleHubPage() {
   const [onboardingDecisionRows, setOnboardingDecisionRows] = useState([]);
   const [teamHierarchyRows, setTeamHierarchyRows] = useState([]);
   const [teamExpanded, setTeamExpanded] = useState({});
+  const [hubMembers, setHubMembers] = useState([]);
+  const [assignParentByChild, setAssignParentByChild] = useState({});
+  const [assigningChildKey, setAssigningChildKey] = useState('');
   const [productionFilter, setProductionFilter] = useState('all');
   const [productionWindow, setProductionWindow] = useState('month');
   const [pointsHistoryOpen, setPointsHistoryOpen] = useState(false);
@@ -512,6 +523,7 @@ export default function InnerCircleHubPage() {
 
     const cards = direct.map((r) => {
       const childName = clean(r?.childName || 'Member');
+      const childEmail = clean(r?.childEmail || '').toLowerCase();
       const childNorm = normName(childName);
       const activity = (policyRows || [])
         .filter((p) => {
@@ -519,6 +531,16 @@ export default function InnerCircleHubPage() {
           return candidates.includes(childNorm);
         })
         .sort((a, b) => rowTs(b) - rowTs(a));
+
+      const licenseEvidence = (policyRows || [])
+        .filter((p) => {
+          const applicantName = normName(p?.applicantName || '');
+          const applicantEmail = clean(p?.applicantEmail || '').toLowerCase();
+          return (childEmail && applicantEmail && childEmail === applicantEmail) || (childNorm && applicantName === childNorm);
+        })
+        .sort((a, b) => rowTs(b) - rowTs(a));
+      const latestLicenseRaw = clean(licenseEvidence[0]?.applicantLicensedStatus || licenseEvidence[0]?.agentLicensedStatus || '');
+      const licenseTag = normalizeLicenseFlag(latestLicenseRaw);
 
       const submitted30 = activity.filter((a) => inDays(rowTs(a), 30)).length;
       const submitted7 = activity.filter((a) => inDays(rowTs(a), 7)).length;
@@ -546,12 +568,52 @@ export default function InnerCircleHubPage() {
         descendants,
         coachRating,
         score,
-        momentumLabel
+        momentumLabel,
+        licenseTag
       };
     });
 
     return cards.sort((a, b) => b.score - a.score || b.submitted30 - a.submitted30 || a.childName.localeCompare(b.childName));
   }, [teamHierarchyRows, policyRows, member?.applicantName, member?.name, member?.email]);
+
+  const teamAdminData = useMemo(() => {
+    const makeKey = (name = '', email = '') => {
+      const em = clean(email).toLowerCase();
+      if (em) return `em:${em}`;
+      const nm = normName(name).replace(/\s+/g, '_');
+      return nm ? `nm:${nm}` : '';
+    };
+
+    const rows = Array.isArray(teamHierarchyRows) ? teamHierarchyRows : [];
+    const childKeys = new Set(rows.map((r) => clean(r?.childKey)).filter(Boolean));
+
+    const parentMap = new Map();
+    const viewerName = clean(member?.applicantName || member?.name || '');
+    const viewerEmail = clean(member?.email || '').toLowerCase();
+    const viewerKey = makeKey(viewerName, viewerEmail);
+    if (viewerKey) parentMap.set(viewerKey, { key: viewerKey, name: viewerName || 'You', email: viewerEmail });
+
+    for (const r of rows) {
+      const key = clean(r?.parentKey);
+      if (!key) continue;
+      if (!parentMap.has(key)) {
+        parentMap.set(key, { key, name: clean(r?.parentName || 'Agent'), email: clean(r?.parentEmail || '') });
+      }
+    }
+
+    const options = Array.from(parentMap.values()).sort((a, b) => clean(a?.name).localeCompare(clean(b?.name)));
+
+    const candidatesMap = new Map();
+    for (const m of (Array.isArray(hubMembers) ? hubMembers : [])) {
+      const name = clean(m?.applicantName || '');
+      const email = clean(m?.email || '').toLowerCase();
+      const key = makeKey(name, email);
+      if (!key || key === viewerKey || childKeys.has(key)) continue;
+      candidatesMap.set(key, { key, name: name || email || 'Member', email });
+    }
+
+    return { options, candidates: Array.from(candidatesMap.values()) };
+  }, [teamHierarchyRows, hubMembers, member?.applicantName, member?.name, member?.email]);
 
   const productionStats = useMemo(() => {
     const rows = filteredProductionRows || [];
@@ -851,7 +913,7 @@ export default function InnerCircleHubPage() {
         const onboardingUrl = `/api/onboarding-decisions?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}`;
         const teamUrl = `/api/team-hierarchy?viewerName=${encodeURIComponent(member?.applicantName || member?.name || '')}&viewerEmail=${encodeURIComponent(member?.email || '')}`;
 
-        const [kpiRes, dailyRes, scriptsRes, vaultRes, activityRes, progressRes, policiesRes, onboardingRes, teamRes] = await Promise.all([
+        const [kpiRes, dailyRes, scriptsRes, vaultRes, activityRes, progressRes, policiesRes, onboardingRes, teamRes, membersRes] = await Promise.all([
           fetch(kpiUrl, { cache: 'no-store' }),
           fetch(dailyUrl, { cache: 'no-store' }),
           fetch('/api/inner-circle-hub-scripts', { cache: 'no-store' }),
@@ -860,7 +922,8 @@ export default function InnerCircleHubPage() {
           fetch('/api/inner-circle-hub-progress', { cache: 'no-store' }),
           fetch('/api/policy-submissions', { cache: 'no-store' }),
           fetch(onboardingUrl, { cache: 'no-store' }),
-          fetch(teamUrl, { cache: 'no-store' })
+          fetch(teamUrl, { cache: 'no-store' }),
+          fetch('/api/inner-circle-hub-members', { cache: 'no-store' })
         ]);
 
         const kpiData = await kpiRes.json().catch(() => ({}));
@@ -872,6 +935,7 @@ export default function InnerCircleHubPage() {
         const policiesData = await policiesRes.json().catch(() => ({}));
         const onboardingData = await onboardingRes.json().catch(() => ({}));
         const teamData = await teamRes.json().catch(() => ({}));
+        const membersData = await membersRes.json().catch(() => ({}));
 
         if (!canceled && kpiRes.ok && kpiData?.ok) setKpi(kpiData.kpi || null);
         if (!canceled && dailyRes.ok && dailyData?.ok) {
@@ -919,6 +983,9 @@ export default function InnerCircleHubPage() {
         if (!canceled && teamRes.ok && teamData?.ok) {
           setTeamHierarchyRows(Array.isArray(teamData?.rows) ? teamData.rows : []);
         }
+        if (!canceled && membersRes.ok && membersData?.ok) {
+          setHubMembers(Array.isArray(membersData?.rows) ? membersData.rows : []);
+        }
       } catch {
         if (!canceled) {
           setKpi(null);
@@ -929,13 +996,14 @@ export default function InnerCircleHubPage() {
           setPolicyRows([]);
           setOnboardingDecisionRows([]);
           setTeamHierarchyRows([]);
+          setHubMembers([]);
         }
       }
     }
 
     loadAll();
     return () => { canceled = true; };
-  }, [member?.id, member?.email, member?.applicantName]);
+  }, [member?.id, member?.email, member?.applicantName, member?.name]);
 
   useEffect(() => {
     if (!tabs.find((t) => t.key === tab) && tabs[0]) setTab(tabs[0].key);
@@ -1116,6 +1184,36 @@ export default function InnerCircleHubPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, rating: nextRating })
     }).catch(() => null);
+  }
+
+  async function assignTeamParent(candidate = {}) {
+    const childKey = clean(candidate?.key || '');
+    const parentKey = clean(assignParentByChild?.[childKey] || '');
+    if (!childKey || !parentKey) return;
+    const parent = (teamAdminData?.options || []).find((o) => clean(o?.key) === parentKey);
+    if (!parent) return;
+
+    setAssigningChildKey(childKey);
+    try {
+      await fetch('/api/team-hierarchy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          parentName: parent?.name || '',
+          parentEmail: parent?.email || '',
+          childName: candidate?.name || '',
+          childEmail: candidate?.email || '',
+          source: 'admin_manual_assign'
+        })
+      });
+
+      const teamUrl = `/api/team-hierarchy?viewerName=${encodeURIComponent(member?.applicantName || member?.name || '')}&viewerEmail=${encodeURIComponent(member?.email || '')}`;
+      const res = await fetch(teamUrl, { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) setTeamHierarchyRows(Array.isArray(data?.rows) ? data.rows : []);
+    } finally {
+      setAssigningChildKey('');
+    }
   }
 
   if (!member) {
@@ -1588,7 +1686,11 @@ export default function InnerCircleHubPage() {
                       <div key={card.id} style={{ border: '1px solid #334155', borderRadius: 14, background: '#0B1220', padding: 14 }}>
                         <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                           <div>
-                            <div style={{ color: '#fff', fontWeight: 700 }}>{card.childName}</div>
+                            <div className="panelRow" style={{ gap: 6, flexWrap: 'wrap' }}>
+                              <div style={{ color: '#fff', fontWeight: 700 }}>{card.childName}</div>
+                              {card.licenseTag === 'licensed' ? <span className="pill" style={{ background: '#064e3b', color: '#d1fae5', border: '1px solid #10b981' }}>Licensed</span> : null}
+                              {card.licenseTag === 'unlicensed' ? <span className="pill" style={{ background: '#7f1d1d', color: '#fee2e2', border: '1px solid #ef4444' }}>Unlicensed</span> : null}
+                            </div>
                             <small className="muted">{card.childEmail || 'No email on file'}</small>
                           </div>
                           <span className={`pill ${card.score >= 70 ? 'onpace' : card.score >= 35 ? 'neutral' : 'offpace'}`}>{card.momentumLabel} • {card.score}</span>
@@ -1636,6 +1738,35 @@ export default function InnerCircleHubPage() {
                     );
                   })}
                   {!teamCards.length ? <small className="muted">No team links yet. As referred apps are submitted, your team tree will populate automatically.</small> : null}
+                </div>
+
+                <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#0B1220', padding: 14 }}>
+                  <div className="panelRow" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                    <strong style={{ color: '#fff' }}>Unassigned Queue (Admin Assist)</strong>
+                    <small className="muted">Assign members not yet linked under an upline</small>
+                  </div>
+                  <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                    {(teamAdminData?.candidates || []).slice(0, 20).map((c) => (
+                      <div key={c.key} style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: '10px 12px', display: 'grid', gap: 8 }}>
+                        <div>
+                          <div style={{ color: '#fff', fontWeight: 700 }}>{c.name}</div>
+                          <small className="muted">{c.email || 'No email on file'}</small>
+                        </div>
+                        <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+                          <select value={assignParentByChild?.[c.key] || ''} onChange={(e) => setAssignParentByChild((p) => ({ ...p, [c.key]: e.target.value }))} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px', minWidth: 220 }}>
+                            <option value="">Assign under...</option>
+                            {(teamAdminData?.options || []).map((o) => (
+                              <option key={o.key} value={o.key}>{o.name}{o.email ? ` (${o.email})` : ''}</option>
+                            ))}
+                          </select>
+                          <button type="button" className="publicPrimaryBtn" disabled={!assignParentByChild?.[c.key] || assigningChildKey === c.key} onClick={() => assignTeamParent(c)}>
+                            {assigningChildKey === c.key ? 'Assigning...' : 'Assign'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {!(teamAdminData?.candidates || []).length ? <small className="muted">No unassigned members found right now.</small> : null}
+                  </div>
                 </div>
               </div>
             ) : null}
