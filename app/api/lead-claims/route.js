@@ -674,6 +674,41 @@ function dedupeClaimRows(rows = []) {
   return [...map.values()];
 }
 
+function slotDedupKey(row = {}) {
+  const state = clean(row?.applicant_state || '').toUpperCase();
+  const requested = clean(row?.requested_at_est || '').toUpperCase();
+  const first = normalize((clean(row?.applicant_name || '').split(/\s+/).filter(Boolean)[0] || ''));
+  if (!requested || !first) return '';
+  return `${state}|${requested}|${first}`;
+}
+
+function dedupeByAppointmentSlot(rows = []) {
+  const map = new Map();
+  for (const row of (rows || [])) {
+    const key = slotDedupKey(row) || `id:${clean(row?.id)}`;
+    const prev = map.get(key);
+    if (!prev) {
+      map.set(key, row);
+      continue;
+    }
+
+    const prevName = clean(prev?.applicant_name || '');
+    const curName = clean(row?.applicant_name || '');
+    const prevManual = normalize(clean(prev?.notes || '')).includes('manual');
+    const curManual = normalize(clean(row?.notes || '')).includes('manual');
+
+    // Prefer richer (fuller) non-manual row when duplicated by same person+slot.
+    const pickCurrent =
+      (prevManual && !curManual)
+      || (curName.length > prevName.length + 1)
+      || (!clean(prev?.applicant_email) && clean(row?.applicant_email))
+      || (!clean(prev?.applicant_phone) && clean(row?.applicant_phone));
+
+    if (pickCurrent) map.set(key, row);
+  }
+  return Array.from(map.values());
+}
+
 function canViewerSeeFull(row = {}, viewerName = '', viewerRole = '') {
   if (isManagerRole(viewerRole)) return true;
   if (!clean(viewerName)) return false;
@@ -800,7 +835,7 @@ export async function GET(req) {
       .filter(Boolean)
   );
 
-  const openQueueRows = mergedClaimRows.filter((row) => {
+  const openQueueRowsRaw = mergedClaimRows.filter((row) => {
     const rowSourceId = clean(row?.source_application_id || row?.id || '');
     if (rowSourceId && policyBySourceId.has(rowSourceId)) return false;
 
@@ -808,6 +843,9 @@ export async function GET(req) {
     if (!key) return true;
     return !policyByApplicant.has(key);
   });
+
+  const openQueueRows = dedupeByAppointmentSlot(openQueueRowsRaw)
+    .sort((a, b) => new Date(b?.created_at || b?.requested_at_est || 0).getTime() - new Date(a?.created_at || a?.requested_at_est || 0).getTime());
 
   const pendingPipeline = buildPendingPipeline(openQueueRows, policyRows);
   const settings = await getClaimSettings();
