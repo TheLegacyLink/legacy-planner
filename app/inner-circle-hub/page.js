@@ -1466,8 +1466,8 @@ export default function InnerCircleHubPage() {
             ) : null}
 
             {tab === 'production' ? (
-              <div style={{ display: 'grid', gap: 12 }}>
-                <div style={{ border: '1px solid #5f4a23', borderRadius: 12, padding: 14, background: 'linear-gradient(135deg,#1f2937 0%,#0b1020 55%,#111827 100%)' }}>
+              <div style={{ display: 'grid', gap: 14 }}>
+                <div style={{ border: '1px solid #5f4a23', borderRadius: 14, padding: 16, background: 'linear-gradient(135deg,#1f2937 0%,#0b1020 55%,#111827 100%)' }}>
                   <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                     <strong style={{ color: '#fff', fontSize: 17 }}>My Production Back Office</strong>
                     <small className="muted">Private view • only your personal production</small>
@@ -1475,7 +1475,7 @@ export default function InnerCircleHubPage() {
                   <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>Filter by policy type to quickly see flat-rate vs commission-based production.</p>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between', border: '1px solid #243046', borderRadius: 12, background: '#0B1220', padding: 10 }}>
+                <div style={{ display: 'grid', gap: 10, border: '1px solid #243046', borderRadius: 14, background: '#0B1220', padding: 12 }}>
                   <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
                     <button type="button" className={productionFilter === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('all')}>All Policies</button>
                     <button type="button" className={productionFilter === 'sponsorship' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setProductionFilter('sponsorship')}>Sponsorship</button>
@@ -1493,9 +1493,9 @@ export default function InnerCircleHubPage() {
                   </div>
                 </div>
 
-                <small className="muted">Showing: {productionWindow === 'month' ? 'This Month' : productionWindow === 'lastMonth' ? 'Last Month' : 'All Time'} • {productionFilter === 'all' ? 'All Policy Types' : productionFilter}</small>
+                <small className="muted" style={{ marginTop: -2 }}>Showing: {productionWindow === 'month' ? 'This Month' : productionWindow === 'lastMonth' ? 'Last Month' : 'All Time'} • {productionFilter === 'all' ? 'All Policy Types' : productionFilter}</small>
 
-                <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 10 }}>
+                <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#0B1220', padding: 12 }}>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <span className="pill neutral">Decision: Submitted App</span>
                     <span className="pill offpace">Skipped Apps: {skippedAppDecisions.length}</span>
@@ -1504,8 +1504,8 @@ export default function InnerCircleHubPage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))' }}>
-                  <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
+                <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))' }}>
+                  <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#0B1220', padding: 14 }}>
                     <div style={{ color: '#fff', fontWeight: 700 }}>Licensed Monthly Incentive Tracker</div>
                     <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>$1 sponsorship approvals + $50 F&G/NLG submissions from {monthShortFromKey(productionFinancials.previousMonthKey)} pay out around {productionFinancials.monthlyIncentivePayoutWindow}.</div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
@@ -1569,15 +1569,15 @@ export default function InnerCircleHubPage() {
                   </div>
                 ) : null}
 
-                <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))' }}>
-                  <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 12, background: '#111827' }}><small className="muted">Total Policies</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{productionStats.count}</div></div>
-                  <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 12, background: '#111827' }}><small className="muted">Points Earned</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{productionStats.points.toFixed(2)}</div></div>
-                  <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 12, background: '#111827' }}><small className="muted">Advance Payout</small><div style={{ color: '#86efac', fontWeight: 800, fontSize: 24 }}>${productionStats.advance.toFixed(2)}</div></div>
-                  <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 12, background: '#111827' }}><small className="muted">Deferred Balance</small><div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 24 }}>${productionStats.remaining.toFixed(2)}</div></div>
-                  <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 12, background: '#111827' }}><small className="muted">Approval Rate</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{productionStats.approvalRate}%</div></div>
+                <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))' }}>
+                  <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 14, background: '#111827', boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.25)' }}><small className="muted">Total Policies</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24, marginTop: 4 }}>{productionStats.count}</div></div>
+                  <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 14, background: '#111827', boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.25)' }}><small className="muted">Points Earned</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24, marginTop: 4 }}>{productionStats.points.toFixed(2)}</div></div>
+                  <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 14, background: '#111827', boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.25)' }}><small className="muted">Advance Payout</small><div style={{ color: '#86efac', fontWeight: 800, fontSize: 24, marginTop: 4 }}>${productionStats.advance.toFixed(2)}</div></div>
+                  <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 14, background: '#111827', boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.25)' }}><small className="muted">Deferred Balance</small><div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 24, marginTop: 4 }}>${productionStats.remaining.toFixed(2)}</div></div>
+                  <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 14, background: '#111827', boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.25)' }}><small className="muted">Approval Rate</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24, marginTop: 4 }}>{productionStats.approvalRate}%</div></div>
                 </div>
 
-                <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1.2fr 1fr' }}>
+                <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))' }}>
                   <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
                     <strong style={{ color: '#fff' }}>Policy Type Breakdown</strong>
                     <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
@@ -1604,9 +1604,9 @@ export default function InnerCircleHubPage() {
                   </div>
                 </div>
 
-                <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
+                <div style={{ border: '1px solid #1f2937', borderRadius: 14, padding: 14, background: '#020617' }}>
                   <strong style={{ color: '#fff' }}>Policy Activity Table</strong>
-                  <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                  <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
                     {filteredProductionRows.slice(0, 30).map((row) => {
                       const typeLabel = normalizePolicyTypeLabel(row?.policyType || row?.appType || 'Policy');
                       const typeNorm = clean(typeLabel).toLowerCase();
@@ -1624,8 +1624,8 @@ export default function InnerCircleHubPage() {
                           style={{
                             border: fgApproved ? '1px solid #22c55e' : '1px solid #334155',
                             boxShadow: fgApproved ? '0 0 0 1px rgba(34,197,94,0.28), 0 0 20px rgba(34,197,94,0.16)' : 'none',
-                            borderRadius: 10,
-                            padding: 10,
+                            borderRadius: 12,
+                            padding: 12,
                             background: fgApproved ? 'linear-gradient(180deg,#0b1620 0%,#0b1220 100%)' : '#0b1220'
                           }}
                         >
