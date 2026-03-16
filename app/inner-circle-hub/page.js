@@ -931,7 +931,10 @@ export default function InnerCircleHubPage() {
     ];
   }, [siteBase, toAbsoluteLink]);
 
+  const sponsorshipSubmissionsCount = Number(activitySummary?.submitted || 0) || 0;
+
   const vipPdfLinks = useMemo(() => {
+    const pathwaysLocked = sponsorshipSubmissionsCount < 10;
     return [
       {
         name: 'Licensed Agent Onboarding PDF',
@@ -944,9 +947,17 @@ export default function InnerCircleHubPage() {
       {
         name: 'Sponsorship Application Call SOP PDF',
         url: toAbsoluteLink('/docs/onboarding/legacy-link-sponsorship-phone-application-sop-2026-03-16.pdf')
+      },
+      {
+        name: 'Legacy Link Pathways SOP PDF',
+        url: toAbsoluteLink('/docs/onboarding/legacy_link_pathways_sop.pdf'),
+        locked: pathwaysLocked,
+        unlockAt: 10,
+        current: sponsorshipSubmissionsCount,
+        lockReason: 'Submit 10 sponsorship apps to unlock this training resource.'
       }
     ];
-  }, [toAbsoluteLink]);
+  }, [toAbsoluteLink, sponsorshipSubmissionsCount]);
 
   useEffect(() => {
     if (!member?.email && !member?.applicantName) return;
@@ -2263,15 +2274,24 @@ export default function InnerCircleHubPage() {
                   </div>
                 ))}
 
-                {vipPdfLinks.map((item) => (
-                  <div key={item.name} style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617', display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8 }}>
-                    <strong style={{ color: '#fff' }}>{item.name}</strong>
-                    <img src={qrUrl(item.url)} alt={`${item.name} QR`} width={118} height={118} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
-                    <button type="button" className="ghost" onClick={() => copyLink(item.url, item.name)}>
-                      {copiedKey === item.name ? 'Copied' : 'Copy Link'}
-                    </button>
-                  </div>
-                ))}
+                {vipPdfLinks.map((item) => {
+                  const locked = Boolean(item?.locked);
+                  return (
+                    <div key={item.name} style={{ border: `1px solid ${locked ? '#475569' : '#1f2937'}`, borderRadius: 12, padding: 12, background: locked ? '#0f172a' : '#020617', display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8, opacity: locked ? 0.72 : 1 }}>
+                      <strong style={{ color: '#fff' }}>{item.name}</strong>
+                      {locked ? (
+                        <span className="pill" style={{ background: '#374151', color: '#e5e7eb', border: '1px solid #6b7280' }}>Locked</span>
+                      ) : null}
+                      <img src={qrUrl(item.url)} alt={`${item.name} QR`} width={118} height={118} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff', filter: locked ? 'grayscale(1)' : 'none' }} />
+                      {locked ? (
+                        <small className="muted">{item?.lockReason} ({Number(item?.current || 0)}/{Number(item?.unlockAt || 10)})</small>
+                      ) : null}
+                      <button type="button" className="ghost" disabled={locked} onClick={() => copyLink(item.url, item.name)}>
+                        {locked ? `Unlock at ${Number(item?.unlockAt || 10)} Apps` : copiedKey === item.name ? 'Copied' : 'Copy Link'}
+                      </button>
+                    </div>
+                  );
+                })}
                 </div>
               </div>
             ) : null}
