@@ -63,6 +63,23 @@ function applicantNameKey(v = '') {
   return normalizeKey(v);
 }
 
+function nameInitialSignature(v = '') {
+  const parts = clean(v).split(/\s+/).filter(Boolean);
+  if (!parts.length) return '';
+  const first = normalize(parts[0]);
+  const last = normalize(parts.length > 1 ? parts[parts.length - 1] : '');
+  if (!first) return '';
+  const li = last ? last.charAt(0) : '';
+  return `${first}|${li}`;
+}
+
+function stateNameSignature(state = '', name = '') {
+  const st = stateCodeFromAny(state);
+  const sig = nameInitialSignature(name);
+  if (!st || !sig) return '';
+  return `${st}|${sig}`;
+}
+
 function stateCodeFromAny(v = '') {
   const raw = clean(v).toUpperCase();
   if (!raw) return '';
@@ -89,19 +106,32 @@ function titleCaseWords(v = '') {
     .join(' ');
 }
 
-function enrichInitialNames(rows = [], appRows = []) {
+function enrichInitialNames(rows = [], appRows = [], policyRows = []) {
   const list = Array.isArray(rows) ? [...rows] : [];
   const initials = /^([A-Za-z][A-Za-z\-']*)\s+([A-Za-z])\.?$/;
 
   const index = new Map();
-  for (const a of (appRows || [])) {
-    const first = normalize(a?.firstName || '');
-    const last = clean(a?.lastName || '');
-    const st = stateCodeFromAny(a?.state || '');
-    if (!first || !last) continue;
-    const key = `${st}|${first}|${normalize(last[0])}`;
+  const pushCand = (st = '', first = '', last = '', full = '') => {
+    const f = normalize(first);
+    const l = clean(last);
+    const s = stateCodeFromAny(st);
+    if (!f || !l) return;
+    const key = `${s}|${f}|${normalize(l[0])}`;
     if (!index.has(key)) index.set(key, []);
-    index.get(key).push(titleCaseWords(`${clean(a?.firstName || '')} ${last}`.trim()));
+    index.get(key).push(titleCaseWords(full || `${first} ${last}`.trim()));
+  };
+
+  for (const a of (appRows || [])) {
+    pushCand(a?.state, a?.firstName, a?.lastName, `${clean(a?.firstName || '')} ${clean(a?.lastName || '')}`.trim());
+  }
+
+  for (const p of (policyRows || [])) {
+    const full = clean(p?.applicantName || p?.applicant_name || p?.name || '');
+    const parts = full.split(/\s+/).filter(Boolean);
+    if (parts.length < 2) continue;
+    const first = parts[0];
+    const last = parts[parts.length - 1];
+    pushCand(p?.applicantState || p?.state, first, last, full);
   }
 
   return list.map((r) => {
@@ -783,6 +813,10 @@ function canViewerSeeFull(row = {}, viewerName = '', viewerRole = '') {
   return normalize(row?.claimed_by) === normalize(viewerName);
 }
 
+function canonicalDisplayName(name = '') {
+  return resolveReferrerName(name) || clean(name);
+}
+
 function toPortalRow(row = {}, viewerName = '', viewerRole = '') {
   const full = canViewerSeeFull(row, viewerName, viewerRole);
   const withinPriority = isWithinPriorityWindow(row);
@@ -796,6 +830,9 @@ function toPortalRow(row = {}, viewerName = '', viewerRole = '') {
 
   return {
     ...row,
+    referred_by: canonicalDisplayName(row?.referred_by),
+    priority_agent: canonicalDisplayName(row?.priority_agent),
+    claimed_by: canonicalDisplayName(row?.claimed_by),
     assignment_status,
     visibility: full ? 'full' : 'partial',
     applicant_name: full ? clean(row?.applicant_name) : maskName(row?.applicant_name),
@@ -890,38 +927,56 @@ export async function GET(req) {
   const mergedClaimRows = dedupeClaimRows(enrichInitialNames([
     ...sponsorRows.map((r) => applyPriorityDefaults({ ...r, source_type: 'sponsorship' })),
     ...bonusClaimRows
-  ], sponsorshipAppsRaw || [])).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  ], sponsorshipAppsRaw || [], policyRows || [])).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
-  const isPolicyComplete = (status = '') => {
+  const hasPolicyAction = (status = '') => {
     const s = normalize(status);
-    return ['complete', 'completed', 'issued', 'paid', 'declined', 'cancelled', 'canceled'].some((k) => s.includes(k));
+    return ['submitted', 'approved', 'declined', 'pending', 'paid', 'issued', 'complete', 'completed', 'booked'].some((k) => s.includes(k));
   };
 
-  const completedPolicyApplicants = new Set(
+  const policyActionApplicants = new Set(
     (policyRows || [])
-      .filter((p) => isPolicyComplete(p?.status || ''))
+      .filter((p) => hasPolicyAction(p?.status || ''))
       .map((p) => applicantNameKey(p?.applicantName || p?.applicant_name || ''))
       .filter(Boolean)
   );
 
-  const completedPolicySourceIds = new Set(
+  const policyActionSourceIds = new Set(
     (policyRows || [])
-      .filter((p) => isPolicyComplete(p?.status || ''))
+      .filter((p) => hasPolicyAction(p?.status || ''))
       .map((p) => clean(p?.source_application_id || p?.sourceApplicationId || p?.applicationId || p?.sponsorshipApplicationId || ''))
+      .filter(Boolean)
+  );
+
+  const policyActionStateNameSigs = new Set(
+    (policyRows || [])
+      .filter((p) => hasPolicyAction(p?.status || ''))
+      .map((p) => stateNameSignature(p?.applicantState || p?.state, p?.applicantName || p?.applicant_name || ''))
       .filter(Boolean)
   );
 
   const openQueueRowsRaw = mergedClaimRows.filter((row) => {
     const rowSourceId = clean(row?.source_application_id || row?.id || '');
-    if (rowSourceId && completedPolicySourceIds.has(rowSourceId)) return false;
+    if (rowSourceId && policyActionSourceIds.has(rowSourceId)) return false;
 
     const key = applicantNameKey(row?.applicant_name || '');
-    if (!key) return true;
-    return !completedPolicyApplicants.has(key);
+    if (key && policyActionApplicants.has(key)) return false;
+
+    const sig = stateNameSignature(row?.applicant_state, row?.applicant_name || '');
+    if (sig && policyActionStateNameSigs.has(sig)) return false;
+
+    return true;
   });
 
   const openQueueRows = dedupeByAppointmentSlot(openQueueRowsRaw)
-    .sort((a, b) => new Date(b?.created_at || b?.requested_at_est || 0).getTime() - new Date(a?.created_at || a?.requested_at_est || 0).getTime());
+    .sort((a, b) => {
+      const aWhen = bookingUtcMs(a);
+      const bWhen = bookingUtcMs(b);
+      if (!Number.isNaN(aWhen) && !Number.isNaN(bWhen)) return aWhen - bWhen;
+      if (!Number.isNaN(aWhen)) return -1;
+      if (!Number.isNaN(bWhen)) return 1;
+      return new Date(a?.created_at || 0).getTime() - new Date(b?.created_at || 0).getTime();
+    });
 
   const pendingPipeline = buildPendingPipeline(openQueueRows, policyRows);
   const settings = await getClaimSettings();
