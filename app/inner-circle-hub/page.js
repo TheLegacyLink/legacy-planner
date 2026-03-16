@@ -929,9 +929,10 @@ export default function InnerCircleHubPage() {
   }, [toAbsoluteLink]);
 
   const sponsorshipSubmissionsCount = Number(activitySummary?.submitted || 0) || 0;
+  const isAdminUser = ['admin', 'manager'].includes(clean(member?.role || '').toLowerCase());
 
   const vipPdfLinks = useMemo(() => {
-    const pathwaysLocked = sponsorshipSubmissionsCount < 10;
+    const pathwaysLocked = !isAdminUser && sponsorshipSubmissionsCount < 10;
     return [
       {
         name: 'Licensed Agent Onboarding PDF',
@@ -954,7 +955,7 @@ export default function InnerCircleHubPage() {
         lockReason: 'Submit 10 sponsorship apps to unlock this training resource.'
       }
     ];
-  }, [toAbsoluteLink, sponsorshipSubmissionsCount]);
+  }, [toAbsoluteLink, sponsorshipSubmissionsCount, isAdminUser]);
 
   useEffect(() => {
     if (!member?.email && !member?.applicantName) return;
@@ -2278,7 +2279,7 @@ export default function InnerCircleHubPage() {
               <div style={{ display: 'grid', gap: 10 }}>
                 <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 12, background: '#071022' }}>
                   <strong style={{ color: '#fff' }}>PDF Library</strong>
-                  <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>Training PDFs only. No QR codes in this section.</p>
+                  <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>Training documents for onboarding, call execution, and pathway presentation. Legacy Link Pathways SOP unlocks after 10 sponsorship submissions (admin always unlocked).</p>
                 </div>
 
                 <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
