@@ -829,25 +829,32 @@ export async function GET(req) {
     ...bonusClaimRows
   ]).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
-  const policyByApplicant = new Set(
+  const isPolicyComplete = (status = '') => {
+    const s = normalize(status);
+    return ['complete', 'completed', 'issued', 'paid', 'declined', 'cancelled', 'canceled'].some((k) => s.includes(k));
+  };
+
+  const completedPolicyApplicants = new Set(
     (policyRows || [])
+      .filter((p) => isPolicyComplete(p?.status || ''))
       .map((p) => applicantNameKey(p?.applicantName || p?.applicant_name || ''))
       .filter(Boolean)
   );
 
-  const policyBySourceId = new Set(
+  const completedPolicySourceIds = new Set(
     (policyRows || [])
+      .filter((p) => isPolicyComplete(p?.status || ''))
       .map((p) => clean(p?.source_application_id || p?.sourceApplicationId || p?.applicationId || p?.sponsorshipApplicationId || ''))
       .filter(Boolean)
   );
 
   const openQueueRowsRaw = mergedClaimRows.filter((row) => {
     const rowSourceId = clean(row?.source_application_id || row?.id || '');
-    if (rowSourceId && policyBySourceId.has(rowSourceId)) return false;
+    if (rowSourceId && completedPolicySourceIds.has(rowSourceId)) return false;
 
     const key = applicantNameKey(row?.applicant_name || '');
     if (!key) return true;
-    return !policyByApplicant.has(key);
+    return !completedPolicyApplicants.has(key);
   });
 
   const openQueueRows = dedupeByAppointmentSlot(openQueueRowsRaw)
