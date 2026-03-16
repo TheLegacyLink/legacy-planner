@@ -451,10 +451,12 @@ function normalizeBookingTimezone(row = {}) {
 }
 
 function applyPriorityDefaults(row = {}) {
+  const canonicalReferred = resolveReferrerName(row?.referred_by || '') || clean(row?.referred_by || '');
   const claimed = Boolean(clean(row?.claimed_by));
   if (claimed) {
     return {
       ...row,
+      referred_by: canonicalReferred,
       priority_agent: resolveReferrerName(row?.priority_agent || '') || clean(row?.priority_agent || ''),
       booking_timezone: normalizeBookingTimezone(row)
     };
@@ -464,6 +466,7 @@ function applyPriorityDefaults(row = {}) {
   if (canonicalPriority) {
     return {
       ...row,
+      referred_by: canonicalReferred,
       priority_agent: canonicalPriority,
       booking_timezone: normalizeBookingTimezone(row)
     };
@@ -473,12 +476,14 @@ function applyPriorityDefaults(row = {}) {
   if (!referred) {
     return {
       ...row,
+      referred_by: canonicalReferred,
       booking_timezone: normalizeBookingTimezone(row)
     };
   }
 
   return {
     ...row,
+    referred_by: canonicalReferred,
     priority_agent: referred,
     priority_expires_at: clean(row?.priority_expires_at) || plus24hIso(row?.created_at || row?.updated_at),
     priority_released: Boolean(row?.priority_released),
@@ -676,7 +681,8 @@ function dedupeClaimRows(rows = []) {
 
 function slotDedupKey(row = {}) {
   const state = clean(row?.applicant_state || '').toUpperCase();
-  const requested = clean(row?.requested_at_est || '').toUpperCase();
+  const requestedRaw = clean(row?.requested_at_est || '').toUpperCase();
+  const requested = requestedRaw.replace(/\s+(ET|CT|MT|PT|EST|CST|MST|PST)$/i, '').trim();
   const first = normalize((clean(row?.applicant_name || '').split(/\s+/).filter(Boolean)[0] || ''));
   if (!requested || !first) return '';
   return `${state}|${requested}|${first}`;
