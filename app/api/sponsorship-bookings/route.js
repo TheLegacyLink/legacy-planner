@@ -30,6 +30,7 @@ async function loadHistoricStoreSnapshots(pathname = '', maxSnapshots = 25) {
 }
 
 const STORE_PATH = 'stores/sponsorship-bookings.json';
+const LEDGER_PATH = 'stores/sponsorship-bookings-ledger.json';
 
 const MANUAL_RESTORE_BOOKINGS = [
   {
@@ -544,16 +545,50 @@ async function mergeRecentSnapshots(rows = [], maxSnapshots = 20) {
   };
 }
 
+function extractLedgerRows(ledger = []) {
+  const out = [];
+  for (const e of (ledger || [])) {
+    const row = e?.row;
+    if (!row || typeof row !== 'object') continue;
+    out.push({ ...row });
+  }
+  return out;
+}
+
+async function mergeFromLedger(rows = [], maxEntries = 3000) {
+  const ledger = await loadJsonStore(LEDGER_PATH, []);
+  const slice = Array.isArray(ledger) ? ledger.slice(0, Math.max(1, Number(maxEntries || 3000))) : [];
+  if (!slice.length) return { rows, changed: false, ledgerCount: 0 };
+
+  const merged = [...(rows || []), ...extractLedgerRows(slice)];
+  const deduped = dedupeReschedules(merged);
+  return { rows: deduped.rows || rows, changed: Boolean(deduped.changed), ledgerCount: slice.length };
+}
+
+async function appendLedger(action = '', row = {}) {
+  const current = await loadJsonStore(LEDGER_PATH, []);
+  const list = Array.isArray(current) ? current : [];
+  list.unshift({
+    id: `sbl_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    action: clean(action || 'upsert') || 'upsert',
+    at: nowIso(),
+    row: { ...(row || {}) }
+  });
+  await saveJsonStore(LEDGER_PATH, list.slice(0, 5000));
+}
+
 async function getStore() {
   const loaded = await loadJsonStore(STORE_PATH, []);
   const refreshed = refreshExpired(loaded);
   const restored = applyManualRestores(refreshed.rows || []);
   const recovered = await mergeRecentSnapshots(restored.rows || [], 20);
-  const deduped = dedupeReschedules(recovered.rows || []);
+  const fromLedger = await mergeFromLedger(recovered.rows || [], 3000);
+  const deduped = dedupeReschedules(fromLedger.rows || []);
   return {
     rows: deduped.rows,
-    changed: Boolean(refreshed.changed || restored.changed || recovered.changed || deduped.changed),
-    snapshotsScanned: recovered.snapshotsScanned || 0
+    changed: Boolean(refreshed.changed || restored.changed || recovered.changed || fromLedger.changed || deduped.changed),
+    snapshotsScanned: recovered.snapshotsScanned || 0,
+    ledgerCount: fromLedger.ledgerCount || 0
   };
 }
 
@@ -656,6 +691,7 @@ export async function POST(req) {
     await writeStore(finalRows);
 
     const savedRow = finalRows.find((r) => clean(r.id) === id) || next;
+    await appendLedger('upsert', savedRow);
     return Response.json({ ok: true, row: savedRow, deduped: deduped.changed });
   }
 
@@ -698,6 +734,7 @@ export async function POST(req) {
     };
 
     await writeStore(store);
+    await appendLedger('claim', store[idx]);
     return Response.json({ ok: true, row: store[idx] });
   }
 
@@ -731,6 +768,7 @@ export async function POST(req) {
     };
 
     await writeStore(store);
+    await appendLedger('override', store[idx]);
     return Response.json({ ok: true, row: store[idx] });
   }
 
@@ -750,6 +788,7 @@ export async function POST(req) {
     };
 
     await writeStore(store);
+    await appendLedger('invalidate', store[idx]);
     return Response.json({ ok: true, row: store[idx] });
   }
 
@@ -762,6 +801,7 @@ export async function POST(req) {
 
     const [removed] = store.splice(idx, 1);
     await writeStore(store);
+    await appendLedger('delete', removed || {});
     return Response.json({ ok: true, removed });
   }
 
