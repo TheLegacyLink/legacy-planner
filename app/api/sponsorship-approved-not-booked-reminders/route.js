@@ -343,6 +343,7 @@ export async function POST(req) {
   let uplineApprovedSent = 0;
   let uplineBookedSent = 0;
   let uplineOneHourSent = 0;
+  let applicantBookedSent = 0;
   const errors = [];
 
   const quietHours = isQuietHoursNow();
@@ -509,8 +510,42 @@ export async function POST(req) {
       }
     }
 
-    // If already booked, skip not-booked reminder logic below.
+    // If already booked, send applicant confirmation once, then skip not-booked reminder logic below.
     if (bookingExists) {
+      if (email && !record?.applicantBookedSentAt) {
+        const applicantSubject = 'You’re Booked — Sponsorship Onboarding Confirmed';
+        const applicantText = [
+          `Hi ${clean(app?.firstName || 'there')},`,
+          '',
+          'Great news — your sponsorship onboarding appointment is confirmed.',
+          '',
+          `Booked Time (ET): ${bookedAtEtLabel || 'Scheduled'}`,
+          `${bookedAtAgentLabel ? `Booked Time (${agentTz}): ${bookedAtAgentLabel}` : ''}`,
+          '',
+          'If you need to update your appointment, please reply to this email.',
+          '',
+          'The Legacy Link Support Team'
+        ].filter(Boolean).join('\n');
+
+        const applicantHtmlBody = `
+          <p>Hi <strong>${clean(app?.firstName || 'there')}</strong>,</p>
+          <p>Great news — your sponsorship onboarding appointment is confirmed.</p>
+          <ul>
+            <li><strong>Booked Time (ET):</strong> ${bookedAtEtLabel || 'Scheduled'}</li>
+            ${bookedAtAgentLabel ? `<li><strong>Booked Time (${agentTz}):</strong> ${bookedAtAgentLabel}</li>` : ''}
+          </ul>
+          <p>If you need to update your appointment, please reply to this email.</p>
+        `;
+
+        const out = await sendBrandedEmail({ to: email, subject: applicantSubject, text: applicantText, htmlBody: applicantHtmlBody });
+        if (out.ok) {
+          applicantBookedSent += 1;
+          record.applicantBookedSentAt = nowIso();
+        } else {
+          errors.push({ appId, type: 'applicant_booked_confirmation', error: out.error });
+        }
+      }
+
       record.lastTouchedAt = nowIso();
       byId[appId] = record;
       continue;
@@ -654,6 +689,7 @@ export async function POST(req) {
     attempted,
     maxPerRun,
     applicantSent,
+    applicantBookedSent,
     agentSent,
     escalation48hSent,
     uplineApprovedSent,
