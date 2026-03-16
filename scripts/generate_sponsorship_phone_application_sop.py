@@ -135,8 +135,7 @@ def build():
 
     story.append(section('Step 6 — Close Out + Next Steps', [
         'Thank them for their time.',
-        f'Let them know to submit the app here: {APPLICATION_URL}',
-        'Reconfirm timeline and follow-up process.',
+        'Let them know they will receive multiple emails with next steps so they can move forward smoothly.',
         'Check in within the next 48 hours to make sure everything is moving smoothly.'
     ], st))
 

@@ -55,8 +55,7 @@ This SOP defines the **required call flow** for submitting a sponsorship applica
 
 ## Step 6 — Close Out + Next Steps
 - Thank them for their time.
-- Let them know to submit the app here: **https://innercirclelink.com/inner-circle-app-submit**
-- Reconfirm expected timeline and follow-up process.
+- Let them know they will receive multiple emails with next steps so they can move forward smoothly.
 - Check in with them within the next 48 hours to make sure everything is moving smoothly.
 
 ---
