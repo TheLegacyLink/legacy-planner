@@ -7,6 +7,7 @@ const BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
 const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
 const CALLER_LEADS_PATH = 'stores/caller-leads.json';
 const REMINDER_STATE_PATH = 'stores/sponsorship-approved-not-booked-reminders.json';
+const OWNER_REMINDER_EMAIL = 'investalinkagency@gmail.com';
 
 const REF_CODE_MAP = {
   kimora_link: 'Kimora Link',
@@ -76,15 +77,24 @@ function hasSubmittedPolicy(app = {}, policyRows = []) {
 
   return (policyRows || []).some((p) => {
     const pStatus = normalize(p?.status || 'submitted');
-    if (!['submitted', 'approved', 'declined', 'paid', 'pending'].some((k) => pStatus.includes(k))) return false;
+    const doneStatus = ['submitted', 'approved', 'declined', 'paid', 'pending', 'complete', 'completed', 'booked', 'issued']
+      .some((k) => pStatus.includes(k));
+    if (!doneStatus) return false;
 
-    const pNameKey = normalizeNameKey(p?.applicantName || '');
-    const pEmail = normalize(p?.applicantEmail || '');
-    const pPhone = clean(p?.applicantPhone || '').replace(/\D/g, '');
+    const pNameKey = normalizeNameKey(p?.applicantName || p?.applicant_name || '');
+    const pEmail = normalize(p?.applicantEmail || p?.applicant_email || '');
+    const pPhone = clean(p?.applicantPhone || p?.applicant_phone || '').replace(/\D/g, '');
 
-    return (appNameKey && pNameKey && appNameKey === pNameKey)
+    const sameApplicant = (appNameKey && pNameKey && appNameKey === pNameKey)
       || (appEmail && pEmail && appEmail === pEmail)
       || (appPhone && pPhone && appPhone === pPhone);
+
+    if (!sameApplicant) return false;
+
+    const policySignal = normalize(`${p?.carrier || ''} ${p?.policyType || ''} ${p?.appType || ''} ${p?.productName || ''}`);
+    const fngOrNlg = policySignal.includes('f&g') || policySignal.includes('fg ') || policySignal.includes('national life') || policySignal.includes('nlg') || policySignal.includes('flex life');
+
+    return fngOrNlg || doneStatus;
   });
 }
 
@@ -106,6 +116,7 @@ function userByName(name = '') {
 }
 
 function emailByName(name = '') {
+  if (isKimora(name)) return OWNER_REMINDER_EMAIL;
   const hit = userByName(name);
   return clean(hit?.email);
 }

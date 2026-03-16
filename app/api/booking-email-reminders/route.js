@@ -3,6 +3,8 @@ import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 import users from '../../../data/innerCircleUsers.json';
 
 const STORE_PATH = 'stores/sponsorship-bookings.json';
+const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
+const OWNER_REMINDER_EMAIL = 'investalinkagency@gmail.com';
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -31,6 +33,40 @@ function toEtYmd(date = new Date()) {
   return fmt.format(date);
 }
 
+function normalizePhone(v = '') {
+  return String(v || '').replace(/\D/g, '');
+}
+
+function looksDoneStatus(status = '') {
+  const s = normalize(status);
+  return ['submitted', 'approved', 'declined', 'paid', 'pending', 'complete', 'completed', 'booked', 'issued'].some((k) => s.includes(k));
+}
+
+function isCarrierFngOrNlg(row = {}) {
+  const text = normalize(`${row?.carrier || ''} ${row?.policyType || ''} ${row?.appType || ''} ${row?.productName || ''}`);
+  return text.includes('f&g') || text.includes('fg ') || text.includes('national life') || text.includes('nlg') || text.includes('flex life');
+}
+
+function hasCompletedAppAction(booking = {}, policyRows = []) {
+  const bName = normalize(booking?.applicant_name || '');
+  const bEmail = normalize(booking?.applicant_email || '');
+  const bPhone = normalizePhone(booking?.applicant_phone || '');
+
+  return (policyRows || []).some((p) => {
+    if (!looksDoneStatus(p?.status || '')) return false;
+    const pName = normalize(p?.applicantName || p?.applicant_name || '');
+    const pEmail = normalize(p?.applicantEmail || p?.applicant_email || '');
+    const pPhone = normalizePhone(p?.applicantPhone || p?.applicant_phone || '');
+
+    const sameApplicant = (bName && pName && bName === pName)
+      || (bEmail && pEmail && bEmail === pEmail)
+      || (bPhone && pPhone && bPhone === pPhone);
+
+    if (!sameApplicant) return false;
+    return isCarrierFngOrNlg(p) || looksDoneStatus(p?.status || '');
+  });
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -45,7 +81,7 @@ function adminEmails() {
   const list = (users || [])
     .filter((u) => clean(u.role).toLowerCase() === 'admin' && clean(u.email))
     .map((u) => clean(u.email));
-  return [...new Set(list)];
+  return [...new Set([...list, OWNER_REMINDER_EMAIL])];
 }
 
 function transporterFromEnv() {
@@ -87,6 +123,7 @@ function bookingInfoText(b) {
 
 export async function POST() {
   const rows = await loadJsonStore(STORE_PATH, []);
+  const policyRows = await loadJsonStore(POLICY_SUBMISSIONS_PATH, []);
   const admins = adminEmails();
   const now = new Date();
   const nowMs = now.getTime();
@@ -97,6 +134,15 @@ export async function POST() {
 
   for (const b of rows) {
     if (clean(b.claim_status).toLowerCase() !== 'claimed') continue;
+
+    // Hard stop: once app action is already done (submitted/booked/completed), no more reminders.
+    if (hasCompletedAppAction(b, policyRows)) {
+      if (!b.day_of_reminder_sent_at) b.day_of_reminder_sent_at = nowIso();
+      if (!b.hour_before_reminder_sent_at) b.hour_before_reminder_sent_at = nowIso();
+      b.reminder_suppressed_reason = 'application_already_done';
+      b.reminder_suppressed_at = nowIso();
+      continue;
+    }
 
     const closerName = clean(b.claimed_by);
     const closerEmail = findUserEmailByName(closerName);
@@ -128,8 +174,9 @@ export async function POST() {
       }
     }
 
-    // One-hour-before reminder (once, between 50 and 70 minutes before)
-    if (!b.hour_before_reminder_sent_at && minsToEvent <= 70 && minsToEvent >= 50) {
+    // One-hour-before reminder (once total, and never more than once per ET day)
+    const alreadySentToday = clean(b.hour_before_reminder_day_key) === todayEt;
+    if (!b.hour_before_reminder_sent_at && !alreadySentToday && minsToEvent <= 70 && minsToEvent >= 50) {
       const msg = await sendMail(
         to,
         `1-Hour Reminder: ${b.applicant_name || 'Applicant'} (${b.requested_at_est || ''})`,
@@ -137,6 +184,7 @@ export async function POST() {
       );
       if (msg.ok) {
         b.hour_before_reminder_sent_at = nowIso();
+        b.hour_before_reminder_day_key = todayEt;
         sent += 1;
       } else {
         errors.push({ bookingId: b.id, type: 'hour_before', error: msg.error });
