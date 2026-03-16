@@ -7,8 +7,22 @@ const SPONSORSHIP_APPS_PATH = 'stores/sponsorship-applications.json';
 function clean(v = '') { return String(v || '').trim(); }
 function normalize(v = '') { return clean(v).toLowerCase().replace(/\s+/g, ' '); }
 
+function canonicalName(v = '') {
+  const n = normalize(v);
+  if (!n) return '';
+  if (n === 'link') return 'kimora link';
+  return n;
+}
+
+function samePersonName(a = '', b = '') {
+  const x = canonicalName(a);
+  const y = canonicalName(b);
+  if (!x || !y) return false;
+  return x === y;
+}
+
 function isOwnerMatch(row = {}, ownerName = '', ownerEmail = '') {
-  const n = normalize(ownerName);
+  const n = canonicalName(ownerName);
   const e = normalize(ownerEmail);
 
   const candidates = [
@@ -24,7 +38,7 @@ function isOwnerMatch(row = {}, ownerName = '', ownerEmail = '') {
     row?.policyWriterName,
     row?.submittedBy,
     row?.submitted_by
-  ].map(normalize);
+  ].map(canonicalName);
 
   const emailCandidates = [
     row?.assignedToEmail,
@@ -37,7 +51,7 @@ function isOwnerMatch(row = {}, ownerName = '', ownerEmail = '') {
     row?.submitted_by_email
   ].map(normalize);
 
-  if (n && candidates.some((c) => c === n)) return true;
+  if (n && candidates.some((c) => samePersonName(c, n))) return true;
   if (e && emailCandidates.some((c) => c === e)) return true;
   return false;
 }
@@ -189,7 +203,7 @@ function countPeriod(rows = [], period = 'daily') {
   return (rows || []).filter((r) => inPeriod(asTs(r?.at), period)).length;
 }
 
-function rowMatchesOwner(row = {}, ownerName = '', ownerEmail = '', ownerRefCode = '') {
+function rowMatchesOwner(row = {}, ownerName = '', ownerEmail = '', ownerRefCodes = []) {
   if (isOwnerMatch(row, ownerName, ownerEmail)) return true;
   const refCandidates = [
     row?.refCode,
@@ -201,7 +215,9 @@ function rowMatchesOwner(row = {}, ownerName = '', ownerEmail = '', ownerRefCode
     row?.source_ref_code,
     row?.agent_ref_code
   ].map((v) => clean(v).toLowerCase());
-  return Boolean(ownerRefCode && refCandidates.some((r) => r && r === ownerRefCode));
+  const codeSet = new Set((Array.isArray(ownerRefCodes) ? ownerRefCodes : [ownerRefCodes]).map((v) => clean(v).toLowerCase()).filter(Boolean));
+  if (!codeSet.size) return false;
+  return refCandidates.some((r) => r && codeSet.has(r));
 }
 
 export async function GET(req) {
@@ -219,11 +235,14 @@ export async function GET(req) {
     loadJsonStore(SPONSORSHIP_APPS_PATH, [])
   ]);
 
-  const ownerRefCode = refCodeFromName(ownerName);
+  const ownerRefCodes = Array.from(new Set([
+    refCodeFromName(ownerName),
+    canonicalName(ownerName) === 'kimora link' ? 'link' : ''
+  ].filter(Boolean)));
   const appById = new Map((sponsorshipApps || []).map((a) => [clean(a?.id), a]));
   const ownerAppKeys = new Set(
     (sponsorshipApps || [])
-      .filter((a) => rowMatchesOwner(a, ownerName, ownerEmail, ownerRefCode))
+      .filter((a) => rowMatchesOwner(a, ownerName, ownerEmail, ownerRefCodes))
       .map((a) => personPrimaryKey({
         name: clean(`${a?.firstName || ''} ${a?.lastName || ''}` || a?.name || ''),
         email: clean(a?.email || ''),
@@ -232,7 +251,7 @@ export async function GET(req) {
   );
 
   const submittedRaw = (sponsorshipApps || [])
-    .filter((r) => rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode))
+    .filter((r) => rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes))
     .map((r) => ({
       type: 'submitted',
       name: clean(`${r?.firstName || ''} ${r?.lastName || ''}` || r?.name || 'Unknown'),
@@ -247,7 +266,7 @@ export async function GET(req) {
     .filter((r) => {
       const status = normalize(r?.status || '');
       if (!(status.includes('approved') || status.includes('declined'))) return false;
-      return rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode);
+      return rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes);
     })
     .map((r) => {
       const status = normalize(r?.status || '');
@@ -269,9 +288,9 @@ export async function GET(req) {
 
   const booked = dedupePeopleRows((bookingRows || [])
     .filter((r) => {
-      if (rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode)) return true;
+      if (rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes)) return true;
       const app = appById.get(clean(r?.source_application_id || ''));
-      if (app && rowMatchesOwner(app, ownerName, ownerEmail, ownerRefCode)) return true;
+      if (app && rowMatchesOwner(app, ownerName, ownerEmail, ownerRefCodes)) return true;
 
       const bookingKey = personPrimaryKey({
         name: clean(r?.applicant_name || r?.name || ''),
@@ -291,20 +310,20 @@ export async function GET(req) {
     })));
 
   const fng = dedupePeopleRows((policyRows || [])
-    .filter((r) => rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode))
+    .filter((r) => rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes))
     .map((r) => ({
       type: 'fng',
       name: clean(r?.applicantName || r?.name || r?.fullName || r?.insuredName || 'Unknown'),
       email: clean(r?.applicantEmail || r?.email || ''),
       phone: clean(r?.applicantPhone || r?.phone || ''),
-      detail: 'FNG Submitted',
+      detail: 'Policy Submitted',
       at: clean(r?.submittedAt || r?.createdAt || r?.created_at || '')
     })));
 
   const completed = dedupePeopleRows((policyRows || [])
     .filter((r) => {
       if (!normalize(r?.status || '').startsWith('approved')) return false;
-      return rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCode);
+      return rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes);
     })
     .map((r) => ({
       type: 'completed',

@@ -1518,7 +1518,7 @@ export default function InnerCircleHubPage() {
                           <div style={{ color: '#c8a96b', fontWeight: 800 }}>#{idx + 1}</div>
                           <div style={{ color: '#f8fafc', fontWeight: 800, marginTop: 2 }}>{row?.name || 'Member'}</div>
                           <div style={{ marginTop: 4, color: '#f3e8d1', fontWeight: 700 }}>{row.points} points • ${row.dollars}</div>
-                          <div style={{ color: '#d1d5db', fontSize: 12, marginTop: 6 }}>Sponsorship Submitted {row.submitted} • Booked {row.bookings} • F&G Submitted {row.fng} • F&G Approved {row.completed} • Sponsorship Approved {row.approved}</div>
+                          <div style={{ color: '#d1d5db', fontSize: 12, marginTop: 6 }}>Sponsorship Submitted {row.submitted} • Booked {row.bookings} • Policy Submitted {row.fng} • Policy Approved {row.completed} • Sponsorship Approved {row.approved}</div>
                         </div>
                       ))}
                     </div>
@@ -1532,14 +1532,14 @@ export default function InnerCircleHubPage() {
                     <strong style={{ color: '#fff' }}>Monthly Leaderboard</strong>
                     <small className="muted">Top 5 Inner Circle • {leaderboard?.month || 'Current Month'}</small>
                   </div>
-                  <small className="muted">Scoring: Sponsorship Submitted (1) • Booked (3) • F&G Submitted (10) • F&G Approved (500). Sponsorship Approved and Leads are tracked but not scored.</small>
+                  <small className="muted">Scoring: Sponsorship Submitted (1) • Booked (3) • Policy Submitted (10) • Policy Approved (500). Sponsorship Approved and Leads are tracked but not scored.</small>
                   <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
                     {monthlyTopPerformers.map((row, idx) => (
                       <div key={`leader_${idx}_${row?.name || 'unknown'}`} style={{ border: '1px solid #334155', borderRadius: 8, padding: '8px 10px', background: '#111827', color: '#e5e7eb' }}>
                         <span style={{ color: '#c8a96b', fontWeight: 800, marginRight: 8 }}>#{idx + 1}</span>
                         <strong style={{ color: '#f8fafc', fontWeight: 800 }}>{row?.name || 'Member'}</strong>
                         <span style={{ color: '#e2e8f0', fontWeight: 700 }}> • {row.points} pts • ${row.dollars}</span>
-                        <div style={{ color: '#cbd5e1', fontSize: 12, marginTop: 4 }}>Sponsorship Submitted {row.submitted} • Booked {row.bookings} • F&G Submitted {row.fng} • F&G Approved {row.completed} • Sponsorship Approved {row.approved}</div>
+                        <div style={{ color: '#cbd5e1', fontSize: 12, marginTop: 4 }}>Sponsorship Submitted {row.submitted} • Booked {row.bookings} • Policy Submitted {row.fng} • Policy Approved {row.completed} • Sponsorship Approved {row.approved}</div>
                       </div>
                     ))}
                     {!monthlyTopPerformers.length ? <small className="muted">No qualifying performance yet this month.</small> : null}
@@ -1794,7 +1794,7 @@ export default function InnerCircleHubPage() {
                     Calls: {periodTotals.calls} • Bookings: {periodTotals.bookings}
                   </p>
                   <p className="muted" style={{ marginTop: 0 }}>
-                    Sponsorship Submitted: {periodTotals.sponsorshipApps} • Sponsorship Approved: {periodTotals.sponsorshipApproved} • FNG Submitted: {periodTotals.fngSubmittedApps} • App Total: {periodTotals.appsTotal}
+                    Sponsorship Submitted: {periodTotals.sponsorshipApps} • Sponsorship Approved: {periodTotals.sponsorshipApproved} • Policy Submitted: {periodTotals.fngSubmittedApps} • App Total: {periodTotals.appsTotal}
                   </p>
                   <small className="muted">Entries Loaded: {dailyRows.length}</small>
                 </div>
@@ -2029,10 +2029,10 @@ export default function InnerCircleHubPage() {
                 <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))' }}>
                   <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#0B1220', padding: 14 }}>
                     <div style={{ color: '#fff', fontWeight: 700 }}>Licensed Monthly Incentive Tracker</div>
-                    <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>$1 sponsorship approvals + $50 F&G/NLG submissions from {monthShortFromKey(productionFinancials.previousMonthKey)} pay out around {productionFinancials.monthlyIncentivePayoutWindow}.</div>
+                    <div style={{ color: '#CBD5E1', marginTop: 6, fontSize: 13 }}>$1 sponsorship approvals + $50 policy submissions from {monthShortFromKey(productionFinancials.previousMonthKey)} pay out around {productionFinancials.monthlyIncentivePayoutWindow}.</div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                       <span className="pill neutral">Sponsorship Submitted: {monthlyLicensedIncentive.submitted}</span>
-                      <span className="pill offpace">Apps Submitted: {monthlyLicensedIncentive.appSubmitted}</span>
+                      <span className="pill offpace">Policy Submitted: {monthlyLicensedIncentive.appSubmitted}</span>
                       <span className="pill onpace">Est. Payout (1st-5th): ${monthlyLicensedIncentive.total}</span>
                     </div>
                   </div>
@@ -2250,12 +2250,13 @@ export default function InnerCircleHubPage() {
               <div style={{ display: 'grid', gap: 10 }}>
                 <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 12, background: '#071022' }}>
                   <strong style={{ color: '#fff' }}>Quick Access Links</strong>
-                  <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>Core links only. PDFs are now in the PDF Library tab.</p>
+                  <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>Use these core links in daily conversations and onboarding flow.</p>
                 </div>
 
                 <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
                   <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617', display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8 }}>
                     <strong style={{ color: '#fff' }}>Personal Sponsorship Link</strong>
+                    <small className="muted" style={{ marginTop: -2 }}>Use this to share the sponsorship application with prospects.</small>
                     <img src={qrUrl(sponsorshipLink)} alt="Sponsorship QR" width={118} height={118} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
                     <button type="button" className="ghost" onClick={() => copyLink(sponsorshipLink, 'sponsor')}>
                       {copiedKey === 'sponsor' ? 'Copied' : 'Copy Link'}
@@ -2279,7 +2280,7 @@ export default function InnerCircleHubPage() {
               <div style={{ display: 'grid', gap: 10 }}>
                 <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 12, background: '#071022' }}>
                   <strong style={{ color: '#fff' }}>PDF Library</strong>
-                  <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>Training documents for onboarding, call execution, and pathway presentation. Legacy Link Pathways SOP unlocks after 10 sponsorship submissions (admin always unlocked).</p>
+                  <p style={{ color: '#cbd5e1', margin: '8px 0 0' }}>Training documents for onboarding, call execution, and pathway presentation. Legacy Link Pathways SOP unlocks after 10 sponsorship submissions.</p>
                 </div>
 
                 <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
