@@ -98,12 +98,8 @@ function stateCodeFromAny(v = '') {
   return map[raw] || raw.slice(0, 2);
 }
 
-function titleCaseWords(v = '') {
-  return clean(v)
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ');
+function normalizeNameSpaces(v = '') {
+  return clean(v).split(/\s+/).filter(Boolean).join(' ');
 }
 
 function enrichInitialNames(rows = [], appRows = [], policyRows = []) {
@@ -118,7 +114,7 @@ function enrichInitialNames(rows = [], appRows = [], policyRows = []) {
     if (!f || !l) return;
     const key = `${s}|${f}|${normalize(l[0])}`;
     if (!index.has(key)) index.set(key, []);
-    index.get(key).push(titleCaseWords(full || `${first} ${last}`.trim()));
+    index.get(key).push(normalizeNameSpaces(full || `${first} ${last}`.trim()));
   };
 
   for (const a of (appRows || [])) {
