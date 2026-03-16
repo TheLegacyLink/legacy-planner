@@ -53,7 +53,7 @@ export default function LeadClaimsPortalPage() {
   const [savingId, setSavingId] = useState('');
   const [message, setMessage] = useState('');
   const [query, setQuery] = useState('');
-  const [view, setView] = useState('available');
+  const [view, setView] = useState('all');
   const [overrideById, setOverrideById] = useState({});
   const [weeklyClaimCap, setWeeklyClaimCap] = useState(2);
   const [viewerClaimedThisWeek, setViewerClaimedThisWeek] = useState(0);
@@ -281,16 +281,19 @@ export default function LeadClaimsPortalPage() {
     }
   };
 
+  const allOpenRows = useMemo(() => rows, [rows]);
+
   const availableRows = useMemo(() => rows.filter((r) => !clean(r.claimed_by) || clean(r.assignment_status) === 'pending_confirmation'), [rows]);
 
   const filteredRows = useMemo(() => {
     const q = normalize(query);
-    if (!q) return availableRows;
-    return availableRows.filter((r) => {
-      const blob = [r.applicant_name, r.applicant_state, r.referred_by, sourceLabel(r)].map((x) => normalize(x)).join(' ');
+    const sourceRows = view === 'all' ? allOpenRows : availableRows;
+    if (!q) return sourceRows;
+    return sourceRows.filter((r) => {
+      const blob = [r.applicant_name, r.applicant_state, r.referred_by, sourceLabel(r), r.claimed_by].map((x) => normalize(x)).join(' ');
       return blob.includes(q);
     });
-  }, [availableRows, query]);
+  }, [allOpenRows, availableRows, query, view]);
 
   const myClaims = useMemo(() => rows.filter((r) => normalize(r.claimed_by) === normalize(auth.name)), [rows, auth.name]);
   const pendingConfirmRows = useMemo(() => rows.filter((r) => clean(r.assignment_status) === 'pending_confirmation'), [rows]);
@@ -300,7 +303,9 @@ export default function LeadClaimsPortalPage() {
     ? myClaims
     : view === 'pending'
       ? pendingConfirmRows
-      : availableToClaimRows;
+      : view === 'available'
+        ? availableToClaimRows
+        : filteredRows;
 
   if (!auth.name) {
     return (
@@ -358,6 +363,9 @@ export default function LeadClaimsPortalPage() {
             </div>
           ) : null}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className={view === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setView('all')}>
+              All Open Appointments ({allOpenRows.length})
+            </button>
             <button type="button" className={view === 'available' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setView('available')}>
               Available to Claim ({availableToClaimRows.length})
             </button>
@@ -388,8 +396,8 @@ export default function LeadClaimsPortalPage() {
         {!displayedRows.length && !loading ? (
           <div className="claimsEmptyState">
             <div className="icon">🛍️</div>
-            <h3>{view === 'claimed' ? 'No claimed leads yet' : view === 'pending' ? 'No pending confirmations' : 'No available leads'}</h3>
-            <p className="muted">{view === 'claimed' ? 'Once you claim leads, they will show here.' : view === 'pending' ? 'Assignments waiting for agent confirmation will appear here.' : (isManager ? 'Add new leads in admin tools to populate the queue.' : 'Check back soon for fresh booked appointments.')}</p>
+            <h3>{view === 'claimed' ? 'No claimed leads yet' : view === 'pending' ? 'No pending confirmations' : view === 'all' ? 'No open appointments' : 'No available leads'}</h3>
+            <p className="muted">{view === 'claimed' ? 'Once you claim leads, they will show here.' : view === 'pending' ? 'Assignments waiting for agent confirmation will appear here.' : view === 'all' ? 'All open (not completed) appointments will appear here.' : (isManager ? 'Add new leads in admin tools to populate the queue.' : 'Check back soon for fresh booked appointments.')}</p>
           </div>
         ) : null}
 
@@ -443,7 +451,7 @@ export default function LeadClaimsPortalPage() {
                 <p className="muted" style={{ margin: '6px 0 0' }}>{row.applicant_state || '—'} • {clean(row.requested_at_est) || 'No booking time yet'}</p>
                 {inPriority && isMyReferral ? <p className="muted" style={{ margin: '4px 0 0', color: '#92400e' }}>24h priority lock is active for your referral.</p> : null}
                 {isPendingConfirmation ? <p className="muted" style={{ margin: '4px 0 0', color: '#92400e' }}>🟨 Waiting for confirmation from {row.claimed_by || 'assigned agent'}.</p> : null}
-                {isClaimedView ? <p className="muted" style={{ margin: '4px 0 0' }}>Claimed at: {fmtDate(row.claimed_at)}</p> : null}
+                {(isClaimedView || view === 'all') ? <p className="muted" style={{ margin: '4px 0 0' }}>Claimed by: {row.claimed_by || 'Unclaimed'} • {fmtDate(row.claimed_at)}</p> : null}
 
                 <div className="claimPrivate" style={{ marginTop: 10 }}>
                   <p><strong>Phone:</strong> {maskedPhone}</p>
@@ -453,7 +461,7 @@ export default function LeadClaimsPortalPage() {
 
                 {!isClaimedView ? <p className="claimPrivateHint">Full contact details revealed after claiming.</p> : null}
 
-                {!isClaimedView ? (
+                {!isClaimedView && view !== 'all' ? (
                   <>
                     <button
                       type="button"
@@ -486,6 +494,8 @@ export default function LeadClaimsPortalPage() {
                       </div>
                     ) : null}
                   </>
+                ) : view === 'all' ? (
+                  <small className="muted">At-a-glance mode. Use Available/Pending/My Claimed tabs to take action.</small>
                 ) : (
                   <>
                     <button type="button" className="ghost publicBtnBlock" onClick={() => (typeof window !== 'undefined' ? window.location.assign('/pipeline') : null)}>
