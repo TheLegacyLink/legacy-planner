@@ -970,12 +970,20 @@ export async function GET(req) {
 
   const openQueueRows = dedupeByAppointmentSlot(openQueueRowsRaw)
     .sort((a, b) => {
+      const now = Date.now();
       const aWhen = bookingUtcMs(a);
       const bWhen = bookingUtcMs(b);
-      if (!Number.isNaN(aWhen) && !Number.isNaN(bWhen)) return aWhen - bWhen;
+      const aFuture = !Number.isNaN(aWhen) && aWhen >= now;
+      const bFuture = !Number.isNaN(bWhen) && bWhen >= now;
+
+      if (aFuture && bFuture) return aWhen - bWhen; // soonest upcoming first
+      if (aFuture && !bFuture) return -1;
+      if (!aFuture && bFuture) return 1;
+
+      if (!Number.isNaN(aWhen) && !Number.isNaN(bWhen)) return bWhen - aWhen; // past: most recent first
       if (!Number.isNaN(aWhen)) return -1;
       if (!Number.isNaN(bWhen)) return 1;
-      return new Date(a?.created_at || 0).getTime() - new Date(b?.created_at || 0).getTime();
+      return new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime();
     });
 
   const pendingPipeline = buildPendingPipeline(openQueueRows, policyRows);
