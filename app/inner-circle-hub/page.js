@@ -204,6 +204,10 @@ export default function InnerCircleHubPage() {
   const [hubMembers, setHubMembers] = useState([]);
   const [assignParentByChild, setAssignParentByChild] = useState({});
   const [assigningChildKey, setAssigningChildKey] = useState('');
+  const [moveSearch, setMoveSearch] = useState('');
+  const [bulkParentKey, setBulkParentKey] = useState('');
+  const [bulkMoveMap, setBulkMoveMap] = useState({});
+  const [bulkMoving, setBulkMoving] = useState(false);
   const [productionFilter, setProductionFilter] = useState('all');
   const [productionWindow, setProductionWindow] = useState('month');
   const [pointsHistoryOpen, setPointsHistoryOpen] = useState(false);
@@ -625,6 +629,24 @@ export default function InnerCircleHubPage() {
       }))
       .sort((a, b) => clean(a?.childName).localeCompare(clean(b?.childName)));
   }, [teamHierarchyRows, teamAdminData]);
+
+  const filteredTeamManageRows = useMemo(() => {
+    const q = clean(moveSearch).toLowerCase();
+    if (!q) return teamManageRows;
+    return (teamManageRows || []).filter((r) => {
+      const child = clean(r?.childName).toLowerCase();
+      const email = clean(r?.childEmail).toLowerCase();
+      const parent = clean(r?.parentLabel).toLowerCase();
+      return child.includes(q) || email.includes(q) || parent.includes(q);
+    });
+  }, [teamManageRows, moveSearch]);
+
+  const recentReassignments = useMemo(() => {
+    return (teamManageRows || [])
+      .filter((r) => clean(r?.source).toLowerCase() === 'admin_reassign')
+      .sort((a, b) => rowTs(b) - rowTs(a))
+      .slice(0, 10);
+  }, [teamManageRows]);
 
   const productionStats = useMemo(() => {
     const rows = filteredProductionRows || [];
@@ -1197,6 +1219,13 @@ export default function InnerCircleHubPage() {
     }).catch(() => null);
   }
 
+  async function refreshTeamHierarchy() {
+    const teamUrl = `/api/team-hierarchy?viewerName=${encodeURIComponent(member?.applicantName || member?.name || '')}&viewerEmail=${encodeURIComponent(member?.email || '')}`;
+    const res = await fetch(teamUrl, { cache: 'no-store' });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data?.ok) setTeamHierarchyRows(Array.isArray(data?.rows) ? data.rows : []);
+  }
+
   async function assignTeamParent(candidate = {}, source = 'admin_manual_assign') {
     const childKey = clean(candidate?.key || candidate?.childKey || '');
     const parentKey = clean(assignParentByChild?.[childKey] || '');
@@ -1218,12 +1247,41 @@ export default function InnerCircleHubPage() {
         })
       });
 
-      const teamUrl = `/api/team-hierarchy?viewerName=${encodeURIComponent(member?.applicantName || member?.name || '')}&viewerEmail=${encodeURIComponent(member?.email || '')}`;
-      const res = await fetch(teamUrl, { cache: 'no-store' });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data?.ok) setTeamHierarchyRows(Array.isArray(data?.rows) ? data.rows : []);
+      await refreshTeamHierarchy();
     } finally {
       setAssigningChildKey('');
+    }
+  }
+
+  async function bulkMoveSelected() {
+    const parent = (teamAdminData?.options || []).find((o) => clean(o?.key) === clean(bulkParentKey));
+    if (!parent) return;
+    const selectedKeys = Object.entries(bulkMoveMap || {}).filter(([, v]) => Boolean(v)).map(([k]) => clean(k)).filter(Boolean);
+    if (!selectedKeys.length) return;
+
+    setBulkMoving(true);
+    try {
+      const selectedRows = (teamManageRows || []).filter((r) => selectedKeys.includes(clean(r?.childKey)));
+      for (const r of selectedRows) {
+        const childKey = clean(r?.childKey || '');
+        if (!childKey || childKey === clean(parent?.key || '') || clean(r?.parentKey || '') === clean(parent?.key || '')) continue;
+        await fetch('/api/team-hierarchy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            parentName: parent?.name || '',
+            parentEmail: parent?.email || '',
+            childName: r?.childName || '',
+            childEmail: r?.childEmail || '',
+            source: 'admin_reassign_bulk'
+          })
+        });
+      }
+      await refreshTeamHierarchy();
+      setBulkMoveMap({});
+      setBulkParentKey('');
+    } finally {
+      setBulkMoving(false);
     }
   }
 
@@ -1785,16 +1843,41 @@ export default function InnerCircleHubPage() {
                     <strong style={{ color: '#fff' }}>Hierarchy Reassignment (Admin)</strong>
                     <small className="muted">Move member under a different upline</small>
                   </div>
+
+                  <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                    <input
+                      value={moveSearch}
+                      onChange={(e) => setMoveSearch(e.target.value)}
+                      placeholder="Search member, email, or current upline..."
+                      style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 10px', minWidth: 260 }}
+                    />
+                    <select value={bulkParentKey} onChange={(e) => setBulkParentKey(e.target.value)} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px', minWidth: 230 }}>
+                      <option value="">Bulk move selected under...</option>
+                      {(teamAdminData?.options || []).map((o) => (
+                        <option key={`bulk-opt-${o.key}`} value={o.key}>{o.name}{o.email ? ` (${o.email})` : ''}</option>
+                      ))}
+                    </select>
+                    <button type="button" className="publicPrimaryBtn" disabled={!bulkParentKey || bulkMoving || !Object.values(bulkMoveMap || {}).some(Boolean)} onClick={bulkMoveSelected}>
+                      {bulkMoving ? 'Bulk Moving...' : 'Bulk Move Selected'}
+                    </button>
+                  </div>
+
                   <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-                    {(teamManageRows || []).slice(0, 40).map((r) => {
+                    {(filteredTeamManageRows || []).slice(0, 60).map((r) => {
                       const childKey = clean(r?.childKey || '');
                       const currentParentKey = clean(r?.parentKey || '');
                       const selectedParent = clean(assignParentByChild?.[childKey] || currentParentKey);
                       return (
                         <div key={`mv-${r.id}`} style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: '10px 12px', display: 'grid', gap: 8 }}>
-                          <div>
-                            <div style={{ color: '#fff', fontWeight: 700 }}>{r?.childName || 'Member'}</div>
-                            <small className="muted">Current upline: {r?.parentLabel || 'Unassigned'}</small>
+                          <div className="panelRow" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                            <div>
+                              <div style={{ color: '#fff', fontWeight: 700 }}>{r?.childName || 'Member'}</div>
+                              <small className="muted">Current upline: {r?.parentLabel || 'Unassigned'}</small>
+                            </div>
+                            <label className="panelRow" style={{ gap: 6, color: '#cbd5e1', fontSize: 12 }}>
+                              <input type="checkbox" checked={Boolean(bulkMoveMap?.[childKey])} onChange={(e) => setBulkMoveMap((p) => ({ ...p, [childKey]: e.target.checked }))} />
+                              Select
+                            </label>
                           </div>
                           <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
                             <select value={selectedParent} onChange={(e) => setAssignParentByChild((p) => ({ ...p, [childKey]: e.target.value }))} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px', minWidth: 220 }}>
@@ -1814,7 +1897,19 @@ export default function InnerCircleHubPage() {
                         </div>
                       );
                     })}
-                    {!(teamManageRows || []).length ? <small className="muted">No assigned members found yet.</small> : null}
+                    {!(filteredTeamManageRows || []).length ? <small className="muted">No matching members found.</small> : null}
+                  </div>
+
+                  <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: '10px 12px', marginTop: 10 }}>
+                    <strong style={{ color: '#fff', fontSize: 13 }}>Recent Moves</strong>
+                    <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+                      {(recentReassignments || []).map((r) => (
+                        <small key={`audit-${r.id}-${r.updatedAt}`} className="muted">
+                          {r?.childName || 'Member'} → {r?.parentLabel || 'Upline'} ({r?.updatedAt ? new Date(r.updatedAt).toLocaleString() : 'just now'})
+                        </small>
+                      ))}
+                      {!(recentReassignments || []).length ? <small className="muted">No recent moves yet.</small> : null}
+                    </div>
                   </div>
                 </div>
               </div>
