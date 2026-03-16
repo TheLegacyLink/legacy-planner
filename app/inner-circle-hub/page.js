@@ -89,6 +89,18 @@ function normalizeLicenseFlag(v = '') {
   return '';
 }
 
+function parseMoveNote(note = '') {
+  const raw = clean(note);
+  if (!raw.startsWith('prev_parent:')) return null;
+  const json = raw.slice('prev_parent:'.length);
+  try {
+    const parsed = JSON.parse(json);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function isApprovedStatus(status = '') {
   return clean(status).toLowerCase().includes('approved');
 }
@@ -208,6 +220,7 @@ export default function InnerCircleHubPage() {
   const [bulkParentKey, setBulkParentKey] = useState('');
   const [bulkMoveMap, setBulkMoveMap] = useState({});
   const [bulkMoving, setBulkMoving] = useState(false);
+  const [undoingMove, setUndoingMove] = useState(false);
   const [productionFilter, setProductionFilter] = useState('all');
   const [productionWindow, setProductionWindow] = useState('month');
   const [pointsHistoryOpen, setPointsHistoryOpen] = useState(false);
@@ -643,7 +656,10 @@ export default function InnerCircleHubPage() {
 
   const recentReassignments = useMemo(() => {
     return (teamManageRows || [])
-      .filter((r) => clean(r?.source).toLowerCase() === 'admin_reassign')
+      .filter((r) => {
+        const s = clean(r?.source).toLowerCase();
+        return s === 'admin_reassign' || s === 'admin_reassign_bulk' || s === 'admin_reassign_undo';
+      })
       .sort((a, b) => rowTs(b) - rowTs(a))
       .slice(0, 10);
   }, [teamManageRows]);
@@ -1233,6 +1249,18 @@ export default function InnerCircleHubPage() {
     const parent = (teamAdminData?.options || []).find((o) => clean(o?.key) === parentKey);
     if (!parent) return;
 
+    const existing = (teamManageRows || []).find((r) => clean(r?.childKey) === childKey);
+    const previous = existing ? {
+      key: clean(existing?.parentKey || ''),
+      name: clean(existing?.parentName || existing?.parentLabel || ''),
+      email: clean(existing?.parentEmail || '')
+    } : null;
+
+    const shouldTrackPrevious = source === 'admin_reassign' || source === 'admin_reassign_bulk';
+    const note = shouldTrackPrevious && previous?.key
+      ? `prev_parent:${JSON.stringify(previous)}`
+      : clean(existing?.note || '');
+
     setAssigningChildKey(childKey);
     try {
       await fetch('/api/team-hierarchy', {
@@ -1243,7 +1271,8 @@ export default function InnerCircleHubPage() {
           parentEmail: parent?.email || '',
           childName: candidate?.name || candidate?.childName || '',
           childEmail: candidate?.email || candidate?.childEmail || '',
-          source
+          source,
+          note
         })
       });
 
@@ -1273,7 +1302,10 @@ export default function InnerCircleHubPage() {
             parentEmail: parent?.email || '',
             childName: r?.childName || '',
             childEmail: r?.childEmail || '',
-            source: 'admin_reassign_bulk'
+            source: 'admin_reassign_bulk',
+            note: clean(r?.parentKey)
+              ? `prev_parent:${JSON.stringify({ key: clean(r?.parentKey), name: clean(r?.parentName || r?.parentLabel || ''), email: clean(r?.parentEmail || '') })}`
+              : ''
           })
         });
       }
@@ -1282,6 +1314,32 @@ export default function InnerCircleHubPage() {
       setBulkParentKey('');
     } finally {
       setBulkMoving(false);
+    }
+  }
+
+  async function undoLastMove() {
+    const latest = (recentReassignments || []).find((r) => parseMoveNote(r?.note));
+    if (!latest) return;
+
+    const prev = parseMoveNote(latest?.note);
+    if (!prev?.key) return;
+
+    setUndoingMove(true);
+    try {
+      await fetch('/api/team-hierarchy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          parentName: prev?.name || '',
+          parentEmail: prev?.email || '',
+          childName: latest?.childName || '',
+          childEmail: latest?.childEmail || '',
+          source: 'admin_reassign_undo'
+        })
+      });
+      await refreshTeamHierarchy();
+    } finally {
+      setUndoingMove(false);
     }
   }
 
@@ -1789,7 +1847,7 @@ export default function InnerCircleHubPage() {
                           </label>
                           {children.length ? (
                             <button type="button" className="ghost" onClick={() => setTeamExpanded((p) => ({ ...p, [card.id]: !expanded }))}>
-                              {expanded ? 'Hide Children' : `View Children (${children.length})`}
+                              {expanded ? 'Hide Downlink' : `View Downlink (${children.length})`}
                             </button>
                           ) : null}
                         </div>
@@ -1901,7 +1959,12 @@ export default function InnerCircleHubPage() {
                   </div>
 
                   <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: '10px 12px', marginTop: 10 }}>
-                    <strong style={{ color: '#fff', fontSize: 13 }}>Recent Moves</strong>
+                    <div className="panelRow" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                      <strong style={{ color: '#fff', fontSize: 13 }}>Recent Moves</strong>
+                      <button type="button" className="ghost" disabled={undoingMove || !(recentReassignments || []).some((r) => parseMoveNote(r?.note))} onClick={undoLastMove}>
+                        {undoingMove ? 'Undoing...' : 'Undo Last Move'}
+                      </button>
+                    </div>
                     <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
                       {(recentReassignments || []).map((r) => (
                         <small key={`audit-${r.id}-${r.updatedAt}`} className="muted">
