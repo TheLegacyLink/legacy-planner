@@ -41,6 +41,10 @@ function maskEmail(v = '') {
   return `${first}***@***.${tld}`;
 }
 
+function normalizePhone(v = '') {
+  return clean(v).replace(/\D/g, '');
+}
+
 export default function LeadClaimsPortalPage() {
   const [auth, setAuth] = useState({ name: '', role: '' });
   const [loginName, setLoginName] = useState('');
@@ -57,6 +61,7 @@ export default function LeadClaimsPortalPage() {
   const [overrideById, setOverrideById] = useState({});
   const [weeklyClaimCap, setWeeklyClaimCap] = useState(2);
   const [viewerClaimedThisWeek, setViewerClaimedThisWeek] = useState(0);
+  const [bookedAtGlance, setBookedAtGlance] = useState([]);
 
   const isAdmin = useMemo(() => normalize(auth.role) === 'admin', [auth.role]);
   const isManager = useMemo(() => ['admin', 'manager'].includes(normalize(auth.role)), [auth.role]);
@@ -65,7 +70,12 @@ export default function LeadClaimsPortalPage() {
     if (!auth.name) return;
     if (!silent) setLoading(true);
     try {
-      const res = await fetch(`/api/lead-claims?viewer=${encodeURIComponent(auth.name)}`, { cache: 'no-store' });
+      const [res, appsRes, bookingsRes] = await Promise.all([
+        fetch(`/api/lead-claims?viewer=${encodeURIComponent(auth.name)}`, { cache: 'no-store' }),
+        fetch('/api/sponsorship-applications', { cache: 'no-store' }),
+        fetch('/api/sponsorship-bookings', { cache: 'no-store' })
+      ]);
+
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) throw new Error(data?.error || 'Failed to load leads');
       setRows(Array.isArray(data.rows) ? data.rows : []);
@@ -75,6 +85,37 @@ export default function LeadClaimsPortalPage() {
       if (data?.viewer?.name && data?.viewer?.role) {
         setAuth({ name: data.viewer.name, role: data.viewer.role });
       }
+
+      const appsData = await appsRes.json().catch(() => ({}));
+      const bookingsData = await bookingsRes.json().catch(() => ({}));
+      const appRows = Array.isArray(appsData?.rows) ? appsData.rows : [];
+      const bookingRows = Array.isArray(bookingsData?.rows) ? bookingsData.rows : [];
+
+      const bookedSet = new Set();
+      for (const b of bookingRows) {
+        const sourceId = clean(b?.source_application_id);
+        const name = normalize(b?.applicant_name || '');
+        const email = normalize(b?.applicant_email || '');
+        const phone = normalizePhone(b?.applicant_phone || '');
+        if (sourceId) bookedSet.add(`id:${sourceId}`);
+        if (name) bookedSet.add(`n:${name}`);
+        if (email) bookedSet.add(`e:${email}`);
+        if (phone) bookedSet.add(`p:${phone}`);
+      }
+
+      const bookedNames = [];
+      for (const a of appRows) {
+        const id = clean(a?.id || '');
+        const name = clean(`${a?.firstName || ''} ${a?.lastName || ''}`);
+        const nameKey = normalize(name);
+        const email = normalize(a?.email || '');
+        const phone = normalizePhone(a?.phone || '');
+        const isBooked = (id && bookedSet.has(`id:${id}`)) || (nameKey && bookedSet.has(`n:${nameKey}`)) || (email && bookedSet.has(`e:${email}`)) || (phone && bookedSet.has(`p:${phone}`));
+        if (!isBooked) continue;
+        if (name) bookedNames.push(name);
+      }
+
+      setBookedAtGlance(Array.from(new Set(bookedNames)).sort((a, b) => a.localeCompare(b)));
     } catch (err) {
       setMessage(err?.message || 'Load failed');
     } finally {
@@ -307,6 +348,11 @@ export default function LeadClaimsPortalPage() {
         ? availableToClaimRows
         : filteredRows;
 
+  const bookedMissingFromQueue = useMemo(() => {
+    const queueNames = new Set((rows || []).map((r) => normalize(r?.applicant_name || '')).filter(Boolean));
+    return (bookedAtGlance || []).filter((n) => !queueNames.has(normalize(n)));
+  }, [bookedAtGlance, rows]);
+
   if (!auth.name) {
     return (
       <main className="claimsPortal claimsPortalMarketplace">
@@ -340,7 +386,25 @@ export default function LeadClaimsPortalPage() {
 
       {message ? <section className="claimsMessage">{message}</section> : null}
 
-      
+      <section className="claimsRoster" style={{ marginTop: 8 }}>
+        <div className="claimsQuickTools" style={{ display: 'grid', gap: 8 }}>
+          <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#071022', padding: 12 }}>
+            <strong style={{ color: '#fff' }}>Mission Statement at a Glance — Booked Appointments</strong>
+            <p style={{ color: '#cbd5e1', margin: '6px 0 0' }}>Any person marked as Booked Appointment in sponsorship review should appear in this queue.</p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+              <span className="pill" style={{ background: '#dcfce7', color: '#166534' }}>Booked Snapshot: {bookedAtGlance.length}</span>
+              <span className="pill" style={{ background: bookedMissingFromQueue.length ? '#fee2e2' : '#dbeafe', color: bookedMissingFromQueue.length ? '#991b1b' : '#1e3a8a' }}>
+                Missing from Queue: {bookedMissingFromQueue.length}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+              {(bookedAtGlance || []).map((n) => (
+                <span key={`b-${n}`} className="pill" style={{ background: bookedMissingFromQueue.includes(n) ? '#fee2e2' : '#f1f5f9', color: bookedMissingFromQueue.includes(n) ? '#991b1b' : '#0f172a' }}>{n}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="claimsRoster">
         <div className="claimsQuickTools" style={{ display: 'grid', gap: 8 }}>
