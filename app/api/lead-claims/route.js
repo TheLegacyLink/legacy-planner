@@ -256,20 +256,25 @@ function emailFrame(title = '', bodyHtml = '') {
 }
 
 function parseDateTime12(raw = '') {
-  const m = String(raw || '').trim().match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  const m = String(raw || '').trim().match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)(?:\s*(ET|CT|MT|PT|EST|CST|MST|PST))?$/i);
   if (!m) return null;
-  const [_, date, h, min, ampm] = m;
+  const [_, date, h, min, ampm, zoneRaw] = m;
   let hour = Number(h);
   if (ampm.toUpperCase() === 'PM' && hour < 12) hour += 12;
   if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
-  return { date, hour, minute: Number(min) };
+  let zone = clean(zoneRaw || '').toUpperCase();
+  if (zone === 'EST') zone = 'ET';
+  if (zone === 'CST') zone = 'CT';
+  if (zone === 'MST') zone = 'MT';
+  if (zone === 'PST') zone = 'PT';
+  return { date, hour, minute: Number(min), zone };
 }
 
 function bookingUtcMs(row = {}) {
   const parsed = parseDateTime12(clean(row?.requested_at_est || ''));
   if (!parsed) return NaN;
 
-  const zone = clean(row?.booking_timezone || inferTimezoneFromState(row?.applicant_state) || 'ET').toUpperCase();
+  const zone = clean(parsed?.zone || row?.booking_timezone || inferTimezoneFromState(row?.applicant_state) || 'ET').toUpperCase();
   const offset = Number(ZONE_OFFSET[zone] ?? -5);
   const [y, mo, d] = parsed.date.split('-').map((n) => Number(n));
   if (!y || !mo || !d) return NaN;
