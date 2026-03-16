@@ -698,7 +698,7 @@ export default function InnerCircleHubPage() {
       },
       {
         name: 'Sponsorship Application Call SOP',
-        url: '/docs/onboarding/legacy-link-sponsorship-phone-application-sop.pdf'
+        url: '/docs/onboarding/legacy-link-sponsorship-phone-application-sop-2026-03-16.pdf'
       }
     ].map((item) => ({ ...item, url: toAbsoluteLink(item.url) }));
   }, [toAbsoluteLink]);
@@ -728,7 +728,7 @@ export default function InnerCircleHubPage() {
       },
       {
         name: 'Sponsorship Application Call SOP PDF',
-        url: toAbsoluteLink('/docs/onboarding/legacy-link-sponsorship-phone-application-sop.pdf')
+        url: toAbsoluteLink('/docs/onboarding/legacy-link-sponsorship-phone-application-sop-2026-03-16.pdf')
       }
     ];
   }, [toAbsoluteLink]);
