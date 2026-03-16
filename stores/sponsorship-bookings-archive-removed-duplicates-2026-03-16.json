@@ -1,0 +1,162 @@
+{
+  "archivedAt": "2026-03-16T19:21:46.641445Z",
+  "reason": "Removed duplicate short-name booking rows per Kimora request; full-name rows retained in queue.",
+  "removed": [
+    {
+      "id": "lc_fb_teewanna_c",
+      "source_type": "sponsorship",
+      "source_application_id": "manual_teewanna_c_20260318",
+      "applicant_name": "Teewanna C",
+      "applicant_email": "",
+      "applicant_phone": "",
+      "applicant_state": "GA",
+      "requested_at_est": "2026-03-18 8:30 PM",
+      "booking_timezone": "ET",
+      "referred_by": "Kimora Link",
+      "claim_status": "Priority Hold",
+      "claimed_by": "",
+      "claimed_at": "",
+      "priority_agent": "Kimora Link",
+      "priority_expires_at": "2026-03-17T17:23:57.109Z",
+      "priority_released": false,
+      "created_at": "2026-03-16T17:23:57.109Z",
+      "updated_at": "2026-03-16T17:24:31.777Z",
+      "notes": "Manual fallback booking restore | [Auto-Reschedule] kept latest slot 2026-03-18 8:30 PM and removed older slot 2026-03-18 8:30 PM (lc_fb_teewanna_c).",
+      "rescheduled_count": 1,
+      "reschedule_history": [
+        {
+          "replaced_booking_id": "lc_fb_teewanna_c",
+          "replaced_requested_at_est": "2026-03-18 8:30 PM",
+          "replaced_created_at": "2026-03-16T17:23:57.109Z",
+          "dedupe_key": "source:manual_teewanna_c_20260318",
+          "merged_at": "2026-03-16T17:24:31.777Z"
+        }
+      ]
+    },
+    {
+      "id": "lc_fb_rochelle_g",
+      "source_type": "sponsorship",
+      "source_application_id": "manual_rochelle_g_20260315",
+      "applicant_name": "Rochelle G",
+      "applicant_email": "",
+      "applicant_phone": "",
+      "applicant_state": "GA",
+      "requested_at_est": "2026-03-15 8:30 PM",
+      "booking_timezone": "ET",
+      "referred_by": "Kimora Link",
+      "claim_status": "Priority Hold",
+      "claimed_by": "",
+      "claimed_at": "",
+      "priority_agent": "Kimora Link",
+      "priority_expires_at": "2026-03-17T17:04:13.086Z",
+      "priority_released": false,
+      "created_at": "2026-03-16T17:04:13.086Z",
+      "updated_at": "2026-03-16T17:07:14.839Z",
+      "notes": "Manual fallback booking restore | [Auto-Reschedule] kept latest slot 2026-03-15 8:30 PM and removed older slot 2026-03-15 8:30 PM (lc_fb_rochelle_g).",
+      "rescheduled_count": 1,
+      "reschedule_history": [
+        {
+          "replaced_booking_id": "lc_fb_rochelle_g",
+          "replaced_requested_at_est": "2026-03-15 8:30 PM",
+          "replaced_created_at": "2026-03-16T17:04:13.086Z",
+          "dedupe_key": "source:manual_rochelle_g_20260315",
+          "merged_at": "2026-03-16T17:07:14.839Z"
+        }
+      ]
+    },
+    {
+      "id": "lc_fb_leaundra_c",
+      "source_type": "sponsorship",
+      "source_application_id": "manual_leaundra_c_20260317",
+      "applicant_name": "LeAundra C",
+      "applicant_email": "",
+      "applicant_phone": "",
+      "applicant_state": "AL",
+      "requested_at_est": "2026-03-17 11:00 AM CT",
+      "booking_timezone": "CT",
+      "referred_by": "Kimora Link",
+      "claim_status": "Priority Hold",
+      "claimed_by": "",
+      "claimed_at": "",
+      "priority_agent": "Kimora Link",
+      "priority_expires_at": "2026-03-17T17:04:13.086Z",
+      "priority_released": false,
+      "created_at": "2026-03-16T17:04:13.086Z",
+      "updated_at": "2026-03-16T17:07:14.839Z",
+      "notes": "Manual fallback booking restore | [Auto-Reschedule] kept latest slot 2026-03-17 11:00 AM CT and removed older slot 2026-03-17 11:00 AM CT (lc_fb_leaundra_c).",
+      "rescheduled_count": 1,
+      "reschedule_history": [
+        {
+          "replaced_booking_id": "lc_fb_leaundra_c",
+          "replaced_requested_at_est": "2026-03-17 11:00 AM CT",
+          "replaced_created_at": "2026-03-16T17:04:13.086Z",
+          "dedupe_key": "source:manual_leaundra_c_20260317",
+          "merged_at": "2026-03-16T17:07:14.839Z"
+        }
+      ]
+    },
+    {
+      "id": "lc_fb_james_f",
+      "source_type": "sponsorship",
+      "source_application_id": "manual_james_f_20260317",
+      "applicant_name": "James F",
+      "applicant_email": "",
+      "applicant_phone": "",
+      "applicant_state": "AZ",
+      "requested_at_est": "2026-03-17 1:00 PM",
+      "booking_timezone": "MT",
+      "referred_by": "Kimora Link",
+      "claim_status": "Priority Hold",
+      "claimed_by": "",
+      "claimed_at": "",
+      "priority_agent": "Kimora Link",
+      "priority_expires_at": "2026-03-17T17:04:13.086Z",
+      "priority_released": false,
+      "created_at": "2026-03-16T17:04:13.086Z",
+      "updated_at": "2026-03-16T17:07:14.839Z",
+      "notes": "Manual fallback booking restore | [Auto-Reschedule] kept latest slot 2026-03-17 1:00 PM and removed older slot 2026-03-17 1:00 PM (lc_fb_james_f).",
+      "rescheduled_count": 1,
+      "reschedule_history": [
+        {
+          "replaced_booking_id": "lc_fb_james_f",
+          "replaced_requested_at_est": "2026-03-17 1:00 PM",
+          "replaced_created_at": "2026-03-16T17:04:13.086Z",
+          "dedupe_key": "source:manual_james_f_20260317",
+          "merged_at": "2026-03-16T17:07:14.839Z"
+        }
+      ]
+    },
+    {
+      "id": "lc_fb_curtis_c",
+      "source_type": "sponsorship",
+      "source_application_id": "manual_curtis_c_20260317",
+      "applicant_name": "Curtis C",
+      "applicant_email": "",
+      "applicant_phone": "",
+      "applicant_state": "OH",
+      "requested_at_est": "2026-03-17 1:30 PM",
+      "booking_timezone": "ET",
+      "referred_by": "Kimora Link",
+      "claim_status": "Priority Hold",
+      "claimed_by": "",
+      "claimed_at": "",
+      "priority_agent": "Kimora Link",
+      "priority_expires_at": "2026-03-17T17:04:13.086Z",
+      "priority_released": false,
+      "created_at": "2026-03-16T17:04:13.086Z",
+      "updated_at": "2026-03-16T17:07:14.839Z",
+      "notes": "Manual fallback booking restore | [Auto-Reschedule] kept latest slot 2026-03-17 1:30 PM and removed older slot 2026-03-17 1:30 PM (lc_fb_curtis_c).",
+      "rescheduled_count": 1,
+      "reschedule_history": [
+        {
+          "replaced_booking_id": "lc_fb_curtis_c",
+          "replaced_requested_at_est": "2026-03-17 1:30 PM",
+          "replaced_created_at": "2026-03-16T17:04:13.086Z",
+          "dedupe_key": "source:manual_curtis_c_20260317",
+          "merged_at": "2026-03-16T17:07:14.839Z"
+        }
+      ]
+    }
+  ],
+  "failed": []
+}

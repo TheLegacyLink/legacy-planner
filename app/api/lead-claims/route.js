@@ -40,14 +40,9 @@ const AGENT_TIMEZONE_BY_NAME = {
 const ZONE_OFFSET = { ET: -5, CT: -6, MT: -7, PT: -8, AKT: -9, HT: -10, AT: -4 };
 
 const MANUAL_BOOKING_FALLBACK = [
-  { id: 'lc_fb_rochelle_g', source_application_id: 'manual_rochelle_g_20260315', applicant_name: 'Rochelle G', applicant_state: 'GA', requested_at_est: '2026-03-15 8:30 PM', referred_by: 'Link' },
   { id: 'lc_fb_haneef_s', source_application_id: 'manual_haneef_s_20260316', applicant_name: 'Haneef S', applicant_state: 'CO', requested_at_est: '2026-03-16 9:00 AM', referred_by: 'Link' },
   { id: 'lc_fb_juan_v', source_application_id: 'manual_juan_v_20260316', applicant_name: 'Juan V', applicant_state: 'OK', requested_at_est: '2026-03-16 11:00 AM', referred_by: 'Link' },
-  { id: 'lc_fb_leaundra_c', source_application_id: 'manual_leaundra_c_20260317', applicant_name: 'LeAundra C', applicant_state: 'AL', requested_at_est: '2026-03-17 11:00 AM CT', referred_by: 'Link' },
-  { id: 'lc_fb_james_f', source_application_id: 'manual_james_f_20260317', applicant_name: 'James F', applicant_state: 'AZ', requested_at_est: '2026-03-17 1:00 PM', referred_by: 'Link' },
-  { id: 'lc_fb_curtis_c', source_application_id: 'manual_curtis_c_20260317', applicant_name: 'Curtis C', applicant_state: 'OH', requested_at_est: '2026-03-17 1:30 PM', referred_by: 'Link' },
   { id: 'lc_fb_latoya_l', source_application_id: 'manual_latoya_l_20260318', applicant_name: 'LaToya L', applicant_state: 'MD', requested_at_est: '2026-03-18 1:00 PM', referred_by: 'Link' },
-  { id: 'lc_fb_teewanna_c', source_application_id: 'manual_teewanna_c_20260318', applicant_name: 'Teewanna C', applicant_state: 'GA', requested_at_est: '2026-03-18 8:30 PM', referred_by: 'Link' },
   { id: 'lc_fb_javion_b', source_application_id: 'manual_javion_b_20260319', applicant_name: 'Javion B', applicant_state: 'VA', requested_at_est: '2026-03-19 11:00 AM', referred_by: 'Link' },
   { id: 'lc_fb_lenord_l', source_application_id: 'manual_lenord_l_20260320', applicant_name: 'Lenord L', applicant_state: 'VA', requested_at_est: '2026-03-20 12:00 PM', referred_by: 'Link' }
 ];
