@@ -5,6 +5,7 @@ import licensedAgents from '../../../data/licensedAgents.json';
 
 const SPONSORSHIP_BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
 const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
+const SPONSORSHIP_APPLICATIONS_PATH = 'stores/sponsorship-applications.json';
 const BONUS_BOOKINGS_PATH = 'stores/bonus-bookings.json';
 const SETTINGS_PATH = 'stores/lead-claims-settings.json';
 const AGENT_ONBOARDING_PATH = 'stores/agent-onboarding.json';
@@ -65,6 +66,51 @@ function normalizeKey(v = '') {
 
 function applicantNameKey(v = '') {
   return normalizeKey(v);
+}
+
+function stateCodeFromAny(v = '') {
+  const raw = clean(v).toUpperCase();
+  if (!raw) return '';
+  if (raw.length === 2) return raw;
+  const map = {
+    ALABAMA: 'AL', ALASKA: 'AK', ARIZONA: 'AZ', ARKANSAS: 'AR', CALIFORNIA: 'CA', COLORADO: 'CO',
+    CONNECTICUT: 'CT', DELAWARE: 'DE', FLORIDA: 'FL', GEORGIA: 'GA', HAWAII: 'HI', IDAHO: 'ID',
+    ILLINOIS: 'IL', INDIANA: 'IN', IOWA: 'IA', KANSAS: 'KS', KENTUCKY: 'KY', LOUISIANA: 'LA',
+    MAINE: 'ME', MARYLAND: 'MD', MASSACHUSETTS: 'MA', MICHIGAN: 'MI', MINNESOTA: 'MN', MISSISSIPPI: 'MS',
+    MISSOURI: 'MO', MONTANA: 'MT', NEBRASKA: 'NE', NEVADA: 'NV', 'NEW HAMPSHIRE': 'NH', 'NEW JERSEY': 'NJ',
+    'NEW MEXICO': 'NM', 'NEW YORK': 'NY', 'NORTH CAROLINA': 'NC', 'NORTH DAKOTA': 'ND', OHIO: 'OH',
+    OKLAHOMA: 'OK', OREGON: 'OR', PENNSYLVANIA: 'PA', 'RHODE ISLAND': 'RI', 'SOUTH CAROLINA': 'SC',
+    'SOUTH DAKOTA': 'SD', TENNESSEE: 'TN', TEXAS: 'TX', UTAH: 'UT', VERMONT: 'VT', VIRGINIA: 'VA',
+    WASHINGTON: 'WA', 'WEST VIRGINIA': 'WV', WISCONSIN: 'WI', WYOMING: 'WY', 'DISTRICT OF COLUMBIA': 'DC'
+  };
+  return map[raw] || raw.slice(0, 2);
+}
+
+function enrichInitialNames(rows = [], appRows = []) {
+  const list = Array.isArray(rows) ? [...rows] : [];
+  const initials = /^([A-Za-z][A-Za-z\-']*)\s+([A-Za-z])\.?$/;
+
+  const index = new Map();
+  for (const a of (appRows || [])) {
+    const first = normalize(a?.firstName || '');
+    const last = clean(a?.lastName || '');
+    const st = stateCodeFromAny(a?.state || '');
+    if (!first || !last) continue;
+    const key = `${st}|${first}|${normalize(last[0])}`;
+    if (!index.has(key)) index.set(key, []);
+    index.get(key).push(`${clean(a?.firstName || '')} ${last}`.trim());
+  }
+
+  return list.map((r) => {
+    const name = clean(r?.applicant_name || '');
+    const m = name.match(initials);
+    if (!m) return r;
+    const st = stateCodeFromAny(r?.applicant_state || '');
+    const key = `${st}|${normalize(m[1])}|${normalize(m[2])}`;
+    const cands = Array.from(new Set(index.get(key) || []));
+    if (cands.length !== 1) return r;
+    return { ...r, applicant_name: cands[0], applicant_first_name: clean(cands[0].split(/\s+/)[0]), applicant_last_name: clean(cands[0].split(/\s+/).slice(1).join(' ')) };
+  });
 }
 
 function nowIso() {
@@ -608,17 +654,27 @@ function toBonusClaimRow(row = {}) {
   };
 }
 
+function fallbackSlotKey(row = {}) {
+  const state = clean(row?.applicant_state || '').toUpperCase();
+  const requested = clean(row?.requested_at_est || '').toUpperCase().replace(/\s+(ET|CT|MT|PT|EST|CST|MST|PST)$/i, '').trim();
+  const first = normalize((clean(row?.applicant_name || '').split(/\s+/).filter(Boolean)[0] || ''));
+  if (!state || !requested || !first) return '';
+  return `${state}|${requested}|${first}`;
+}
+
 function applyManualBookingFallback(rows = []) {
   const list = Array.isArray(rows) ? [...rows] : [];
   let changed = false;
 
   const existingBySource = new Set(list.map((r) => clean(r?.source_application_id)).filter(Boolean));
   const existingByName = new Set(list.map((r) => applicantNameKey(r?.applicant_name || '')).filter(Boolean));
+  const existingBySlot = new Set(list.map((r) => fallbackSlotKey(r)).filter(Boolean));
 
   for (const m of MANUAL_BOOKING_FALLBACK) {
     const source = clean(m?.source_application_id);
     const nameKey = applicantNameKey(m?.applicant_name || '');
-    if ((source && existingBySource.has(source)) || (nameKey && existingByName.has(nameKey))) continue;
+    const slotKey = fallbackSlotKey(m);
+    if ((source && existingBySource.has(source)) || (nameKey && existingByName.has(nameKey)) || (slotKey && existingBySlot.has(slotKey))) continue;
 
     list.push({
       id: clean(m?.id) || `lc_fb_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -641,6 +697,9 @@ function applyManualBookingFallback(rows = []) {
       updated_at: nowIso(),
       notes: 'Manual fallback booking restore'
     });
+    if (source) existingBySource.add(source);
+    if (nameKey) existingByName.add(nameKey);
+    if (slotKey) existingBySlot.add(slotKey);
     changed = true;
   }
 
@@ -811,10 +870,11 @@ export async function GET(req) {
   const viewer = findAuthUserByName(viewerName);
   const viewerRole = clean(viewer?.role || 'guest');
 
-  const [sponsorStoreRaw, policyRows, bonusRowsRaw] = await Promise.all([
+  const [sponsorStoreRaw, policyRows, bonusRowsRaw, sponsorshipAppsRaw] = await Promise.all([
     loadJsonStore(SPONSORSHIP_BOOKINGS_PATH, []),
     loadJsonStore(POLICY_SUBMISSIONS_PATH, []),
-    loadJsonStore(BONUS_BOOKINGS_PATH, [])
+    loadJsonStore(BONUS_BOOKINGS_PATH, []),
+    loadJsonStore(SPONSORSHIP_APPLICATIONS_PATH, [])
   ]);
 
   const sponsorFallback = applyManualBookingFallback(sponsorStoreRaw);
@@ -824,10 +884,10 @@ export async function GET(req) {
 
   const bonusClaimRows = (bonusRowsRaw || []).map((r) => applyPriorityDefaults(toBonusClaimRow(r)));
 
-  const mergedClaimRows = dedupeClaimRows([
+  const mergedClaimRows = dedupeClaimRows(enrichInitialNames([
     ...sponsorRows.map((r) => applyPriorityDefaults({ ...r, source_type: 'sponsorship' })),
     ...bonusClaimRows
-  ]).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  ], sponsorshipAppsRaw || [])).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
   const isPolicyComplete = (status = '') => {
     const s = normalize(status);
