@@ -86,6 +86,14 @@ function stateCodeFromAny(v = '') {
   return map[raw] || raw.slice(0, 2);
 }
 
+function titleCaseWords(v = '') {
+  return clean(v)
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
 function enrichInitialNames(rows = [], appRows = []) {
   const list = Array.isArray(rows) ? [...rows] : [];
   const initials = /^([A-Za-z][A-Za-z\-']*)\s+([A-Za-z])\.?$/;
@@ -98,7 +106,7 @@ function enrichInitialNames(rows = [], appRows = []) {
     if (!first || !last) continue;
     const key = `${st}|${first}|${normalize(last[0])}`;
     if (!index.has(key)) index.set(key, []);
-    index.get(key).push(`${clean(a?.firstName || '')} ${last}`.trim());
+    index.get(key).push(titleCaseWords(`${clean(a?.firstName || '')} ${last}`.trim()));
   }
 
   return list.map((r) => {
