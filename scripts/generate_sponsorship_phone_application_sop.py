@@ -11,7 +11,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'public' / 'docs' / 'onboarding' / 'legacy-link-sponsorship-phone-application-sop.pdf'
 CONTRACT_URL = 'https://innercirclelink.com/contract-agreement'
-APPLICATION_URL = 'https://innercirclelink.com/sponsorship-application'
+APPLICATION_URL = 'https://innercirclelink.com/inner-circle-app-submit'
 
 
 def styles():

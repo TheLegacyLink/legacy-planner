@@ -12,7 +12,7 @@ This SOP defines the **required call flow** for submitting a sponsorship applica
 - **https://innercirclelink.com/contract-agreement**
 
 ## Application Link (Required)
-- **https://innercirclelink.com/sponsorship-application**
+- **https://innercirclelink.com/inner-circle-app-submit**
 
 ## Approved Applicant Routing (Applies to Everyone Approved)
 - This routing applies to **every approved applicant**.
@@ -46,7 +46,7 @@ This SOP defines the **required call flow** for submitting a sponsorship applica
 
 ## Step 5 — Application Submission (Only After Contract)
 - Only proceed once contract is completed and suitability is confirmed.
-- Agent must submit the app on the Legacy Link website here: **https://innercirclelink.com/sponsorship-application**
+- Agent must submit the app on the Legacy Link website here: **https://innercirclelink.com/inner-circle-app-submit**
 - Do **not** submit this on the insurance carrier website.
 - Complete sponsorship application accurately and review all fields.
 - If prospect is not suitable or decides they do not need a policy, agent still submits the app on the Legacy Link website so onboarding can begin.
@@ -55,7 +55,7 @@ This SOP defines the **required call flow** for submitting a sponsorship applica
 
 ## Step 6 — Close Out + Next Steps
 - Thank them for their time.
-- Let them know to submit the app here: **https://innercirclelink.com/sponsorship-application**
+- Let them know to submit the app here: **https://innercirclelink.com/inner-circle-app-submit**
 - Reconfirm expected timeline and follow-up process.
 - Check in with them within the next 48 hours to make sure everything is moving smoothly.
 
