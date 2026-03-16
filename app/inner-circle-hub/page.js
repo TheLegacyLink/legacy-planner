@@ -615,6 +615,17 @@ export default function InnerCircleHubPage() {
     return { options, candidates: Array.from(candidatesMap.values()) };
   }, [teamHierarchyRows, hubMembers, member?.applicantName, member?.name, member?.email]);
 
+  const teamManageRows = useMemo(() => {
+    const options = teamAdminData?.options || [];
+    const byParent = new Map(options.map((o) => [clean(o?.key), clean(o?.name || 'Agent')]));
+    return (Array.isArray(teamHierarchyRows) ? teamHierarchyRows : [])
+      .map((r) => ({
+        ...r,
+        parentLabel: clean(r?.parentName || byParent.get(clean(r?.parentKey)) || 'Unassigned')
+      }))
+      .sort((a, b) => clean(a?.childName).localeCompare(clean(b?.childName)));
+  }, [teamHierarchyRows, teamAdminData]);
+
   const productionStats = useMemo(() => {
     const rows = filteredProductionRows || [];
     const approved = rows.filter((r) => clean(r?.status).toLowerCase().includes('approved')).length;
@@ -1186,8 +1197,8 @@ export default function InnerCircleHubPage() {
     }).catch(() => null);
   }
 
-  async function assignTeamParent(candidate = {}) {
-    const childKey = clean(candidate?.key || '');
+  async function assignTeamParent(candidate = {}, source = 'admin_manual_assign') {
+    const childKey = clean(candidate?.key || candidate?.childKey || '');
     const parentKey = clean(assignParentByChild?.[childKey] || '');
     if (!childKey || !parentKey) return;
     const parent = (teamAdminData?.options || []).find((o) => clean(o?.key) === parentKey);
@@ -1201,9 +1212,9 @@ export default function InnerCircleHubPage() {
         body: JSON.stringify({
           parentName: parent?.name || '',
           parentEmail: parent?.email || '',
-          childName: candidate?.name || '',
-          childEmail: candidate?.email || '',
-          source: 'admin_manual_assign'
+          childName: candidate?.name || candidate?.childName || '',
+          childEmail: candidate?.email || candidate?.childEmail || '',
+          source
         })
       });
 
@@ -1766,6 +1777,44 @@ export default function InnerCircleHubPage() {
                       </div>
                     ))}
                     {!(teamAdminData?.candidates || []).length ? <small className="muted">No unassigned members found right now.</small> : null}
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#0B1220', padding: 14 }}>
+                  <div className="panelRow" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                    <strong style={{ color: '#fff' }}>Hierarchy Reassignment (Admin)</strong>
+                    <small className="muted">Move member under a different upline</small>
+                  </div>
+                  <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                    {(teamManageRows || []).slice(0, 40).map((r) => {
+                      const childKey = clean(r?.childKey || '');
+                      const currentParentKey = clean(r?.parentKey || '');
+                      const selectedParent = clean(assignParentByChild?.[childKey] || currentParentKey);
+                      return (
+                        <div key={`mv-${r.id}`} style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: '10px 12px', display: 'grid', gap: 8 }}>
+                          <div>
+                            <div style={{ color: '#fff', fontWeight: 700 }}>{r?.childName || 'Member'}</div>
+                            <small className="muted">Current upline: {r?.parentLabel || 'Unassigned'}</small>
+                          </div>
+                          <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+                            <select value={selectedParent} onChange={(e) => setAssignParentByChild((p) => ({ ...p, [childKey]: e.target.value }))} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px', minWidth: 220 }}>
+                              {(teamAdminData?.options || []).map((o) => (
+                                <option key={`mv-opt-${r.id}-${o.key}`} value={o.key} disabled={clean(o?.key) === childKey}>{o.name}{o.email ? ` (${o.email})` : ''}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              className="publicPrimaryBtn"
+                              disabled={!selectedParent || selectedParent === currentParentKey || selectedParent === childKey || assigningChildKey === childKey}
+                              onClick={() => assignTeamParent({ childKey, childName: r?.childName, childEmail: r?.childEmail }, 'admin_reassign')}
+                            >
+                              {assigningChildKey === childKey ? 'Moving...' : 'Move'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {!(teamManageRows || []).length ? <small className="muted">No assigned members found yet.</small> : null}
                   </div>
                 </div>
               </div>
