@@ -693,6 +693,38 @@ async function sendDeclineEmail(row = {}) {
   return { ok: true, messageId: info.messageId, to: recipients };
 }
 
+function canonicalInnerCircleName(name = '') {
+  const raw = clean(name);
+  if (!raw) return '';
+
+  const n = normalize(raw);
+  const exact = (users || []).find((u) => normalize(u?.name || '') === n);
+  if (exact) return clean(exact.name);
+
+  // common alias/typo seen in flows
+  if (n === 'latricia wright') {
+    const leticia = (users || []).find((u) => normalize(u?.name || '').includes('leticia wright'));
+    if (leticia) return clean(leticia.name);
+  }
+
+  return raw;
+}
+
+function resolveHierarchyParent(row = {}) {
+  const referredByName = canonicalInnerCircleName(clean(row?.referredByName || row?.referrer || ''));
+  const policyWriterName = canonicalInnerCircleName(clean(row?.policyWriterName || ''));
+  const submittedByName = canonicalInnerCircleName(clean(row?.submittedBy || ''));
+
+  // Priority: explicit referral first, otherwise policy writer, otherwise submitter.
+  const parentName = referredByName || policyWriterName || submittedByName;
+
+  const referredByEmail = clean(row?.referredByEmail || '').toLowerCase();
+  const parentEmail = referredByEmail
+    || clean(findUserEmailByName(referredByName || policyWriterName || submittedByName) || '').toLowerCase();
+
+  return { parentName, parentEmail };
+}
+
 function mapRefCodeToInnerCircleName(refCode = '') {
   const rc = clean(refCode).toLowerCase();
   if (!rc) return '';
@@ -1042,9 +1074,10 @@ export async function POST(req) {
     }
 
     const decision = await appendOnboardingDecision(row);
+    const parent = resolveHierarchyParent(row);
     const hierarchy = await upsertTeamHierarchyLink({
-      referredByName: row?.referredByName,
-      referredByEmail: row?.referredByEmail,
+      referredByName: parent?.parentName,
+      referredByEmail: parent?.parentEmail,
       applicantName: row?.applicantName,
       applicantEmail: row?.applicantEmail,
       appType: 'Applicant Skip App',
@@ -1182,9 +1215,10 @@ export async function POST(req) {
   // Bookings are now only auto-expired in sponsorship-bookings route at 24h after booked time.
   const removedFromBookingQueue = 0;
 
+  const parent = resolveHierarchyParent(finalRow);
   const hierarchy = await upsertTeamHierarchyLink({
-    referredByName: finalRow?.referredByName,
-    referredByEmail: finalRow?.referredByEmail,
+    referredByName: parent?.parentName,
+    referredByEmail: parent?.parentEmail,
     applicantName: finalRow?.applicantName,
     applicantEmail: finalRow?.applicantEmail,
     policyType: finalRow?.policyType,
@@ -1298,8 +1332,19 @@ export async function PATCH(req) {
     if (payoutEmail?.ok) store[idx].payoutEmailSentAt = nowIso();
   }
 
+  const patchParent = resolveHierarchyParent(store[idx]);
+  const hierarchy = await upsertTeamHierarchyLink({
+    referredByName: patchParent?.parentName,
+    referredByEmail: patchParent?.parentEmail,
+    applicantName: store[idx]?.applicantName,
+    applicantEmail: store[idx]?.applicantEmail,
+    policyType: store[idx]?.policyType,
+    appType: store[idx]?.appType,
+    submittedAt: store[idx]?.submittedAt
+  }).catch((e) => ({ ok: false, error: clean(e?.message || 'hierarchy_link_failed') }));
+
   await writeStore(store);
-  return Response.json({ ok: true, row: store[idx], email, backOfficeEmail, payoutEmail, sopProvision });
+  return Response.json({ ok: true, row: store[idx], email, backOfficeEmail, payoutEmail, sopProvision, hierarchy });
 }
 
 export async function DELETE(req) {
