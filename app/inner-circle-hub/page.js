@@ -955,6 +955,7 @@ export default function InnerCircleHubPage() {
 
   const sponsorshipSubmissionsCount = Number(activitySummary?.submitted || 0) || 0;
   const isAdminUser = ['admin', 'manager'].includes(clean(member?.role || '').toLowerCase());
+  const canManageHierarchy = ['kimora@thelegacylink.com', 'investalinkinsurance@gmail.com'].includes(clean(member?.email || '').toLowerCase());
 
   const vipPdfLinks = useMemo(() => {
     const pathwaysLocked = !isAdminUser && sponsorshipSubmissionsCount < 10;
@@ -1272,6 +1273,7 @@ export default function InnerCircleHubPage() {
   }
 
   async function assignTeamParent(candidate = {}, source = 'admin_manual_assign') {
+    if (!canManageHierarchy) return;
     const childKey = clean(candidate?.key || candidate?.childKey || '');
     const parentKey = clean(assignParentByChild?.[childKey] || '');
     if (!childKey || !parentKey) return;
@@ -1301,7 +1303,8 @@ export default function InnerCircleHubPage() {
           childName: candidate?.name || candidate?.childName || '',
           childEmail: candidate?.email || candidate?.childEmail || '',
           source,
-          note
+          note,
+          actorEmail: member?.email || ''
         })
       });
 
@@ -1312,6 +1315,7 @@ export default function InnerCircleHubPage() {
   }
 
   async function bulkMoveSelected() {
+    if (!canManageHierarchy) return;
     const parent = (teamAdminData?.options || []).find((o) => clean(o?.key) === clean(bulkParentKey));
     if (!parent) return;
     const selectedKeys = Object.entries(bulkMoveMap || {}).filter(([, v]) => Boolean(v)).map(([k]) => clean(k)).filter(Boolean);
@@ -1334,7 +1338,8 @@ export default function InnerCircleHubPage() {
             source: 'admin_reassign_bulk',
             note: clean(r?.parentKey)
               ? `prev_parent:${JSON.stringify({ key: clean(r?.parentKey), name: clean(r?.parentName || r?.parentLabel || ''), email: clean(r?.parentEmail || '') })}`
-              : ''
+              : '',
+            actorEmail: member?.email || ''
           })
         });
       }
@@ -1347,6 +1352,7 @@ export default function InnerCircleHubPage() {
   }
 
   async function undoLastMove() {
+    if (!canManageHierarchy) return;
     const latest = (recentReassignments || []).find((r) => parseMoveNote(r?.note));
     if (!latest) return;
 
@@ -1363,7 +1369,8 @@ export default function InnerCircleHubPage() {
           parentEmail: prev?.email || '',
           childName: latest?.childName || '',
           childEmail: latest?.childEmail || '',
-          source: 'admin_reassign_undo'
+          source: 'admin_reassign_undo',
+          actorEmail: member?.email || ''
         })
       });
       await refreshTeamHierarchy();
@@ -1883,6 +1890,7 @@ export default function InnerCircleHubPage() {
                   <div className="panelRow" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                     <strong style={{ color: '#fff' }}>Unassigned Queue (Admin Assist)</strong>
                     <small className="muted">Assign members not yet linked under an upline</small>
+                  {!canManageHierarchy ? <small style={{ color: '#fca5a5' }}>Only Kimora can reassign team hierarchy.</small> : null}
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
                     {(teamAdminData?.candidates || []).slice(0, 20).map((c) => (
@@ -1892,13 +1900,13 @@ export default function InnerCircleHubPage() {
                           <small className="muted">{c.email || 'No email on file'}</small>
                         </div>
                         <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
-                          <select value={assignParentByChild?.[c.key] || ''} onChange={(e) => setAssignParentByChild((p) => ({ ...p, [c.key]: e.target.value }))} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px', minWidth: 220 }}>
+                          <select disabled={!canManageHierarchy} value={assignParentByChild?.[c.key] || ''} onChange={(e) => setAssignParentByChild((p) => ({ ...p, [c.key]: e.target.value }))} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px', minWidth: 220 }}>
                             <option value="">Assign under...</option>
                             {(teamAdminData?.options || []).map((o) => (
                               <option key={o.key} value={o.key}>{o.name}{o.email ? ` (${o.email})` : ''}</option>
                             ))}
                           </select>
-                          <button type="button" className="publicPrimaryBtn" disabled={!assignParentByChild?.[c.key] || assigningChildKey === c.key} onClick={() => assignTeamParent(c)}>
+                          <button type="button" className="publicPrimaryBtn" disabled={!canManageHierarchy || !assignParentByChild?.[c.key] || assigningChildKey === c.key} onClick={() => assignTeamParent(c)}>
                             {assigningChildKey === c.key ? 'Assigning...' : 'Assign'}
                           </button>
                         </div>
@@ -1921,13 +1929,13 @@ export default function InnerCircleHubPage() {
                       placeholder="Search member, email, or current upline..."
                       style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 10px', minWidth: 260 }}
                     />
-                    <select value={bulkParentKey} onChange={(e) => setBulkParentKey(e.target.value)} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px', minWidth: 230 }}>
+                    <select disabled={!canManageHierarchy} value={bulkParentKey} onChange={(e) => setBulkParentKey(e.target.value)} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px', minWidth: 230 }}>
                       <option value="">Bulk move selected under...</option>
                       {(teamAdminData?.options || []).map((o) => (
                         <option key={`bulk-opt-${o.key}`} value={o.key}>{o.name}{o.email ? ` (${o.email})` : ''}</option>
                       ))}
                     </select>
-                    <button type="button" className="publicPrimaryBtn" disabled={!bulkParentKey || bulkMoving || !Object.values(bulkMoveMap || {}).some(Boolean)} onClick={bulkMoveSelected}>
+                    <button type="button" className="publicPrimaryBtn" disabled={!canManageHierarchy || !bulkParentKey || bulkMoving || !Object.values(bulkMoveMap || {}).some(Boolean)} onClick={bulkMoveSelected}>
                       {bulkMoving ? 'Bulk Moving...' : 'Bulk Move Selected'}
                     </button>
                   </div>
@@ -1945,12 +1953,12 @@ export default function InnerCircleHubPage() {
                               <small className="muted">Current upline: {r?.parentLabel || 'Unassigned'}</small>
                             </div>
                             <label className="panelRow" style={{ gap: 6, color: '#cbd5e1', fontSize: 12 }}>
-                              <input type="checkbox" checked={Boolean(bulkMoveMap?.[childKey])} onChange={(e) => setBulkMoveMap((p) => ({ ...p, [childKey]: e.target.checked }))} />
+                              <input type="checkbox" disabled={!canManageHierarchy} checked={Boolean(bulkMoveMap?.[childKey])} onChange={(e) => setBulkMoveMap((p) => ({ ...p, [childKey]: e.target.checked }))} />
                               Select
                             </label>
                           </div>
                           <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
-                            <select value={selectedParent} onChange={(e) => setAssignParentByChild((p) => ({ ...p, [childKey]: e.target.value }))} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px', minWidth: 220 }}>
+                            <select disabled={!canManageHierarchy} value={selectedParent} onChange={(e) => setAssignParentByChild((p) => ({ ...p, [childKey]: e.target.value }))} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px', minWidth: 220 }}>
                               {(teamAdminData?.options || []).map((o) => (
                                 <option key={`mv-opt-${r.id}-${o.key}`} value={o.key} disabled={clean(o?.key) === childKey}>{o.name}{o.email ? ` (${o.email})` : ''}</option>
                               ))}
@@ -1958,7 +1966,7 @@ export default function InnerCircleHubPage() {
                             <button
                               type="button"
                               className="publicPrimaryBtn"
-                              disabled={!selectedParent || selectedParent === currentParentKey || selectedParent === childKey || assigningChildKey === childKey}
+                              disabled={!canManageHierarchy || !selectedParent || selectedParent === currentParentKey || selectedParent === childKey || assigningChildKey === childKey}
                               onClick={() => assignTeamParent({ childKey, childName: r?.childName, childEmail: r?.childEmail }, 'admin_reassign')}
                             >
                               {assigningChildKey === childKey ? 'Moving...' : 'Move'}
@@ -1973,7 +1981,7 @@ export default function InnerCircleHubPage() {
                   <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: '10px 12px', marginTop: 10 }}>
                     <div className="panelRow" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                       <strong style={{ color: '#fff', fontSize: 13 }}>Recent Moves</strong>
-                      <button type="button" className="ghost" disabled={undoingMove || !(recentReassignments || []).some((r) => parseMoveNote(r?.note))} onClick={undoLastMove}>
+                      <button type="button" className="ghost" disabled={!canManageHierarchy || undoingMove || !(recentReassignments || []).some((r) => parseMoveNote(r?.note))} onClick={undoLastMove}>
                         {undoingMove ? 'Undoing...' : 'Undo Last Move'}
                       </button>
                     </div>

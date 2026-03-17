@@ -4,6 +4,7 @@ export const revalidate = 0;
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 
 const STORE_PATH = 'stores/team-hierarchy.json';
+const TEAM_ADMIN_EMAILS = new Set(['kimora@thelegacylink.com', 'investalinkinsurance@gmail.com']);
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -22,6 +23,10 @@ function personKey(name = '', email = '') {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function isTeamAdminEmail(email = '') {
+  return TEAM_ADMIN_EMAILS.has(clean(email).toLowerCase());
 }
 
 function toTree(rows = [], rootKey = '') {
@@ -66,8 +71,13 @@ export async function POST(req) {
   const childName = clean(body?.childName || body?.applicantName || '');
   const childEmail = clean(body?.childEmail || body?.applicantEmail || '').toLowerCase();
   const source = clean(body?.source || 'manual') || 'manual';
+  const actorEmail = clean(body?.actorEmail || '').toLowerCase();
   const lastAppType = clean(body?.lastAppType || body?.policyType || body?.appType || '');
   const eventAt = clean(body?.eventAt || body?.submittedAt || nowIso());
+
+  if (source.startsWith('admin_') && !isTeamAdminEmail(actorEmail)) {
+    return Response.json({ ok: false, error: 'forbidden_admin_reassign' }, { status: 403 });
+  }
 
   if (!parentName && !parentEmail) return Response.json({ ok: false, error: 'missing_parent' }, { status: 400 });
   if (!childName && !childEmail) return Response.json({ ok: false, error: 'missing_child' }, { status: 400 });
