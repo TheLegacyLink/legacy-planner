@@ -1125,7 +1125,7 @@ export default function InnerCircleHubPage() {
   }, [member]);
 
   async function login(e) {
-    e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
     setError('');
     if (password === INNER_CIRCLE_DEFAULT_PASSWORD && isMasterDisabled(email)) {
       setError('Please use your personal password. The default password is disabled on this device for your account.');
@@ -1381,8 +1381,8 @@ export default function InnerCircleHubPage() {
           <p style={{ marginTop: -4, color: '#93c5fd', fontSize: 13 }}>If you’re already signed into Licensed Back Office, this page will auto-connect.</p>
           <form onSubmit={login} className="settingsGrid" style={{ rowGap: 12 }}>
             <label style={{ color: '#e2e8f0' }}>Email<input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
-            <label style={{ color: '#e2e8f0' }}>Password<input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
-            <button type="submit" className="publicPrimaryBtn" disabled={loading}>{loading ? 'Signing in...' : 'Enter Hub'}</button>
+            <label style={{ color: '#e2e8f0' }}>Password<input value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') login(e); }} type="password" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
+            <button type="button" onClick={login} className="publicPrimaryBtn" disabled={loading}>{loading ? 'Signing in...' : 'Enter Hub'}</button>
             <p className="muted" style={{ marginTop: 4 }}>Password resets are disabled. On first login with the default password, you will be prompted to create your own personal password.</p>
             {error ? <p className="red" style={{ marginTop: 4 }}>{error}</p> : null}
           </form>
