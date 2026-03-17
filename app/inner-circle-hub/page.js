@@ -190,14 +190,14 @@ function markMasterDisabled(email = '') {
   if (typeof window === 'undefined') return;
   const key = masterDisabledKey(email);
   if (!key) return;
-  window.localStorage.setItem(key, '1');
+  try { window.localStorage.setItem(key, '1'); } catch {}
 }
 
 function isMasterDisabled(email = '') {
   if (typeof window === 'undefined') return false;
   const key = masterDisabledKey(email);
   if (!key) return false;
-  return window.localStorage.getItem(key) === '1';
+  try { return window.localStorage.getItem(key) === '1'; } catch { return false; }
 }
 
 function qrUrl(value = '') {
@@ -1151,7 +1151,7 @@ export default function InnerCircleHubPage() {
         return;
       }
       setMember(data.member);
-      localStorage.setItem(SESSION_KEY, JSON.stringify(data.member));
+      try { localStorage.setItem(SESSION_KEY, JSON.stringify(data.member)); } catch {}
       setMustChangePassword(Boolean(data?.mustChangePassword));
       setLoginPassword(password);
       if (Boolean(data?.mustChangePassword)) {
@@ -1209,7 +1209,7 @@ export default function InnerCircleHubPage() {
     setLoginPassword('');
     setNewPassword('');
     setConfirmPassword('');
-    localStorage.removeItem(SESSION_KEY);
+    try { localStorage.removeItem(SESSION_KEY); } catch {}
   }
 
   async function copyLink(value = '', key = '') {
