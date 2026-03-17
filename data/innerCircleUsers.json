@@ -7,6 +7,13 @@
     "active": true
   },
   {
+    "name": "Kimora Link",
+    "email": "kimora@thelegacylink.com",
+    "role": "admin",
+    "passwordHash": "86857edd4085a8d4ef226f88f65f749ab8acbc21e008b6b9c53a7773838c9bd4",
+    "active": true
+  },
+  {
     "name": "Jamal Holmes",
     "email": "support@Jdholmesagencyllc.com",
     "role": "submitter",
