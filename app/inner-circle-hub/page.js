@@ -1884,8 +1884,11 @@ export default function InnerCircleHubPage() {
                     );
                   })}
                   {!teamCards.length ? <small className="muted">No team links yet. As referred apps are submitted, your team tree will populate automatically.</small> : null}
+                  {!canManageHierarchy ? <small className="muted">Admin controls are hidden. You can view your downline cards and performance only.</small> : null}
                 </div>
 
+                {canManageHierarchy ? (
+                <>
                 <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#0B1220', padding: 14 }}>
                   <div className="panelRow" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                     <strong style={{ color: '#fff' }}>Unassigned Queue (Admin Assist)</strong>
@@ -1995,6 +1998,9 @@ export default function InnerCircleHubPage() {
                     </div>
                   </div>
                 </div>
+                </>
+                ) : null}
+
               </div>
             ) : null}
 
