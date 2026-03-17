@@ -243,7 +243,7 @@ export default function InnerCircleBookingsPage() {
   }
 
   async function setHubPassword(memberId = '') {
-    const pwd = typeof window !== 'undefined' ? window.prompt('Set temporary password for this member:') : '';
+    const pwd = typeof window !== 'undefined' ? window.prompt('Set permanent password for this member:') : '';
     if (!memberId || !clean(pwd)) return;
     setSavingHubId(memberId);
     try {
@@ -617,7 +617,7 @@ export default function InnerCircleBookingsPage() {
                             disabled={savingHubId === member.id}
                             onClick={() => setHubPassword(member.id)}
                           >
-                            {member?.hasPassword ? 'Reset Password' : 'Set Password'}
+                            {member?.hasPassword ? 'Update Password' : 'Set Password'}
                           </button>
                           <div style={{ display: 'grid', gap: 4 }}>
                             <small className="muted">Module Access</small>

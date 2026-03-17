@@ -1,5 +1,4 @@
-import { createHash, randomBytes } from 'crypto';
-import nodemailer from 'nodemailer';
+import { createHash } from 'crypto';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 import { sessionFromToken } from '../licensed-backoffice/auth/_lib';
 
@@ -23,50 +22,6 @@ function matchingIndexesByEmail(rows = [], email = '') {
     .map((x) => x.idx);
 }
 
-
-function mailer() {
-  const user = clean(process.env.GMAIL_APP_USER);
-  const pass = clean(process.env.GMAIL_APP_PASSWORD);
-  const from = clean(process.env.GMAIL_FROM) || user;
-  if (!user || !pass || !from) return null;
-  return { from, tx: nodemailer.createTransport({ service: 'gmail', auth: { user, pass } }) };
-}
-
-function generateResetToken() {
-  return randomBytes(24).toString('base64url');
-}
-
-async function sendPasswordResetEmail({ to = '', applicantName = '', resetLink = '' } = {}) {
-  const m = mailer();
-  if (!m) return { ok: false, error: 'mail_not_configured' };
-  const safeName = clean(applicantName) || 'there';
-  const subject = 'Inner Circle Hub — Reset Your Password';
-  const text = [
-    `Hi ${safeName},`,
-    '',
-    'Reset your Inner Circle Hub password using the secure link below:',
-    resetLink,
-    '',
-    'This link expires in 30 minutes.',
-    'If you did not request this, you can ignore this email.',
-    '',
-    '— The Legacy Link Team'
-  ].join('\n');
-
-  const html = `
-    <div style="margin:0;padding:20px;background:#0B1020;font-family:Arial,Helvetica,sans-serif;color:#F8FAFC;">
-      <div style="max-width:640px;margin:0 auto;border:1px solid #1D428A;border-radius:12px;background:#111A33;padding:18px;">
-        <h2 style="margin:0 0 10px;color:#fff;">Inner Circle Hub Password Reset</h2>
-        <p style="margin:0 0 12px;">Hi ${safeName},</p>
-        <p style="margin:0 0 14px;">Use the button below to reset your password.</p>
-        <a href="${resetLink}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700;">Reset Password</a>
-        <p style="margin:14px 0 0;color:#cbd5e1;">This link expires in 30 minutes.</p>
-      </div>
-    </div>`;
-
-  const info = await m.tx.sendMail({ from: m.from, to, subject, text, html });
-  return { ok: true, messageId: info?.messageId || '' };
-}
 
 function defaultModules() {
   return {
@@ -211,7 +166,13 @@ export async function POST(req) {
     if (!memberId || !password) return Response.json({ ok: false, error: 'missing_member_or_password' }, { status: 400 });
     const idx = rows.findIndex((r) => clean(r?.id) === memberId);
     if (idx < 0) return Response.json({ ok: false, error: 'member_not_found' }, { status: 404 });
-    rows[idx] = { ...rows[idx], passwordHash: hashPassword(password), updatedAt: nowIso() };
+    rows[idx] = {
+      ...rows[idx],
+      passwordHash: hashPassword(password),
+      resetTokenHash: '',
+      resetTokenExpiresAt: '',
+      updatedAt: nowIso()
+    };
     await saveJsonStore(STORE_PATH, rows);
     return Response.json({ ok: true, row: safeMember(rows[idx]) });
   }
@@ -271,70 +232,12 @@ export async function POST(req) {
 
 
   if (action === 'request_password_reset') {
-    const email = clean(body?.email).toLowerCase();
-    if (!email) return Response.json({ ok: true });
-
-    const idxs = matchingIndexesByEmail(rows, email);
-    if (!idxs.length) return Response.json({ ok: true });
-
-    const token = generateResetToken();
-    const tokenHash = hashPassword(token);
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-
-    for (const idx of idxs) {
-      rows[idx] = {
-        ...rows[idx],
-        resetTokenHash: tokenHash,
-        resetTokenExpiresAt: expiresAt,
-        updatedAt: nowIso()
-      };
-    }
-    await saveJsonStore(STORE_PATH, rows);
-
-    const primary = rows[idxs[0]] || {};
-    const origin = clean(body?.origin || process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
-    const resetLink = `${origin}/inner-circle-hub?reset=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
-
-    try {
-      await sendPasswordResetEmail({ to: email, applicantName: primary?.applicantName || '', resetLink });
-    } catch {
-      // keep response generic for safety
-    }
-
-    return Response.json({ ok: true });
+    return Response.json({ ok: false, error: 'password_reset_disabled' }, { status: 403 });
   }
 
+
   if (action === 'reset_password') {
-    const email = clean(body?.email).toLowerCase();
-    const token = clean(body?.token);
-    const password = clean(body?.password);
-    if (!email || !token || !password) return Response.json({ ok: false, error: 'missing_fields' }, { status: 400 });
-
-    const idxs = matchingIndexesByEmail(rows, email);
-    if (!idxs.length) return Response.json({ ok: false, error: 'invalid_or_expired_token' }, { status: 400 });
-
-    const hashedToken = hashPassword(token);
-    const validIdx = idxs.find((idx) => {
-      const row = rows[idx] || {};
-      const expires = new Date(row?.resetTokenExpiresAt || 0).getTime();
-      return clean(row?.resetTokenHash) && clean(row?.resetTokenHash) === hashedToken && Number.isFinite(expires) && expires > Date.now();
-    });
-
-    if (validIdx == null) return Response.json({ ok: false, error: 'invalid_or_expired_token' }, { status: 400 });
-
-    const hashedPassword = hashPassword(password);
-    for (const idx of idxs) {
-      rows[idx] = {
-        ...rows[idx],
-        passwordHash: hashedPassword,
-        resetTokenHash: '',
-        resetTokenExpiresAt: '',
-        updatedAt: nowIso()
-      };
-    }
-
-    await saveJsonStore(STORE_PATH, rows);
-    return Response.json({ ok: true });
+    return Response.json({ ok: false, error: 'password_reset_disabled' }, { status: 403 });
   }
 
 

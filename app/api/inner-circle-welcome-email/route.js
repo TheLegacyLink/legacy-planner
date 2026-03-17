@@ -355,8 +355,7 @@ function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, 
   const safeSponsorship = escapeHtml(sponsorshipUrl || '');
 
   const onboardingRows = [
-    `<li style="margin-bottom:10px;"><strong>Review your onboarding agreement first:</strong><br/><a href="${safeContract}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeContract}</a></li>`,
-    `<li style="margin-bottom:10px;"><strong>${isInnerCircle ? 'Join the Legacy Link App (CRM):' : 'Open your Legacy Link Back Office:'}</strong><br/><a href="${safeApp}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeApp}</a></li>`
+    `<li style="margin-bottom:10px;"><strong>Review your onboarding agreement first:</strong><br/><a href="${safeContract}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeContract}</a></li>`
   ];
 
   if (isInnerCircle) {
@@ -367,6 +366,7 @@ function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, 
     onboardingRows.push(`<li style="margin-bottom:10px;"><strong>HUB Login Password (save this):</strong><br/><span style="display:inline-block;background:#F58426;color:#0B1020;padding:6px 10px;border-radius:8px;font-weight:800;">${safePassword}</span></li>`);
     onboardingRows.push('<li>Now move through your first 72-hour execution plan in the Hub.</li>');
   } else {
+    onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Open your Legacy Link Back Office:</strong><br/><a href="${safeApp}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeApp}</a></li>`);
     if (safeSponsorship) onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Your personal sponsor link to share:</strong><br/><a href="${safeSponsorship}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSponsorship}</a></li>`);
     if (roleKey === 'licensed' && safeSkool) onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Join Skool Community (Training):</strong><br/><a href="${safeSkool}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSkool}</a></li>`);
     onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Watch “Whatever It Takes” + leave a comment:</strong><br/><a href="${YOUTUBE_WHATEVER_IT_TAKES}" style="color:#F58426;text-decoration:none;font-weight:700;">${YOUTUBE_WHATEVER_IT_TAKES}</a></li>`);
@@ -485,7 +485,7 @@ export async function POST(req) {
   const ghlUserId = clean(body?.ghlUserId || '');
   const autoWireOnWelcome = body?.autoWireOnWelcome !== false;
 
-  if (!to || !appUrl || !playbookUrl || !contractLink || (isInnerCircle && (!telegramUrl || !hubUrl || !tempPassword))) {
+  if (!to || !playbookUrl || !contractLink || (!isInnerCircle && !appUrl) || (isInnerCircle && (!telegramUrl || !hubUrl || !tempPassword))) {
     return Response.json({ ok: false, error: 'missing_required_fields' }, { status: 400 });
   }
 
@@ -498,21 +498,22 @@ export async function POST(req) {
     '',
     `Welcome to The Legacy Link ${roleConfig.label}! Here is your onboarding access:`,
     '',
-    `Step 1 (Required First): Onboarding Agreement: ${contractLink}`,
-    `Step 2: ${isInnerCircle ? 'Join the Legacy Link App (CRM)' : 'Open your Legacy Link Back Office'}: ${appUrl}`
+    `Step 1 (Required First): Onboarding Agreement: ${contractLink}`
   ];
 
   if (isInnerCircle) {
-    textLines.push(`Step 3: Join Telegram and send a quick intro message: ${telegramUrl}`);
-    textLines.push(`Step 4: Inner Circle Hub: ${hubUrl}`);
+    textLines.push(`Step 2: Join Telegram and send a quick intro message: ${telegramUrl}`);
+    textLines.push(`Step 3: Inner Circle Hub: ${hubUrl}`);
     textLines.push(`HUB Login Email: ${to}`);
     textLines.push(`HUB Login Password (save this): ${tempPassword}`);
-    textLines.push('Step 5: Run your first 72-hour execution plan in the Hub');
+    textLines.push('Step 4: Run your first 72-hour execution plan in the Hub');
   } else if (roleConfig.roleKey === 'licensed') {
+    textLines.push(`Step 2: Open your Legacy Link Back Office: ${appUrl}`);
     textLines.push(`Step 3: Join Skool Community (Training): ${skoolUrl}`);
     textLines.push(`Step 4: Watch "Whatever It Takes" and leave a comment: ${YOUTUBE_WHATEVER_IT_TAKES}`);
     textLines.push('Step 5: Complete your attached role-based onboarding playbook');
   } else {
+    textLines.push(`Step 2: Open your Legacy Link Back Office: ${appUrl}`);
     textLines.push(`Step 3: Watch "Whatever It Takes" and leave a comment: ${YOUTUBE_WHATEVER_IT_TAKES}`);
     textLines.push('Step 4: Complete your attached role-based onboarding playbook');
   }
