@@ -711,16 +711,13 @@ function canonicalInnerCircleName(name = '') {
 }
 
 function resolveHierarchyParent(row = {}) {
+  // Business rule: hierarchy always follows the referrer (never policy writer fallback).
   const referredByName = canonicalInnerCircleName(clean(row?.referredByName || row?.referrer || ''));
-  const policyWriterName = canonicalInnerCircleName(clean(row?.policyWriterName || ''));
-  const submittedByName = canonicalInnerCircleName(clean(row?.submittedBy || ''));
-
-  // Priority: explicit referral first, otherwise policy writer, otherwise submitter.
-  const parentName = referredByName || policyWriterName || submittedByName;
+  const parentName = referredByName;
 
   const referredByEmail = clean(row?.referredByEmail || '').toLowerCase();
   const parentEmail = referredByEmail
-    || clean(findUserEmailByName(referredByName || policyWriterName || submittedByName) || '').toLowerCase();
+    || clean(findUserEmailByName(referredByName) || '').toLowerCase();
 
   return { parentName, parentEmail };
 }
