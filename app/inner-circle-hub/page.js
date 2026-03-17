@@ -181,6 +181,25 @@ function availableTabs(member = {}) {
   ];
   return all.filter((t) => modules?.[t.key] !== false);
 }
+
+function masterDisabledKey(email = '') {
+  return `legacy-inner-circle-master-disabled:${String(email || '').trim().toLowerCase()}`;
+}
+
+function markMasterDisabled(email = '') {
+  if (typeof window === 'undefined') return;
+  const key = masterDisabledKey(email);
+  if (!key) return;
+  window.localStorage.setItem(key, '1');
+}
+
+function isMasterDisabled(email = '') {
+  if (typeof window === 'undefined') return false;
+  const key = masterDisabledKey(email);
+  if (!key) return false;
+  return window.localStorage.getItem(key) === '1';
+}
+
 function qrUrl(value = '') {
   const data = encodeURIComponent(value || '');
   return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${data}`;
@@ -1108,6 +1127,10 @@ export default function InnerCircleHubPage() {
   async function login(e) {
     e.preventDefault();
     setError('');
+    if (password === INNER_CIRCLE_DEFAULT_PASSWORD && isMasterDisabled(email)) {
+      setError('Please use your personal password. The default password is disabled on this device for your account.');
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch('/api/inner-circle-hub-members', {
@@ -1174,6 +1197,7 @@ export default function InnerCircleHubPage() {
       setPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      markMasterDisabled(member?.email || email);
     } finally {
       setChangingPassword(false);
     }
