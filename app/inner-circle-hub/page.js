@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 const SESSION_KEY = 'inner_circle_hub_member_v1';
+const INNER_CIRCLE_DEFAULT_PASSWORD = 'InnerCircle#2026';
 
 function clean(v = '') { return String(v || '').trim(); }
 function readSession() {
