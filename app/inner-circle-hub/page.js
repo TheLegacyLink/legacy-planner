@@ -241,6 +241,8 @@ export default function InnerCircleHubPage() {
   const [bulkMoveMap, setBulkMoveMap] = useState({});
   const [bulkMoving, setBulkMoving] = useState(false);
   const [undoingMove, setUndoingMove] = useState(false);
+  const [teamParentSearch, setTeamParentSearch] = useState('');
+  const [teamAssignNotice, setTeamAssignNotice] = useState('');
   const [productionFilter, setProductionFilter] = useState('all');
   const [productionWindow, setProductionWindow] = useState('month');
   const [pointsHistoryOpen, setPointsHistoryOpen] = useState(false);
@@ -644,7 +646,16 @@ export default function InnerCircleHubPage() {
       }
     }
 
-    const options = Array.from(parentMap.values()).sort((a, b) => clean(a?.name).localeCompare(clean(b?.name)));
+    for (const m of (Array.isArray(hubMembers) ? hubMembers : [])) {
+      const name = clean(m?.applicantName || m?.name || '');
+      const email = clean(m?.email || '').toLowerCase();
+      const key = makeKey(name, email);
+      if (!key) continue;
+      if (!parentMap.has(key)) parentMap.set(key, { key, name: name || email || 'Member', email });
+    }
+
+    const options = Array.from(parentMap.values())
+      .sort((a, b) => clean(a?.name || a?.email).localeCompare(clean(b?.name || b?.email)) || clean(a?.email).localeCompare(clean(b?.email)));
 
     const candidatesMap = new Map();
     for (const m of (Array.isArray(hubMembers) ? hubMembers : [])) {
@@ -657,6 +668,17 @@ export default function InnerCircleHubPage() {
 
     return { options, candidates: Array.from(candidatesMap.values()) };
   }, [teamHierarchyRows, hubMembers, member?.applicantName, member?.name, member?.email]);
+
+  const filteredParentOptions = useMemo(() => {
+    const q = clean(teamParentSearch).toLowerCase();
+    const all = teamAdminData?.options || [];
+    if (!q) return all;
+    return all.filter((o) => {
+      const n = clean(o?.name).toLowerCase();
+      const e = clean(o?.email).toLowerCase();
+      return n.includes(q) || e.includes(q);
+    });
+  }, [teamAdminData, teamParentSearch]);
 
   const teamManageRows = useMemo(() => {
     const options = teamAdminData?.options || [];
@@ -1293,8 +1315,9 @@ export default function InnerCircleHubPage() {
       : clean(existing?.note || '');
 
     setAssigningChildKey(childKey);
+    setTeamAssignNotice('');
     try {
-      await fetch('/api/team-hierarchy', {
+      const res = await fetch('/api/team-hierarchy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1307,8 +1330,14 @@ export default function InnerCircleHubPage() {
           actorEmail: member?.email || ''
         })
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setTeamAssignNotice(`Assign failed: ${clean(data?.error || 'unknown_error')}`);
+        return;
+      }
 
       await refreshTeamHierarchy();
+      setTeamAssignNotice('Assigned successfully.');
     } finally {
       setAssigningChildKey('');
     }
@@ -1322,6 +1351,7 @@ export default function InnerCircleHubPage() {
     if (!selectedKeys.length) return;
 
     setBulkMoving(true);
+    setTeamAssignNotice('');
     try {
       const selectedRows = (teamManageRows || []).filter((r) => selectedKeys.includes(clean(r?.childKey)));
       for (const r of selectedRows) {
@@ -1346,6 +1376,7 @@ export default function InnerCircleHubPage() {
       await refreshTeamHierarchy();
       setBulkMoveMap({});
       setBulkParentKey('');
+      setTeamAssignNotice('Bulk move complete.');
     } finally {
       setBulkMoving(false);
     }
@@ -1895,6 +1926,16 @@ export default function InnerCircleHubPage() {
                     <small className="muted">Assign members not yet linked under an upline</small>
                   {!canManageHierarchy ? <small style={{ color: '#fca5a5' }}>Only Kimora can reassign team hierarchy.</small> : null}
                   </div>
+                  <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                    <input
+                      value={teamParentSearch}
+                      onChange={(e) => setTeamParentSearch(e.target.value)}
+                      placeholder="Search assign-under names/email..."
+                      style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 10px', minWidth: 280 }}
+                    />
+                    <small className="muted">Assign-under options: {filteredParentOptions.length}</small>
+                  </div>
+                  {teamAssignNotice ? <small className="muted" style={{ color: teamAssignNotice.toLowerCase().includes('failed') ? '#fca5a5' : '#86efac' }}>{teamAssignNotice}</small> : null}
                   <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
                     {(teamAdminData?.candidates || []).slice(0, 20).map((c) => (
                       <div key={c.key} style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: '10px 12px', display: 'grid', gap: 8 }}>
@@ -1905,7 +1946,7 @@ export default function InnerCircleHubPage() {
                         <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
                           <select disabled={!canManageHierarchy} value={assignParentByChild?.[c.key] || ''} onChange={(e) => setAssignParentByChild((p) => ({ ...p, [c.key]: e.target.value }))} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px', minWidth: 220 }}>
                             <option value="">Assign under...</option>
-                            {(teamAdminData?.options || []).map((o) => (
+                            {(filteredParentOptions || []).map((o) => (
                               <option key={o.key} value={o.key}>{o.name}{o.email ? ` (${o.email})` : ''}</option>
                             ))}
                           </select>
@@ -1934,7 +1975,7 @@ export default function InnerCircleHubPage() {
                     />
                     <select disabled={!canManageHierarchy} value={bulkParentKey} onChange={(e) => setBulkParentKey(e.target.value)} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px', minWidth: 230 }}>
                       <option value="">Bulk move selected under...</option>
-                      {(teamAdminData?.options || []).map((o) => (
+                      {(filteredParentOptions || []).map((o) => (
                         <option key={`bulk-opt-${o.key}`} value={o.key}>{o.name}{o.email ? ` (${o.email})` : ''}</option>
                       ))}
                     </select>
@@ -1962,7 +2003,7 @@ export default function InnerCircleHubPage() {
                           </div>
                           <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
                             <select disabled={!canManageHierarchy} value={selectedParent} onChange={(e) => setAssignParentByChild((p) => ({ ...p, [childKey]: e.target.value }))} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px', minWidth: 220 }}>
-                              {(teamAdminData?.options || []).map((o) => (
+                              {(filteredParentOptions || []).map((o) => (
                                 <option key={`mv-opt-${r.id}-${o.key}`} value={o.key} disabled={clean(o?.key) === childKey}>{o.name}{o.email ? ` (${o.email})` : ''}</option>
                               ))}
                             </select>
