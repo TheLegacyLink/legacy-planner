@@ -192,6 +192,11 @@ export default function InnerCircleHubPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [loginPassword, setLoginPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const [kpi, setKpi] = useState(null);
   const [scripts, setScripts] = useState([]);
@@ -1113,18 +1118,73 @@ export default function InnerCircleHubPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
         const reason = String(data?.error || '').toLowerCase();
-        setError(reason === 'onboarding_locked' ? 'Your hub is not active yet. Complete contract + payment + password setup with your advisor.' : 'Invalid login. Check email/password.');
+        if (reason === 'onboarding_locked') {
+          setError('Your hub is not active yet. Complete contract + payment + password setup with your advisor.');
+        } else if (reason === 'personal_password_required') {
+          setError('Please use your personal password. The shared default password has been disabled for your account.');
+        } else {
+          setError('Invalid login. Check email/password.');
+        }
         return;
       }
       setMember(data.member);
       localStorage.setItem(SESSION_KEY, JSON.stringify(data.member));
+      setMustChangePassword(Boolean(data?.mustChangePassword));
+      setLoginPassword(password);
+      if (Boolean(data?.mustChangePassword)) {
+        setNewPassword('');
+        setConfirmPassword('');
+      }
     } finally {
       setLoading(false);
     }
   }
 
+  async function submitRequiredPasswordChange(e) {
+    e.preventDefault();
+    setError('');
+    if (!newPassword || newPassword.length < 8) {
+      setError('Use at least 8 characters for your new password.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const res = await fetch('/api/inner-circle-hub-members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'self_change_password',
+          email: member?.email || email,
+          currentPassword: loginPassword,
+          newPassword
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setError('Could not update password. Try again.');
+        return;
+      }
+      setMustChangePassword(false);
+      setLoginPassword(newPassword);
+      setPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } finally {
+      setChangingPassword(false);
+    }
+  }
+
   function logout() {
     setMember(null);
+    setMustChangePassword(false);
+    setLoginPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
     localStorage.removeItem(SESSION_KEY);
   }
 
@@ -1299,7 +1359,7 @@ export default function InnerCircleHubPage() {
             <label style={{ color: '#e2e8f0' }}>Email<input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
             <label style={{ color: '#e2e8f0' }}>Password<input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
             <button type="submit" className="publicPrimaryBtn" disabled={loading}>{loading ? 'Signing in...' : 'Enter Hub'}</button>
-            <p className="muted" style={{ marginTop: 4 }}>Password resets are disabled for Inner Circle. Contact Kimora or admin if you need your password updated.</p>
+            <p className="muted" style={{ marginTop: 4 }}>Password resets are disabled. On first login with the default password, you will be prompted to create your own personal password.</p>
             {error ? <p className="red" style={{ marginTop: 4 }}>{error}</p> : null}
           </form>
         </div>
@@ -1319,7 +1379,18 @@ export default function InnerCircleHubPage() {
           <button type="button" className="ghost" onClick={logout}>Logout</button>
         </div>
 
-        {!unlocked ? (
+        {mustChangePassword ? (
+          <div className="panel" style={{ borderColor: '#f59e0b', background: '#1f2937' }}>
+            <h3 style={{ marginTop: 0, color: '#fde68a' }}>Security Step Required</h3>
+            <p style={{ marginTop: 0 }}>Create your personal password now. After this step, the default password will no longer work for your account.</p>
+            <form onSubmit={submitRequiredPasswordChange} className="settingsGrid" style={{ rowGap: 12, maxWidth: 520 }}>
+              <label style={{ color: '#e2e8f0' }}>New Password<input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
+              <label style={{ color: '#e2e8f0' }}>Confirm Password<input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type="password" required style={{ color: '#e5e7eb', background: '#0b1220', borderColor: '#334155' }} /></label>
+              <button type="submit" className="publicPrimaryBtn" disabled={changingPassword}>{changingPassword ? 'Saving...' : 'Save My Password'}</button>
+            </form>
+            {error ? <p className="red" style={{ marginTop: 8 }}>{error}</p> : null}
+          </div>
+        ) : !unlocked ? (
           <div style={{ display: 'grid', gap: 10 }}>
             <div className="panel" style={{ borderColor: '#f59e0b', background: '#451a03' }}>
               <h3 style={{ marginTop: 0 }}>Onboarding Locked</h3>

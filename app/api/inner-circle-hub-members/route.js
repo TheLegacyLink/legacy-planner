@@ -123,11 +123,23 @@ export async function POST(req) {
     const email = clean(body?.email).toLowerCase();
     const password = clean(body?.password);
 
+    const matchIdx = matchingIndexesByEmail(rows, email);
+    const activeRows = matchIdx.map((i) => rows[i]).filter((r) => Boolean(r?.active));
+    const hashed = hashPassword(password);
+
+    const foundActive = activeRows.find((r) => clean(r?.passwordHash) === hashed);
+    if (foundActive) return Response.json({ ok: true, member: { ...safeMember(foundActive) }, mustChangePassword: Boolean(foundActive?.forcePasswordChange) });
+
+    const foundAny = matchIdx.map((i) => rows[i]).find((r) => clean(r?.passwordHash) === hashed);
+    if (foundAny) return Response.json({ ok: true, member: { ...safeMember({ ...foundAny, active: true }) }, mustChangePassword: Boolean(foundAny?.forcePasswordChange) });
+
     const staticUser = findStaticUserByEmail(email);
-    if (staticUser && staticUser?.active !== false && password === INNER_CIRCLE_MASTER_PASSWORD) {
-      const idxs = matchingIndexesByEmail(rows, email);
-      const fallbackRow = idxs.length ? rows[idxs[0]] : {};
-      return Response.json({ ok: true, member: buildStaticMember(staticUser, fallbackRow) });
+    const primaryRow = matchIdx.length ? rows[matchIdx[0]] : {};
+    const forcePasswordChange = primaryRow?.forcePasswordChange !== false;
+
+    if (staticUser && staticUser?.active !== false && password === INNER_CIRCLE_MASTER_PASSWORD && forcePasswordChange) {
+      const fallbackRow = activeRows[0] || primaryRow || {};
+      return Response.json({ ok: true, member: buildStaticMember(staticUser, fallbackRow), mustChangePassword: true });
     }
 
     // Emergency fallback for owner preview access.
@@ -146,35 +158,18 @@ export async function POST(req) {
           paymentReceivedAt: nowIso(),
           onboardingUnlockedAt: nowIso(),
           modules: defaultModules()
-        }
+        },
+        mustChangePassword: false
       });
     }
 
-    const matchIdx = matchingIndexesByEmail(rows, email);
-    if (!matchIdx.length) return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
-
-    const activeRows = matchIdx.map((i) => rows[i]).filter((r) => Boolean(r?.active));
-
-    const hashed = hashPassword(password);
-    const foundActive = activeRows.find((r) => clean(r?.passwordHash) === hashed);
-    if (foundActive) return Response.json({ ok: true, member: { ...safeMember(foundActive) } });
-
-    // Fallback for legacy duplicated rows where active flags drifted across records.
-    const foundAny = matchIdx.map((i) => rows[i]).find((r) => clean(r?.passwordHash) === hashed);
-    if (foundAny) return Response.json({ ok: true, member: { ...safeMember({ ...foundAny, active: true }) } });
-
-    if (staticUser && staticUser?.active !== false) {
-      const staticMatch = (clean(staticUser?.password) && password === clean(staticUser.password))
-        || (clean(staticUser?.passwordHash) && hashPassword(password) === clean(staticUser.passwordHash));
-      if (staticMatch) {
-        const fallbackRow = activeRows[0] || (matchIdx.length ? rows[matchIdx[0]] : {});
-        return Response.json({ ok: true, member: buildStaticMember(staticUser, fallbackRow) });
-      }
-    }
-
     if (!activeRows.length) return Response.json({ ok: false, error: 'onboarding_locked' }, { status: 403 });
+    if (staticUser && staticUser?.active !== false && password === INNER_CIRCLE_MASTER_PASSWORD) {
+      return Response.json({ ok: false, error: 'personal_password_required' }, { status: 401 });
+    }
     return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
   }
+
 
   if (action === 'upsert_from_booking') {
     const bookingId = clean(body?.bookingId);
@@ -190,6 +185,7 @@ export async function POST(req) {
       applicantName: applicantName || base.applicantName || '',
       email,
       modules: normalizedModules(base?.modules || {}),
+      forcePasswordChange: typeof base?.forcePasswordChange === 'boolean' ? base.forcePasswordChange : true,
       updatedAt: nowIso()
     };
     if (idx >= 0) rows[idx] = next;
@@ -224,6 +220,7 @@ export async function POST(req) {
       contractSignedAt: contractSigned ? (current.contractSignedAt || nowIso()) : '',
       paymentReceivedAt: paymentReceived ? (current.paymentReceivedAt || nowIso()) : '',
       modules: normalizedModules(current?.modules || {}),
+      forcePasswordChange: false,
       updatedAt: nowIso()
     };
 
@@ -247,10 +244,64 @@ export async function POST(req) {
       passwordHash: hashPassword(password),
       resetTokenHash: '',
       resetTokenExpiresAt: '',
+      forcePasswordChange: false,
       updatedAt: nowIso()
     };
     await saveJsonStore(STORE_PATH, rows);
     return Response.json({ ok: true, row: safeMember(rows[idx]) });
+  }
+
+
+  if (action === 'self_change_password') {
+    const email = clean(body?.email).toLowerCase();
+    const currentPassword = clean(body?.currentPassword);
+    const newPassword = clean(body?.newPassword);
+    if (!email || !currentPassword || !newPassword) return Response.json({ ok: false, error: 'missing_fields' }, { status: 400 });
+    if (newPassword.length < 8) return Response.json({ ok: false, error: 'password_too_short' }, { status: 400 });
+
+    const idxs = matchingIndexesByEmail(rows, email);
+    const latestIdx = idxs.length ? idxs[0] : -1;
+    const staticUser = findStaticUserByEmail(email);
+
+    const currentHash = hashPassword(currentPassword);
+    const hasCurrentMatch = idxs.some((i) => clean(rows[i]?.passwordHash) === currentHash);
+    const canUseMaster = Boolean(staticUser && staticUser?.active !== false && currentPassword === INNER_CIRCLE_MASTER_PASSWORD);
+
+    if (!hasCurrentMatch && !canUseMaster) {
+      return Response.json({ ok: false, error: 'invalid_current_password' }, { status: 401 });
+    }
+
+    const base = latestIdx >= 0
+      ? rows[latestIdx]
+      : {
+          id: `ich_${Date.now()}`,
+          bookingId: `self_${Date.now()}`,
+          applicantName: clean(staticUser?.name || ''),
+          email,
+          createdAt: nowIso(),
+          modules: defaultModules()
+        };
+
+    const next = {
+      ...base,
+      email,
+      passwordHash: hashPassword(newPassword),
+      resetTokenHash: '',
+      resetTokenExpiresAt: '',
+      forcePasswordChange: false,
+      active: true,
+      contractSignedAt: clean(base?.contractSignedAt || nowIso()),
+      paymentReceivedAt: clean(base?.paymentReceivedAt || nowIso()),
+      onboardingUnlockedAt: clean(base?.onboardingUnlockedAt || nowIso()),
+      modules: normalizedModules(base?.modules || {}),
+      updatedAt: nowIso()
+    };
+
+    if (latestIdx >= 0) rows[latestIdx] = next;
+    else rows.unshift(next);
+
+    await saveJsonStore(STORE_PATH, rows);
+    return Response.json({ ok: true, member: safeMember(next) });
   }
 
   if (action === 'set_modules') {
@@ -334,6 +385,7 @@ export async function POST(req) {
         resetTokenExpiresAt: '',
         active: rows[idx]?.active === false ? true : rows[idx]?.active,
         onboardingUnlockedAt: rows[idx]?.onboardingUnlockedAt || nowIso(),
+        forcePasswordChange: false,
         updatedAt: nowIso()
       };
     }
