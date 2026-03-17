@@ -341,6 +341,7 @@ export async function POST(req) {
       paymentReceivedAt: paymentReceived ? (current.paymentReceivedAt || nowIso()) : '',
       active,
       onboardingUnlockedAt: active ? (current.onboardingUnlockedAt || nowIso()) : '',
+      forcePasswordChange: typeof body?.forcePasswordChange === 'boolean' ? body.forcePasswordChange : current?.forcePasswordChange,
       modules: normalizedModules(current?.modules || {}),
       updatedAt: nowIso()
     };
