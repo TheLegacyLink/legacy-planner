@@ -135,9 +135,8 @@ export async function POST(req) {
 
     const staticUser = findStaticUserByEmail(email);
     const primaryRow = matchIdx.length ? rows[matchIdx[0]] : {};
-    const forcePasswordChange = primaryRow?.forcePasswordChange !== false;
 
-    if (staticUser && staticUser?.active !== false && password === INNER_CIRCLE_MASTER_PASSWORD && forcePasswordChange) {
+    if (staticUser && staticUser?.active !== false && password === INNER_CIRCLE_MASTER_PASSWORD) {
       const fallbackRow = activeRows[0] || primaryRow || {};
       return Response.json({ ok: true, member: buildStaticMember(staticUser, fallbackRow), mustChangePassword: true });
     }
@@ -164,9 +163,6 @@ export async function POST(req) {
     }
 
     if (!activeRows.length) return Response.json({ ok: false, error: 'onboarding_locked' }, { status: 403 });
-    if (staticUser && staticUser?.active !== false && password === INNER_CIRCLE_MASTER_PASSWORD) {
-      return Response.json({ ok: false, error: 'personal_password_required' }, { status: 401 });
-    }
     return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
   }
 
