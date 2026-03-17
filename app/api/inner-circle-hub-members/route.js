@@ -358,6 +358,37 @@ export async function POST(req) {
   }
 
 
+  if (action === 'set_flags_by_email') {
+    const email = clean(body?.email).toLowerCase();
+    if (!email) return Response.json({ ok: false, error: 'missing_email' }, { status: 400 });
+    const idxs = matchingIndexesByEmail(rows, email);
+    if (!idxs.length) return Response.json({ ok: false, error: 'member_not_found' }, { status: 404 });
+
+    const contractSigned = Boolean(body?.contractSigned);
+    const paymentReceived = Boolean(body?.paymentReceived);
+    const wantsActive = Boolean(body?.active);
+    const forcePasswordChange = typeof body?.forcePasswordChange === 'boolean' ? body.forcePasswordChange : undefined;
+
+    for (const idx of idxs) {
+      const current = rows[idx] || {};
+      const readyToUnlock = contractSigned && paymentReceived && Boolean(clean(current?.passwordHash));
+      const active = wantsActive && readyToUnlock;
+      rows[idx] = {
+        ...current,
+        contractSignedAt: contractSigned ? (current.contractSignedAt || nowIso()) : '',
+        paymentReceivedAt: paymentReceived ? (current.paymentReceivedAt || nowIso()) : '',
+        active,
+        onboardingUnlockedAt: active ? (current.onboardingUnlockedAt || nowIso()) : '',
+        forcePasswordChange: typeof forcePasswordChange === 'boolean' ? forcePasswordChange : current?.forcePasswordChange,
+        modules: normalizedModules(current?.modules || {}),
+        updatedAt: nowIso()
+      };
+    }
+
+    await saveJsonStore(STORE_PATH, rows);
+    return Response.json({ ok: true, updated: idxs.length });
+  }
+
 
   if (action === 'request_password_reset') {
     return Response.json({ ok: false, error: 'password_reset_disabled' }, { status: 403 });
