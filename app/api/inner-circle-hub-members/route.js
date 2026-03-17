@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 import { sessionFromToken } from '../licensed-backoffice/auth/_lib';
+import staticUsers from '../../../data/innerCircleUsers.json';
 
 const STORE_PATH = 'stores/inner-circle-hub-members.json';
 
@@ -20,6 +21,26 @@ function matchingIndexesByEmail(rows = [], email = '') {
     .filter(({ r }) => clean(r?.email).toLowerCase() === target)
     .sort((a, b) => rowTs(b.r) - rowTs(a.r))
     .map((x) => x.idx);
+}
+
+function findStaticUserByEmail(email = '') {
+  const target = clean(email).toLowerCase();
+  return (Array.isArray(staticUsers) ? staticUsers : []).find((u) => clean(u?.email).toLowerCase() === target) || null;
+}
+
+function buildStaticMember(user = {}, fallback = {}) {
+  return {
+    id: clean(fallback?.id || `static_${clean(user?.email).toLowerCase()}`),
+    bookingId: clean(fallback?.bookingId || ''),
+    applicantName: clean(fallback?.applicantName || user?.name || ''),
+    email: clean(fallback?.email || user?.email || ''),
+    active: true,
+    hasPassword: true,
+    contractSignedAt: clean(fallback?.contractSignedAt || nowIso()),
+    paymentReceivedAt: clean(fallback?.paymentReceivedAt || nowIso()),
+    onboardingUnlockedAt: clean(fallback?.onboardingUnlockedAt || nowIso()),
+    modules: normalizedModules(fallback?.modules || {})
+  };
 }
 
 
@@ -133,6 +154,16 @@ export async function POST(req) {
     // Fallback for legacy duplicated rows where active flags drifted across records.
     const foundAny = matchIdx.map((i) => rows[i]).find((r) => clean(r?.passwordHash) === hashed);
     if (foundAny) return Response.json({ ok: true, member: { ...safeMember({ ...foundAny, active: true }) } });
+
+    const staticUser = findStaticUserByEmail(email);
+    if (staticUser && staticUser?.active !== false) {
+      const staticMatch = (clean(staticUser?.password) && password === clean(staticUser.password))
+        || (clean(staticUser?.passwordHash) && hashPassword(password) === clean(staticUser.passwordHash));
+      if (staticMatch) {
+        const fallbackRow = activeRows[0] || (matchIdx.length ? rows[matchIdx[0]] : {});
+        return Response.json({ ok: true, member: buildStaticMember(staticUser, fallbackRow) });
+      }
+    }
 
     if (!activeRows.length) return Response.json({ ok: false, error: 'onboarding_locked' }, { status: 403 });
     return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
