@@ -135,8 +135,9 @@ export async function POST(req) {
 
     const staticUser = findStaticUserByEmail(email);
     const primaryRow = matchIdx.length ? rows[matchIdx[0]] : {};
+    const allowMasterForEmail = !matchIdx.length || matchIdx.some((i) => rows[i]?.forcePasswordChange !== false);
 
-    if (staticUser && staticUser?.active !== false && password === INNER_CIRCLE_MASTER_PASSWORD) {
+    if (staticUser && staticUser?.active !== false && password === INNER_CIRCLE_MASTER_PASSWORD && allowMasterForEmail) {
       const fallbackRow = activeRows[0] || primaryRow || {};
       return Response.json({ ok: true, member: buildStaticMember(staticUser, fallbackRow), mustChangePassword: true });
     }
@@ -163,6 +164,9 @@ export async function POST(req) {
     }
 
     if (!activeRows.length) return Response.json({ ok: false, error: 'onboarding_locked' }, { status: 403 });
+    if (staticUser && staticUser?.active !== false && password === INNER_CIRCLE_MASTER_PASSWORD && !allowMasterForEmail) {
+      return Response.json({ ok: false, error: 'personal_password_required' }, { status: 401 });
+    }
     return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
   }
 
@@ -293,8 +297,26 @@ export async function POST(req) {
       updatedAt: nowIso()
     };
 
-    if (latestIdx >= 0) rows[latestIdx] = next;
-    else rows.unshift(next);
+    if (latestIdx >= 0) {
+      for (const idx of idxs) {
+        rows[idx] = {
+          ...rows[idx],
+          email,
+          passwordHash: next.passwordHash,
+          resetTokenHash: '',
+          resetTokenExpiresAt: '',
+          forcePasswordChange: false,
+          active: true,
+          contractSignedAt: clean(rows[idx]?.contractSignedAt || next.contractSignedAt),
+          paymentReceivedAt: clean(rows[idx]?.paymentReceivedAt || next.paymentReceivedAt),
+          onboardingUnlockedAt: clean(rows[idx]?.onboardingUnlockedAt || next.onboardingUnlockedAt),
+          modules: normalizedModules(rows[idx]?.modules || next.modules),
+          updatedAt: nowIso()
+        };
+      }
+    } else {
+      rows.unshift(next);
+    }
 
     await saveJsonStore(STORE_PATH, rows);
     return Response.json({ ok: true, member: safeMember(next) });
