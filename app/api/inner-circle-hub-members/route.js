@@ -160,6 +160,44 @@ export async function POST(req) {
     return Response.json({ ok: true, row: safeMember(next) });
   }
 
+
+  if (action === 'set_access') {
+    const memberId = clean(body?.memberId);
+    const email = clean(body?.email).toLowerCase();
+    const password = clean(body?.password);
+    const contractSigned = body?.contractSigned !== false;
+    const paymentReceived = body?.paymentReceived !== false;
+    const wantsActive = body?.active !== false;
+
+    let idx = -1;
+    if (memberId) idx = rows.findIndex((r) => clean(r?.id) === memberId);
+    if (idx < 0 && email) {
+      const idxs = matchingIndexesByEmail(rows, email);
+      idx = idxs.length ? idxs[0] : -1;
+    }
+    if (idx < 0) return Response.json({ ok: false, error: 'member_not_found' }, { status: 404 });
+
+    const current = rows[idx] || {};
+    const next = {
+      ...current,
+      passwordHash: password ? hashPassword(password) : clean(current?.passwordHash || ''),
+      resetTokenHash: '',
+      resetTokenExpiresAt: '',
+      contractSignedAt: contractSigned ? (current.contractSignedAt || nowIso()) : '',
+      paymentReceivedAt: paymentReceived ? (current.paymentReceivedAt || nowIso()) : '',
+      modules: normalizedModules(current?.modules || {}),
+      updatedAt: nowIso()
+    };
+
+    const readyToUnlock = contractSigned && paymentReceived && Boolean(clean(next.passwordHash));
+    next.active = wantsActive && readyToUnlock;
+    next.onboardingUnlockedAt = next.active ? (current.onboardingUnlockedAt || nowIso()) : '';
+
+    rows[idx] = next;
+    await saveJsonStore(STORE_PATH, rows);
+    return Response.json({ ok: true, row: safeMember(next), readyToUnlock, warning: wantsActive && !readyToUnlock ? 'requires_contract_payment_and_password' : '' });
+  }
+
   if (action === 'set_password') {
     const memberId = clean(body?.memberId);
     const password = clean(body?.password);
