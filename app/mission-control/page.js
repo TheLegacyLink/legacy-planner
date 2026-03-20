@@ -316,7 +316,10 @@ export default function MissionControl() {
 
           for (const r of policyRows) {
             const submitted = new Date(r?.submittedAt || r?.createdAt || r?.updatedAt || 0);
-            const mapped = mapApplicationToAgent(r, config.agents);
+            // App Submitted should follow the policy writer selected in Submit App flow.
+            const mappedWriter = matchAgentFromReferrer(r?.policyWriterName || r?.submittedBy || '', config.agents);
+            const mappedFallback = mapApplicationToAgent(r, config.agents);
+            const mapped = mappedWriter || mappedFallback;
             registerApp({ row: r, mapped, submitted, source: 'Internal Policy Submission' });
           }
         }
