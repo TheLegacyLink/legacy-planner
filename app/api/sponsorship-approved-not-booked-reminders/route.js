@@ -342,15 +342,18 @@ export async function POST(req) {
   const byId = { ...(state?.byId || {}) };
   const now = new Date();
 
-  const maxPerRun = Number(process.env.ABN_MAX_PER_RUN || 40);
+  const maxPerRun = Number(body?.maxPerRun || process.env.ABN_MAX_PER_RUN || 20);
+  const maxRuntimeMs = Number(body?.maxRuntimeMs || process.env.ABN_MAX_RUNTIME_MS || 15000);
+  const includeErrorDetails = clean(body?.debug || '').toLowerCase() === '1' || clean(body?.debug || '').toLowerCase() === 'true';
+  const leanMode = clean(body?.lean || '').toLowerCase() === '1' || clean(body?.lean || '').toLowerCase() === 'true';
+  const startedAtMs = Date.now();
+  let stoppedEarly = false;
 
   let attempted = 0;
   let applicantSent = 0;
   let agentSent = 0;
   let escalation48hSent = 0;
-  let sms10mSent = 0;
-  let sms30mSent = 0;
-  let sms24hSent = 0;
+  let sms4mSent = 0;
   let uplineApprovedSent = 0;
   let uplineBookedSent = 0;
   let uplineOneHourSent = 0;
@@ -361,6 +364,10 @@ export async function POST(req) {
 
   for (const app of apps) {
     if (attempted >= maxPerRun) break;
+    if (Date.now() - startedAtMs >= maxRuntimeMs) {
+      stoppedEarly = true;
+      break;
+    }
     if (!isApproved(app)) continue;
 
     const anchor = approvedAnchor(app);
@@ -568,32 +575,25 @@ export async function POST(req) {
       continue;
     }
 
-    // SMS sequence (1m, 30m, 24h) — stops automatically once booked/submitted due to early loop guards.
-    if (contactId && ageMs >= 1 * 60 * 1000 && !record?.sms10mSentAt) {
-      const sms1 = `Hi ${clean(app?.firstName || '') || 'there'}, your sponsorship application is approved. Please book now so we can keep it moving: ${bookingLink}. If you already booked, disregard.`;
-      const out = await sendGhlSms({
-        contactId,
-        message: sms1,
-        appId,
-        firstName: clean(app?.firstName || ''),
-        lastName: clean(app?.lastName || ''),
-        email,
-        phone,
-        bookingLink
-      });
-      if (out.ok) {
-        sms10mSent += 1;
-        record.sms10mSentAt = nowIso();
-      } else {
-        errors.push({ appId, type: 'sms10m', error: out?.detail || out?.reason || 'send_failed' });
-      }
-    }
+    // Single SMS reminder: 4 minutes after approval if still not booked.
+    const hasLegacySms = Boolean(record?.sms10mSentAt || record?.sms30mSentAt || record?.sms24hSentAt);
+    if (contactId && ageMs >= 4 * 60 * 1000 && ageMs < 24 * 60 * 60 * 1000 && !record?.sms4mSentAt && !hasLegacySms) {
+      const sms = [
+        `Hi ${clean(app?.firstName || '') || 'there'},`,
+        '',
+        'Congratulations — your sponsorship application has been approved.',
+        '',
+        'Your next step is to book your first onboarding meeting:',
+        bookingLink,
+        '',
+        'Reply CONFIRM once booked.',
+        '',
+        '— The Legacy Link Support Team'
+      ].join('\n');
 
-    if (contactId && ageMs >= 30 * 60 * 1000 && !record?.sms30mSentAt) {
-      const sms2 = `Quick reminder: we still do not see your sponsorship appointment booked. Lock your time here: ${bookingLink}. If you already booked, disregard.`;
       const out = await sendGhlSms({
         contactId,
-        message: sms2,
+        message: sms,
         appId,
         firstName: clean(app?.firstName || ''),
         lastName: clean(app?.lastName || ''),
@@ -602,35 +602,15 @@ export async function POST(req) {
         bookingLink
       });
       if (out.ok) {
-        sms30mSent += 1;
-        record.sms30mSentAt = nowIso();
+        sms4mSent += 1;
+        record.sms4mSentAt = nowIso();
       } else {
-        errors.push({ appId, type: 'sms30m', error: out?.detail || out?.reason || 'send_failed' });
-      }
-    }
-
-    if (contactId && ageMs >= 24 * 60 * 60 * 1000 && !record?.sms24hSentAt) {
-      const sms3 = `Final reminder: your sponsorship application is approved but still not booked. Book here now: ${bookingLink}. Need help? Reply HELP. If you already booked, disregard.`;
-      const out = await sendGhlSms({
-        contactId,
-        message: sms3,
-        appId,
-        firstName: clean(app?.firstName || ''),
-        lastName: clean(app?.lastName || ''),
-        email,
-        phone,
-        bookingLink
-      });
-      if (out.ok) {
-        sms24hSent += 1;
-        record.sms24hSentAt = nowIso();
-      } else {
-        errors.push({ appId, type: 'sms24h', error: out?.detail || out?.reason || 'send_failed' });
+        errors.push({ appId, type: 'sms4m', error: out?.detail || out?.reason || 'send_failed' });
       }
     }
 
     if (ageMs < 24 * 60 * 60 * 1000) {
-      if (record.sms10mSentAt || record.sms30mSentAt || record.sms24hSentAt) {
+      if (record.sms4mSentAt || hasLegacySms) {
         record.lastTouchedAt = nowIso();
         byId[appId] = record;
       }
@@ -638,7 +618,7 @@ export async function POST(req) {
     }
 
     if (record?.followup24hSentAt && record?.agent24hSentAt && record?.escalation48hSentAt) {
-      if (record.sms10mSentAt || record.sms30mSentAt || record.sms24hSentAt) {
+      if (record.sms4mSentAt || record.sms10mSentAt || record.sms30mSentAt || record.sms24hSentAt) {
         byId[appId] = record;
       }
       continue;
@@ -684,6 +664,7 @@ export async function POST(req) {
       || record.uplineOneHourNotBookedSentAt
       || record.agent24hSentAt
       || record.escalation48hSentAt
+      || record.sms4mSentAt
       || record.sms10mSentAt
       || record.sms30mSentAt
       || record.sms24hSentAt
@@ -695,10 +676,18 @@ export async function POST(req) {
 
   await saveJsonFile(REMINDER_STATE_PATH, { byId, updatedAt: nowIso() });
 
-  return Response.json({
+  const errorsByType = errors.reduce((acc, e) => {
+    const k = clean(e?.type || 'unknown');
+    acc[k] = Number(acc[k] || 0) + 1;
+    return acc;
+  }, {});
+
+  const response = {
     ok: true,
     attempted,
     maxPerRun,
+    maxRuntimeMs,
+    stoppedEarly,
     applicantSent,
     applicantBookedSent,
     agentSent,
@@ -707,12 +696,17 @@ export async function POST(req) {
     uplineBookedSent,
     uplineOneHourSent,
     quietHours,
-    sms10mSent,
-    sms30mSent,
-    sms24hSent,
+    sms4mSent,
     errorsCount: errors.length,
-    errors
-  });
+    errorsByType,
+    durationMs: Date.now() - startedAtMs
+  };
+
+  if (!leanMode || includeErrorDetails) {
+    response.errors = includeErrorDetails ? errors : errors.slice(0, 10);
+  }
+
+  return Response.json(response);
 }
 
 export async function GET() {

@@ -180,6 +180,19 @@ function daysSince(isoLike) {
   return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 }
 
+function suggestedNextAction({ stage = '', licensing = '', ageDays = 0 } = {}) {
+  const s = String(stage || '').toLowerCase();
+  const l = String(licensing || '').toLowerCase();
+
+  if (s.includes('new')) return 'Same-day call + confirm onboarding link and access code.';
+  if (s.includes('called') && ageDays >= 2) return 'Escalate with 3-touch sequence (call/text/email) in next 24h.';
+  if (s.includes('appointment') && ageDays >= 1) return 'Confirm appointment + send prep checklist now.';
+  if (l.includes('unlicensed')) return 'Push pre-licensing start with Jamal and set follow-up date.';
+  if (s.includes('contract')) return 'Trigger contracting chase + verify missing docs today.';
+  if (ageDays >= 7) return 'Manager intervention: owner call + next action deadline by end of day.';
+  return 'Send quick progress nudge and lock next milestone date.';
+}
+
 function rowKey(row) {
   return [row.name, row.phone, row.approvedDate ? row.approvedDate.toISOString().slice(0, 10) : ''].join('|').toUpperCase();
 }
@@ -927,6 +940,7 @@ export default function SponsorshipsPage() {
         if (viewTab === 'Completed Policies') return done;
         if (viewTab === 'Decision Tree SOP') return false;
         if (viewTab === 'Agency Owner Dashboard') return false;
+        if (viewTab === 'Stuck Escalation Board') return false;
         return !done;
       })
       .filter((r) => (statusFilter === 'All' ? true : r.systemStatus === statusFilter))
@@ -1006,6 +1020,80 @@ export default function SponsorshipsPage() {
       if (wf.called) out.called += 1;
     }
     return out;
+  }, [rows, workflow, stuckDays]);
+
+  const nextThreeActions = useMemo(() => {
+    const active = rows.filter((r) => !isCompleted(r, workflow[rowKey(r)] || {}));
+    const overdue = active.filter((r) => r.systemStatus === 'Overdue');
+    const urgent = active.filter((r) => r.systemStatus === 'Urgent');
+    const stuck = active
+      .map((r) => {
+        const wf = workflow[rowKey(r)] || {};
+        const anchor = wf.updatedAt || (r.approvedDate ? r.approvedDate.toISOString() : '');
+        return { row: r, wf, ageDays: daysSince(anchor) };
+      })
+      .filter((x) => x.ageDays >= stuckDays)
+      .sort((a, b) => b.ageDays - a.ageDays);
+
+    const actions = [];
+    if (overdue.length) {
+      actions.push(`Overdue pipeline cleanup: work ${Math.min(overdue.length, 10)} overdue records first.`);
+    }
+    if (urgent.length) {
+      actions.push(`Urgent follow-up block: close out ${Math.min(urgent.length, 10)} urgent records in the next 90 minutes.`);
+    }
+    if (stuck.length) {
+      const top = stuck[0];
+      actions.push(`Escalation priority: ${top.row.name} is stuck ${top.ageDays}d (${effectiveStage(top.row, top.wf)}).`);
+    }
+
+    if (!actions.length) {
+      actions.push('Pipeline is clean right now. Run QA: verify applicant/owner emails and stage accuracy.');
+      actions.push('Prepare tomorrow\'s follow-up queue and appointment confirmations.');
+      actions.push('Run one conversion optimization pass on onboarding messaging.');
+    }
+
+    return actions.slice(0, 3);
+  }, [rows, workflow, stuckDays]);
+
+  const stuckEscalationGroups = useMemo(() => {
+    const groups = new Map([
+      ['Angelica', []],
+      ['Jamal', []]
+    ]);
+
+    for (const r of rows) {
+      const key = rowKey(r);
+      const wf = workflow[key] || {};
+      if (isCompleted(r, wf)) continue;
+
+      const anchor = wf.updatedAt || (r.approvedDate ? r.approvedDate.toISOString() : '');
+      const ageDays = daysSince(anchor);
+      if (ageDays < stuckDays) continue;
+
+      const owner = wf.agencyOwner || autoAgencyOwnerFromRow(r) || 'Unassigned';
+      const stage = effectiveStage(r, wf);
+      const licensing = effectiveLicensingStatus(r, wf);
+
+      const item = {
+        key,
+        name: r.name,
+        owner,
+        stage,
+        licensing,
+        ageDays,
+        nextAction: suggestedNextAction({ stage, licensing, ageDays }),
+        referredBy: r.referredBy || '—'
+      };
+
+      if (!groups.has(owner)) groups.set(owner, []);
+      groups.get(owner).push(item);
+    }
+
+    return Array.from(groups.entries()).map(([owner, items]) => ({
+      owner,
+      items: items.sort((a, b) => b.ageDays - a.ageDays)
+    }));
   }, [rows, workflow, stuckDays]);
 
   const stuckDigest = useMemo(() => {
@@ -1137,6 +1225,13 @@ export default function SponsorshipsPage() {
         >
           Agency Owner Dashboard
         </button>
+        <button
+          type="button"
+          onClick={() => setViewTab('Stuck Escalation Board')}
+          style={viewTab === 'Stuck Escalation Board' ? { background: '#b45309', color: '#fff' } : undefined}
+        >
+          Stuck Escalation Board
+        </button>
       </div>
 
       <div className="panelRow" style={{ marginBottom: 12, gap: 10, flexWrap: 'wrap' }}>
@@ -1150,6 +1245,15 @@ export default function SponsorshipsPage() {
         <a href={SHEET_URL} target="_blank" rel="noreferrer" style={{ marginLeft: 'auto' }}>
           <button type="button">Open Google Sheet</button>
         </a>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 10, border: '1px solid #1e3a8a', background: '#0b1220' }}>
+        <h3 style={{ marginTop: 0, marginBottom: 8, color: '#dbeafe' }}>My Next 3 Actions</h3>
+        <ol style={{ margin: 0, paddingLeft: 18, color: '#e2e8f0', display: 'grid', gap: 6 }}>
+          {nextThreeActions.map((action, idx) => (
+            <li key={`next-action-${idx}`}>{action}</li>
+          ))}
+        </ol>
       </div>
 
       <div className="panelRow" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -1296,6 +1400,42 @@ export default function SponsorshipsPage() {
                       <td>{m.noMovementDays}d</td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      ) : viewTab === 'Stuck Escalation Board' ? (
+        <div style={{ display: 'grid', gap: 12, marginTop: 8 }}>
+          {stuckEscalationGroups.map((group) => (
+            <div key={group.owner} className="panel" style={{ background: '#111', border: '1px solid #2a2a2a' }}>
+              <div className="panelRow" style={{ marginBottom: 8 }}>
+                <h3 style={{ margin: 0 }}>{group.owner}</h3>
+                <span className="pill" style={{ background: '#7f1d1d', color: '#fff' }}>Stuck {stuckDays}d+: {group.items.length}</span>
+              </div>
+              <table style={{ background: '#0f0f0f', color: '#f5f5f5' }}>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Stage</th>
+                    <th>Age</th>
+                    <th>Owner</th>
+                    <th>Referred By</th>
+                    <th>Suggested Next Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.items.map((item) => (
+                    <tr key={`${group.owner}-${item.key}`}>
+                      <td>{item.name}</td>
+                      <td>{item.stage}</td>
+                      <td>{item.ageDays}d</td>
+                      <td>{item.owner}</td>
+                      <td>{item.referredBy}</td>
+                      <td>{item.nextAction}</td>
+                    </tr>
+                  ))}
+                  {!group.items.length ? <tr><td colSpan={6} className="muted">No stuck records for this owner.</td></tr> : null}
                 </tbody>
               </table>
             </div>
