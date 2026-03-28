@@ -100,6 +100,31 @@ function shortDate(date) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function ctDateKey(date = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
+
+function bookingDateKeyFromRequested(value = '') {
+  const m = String(value || '').match(/(\d{4}-\d{2}-\d{2})/);
+  return m?.[1] || '';
+}
+
+function bookingDayTag(requestedAt = '') {
+  const dateKey = bookingDateKeyFromRequested(requestedAt);
+  if (!dateKey) return '';
+  const todayKey = ctDateKey(new Date());
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowKey = ctDateKey(tomorrow);
+  if (dateKey === todayKey) return 'today';
+  if (dateKey === tomorrowKey) return 'tomorrow';
+  return '';
+}
 
 function parseCsvRows(text = '') {
   const lines = String(text || '').split(/\r?\n/).filter((l) => l.trim());
@@ -267,10 +292,12 @@ export default function MissionControl() {
           fetch('/api/unlicensed-backoffice/admin/progress', { cache: 'no-store' })
         ]);
 
-        if (!leaderboardRes.ok) throw new Error(`Leaderboard HTTP ${leaderboardRes.status}`);
+        const sourceIssues = [];
+        if (!leaderboardRes.ok) sourceIssues.push(`Leaderboard HTTP ${leaderboardRes.status}`);
+        if (!revenueRes.ok) sourceIssues.push(`Revenue HTTP ${revenueRes.status}`);
 
-        const leaderboardJson = await leaderboardRes.json();
-        const revenueJson = revenueRes.ok ? await revenueRes.json() : null;
+        const leaderboardJson = leaderboardRes.ok ? await leaderboardRes.json().catch(() => ({})) : {};
+        const revenueJson = revenueRes.ok ? await revenueRes.json().catch(() => ({})) : null;
 
         const monthlyApprovals = {};
         const todayApprovals = {};
@@ -407,6 +434,7 @@ export default function MissionControl() {
         setPayoutSponsorshipRows(reviewRows);
         setSponsorshipSyncIssue(sponsorshipIssue);
         setManualReviewCount(reviewCount);
+        setError(sourceIssues.length ? `Partial sync: ${sourceIssues.join(' • ')}` : '');
         setLastSyncAt(new Date().toISOString());
       } catch (err) {
         if (!mounted) return;
@@ -698,6 +726,24 @@ export default function MissionControl() {
     }
     setPassError('Incorrect passcode.');
   };
+
+  const bookingQueueDeduped = useMemo(() => {
+    return Array.from(new Map((bookingQueue || []).map((b) => {
+      const key = `${cleanName(b?.applicant_name || '')}|${String(b?.requested_at_est || '').trim()}|${String(b?.source_application_id || '').trim()}`;
+      return [key, b];
+    })).values());
+  }, [bookingQueue]);
+
+  const bookingQueueDaySummary = useMemo(() => {
+    let today = 0;
+    let tomorrow = 0;
+    for (const b of bookingQueueDeduped) {
+      const tag = bookingDayTag(b?.requested_at_est || '');
+      if (tag === 'today') today += 1;
+      if (tag === 'tomorrow') tomorrow += 1;
+    }
+    return { today, tomorrow };
+  }, [bookingQueueDeduped]);
 
   if (!authed) {
     return (
@@ -1063,10 +1109,17 @@ export default function MissionControl() {
           </div>
         </div>
 
-        {!bookingQueue.length ? (
+        {!bookingQueueDeduped.length ? (
           <p className="muted">No bookings yet.</p>
         ) : (
-          <table>
+          <>
+            <div className="grid4" style={{ margin: '8px 0 10px' }}>
+              <div className="card"><p>Today</p><h2>{bookingQueueDaySummary.today}</h2></div>
+              <div className="card"><p>Tomorrow</p><h2>{bookingQueueDaySummary.tomorrow}</h2></div>
+              <div className="card"><p>Total in Queue</p><h2>{bookingQueueDeduped.length}</h2></div>
+              <div className="card"><p>Open (Unclaimed)</p><h2>{bookingQueueDeduped.filter((b) => String(b?.claim_status || '').toLowerCase() !== 'claimed').length}</h2></div>
+            </div>
+            <table>
             <thead>
               <tr>
                 <th>Referral</th>
@@ -1079,19 +1132,21 @@ export default function MissionControl() {
               </tr>
             </thead>
             <tbody>
-              {Array.from(new Map((bookingQueue || []).map((b) => {
-                const key = `${cleanName(b?.applicant_name || '')}|${String(b?.requested_at_est || '').trim()}|${String(b?.source_application_id || '').trim()}`;
-                return [key, b];
-              })).values()).map((b) => {
+              {bookingQueueDeduped.map((b) => {
                 const withinPriority = isWithinPriorityWindow(b);
                 const assignedTo = b.claimed_by || b.priority_agent || 'Unassigned';
+                const dayTag = bookingDayTag(b.requested_at_est || '');
 
                 return (
                   <tr key={b.id}>
                     <td>{b.referred_by || '—'}</td>
                     <td>{b.applicant_name || '—'}</td>
                     <td>{b.applicant_state || '—'}</td>
-                    <td>{b.requested_at_est || '—'}{b.booking_timezone ? ` (${b.booking_timezone})` : ''}</td>
+                    <td>
+                      {b.requested_at_est || '—'}{b.booking_timezone ? ` (${b.booking_timezone})` : ''}
+                      {dayTag === 'today' ? <span className="pill" style={{ marginLeft: 8, background: '#f59e0b', color: '#fff' }}>TODAY</span> : null}
+                      {dayTag === 'tomorrow' ? <span className="pill" style={{ marginLeft: 8, background: '#2563eb', color: '#fff' }}>TOMORROW</span> : null}
+                    </td>
                     <td>{assignedTo}</td>
                     <td>
                       {b.claim_status === 'Claimed' ? (
@@ -1112,6 +1167,7 @@ export default function MissionControl() {
               })}
             </tbody>
           </table>
+          </>
         )}
       </div>
 
