@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
+import users from '../../../data/innerCircleUsers.json';
 
 const STORE_PATH = 'stores/sponsorship-applications.json';
 const MEMBERS_PATH = 'stores/sponsorship-program-members.json';
@@ -32,6 +33,62 @@ function nowIso() {
 
 function normalize(v = '') {
   return clean(v).toLowerCase().replace(/\s+/g, ' ');
+}
+
+function refCodeFromName(name = '') {
+  return clean(name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+function looseKey(v = '') {
+  return clean(v).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function mapRefCodeToName(refCode = '') {
+  const rc = clean(refCode).toLowerCase();
+  if (!rc) return '';
+
+  const aliases = {
+    latricia_wright: 'leticia_wright',
+    letitia_wright: 'leticia_wright'
+  };
+  const key = aliases[rc] || rc;
+
+  const hit = (users || []).find((u) => refCodeFromName(u?.name || '') === key);
+  return clean(hit?.name || '');
+}
+
+function mapEmailLikeToName(value = '') {
+  const lk = looseKey(value);
+  if (!lk) return '';
+
+  for (const u of (users || [])) {
+    const emKey = looseKey(u?.email || '');
+    if (!emKey) continue;
+    if (lk === emKey || lk.includes(emKey) || emKey.includes(lk)) return clean(u?.name || '');
+  }
+
+  return '';
+}
+
+function resolveSponsorDisplayName(row = {}) {
+  const direct = clean(row?.referralName || row?.referredByName || row?.referred_by || '');
+  const directNorm = normalize(direct);
+  if (directNorm) {
+    const userHit = (users || []).find((u) => normalize(u?.name || '') === directNorm);
+    if (userHit?.name) return clean(userHit.name);
+  }
+
+  const fromEmailLike = mapEmailLikeToName(direct);
+  if (fromEmailLike) return fromEmailLike;
+
+  const fromRefCode = mapRefCodeToName(row?.refCode || row?.referral_code || '');
+  if (fromRefCode) return fromRefCode;
+
+  const codeAsEmailLike = mapEmailLikeToName(row?.refCode || row?.referral_code || '');
+  if (codeAsEmailLike) return codeAsEmailLike;
+
+  if (direct) return direct;
+  return 'Unattributed';
 }
 
 function randomToken(prefix = 'sop') {
@@ -378,7 +435,13 @@ export async function GET(req) {
   const store = await getStore();
   const rows = status ? store.filter((r) => String(r.status || '').toLowerCase() === status) : store;
   rows.sort((a, b) => new Date(b.submitted_at || b.createdAt || 0).getTime() - new Date(a.submitted_at || a.createdAt || 0).getTime());
-  return Response.json({ ok: true, rows });
+
+  const enriched = rows.map((r) => ({
+    ...r,
+    sponsorDisplayName: resolveSponsorDisplayName(r)
+  }));
+
+  return Response.json({ ok: true, rows: enriched });
 }
 
 export async function POST(req) {
@@ -400,6 +463,13 @@ export async function POST(req) {
       updatedAt: nowIso(),
       normalizedName: normalizeName(`${body?.firstName || ''} ${body?.lastName || ''}`)
     };
+
+    const sponsorName = resolveSponsorDisplayName(record);
+    if (sponsorName && sponsorName !== 'Unattributed') {
+      record.referralName = sponsorName;
+      if (!clean(record.referredByName)) record.referredByName = sponsorName;
+      if (!clean(record.referred_by)) record.referred_by = sponsorName;
+    }
 
     if (!record.firstName || !record.lastName) {
       return Response.json({ ok: false, error: 'missing_name' }, { status: 400 });

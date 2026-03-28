@@ -12,8 +12,18 @@ const REF_CODE_TO_SPONSOR = {
   leticia_wright: 'Leticia Wright',
   breanna_james: 'Breanna James',
   shannon_maxwell: 'Shannon Maxwell',
+  donyell_richardson: 'Donyell Richardson',
   dr_brianna: 'Dr. Breanna James',
   latricia_wright: 'Leticia Wright'
+};
+
+const EMAIL_LIKE_TO_SPONSOR = {
+  smaxwell32gmailcom: 'Shannon Maxwell',
+  donyellrichardson80gmailcom: 'Donyell Richardson',
+  kimorathelegacylinkcom: 'Kimora Link',
+  investalinkinsurancegmailcom: 'Kimora Link',
+  leticiawright05gmailcom: 'Leticia Wright',
+  drboss637gmailcom: 'Breanna James'
 };
 
 function clean(v = '') {
@@ -40,9 +50,20 @@ function titleCase(v = '') {
 }
 
 function sponsorNameFromRow(row = {}) {
+  const direct = clean(row.sponsorDisplayName || row.referralName || row.referredByName || row.referred_by || '');
+  if (direct) {
+    const directKey = direct.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (EMAIL_LIKE_TO_SPONSOR[directKey]) return EMAIL_LIKE_TO_SPONSOR[directKey];
+    return direct;
+  }
+
   const raw = String(row.refCode || row.ref_code || '').trim().toLowerCase();
   if (!raw) return 'Unattributed';
   if (REF_CODE_TO_SPONSOR[raw]) return REF_CODE_TO_SPONSOR[raw];
+
+  const emailLike = raw.replace(/[^a-z0-9]/g, '');
+  if (EMAIL_LIKE_TO_SPONSOR[emailLike]) return EMAIL_LIKE_TO_SPONSOR[emailLike];
+
   return titleCase(raw.replace(/[_-]+/g, ' '));
 }
 
@@ -345,27 +366,54 @@ export default function SponsorshipReviewPage() {
       </table>
 
       {reviewRow ? (
-        <div className="panel" style={{ marginTop: 14, borderColor: '#c7d2fe', background: '#f8fbff' }}>
-          <div className="panelRow" style={{ marginBottom: 8 }}>
-            <h3 style={{ margin: 0 }}>Review Answers — {reviewRow.firstName} {reviewRow.lastName}</h3>
-            <span className="pill">Sponsor: {sponsorNameFromRow(reviewRow)}</span>
-          </div>
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(2, 6, 23, 0.55)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16
+          }}
+          onClick={() => setReviewRow(null)}
+        >
+          <div
+            className="panel"
+            style={{
+              width: 'min(920px, 96vw)',
+              maxHeight: '92vh',
+              overflow: 'auto',
+              borderColor: '#c7d2fe',
+              background: '#f8fbff',
+              margin: 0
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="panelRow" style={{ marginBottom: 8 }}>
+              <h3 style={{ margin: 0 }}>Review Answers — {reviewRow.firstName} {reviewRow.lastName}</h3>
+              <span className="pill">Sponsor: {sponsorNameFromRow(reviewRow)}</span>
+            </div>
 
-          <div style={{ display: 'grid', gap: 10 }}>
-            {answerFields(reviewRow).map(([label, value]) => (
-              <div key={label} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 10, background: '#fff' }}>
-                <small className="muted" style={{ display: 'block', marginBottom: 4 }}>{label}</small>
-                <div style={{ color: '#0f172a', whiteSpace: 'pre-wrap', fontWeight: 500 }}>{String(value || '—')}</div>
+            <div style={{ display: 'grid', gap: 10 }}>
+              {answerFields(reviewRow).map(([label, value]) => (
+                <div key={label} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 10, background: '#fff' }}>
+                  <small className="muted" style={{ display: 'block', marginBottom: 4 }}>{label}</small>
+                  <div style={{ color: '#0f172a', whiteSpace: 'pre-wrap', fontWeight: 500 }}>{String(value || '—')}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="panelRow" style={{ marginTop: 12, position: 'sticky', bottom: 0, background: '#f8fbff', paddingTop: 8 }}>
+              <small className="muted">Submitted: {fmt(reviewRow.submitted_at)} • Score: {reviewRow.application_score ?? '—'}</small>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" onClick={() => decideFromModal('approve')}>Approve</button>
+                <button type="button" className="ghost" onClick={() => decideFromModal('decline')}>Decline</button>
+                <button type="button" className="ghost" onClick={() => setReviewRow(null)}>Close</button>
               </div>
-            ))}
-          </div>
-
-          <div className="panelRow" style={{ marginTop: 12 }}>
-            <small className="muted">Submitted: {fmt(reviewRow.submitted_at)} • Score: {reviewRow.application_score ?? '—'}</small>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button type="button" onClick={() => decideFromModal('approve')}>Approve</button>
-              <button type="button" className="ghost" onClick={() => decideFromModal('decline')}>Decline</button>
-              <button type="button" className="ghost" onClick={() => setReviewRow(null)}>Close</button>
             </div>
           </div>
         </div>

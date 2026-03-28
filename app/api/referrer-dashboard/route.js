@@ -16,6 +16,10 @@ function refCodeFromName(name = '') {
   return clean(name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
 
+function looseKey(v = '') {
+  return clean(v).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 function nameKey(v = '') { return clean(v).toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/\s+/g, ' ').trim(); }
 function emailKey(v = '') { return clean(v).toLowerCase(); }
 
@@ -39,12 +43,48 @@ function findInnerUser(name = '') {
 function mapRefCodeToName(refCode = '') {
   const rc = clean(refCode).toLowerCase();
   if (!rc) return '';
-  const hit = (users || []).find((u) => refCodeFromName(u.name) === rc);
+
+  const aliases = {
+    latricia_wright: 'leticia_wright',
+    letitia_wright: 'leticia_wright'
+  };
+  const key = aliases[rc] || rc;
+
+  const hit = (users || []).find((u) => refCodeFromName(u.name) === key);
   return clean(hit?.name || '');
 }
 
+function mapEmailLikeToName(value = '') {
+  const lk = looseKey(value);
+  if (!lk) return '';
+
+  for (const u of (users || [])) {
+    const emKey = looseKey(u?.email || '');
+    if (!emKey) continue;
+    if (lk === emKey || lk.includes(emKey) || emKey.includes(lk)) return clean(u?.name || '');
+  }
+
+  return '';
+}
+
 function appReferrerName(row = {}) {
-  return clean(row?.referralName || row?.referredByName || mapRefCodeToName(row?.refCode || row?.referral_code || ''));
+  const direct = clean(row?.referralName || row?.referredByName || row?.referred_by || '');
+  const directNorm = normalize(direct);
+  if (directNorm) {
+    const userHit = (users || []).find((u) => normalize(u?.name || '') === directNorm);
+    if (userHit?.name) return clean(userHit.name);
+  }
+
+  const fromEmailLike = mapEmailLikeToName(direct);
+  if (fromEmailLike) return fromEmailLike;
+
+  const fromRefCode = mapRefCodeToName(row?.refCode || row?.referral_code || '');
+  if (fromRefCode) return fromRefCode;
+
+  const codeAsEmailLike = mapEmailLikeToName(row?.refCode || row?.referral_code || '');
+  if (codeAsEmailLike) return codeAsEmailLike;
+
+  return direct;
 }
 
 function isSubmittedApplication(row = {}) {
