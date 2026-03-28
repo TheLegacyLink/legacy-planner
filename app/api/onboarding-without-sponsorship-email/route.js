@@ -62,7 +62,7 @@ function buildHtml({ name = 'there', startUrl = 'https://innercirclelink.com/sta
     <div style="max-width:700px;margin:0 auto;border:1px solid #1D428A;border-radius:14px;overflow:hidden;background:#111A33;">
       <div style="padding:20px 22px;background:linear-gradient(120deg,#1D428A,#006BB6);">
         <div style="font-size:32px;font-weight:800;letter-spacing:.7px;line-height:1;">THE LEGACY LINK</div>
-        <div style="margin-top:8px;font-size:14px;opacity:.92;">Onboarding Without Sponsorship Submission</div>
+        <div style="margin-top:8px;font-size:14px;opacity:.92;">Build Your Legacy With Intention.</div>
       </div>
 
       <div style="padding:24px;line-height:1.65;">
@@ -74,8 +74,7 @@ function buildHtml({ name = 'there', startUrl = 'https://innercirclelink.com/sta
 
         <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
           <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Start Here</div>
-          <a href="${safeStart}" style="display:inline-block;background:#F58426;color:#0B1020;padding:11px 16px;border-radius:8px;font-weight:800;text-decoration:none;">Choose Your Onboarding Path</a>
-          <p style="margin:10px 0 0;color:#C9D1E1;font-size:12px;">Secure start link: ${safeStart}</p>
+          <a href="${safeStart}" style="display:inline-block;background:#F58426;color:#0B1020;padding:11px 16px;border-radius:8px;font-weight:800;text-decoration:none;white-space:nowrap;">Choose Your Onboarding&nbsp;Path</a>
         </div>
 
         <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
