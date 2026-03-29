@@ -7,6 +7,28 @@ import innerCircleUsers from '../../data/innerCircleUsers.json';
 function clean(v = '') { return String(v || '').trim(); }
 function normalize(v = '') { return clean(v).toLowerCase().replace(/\s+/g, ' '); }
 function normalizePhone(v = '') { return clean(v).replace(/\D+/g, ''); }
+
+function canonicalAgentName(v = '') {
+  const n = normalize(v);
+  const alias = {
+    'latricia wright': 'leticia wright',
+    'letitia wright': 'leticia wright',
+    'kellen brown': 'kelin brown',
+    'madeline adams': 'madalyn adams',
+    'brianna james': 'breanna james',
+    'danielle': 'donyell richardson',
+    'danielle richardson': 'donyell richardson',
+    'donyell': 'donyell richardson'
+  };
+  return alias[n] || n;
+}
+
+function sameAgentName(a = '', b = '') {
+  const na = canonicalAgentName(a);
+  const nb = canonicalAgentName(b);
+  return Boolean(na && nb && na === nb);
+}
+
 function isInnerCircleName(name = '') {
   const n = normalize(name);
   if (!n) return false;
@@ -23,6 +45,38 @@ function toDisplayName(raw = '') {
       .replace(/\b\w/g, (m) => m.toUpperCase());
   }
   return value.toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function referralCodeFromName(name = '') {
+  const n = normalize(name).replace(/[^a-z0-9 ]/g, '').trim();
+  if (!n) return '';
+  const canonical = {
+    'latricia wright': 'leticia_wright',
+    'letitia wright': 'leticia_wright'
+  };
+  if (canonical[n]) return canonical[n];
+  return n.replace(/\s+/g, '_');
+}
+
+function sponsorshipLinkForProfile(profile = {}) {
+  const ref = referralCodeFromName(profile?.name || '');
+  return ref ? `/sponsorship-signup?ref=${encodeURIComponent(ref)}` : '/sponsorship-signup';
+}
+
+function linkLeadsUrlForProfile(profile = {}) {
+  const params = new URLSearchParams();
+  const name = clean(profile?.name);
+  const email = clean(profile?.email).toLowerCase();
+  const npn = clean(profile?.agentId || '').replace(/\D/g, '');
+  const states = Array.isArray(profile?.states) ? profile.states.filter(Boolean) : [];
+
+  if (name) params.set('name', name);
+  if (email) params.set('email', email);
+  if (npn) params.set('npn', npn);
+  if (states.length) params.set('states', states.join(','));
+  params.set('role', 'agent');
+
+  return `/linkleads/order-builder${params.toString() ? `?${params.toString()}` : ''}`;
 }
 
 const COMP_LADDER = [
@@ -202,6 +256,8 @@ export default function LicensedBackofficePage() {
   const [submitMsg, setSubmitMsg] = useState('');
   const [financeRange, setFinanceRange] = useState('month');
   const [financeDrawer, setFinanceDrawer] = useState({ open: false, title: '', items: [] });
+  const [copiedLinkLeads, setCopiedLinkLeads] = useState(false);
+  const [copiedSponsor, setCopiedSponsor] = useState(false);
   const [appForm, setAppForm] = useState({
     appType: '',
     applicantName: '',
@@ -216,11 +272,20 @@ export default function LicensedBackofficePage() {
     annualPremium: '',
     productKey: DEFAULT_PRODUCT.key,
     carrier: DEFAULT_PRODUCT.carrier,
-    productName: DEFAULT_PRODUCT.productName
+    productName: DEFAULT_PRODUCT.productName,
+    deliveryRequirementNeeded: false,
+    deliveryRequirementNote: ''
   });
   const [googleReady, setGoogleReady] = useState(false);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
   const isAdmin = normalize(session?.role || '') === 'admin';
+  const personalSponsorshipLink = useMemo(() => sponsorshipLinkForProfile(session || {}), [session]);
+  const personalLinkLeadsUrl = useMemo(() => linkLeadsUrlForProfile({
+    name: session?.name,
+    email: session?.email,
+    agentId: session?.agentId,
+    states: session?.states || (session?.homeState ? [session.homeState] : [])
+  }), [session]);
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') : '';
@@ -488,7 +553,10 @@ export default function LicensedBackofficePage() {
           annualPremium: Number(appForm.annualPremium || 0) || 0,
           carrier: clean(appForm.carrier || DEFAULT_PRODUCT.carrier),
           productName: clean(appForm.productName || DEFAULT_PRODUCT.productName),
-          status: 'Submitted'
+          status: 'Submitted',
+          deliveryRequirementNeeded: Boolean(appForm.deliveryRequirementNeeded),
+          deliveryRequirementStatus: Boolean(appForm.deliveryRequirementNeeded) ? 'required' : 'none',
+          deliveryRequirementNote: clean(appForm.deliveryRequirementNote || '')
         },
         skipSopProvision: true
       };
@@ -519,7 +587,9 @@ export default function LicensedBackofficePage() {
         annualPremium: '',
         productKey: DEFAULT_PRODUCT.key,
         carrier: DEFAULT_PRODUCT.carrier,
-        productName: DEFAULT_PRODUCT.productName
+        productName: DEFAULT_PRODUCT.productName,
+        deliveryRequirementNeeded: false,
+        deliveryRequirementNote: ''
       }));
       setTab('policies');
       setSubmitMsg('Policy app submitted successfully.');
@@ -532,9 +602,9 @@ export default function LicensedBackofficePage() {
 
   const metrics = useMemo(() => {
     if (!session) return null;
-    const nameNorm = normalize(session.name);
+    const nameNorm = canonicalAgentName(session.name);
 
-    const myPolicies = policyRows.filter((r) => normalize(r?.policyWriterName || '') === nameNorm || normalize(r?.referredByName || '') === nameNorm);
+    const myPolicies = policyRows.filter((r) => sameAgentName(r?.policyWriterName || '', nameNorm) || sameAgentName(r?.referredByName || '', nameNorm));
 
     const approvedPolicies = myPolicies.filter((r) => normalize(r?.status || '').includes('approved'));
 
@@ -603,10 +673,19 @@ export default function LicensedBackofficePage() {
 
     const sponsorshipEntriesMap = new Map();
     for (const r of mySponsors) {
-      const statusRaw = clean(r?.status || '');
+      const statusRaw = clean(r?.status || 'Pending');
       const statusNorm = normalize(statusRaw);
-      const statusSimple = statusNorm.includes('approved') ? 'Approved' : (statusNorm.includes('declin') ? 'Declined' : '');
-      if (!statusSimple) continue; // hide pending/in-progress noise
+      const statusSimple = statusNorm.includes('approved')
+        ? 'Approved'
+        : statusNorm.includes('declin')
+          ? 'Declined'
+          : statusNorm.includes('booked')
+            ? 'Booked'
+            : statusNorm.includes('no show')
+              ? 'No Show'
+              : statusNorm.includes('cancel')
+                ? 'Cancelled'
+                : statusRaw || 'Pending';
 
       const fullName = clean(r?.fullName || `${clean(r?.firstName)} ${clean(r?.lastName)}`) || 'Unknown';
       const state = clean(r?.state);
@@ -619,7 +698,7 @@ export default function LicensedBackofficePage() {
           name: fullName,
           state,
           status: statusSimple,
-          submittedAt: dateOnly(r?.updatedAt || r?.submitted_at || r?.createdAt),
+          submittedAt: dateOnly(r?.submitted_at || r?.updatedAt || r?.createdAt),
           isApproved: statusSimple === 'Approved',
           ts
         });
@@ -681,14 +760,14 @@ export default function LicensedBackofficePage() {
 
   const skippedAppDecisions = useMemo(() => {
     if (!session) return [];
-    const nameNorm = normalize(session?.name || '');
+    const nameNorm = canonicalAgentName(session?.name || '');
     const emailNorm = normalize(session?.email || '');
     const rows = Array.isArray(onboardingDecisionRows) ? onboardingDecisionRows : [];
     return rows.filter((r) => {
       const decision = normalize(r?.decision || '');
       if (!decision.includes('skip')) return false;
-      const ref = normalize(r?.referredByName || '');
-      const writer = normalize(r?.policyWriterName || '');
+      const ref = canonicalAgentName(r?.referredByName || '');
+      const writer = canonicalAgentName(r?.policyWriterName || '');
       const em = normalize(r?.applicantEmail || '');
       if (emailNorm && em === emailNorm) return true;
       return Boolean(nameNorm && (ref === nameNorm || writer === nameNorm));
@@ -697,11 +776,11 @@ export default function LicensedBackofficePage() {
 
   const financials = useMemo(() => {
     if (!session) return null;
-    const nameNorm = normalize(session?.name || '');
+    const nameNorm = canonicalAgentName(session?.name || '');
     const isInner = isInnerCircleName(session?.name || '');
 
     const mine = (Array.isArray(policyRows) ? policyRows : []).filter((r) => (
-      normalize(r?.policyWriterName || '') === nameNorm || normalize(r?.referredByName || '') === nameNorm
+      sameAgentName(r?.policyWriterName || '', nameNorm) || sameAgentName(r?.referredByName || '', nameNorm)
     ));
 
     const events = mine
@@ -729,8 +808,15 @@ export default function LicensedBackofficePage() {
         const qualifiedMs = new Date(qualifiedAt || 0).getTime();
         const pendingDays = qualifiedMs > 0 ? Math.max(0, Math.floor((nowMs - qualifiedMs) / (24 * 60 * 60 * 1000))) : null;
         const daysToPayout = expectedMs > 0 ? Math.floor((expectedMs - nowMs) / (24 * 60 * 60 * 1000)) : null;
-        const holdLike = payoutStatusNorm.includes('hold') || payoutStatusNorm.includes('review');
+        const deliveryRequired = Boolean(r?.deliveryRequirementNeeded) || normalize(r?.deliveryRequirementStatus || '') === 'required';
+        const deliveryCompleted = normalize(r?.deliveryRequirementStatus || '') === 'completed';
+        const holdLike = payoutStatusNorm.includes('hold') || payoutStatusNorm.includes('review') || (deliveryRequired && !deliveryCompleted);
         const overdue = !isPaid && !holdLike && expectedMs > 0 && expectedMs < nowMs;
+        const pendingStage = isPaid
+          ? 'paid'
+          : ((deliveryRequired && !deliveryCompleted)
+            ? 'delivery_requirement'
+            : (holdLike ? 'hold' : (overdue ? 'overdue' : 'pending')));
 
         return {
           id: clean(r?.id || `evt_${i}`),
@@ -738,12 +824,15 @@ export default function LicensedBackofficePage() {
           sourceType,
           amount,
           status: isPaid ? 'paid' : 'pending',
-          pendingStage: isPaid ? 'paid' : (holdLike ? 'hold' : (overdue ? 'overdue' : 'pending')),
+          pendingStage,
           qualifiedAt,
           paidAt,
           expectedPayoutAt,
           policyType: clean(r?.policyType || r?.appType || ''),
           payoutStatus: clean(r?.payoutStatus || ''),
+          deliveryRequirementNeeded: deliveryRequired,
+          deliveryRequirementStatus: clean(r?.deliveryRequirementStatus || (deliveryRequired ? 'required' : 'none')),
+          deliveryRequirementNote: clean(r?.deliveryRequirementNote || ''),
           pendingDays,
           daysToPayout,
         };
@@ -794,11 +883,12 @@ export default function LicensedBackofficePage() {
     const pendingTotals = {
       pending: sum(pending.filter((e) => e.pendingStage === 'pending').map((e) => e.amount)),
       hold: sum(pending.filter((e) => e.pendingStage === 'hold').map((e) => e.amount)),
+      delivery: sum(pending.filter((e) => e.pendingStage === 'delivery_requirement').map((e) => e.amount)),
       overdue: sum(pending.filter((e) => e.pendingStage === 'overdue').map((e) => e.amount)),
     };
 
     const nextPayout = pending
-      .filter((e) => e.pendingStage !== 'hold')
+      .filter((e) => e.pendingStage !== 'hold' && e.pendingStage !== 'delivery_requirement')
       .sort((a, b) => new Date(a.expectedPayoutAt || a.qualifiedAt || 0).getTime() - new Date(b.expectedPayoutAt || b.qualifiedAt || 0).getTime())[0] || null;
 
     const projectedEom = thisMonthPaid + thisMonthPending;
@@ -841,6 +931,7 @@ export default function LicensedBackofficePage() {
   function financeStatusPill(stage = '') {
     const n = normalize(stage || '');
     if (n === 'paid') return { cls: 'onpace', label: 'Paid' };
+    if (n === 'delivery_requirement') return { cls: 'offpace', label: 'Delivery Required' };
     if (n === 'hold') return { cls: 'offpace', label: 'Hold' };
     if (n === 'overdue') return { cls: 'offpace', label: 'Overdue' };
     return { cls: 'atrisk', label: 'Pending' };
@@ -956,9 +1047,14 @@ export default function LicensedBackofficePage() {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ border: '1px solid #334155', borderRadius: 12, padding: '8px 10px', background: '#0B1220', minWidth: 160, textAlign: 'center' }}>
                 <div style={{ color: '#64748B', fontWeight: 700, fontSize: 12, letterSpacing: '.04em', textTransform: 'uppercase' }}>Inner Circle</div>
-                <a href="https://thelegacylink.com/inner-circle" target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 6, padding: '6px 10px', borderRadius: 999, border: '1px solid #475569', background: '#111827', color: '#CBD5E1', textDecoration: 'none', fontWeight: 700, fontSize: 12 }}>
-                  Upgrade
-                </a>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', marginTop: 6 }}>
+                  <a href="https://thelegacylink.com/inner-circle" target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '6px 10px', borderRadius: 999, border: '1px solid #475569', background: '#111827', color: '#CBD5E1', textDecoration: 'none', fontWeight: 700, fontSize: 12 }}>
+                    Upgrade
+                  </a>
+                  <a href={personalLinkLeadsUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '6px 10px', borderRadius: 999, border: '1px solid #1e3a8a', background: '#1D4ED8', color: '#fff', textDecoration: 'none', fontWeight: 700, fontSize: 12 }}>
+                    Open Lead Marketplace
+                  </a>
+                </div>
               </div>
               <button onClick={logout} style={{ borderRadius: 10, border: '1px solid #334155', padding: '8px 12px', background: '#111827', color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>Sign Out</button>
             </div>
@@ -974,9 +1070,13 @@ export default function LicensedBackofficePage() {
             ['submit', 'Submit App'],
             ['academy', 'IUL Academy'],
             ['awards', 'Achievement Center'],
-            ['resources', 'Resources']
+            ['growth', 'Growth Hub'],
+            ['resources', 'Resources'],
+            ['linkleads', 'VIP Links'],
+            ['incentives', 'Champions Circle'],
+            ['community', 'Community Service']
           ].map(([k, label]) => (
-            <button key={k} onClick={() => setTab(k)} style={{ padding: '10px 14px', borderRadius: 999, border: '1px solid #334155', background: tab === k ? '#1D428A' : '#0B1220', color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>{label}</button>
+            <button key={k} onClick={() => { if (k === 'incentives') { if (typeof window !== 'undefined') window.open('/champions-circle/licensed?home=/licensed-backoffice', '_blank', 'noopener,noreferrer'); return; } if (k === 'community') { if (typeof window !== 'undefined') window.open('/community-service?home=/licensed-backoffice', '_blank', 'noopener,noreferrer'); return; } setTab(k); }} style={{ padding: '10px 14px', borderRadius: 999, border: '1px solid #334155', background: tab === k ? '#1D428A' : '#0B1220', color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>{label}</button>
           ))}
         </div>
 
@@ -1211,11 +1311,13 @@ export default function LicensedBackofficePage() {
                     <h3 style={{ margin: 0 }}>Upcoming Payout Items</h3>
                     <div style={{ color: '#9CA3AF', fontSize: 13 }}>Projected EOM: <strong style={{ color: '#E5E7EB' }}>{fmtMoney(financials.projectedEom)}</strong>{financials.latestEventAt ? <span> • Updated {dateOnly(new Date(financials.latestEventAt).toISOString())}</span> : null}</div>
                   </div>
+                  <p style={{ color: '#9CA3AF', margin: '8px 0 0', fontSize: 12 }}>Payout processing is automatic. The normal exception is when a policy is marked <strong style={{ color: '#E5E7EB' }}>Delivery Requirement</strong> and client documents are still pending.</p>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '10px 0' }}>
                     <span className="pill neutral">Pending Aging 0–7d: {financials.aging.d0_7}</span>
                     <span className="pill atrisk">8–14d: {financials.aging.d8_14}</span>
                     <span className="pill offpace">15+d: {financials.aging.d15p}</span>
                     <span className="pill atrisk">Pending: {fmtMoney(financials.pendingTotals.pending)}</span>
+                    <span className="pill offpace">Delivery Required: {fmtMoney(financials.pendingTotals.delivery)}</span>
                     <span className="pill offpace">Hold: {fmtMoney(financials.pendingTotals.hold)}</span>
                     <span className="pill offpace">Overdue: {fmtMoney(financials.pendingTotals.overdue)}</span>
                   </div>
@@ -1239,7 +1341,12 @@ export default function LicensedBackofficePage() {
                               <td>{e.referenceName}</td>
                               <td>{e.policyType || 'Policy'}</td>
                               <td>{fmtMoney(e.amount)}</td>
-                              <td><span className={`pill ${pill.cls}`}>{pill.label}</span></td>
+                              <td>
+                                <span className={`pill ${pill.cls}`}>{pill.label}</span>
+                                {e.pendingStage === 'delivery_requirement' && e.deliveryRequirementNote ? (
+                                  <div style={{ color: '#9CA3AF', fontSize: 12, marginTop: 4 }}>{e.deliveryRequirementNote}</div>
+                                ) : null}
+                              </td>
                               <td>{dateOnly(e.expectedPayoutAt || e.qualifiedAt) || '—'}</td>
                               <td>
                                 <button type="button" className="ghost" onClick={() => openFinanceDrawer(`Payout Detail: ${e.referenceName}`, [e])}>View</button>
@@ -1313,7 +1420,7 @@ export default function LicensedBackofficePage() {
                 <h3 style={{ marginTop: 0 }}>My Sponsorship Pipeline</h3>
                 {!metrics.sponsorshipEntries.length ? <p style={{ color: '#9CA3AF' }}>No sponsorship records tied to your referral name yet.</p> : (
                   <>
-                    <p style={{ color: '#9CA3AF', marginTop: 0 }}>Approved sponsorships: <strong style={{ color: '#E5E7EB' }}>{metrics.approvedSponsors.length}</strong></p>
+                    <p style={{ color: '#9CA3AF', marginTop: 0 }}>Pipeline entries: <strong style={{ color: '#E5E7EB' }}>{metrics.sponsorshipEntries.length}</strong> • Approved: <strong style={{ color: '#E5E7EB' }}>{metrics.approvedSponsors.length}</strong></p>
                     <div style={{ display: 'grid', gap: 8 }}>
                       {metrics.sponsorshipEntries.slice(0, 20).map((r, idx) => (
                         <div key={r.id} style={{ border: '1px solid #2A3142', borderRadius: 10, padding: 10, background: '#020617' }}>
@@ -1430,8 +1537,17 @@ export default function LicensedBackofficePage() {
                     <input value={appForm.annualPremium} onChange={(e) => setAppForm((p) => ({ ...p, annualPremium: e.target.value }))} placeholder="Annualized premium (AP)" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
                   ) : null}
                 </div>
+                <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#020617', padding: 10, display: 'grid', gap: 8 }}>
+                  <label style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#E5E7EB' }}>
+                    <input type="checkbox" checked={Boolean(appForm.deliveryRequirementNeeded)} onChange={(e) => setAppForm((p) => ({ ...p, deliveryRequirementNeeded: Boolean(e.target.checked) }))} />
+                    Delivery requirement needed (may delay payout)
+                  </label>
+                  {appForm.deliveryRequirementNeeded ? (
+                    <input value={appForm.deliveryRequirementNote || ''} onChange={(e) => setAppForm((p) => ({ ...p, deliveryRequirementNote: e.target.value }))} placeholder="Optional note (ex: waiting on signed delivery docs)" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#0b1220', color: '#fff' }} />
+                  ) : null}
+                </div>
                 <div style={{ color: '#9CA3AF', fontSize: 13 }}>Estimated Sponsorship Policy payout: <strong style={{ color: '#E5E7EB' }}>{String(appForm.appType || '').toLowerCase().includes('sponsorship') ? `$${isInnerCircleName(clean(appForm.policyWriterName || session?.name || '')) ? 500 : 400}` : 'Based on policy type rules'}</strong></div>
-                <div style={{ color: '#9CA3AF', fontSize: 12 }}>Points/payout remain pending until the policy is Approved.</div>
+                <div style={{ color: '#9CA3AF', fontSize: 12 }}>Automatic payout runs as normal. The only standard delay is when Delivery Requirement is marked and documents are still pending.</div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button type="button" onClick={submitPolicyFromBackoffice} disabled={submitBusy} style={{ padding: '10px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
                     {submitBusy ? 'Submitting…' : 'Submit App'}
@@ -1454,12 +1570,82 @@ export default function LicensedBackofficePage() {
               </div>
             ) : null}
 
+            {tab === 'growth' ? (
+              <div style={{ border: '1px solid #2A3142', borderRadius: 12, overflow: 'hidden', background: '#0F172A' }}>
+                <iframe title="Growth Hub" src="/growth-hub" style={{ width: '100%', minHeight: 980, border: 0, background: '#020617' }} />
+              </div>
+            ) : null}
+
             {tab === 'resources' ? (
               <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14, display: 'grid', gap: 8 }}>
                 <h3 style={{ marginTop: 0 }}>Resources</h3>
                 <a href="/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Licensed Onboarding Playbook</a>
                 <a href="/docs/onboarding/legacy-link-comp-schedule-bonuses-v2.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Comp Schedule + Bonuses + FAQ</a>
                 <a href="/docs/onboarding/legacy-link-sponsorship-phone-application-sop.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Sponsorship Application Call SOP</a>
+              </div>
+            ) : null}
+
+            {tab === 'linkleads' ? (
+              <div style={{ border: '1px solid #334155', borderRadius: 18, background: 'radial-gradient(120% 120% at 0% 0%, #12203a 0%, #0B1220 55%, #070b14 100%)', padding: 18, display: 'grid', gap: 14, boxShadow: '0 18px 40px rgba(2,6,23,.35)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 22, letterSpacing: '.01em' }}>VIP Links</h3>
+                    <small style={{ color: '#94A3B8' }}>Your daily command center to launch lead orders and share your personal referral flow.</small>
+                  </div>
+                  <span style={{ border: '1px solid #14532d', background: '#052e16', color: '#86efac', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 800 }}>HARDWIRED</span>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <span className="pill onpace">Standalone Builder</span>
+                  <span className="pill">Attribution Locked</span>
+                  <span className="pill">Cross-Device Saved</span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(360px,1fr))', gap: 14 }}>
+                  <div style={{ border: '1px solid #1e3a8a', borderRadius: 14, background: 'linear-gradient(180deg,#0B1220 0%, #0a1838 100%)', padding: 14, display: 'grid', gap: 10 }}>
+                    <strong style={{ color: '#DBEAFE', fontSize: 16 }}>Open Lead Marketplace</strong>
+                    <small style={{ color: '#93C5FD' }}>Prefilled with your licensed profile details and optimized for clean checkout flow.</small>
+
+                    <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #1e3a8a', background: '#020617', color: '#DBEAFE', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, wordBreak: 'break-all' }}>
+                      {`${typeof window !== 'undefined' ? window.location.origin : 'https://innercirclelink.com'}${personalLinkLeadsUrl}`}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <a href={personalLinkLeadsUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                        <button type="button" style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,.15)', background: '#1D4ED8', color: '#fff', fontWeight: 700, boxShadow: '0 8px 18px rgba(29,78,216,.35)' }}>Open Lead Marketplace</button>
+                      </a>
+                      <button type="button" className="ghost" onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}${personalLinkLeadsUrl}`);
+                        setCopiedLinkLeads(true);
+                        setTimeout(() => setCopiedLinkLeads(false), 1400);
+                      }}>
+                        {copiedLinkLeads ? 'Copied ✅' : 'Copy Marketplace URL'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ border: '1px solid #166534', borderRadius: 14, background: 'linear-gradient(180deg,#0B1220 0%, #0a2316 100%)', padding: 14, display: 'grid', gap: 10 }}>
+                    <strong style={{ color: '#DCFCE7', fontSize: 16 }}>Your Personal Sponsorship Link</strong>
+                    <small style={{ color: '#86EFAC' }}>Share this link so every referral is automatically attributed to your agent profile.</small>
+
+                    <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #166534', background: '#020617', color: '#DCFCE7', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, wordBreak: 'break-all' }}>
+                      {`${typeof window !== 'undefined' ? window.location.origin : 'https://innercirclelink.com'}${personalSponsorshipLink}`}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <a href={personalSponsorshipLink} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                        <button type="button" style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,.15)', background: '#16A34A', color: '#fff', fontWeight: 700, boxShadow: '0 8px 18px rgba(22,163,74,.35)' }}>Open Personal Sponsorship Page</button>
+                      </a>
+                      <button type="button" className="ghost" onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}${personalSponsorshipLink}`);
+                        setCopiedSponsor(true);
+                        setTimeout(() => setCopiedSponsor(false), 1400);
+                      }}>
+                        {copiedSponsor ? 'Copied ✅' : 'Copy Sponsorship Link'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : null}
           </>
