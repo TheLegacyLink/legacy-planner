@@ -12,6 +12,7 @@ export default function UnlicensedStartPage() {
     lastName: '',
     email: '',
     phone: '',
+    birthDate: '',
     homeState: ''
   });
   const [busy, setBusy] = useState(false);
@@ -25,6 +26,7 @@ export default function UnlicensedStartPage() {
       clean(form.lastName) &&
       clean(form.email).includes('@') &&
       clean(form.phone) &&
+      clean(form.birthDate) &&
       clean(form.homeState).length === 2
     );
   }, [form]);
@@ -89,6 +91,9 @@ export default function UnlicensedStartPage() {
           </label>
           <label>Phone*
             <input value={form.phone} onChange={(e) => update('phone', e.target.value)} style={inputStyle} />
+          </label>
+          <label>Birthday*
+            <input type="date" value={form.birthDate} onChange={(e) => update('birthDate', e.target.value)} style={inputStyle} max={new Date().toISOString().slice(0, 10)} />
           </label>
           <label>Home State*
             <select value={form.homeState} onChange={(e) => update('homeState', e.target.value)} style={inputStyle}>

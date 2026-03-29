@@ -142,6 +142,19 @@ function normalizePhone(v = '') {
   return d;
 }
 
+function normalizeBirthDate(v = '') {
+  const raw = clean(v);
+  if (!raw) return '';
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return '';
+  const dt = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`);
+  if (Number.isNaN(dt.getTime())) return '';
+  const today = new Date();
+  const todayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  if (dt.getTime() > todayUtc.getTime()) return '';
+  return `${m[1]}-${m[2]}-${m[3]}`;
+}
+
 function parseStates(input) {
   const arr = Array.isArray(input)
     ? input
@@ -157,11 +170,13 @@ function validate(body = {}) {
   const lastName = clean(body?.lastName || '');
   const email = normalize(body?.email || '');
   const phone = normalizePhone(body?.phone || '');
+  const birthDate = normalizeBirthDate(body?.birthDate || body?.birthday || body?.dob || '');
   const homeState = clean(body?.homeState || '').toUpperCase();
 
   if (!firstName || !lastName) return { ok: false, error: 'missing_name' };
   if (!email || !email.includes('@')) return { ok: false, error: 'missing_valid_email' };
   if (!phone || phone.length < 10) return { ok: false, error: 'missing_valid_phone' };
+  if (!birthDate) return { ok: false, error: 'missing_valid_birth_date' };
   if (!homeState || homeState.length !== 2) return { ok: false, error: 'missing_home_state' };
 
   const npn = clean(body?.npn || '');
@@ -180,6 +195,7 @@ function validate(body = {}) {
       lastName,
       email,
       phone,
+      birthDate,
       homeState,
       npn: trackType === 'licensed' ? npn : '',
       licensedStates: trackType === 'licensed' ? licensedStates : []
@@ -188,20 +204,107 @@ function validate(body = {}) {
 }
 
 export async function GET() {
-  const rows = await loadJsonStore(STORE_PATH, []);
+  const [rows, sigRows] = await Promise.all([
+    loadJsonStore(STORE_PATH, []),
+    loadJsonStore(CONTRACT_SIGNATURES_PATH, [])
+  ]);
   const list = Array.isArray(rows) ? rows : [];
+  const sigList = Array.isArray(sigRows) ? sigRows : [];
+
+  const sigByEmail = new Map();
+  const sigByName = new Map();
+  for (const s of sigList) {
+    const em = normalize(s?.email || '');
+    const nm = normalizeName(s?.name || '');
+    if (em) sigByEmail.set(em, s);
+    if (nm) sigByName.set(nm, s);
+  }
+
+  let patched = 0;
+  for (let i = 0; i < list.length; i += 1) {
+    const r = list[i] || {};
+    if (clean(r?.contractStatus || '').toLowerCase() === 'signed') continue;
+
+    const em = normalize(r?.email || '');
+    const nm = normalizeName(`${r?.firstName || ''} ${r?.lastName || ''}`);
+    const hit = (em && sigByEmail.get(em)) || (nm && sigByName.get(nm));
+    if (!hit) continue;
+
+    list[i] = {
+      ...r,
+      contractStatus: 'signed',
+      contractSignedAt: clean(hit?.signedAt || nowIso()),
+      contractMatchedBy: em && sigByEmail.get(em) ? 'email' : 'name',
+      status: 'contract_complete',
+      credentialsStatus: clean(r?.credentialsStatus || 'pending') === 'blocked_contract' ? 'pending' : clean(r?.credentialsStatus || 'pending'),
+      updatedAt: nowIso()
+    };
+    patched += 1;
+  }
+
+  if (patched > 0) await saveJsonStore(STORE_PATH, list);
+
   list.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
-  return Response.json({ ok: true, rows: list });
+  return Response.json({ ok: true, rows: list, patched });
 }
 
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
+  const action = normalize(body?.action || 'submit');
+
+  const rows = await loadJsonStore(STORE_PATH, []);
+  const list = Array.isArray(rows) ? rows : [];
+
+  if (action === 'admin_mark_contract') {
+    const actorEmail = normalize(body?.actorEmail || '');
+    if (actorEmail !== 'kimora@thelegacylink.com') {
+      return Response.json({ ok: false, error: 'forbidden' }, { status: 403 });
+    }
+
+    const id = clean(body?.id || '');
+    const email = normalize(body?.email || '');
+    const signed = Boolean(body?.signed);
+
+    const idx = list.findIndex((r) => (id && clean(r?.id) === id) || (email && normalize(r?.email) === email));
+    if (idx < 0) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
+
+    const current = list[idx] || {};
+    const ts = nowIso();
+
+    let next = {
+      ...current,
+      contractStatus: signed ? 'signed' : 'pending',
+      contractSignedAt: signed ? (clean(current?.contractSignedAt || ts)) : '',
+      contractMatchedBy: signed ? 'manual_override' : '',
+      status: signed ? 'contract_complete' : 'contract_pending',
+      credentialsStatus: signed ? clean(current?.credentialsStatus || 'pending') : 'blocked_contract',
+      contractOverrideBy: actorEmail,
+      contractOverrideAt: ts,
+      updatedAt: ts
+    };
+
+    let welcome = { ok: false, skipped: true };
+    if (signed) {
+      welcome = await sendWelcomeEmailByTrack(next, { contractRequired: false }).catch((e) => ({ ok: false, error: clean(e?.message || 'welcome_send_failed') }));
+      next = {
+        ...next,
+        welcomeEmailStatus: welcome?.ok ? 'sent' : 'failed',
+        welcomeEmailSentAt: welcome?.ok ? ts : clean(next?.welcomeEmailSentAt || ''),
+        welcomeEmailError: welcome?.ok ? '' : clean(welcome?.error || ''),
+        welcomeEmailMessageId: clean(welcome?.messageId || ''),
+        lastEmailTemplate: 'welcome'
+      };
+    }
+
+    list[idx] = next;
+    await saveJsonStore(STORE_PATH, list);
+    return Response.json({ ok: true, row: next, welcome, updatedExisting: true });
+  }
+
   const check = validate(body);
   if (!check.ok) return Response.json({ ok: false, error: check.error }, { status: 400 });
 
   const data = check.value;
-  const rows = await loadJsonStore(STORE_PATH, []);
-  const list = Array.isArray(rows) ? rows : [];
 
   const idx = list.findIndex((r) => normalize(r?.email) === data.email);
   const previous = idx >= 0 ? list[idx] : null;

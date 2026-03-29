@@ -1,17 +1,28 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','IA','ID','IL','IN','KS','KY','LA','MA','MD','ME','MI','MN','MO','MS','MT','NC','ND','NE','NH','NJ','NM','NV','NY','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VA','VT','WA','WI','WV','WY'];
 
 function clean(v = '') { return String(v || '').trim(); }
 
 export default function LicensedStartPage() {
+  const [nextPath, setNextPath] = useState('/session/new?next=/lead-marketplace');
+  const [source, setSource] = useState('');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    setNextPath(clean(params.get('next') || '/session/new?next=/lead-marketplace'));
+    setSource(clean(params.get('source') || ''));
+  }, []);
+
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
+    birthDate: '',
     homeState: '',
     npn: '',
     licensedStates: []
@@ -27,6 +38,7 @@ export default function LicensedStartPage() {
       clean(form.lastName) &&
       clean(form.email).includes('@') &&
       clean(form.phone) &&
+      clean(form.birthDate) &&
       clean(form.homeState).length === 2 &&
       /^\d{6,12}$/.test(clean(form.npn)) &&
       Array.isArray(form.licensedStates) && form.licensedStates.length > 0
@@ -46,7 +58,12 @@ export default function LicensedStartPage() {
       const res = await fetch('/api/start-intake', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, trackType: 'licensed', source: 'community_start_portal' })
+        body: JSON.stringify({
+          ...form,
+          trackType: 'licensed',
+          source: source || 'community_start_portal',
+          intendedNext: nextPath
+        })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
@@ -69,7 +86,10 @@ export default function LicensedStartPage() {
           <div style={{ fontSize: 34 }}>✅</div>
           <h1 style={{ margin: '6px 0 0' }}>Licensed Intake Submitted</h1>
           <p style={{ color: '#94A3B8' }}>{savedRow?.contractStatus === 'signed' ? 'Your profile is captured and contract is complete. We’ll continue onboarding + credential delivery steps.' : 'Your profile is captured. Contract signature is required before full activation. Check your email for the contract link.'}</p>
-          <a href="/start" style={{ color: '#93C5FD' }}>Back to Start</a>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <a href={nextPath} style={{ color: '#93C5FD', fontWeight: 700 }}>Continue to Sign In</a>
+            <a href="/start" style={{ color: '#93C5FD' }}>Back to Start</a>
+          </div>
         </div>
       </main>
     );
@@ -93,6 +113,9 @@ export default function LicensedStartPage() {
           </label>
           <label>Phone*
             <input value={form.phone} onChange={(e) => update('phone', e.target.value)} style={inputStyle} />
+          </label>
+          <label>Birthday*
+            <input type="date" value={form.birthDate} onChange={(e) => update('birthDate', e.target.value)} style={inputStyle} max={new Date().toISOString().slice(0, 10)} />
           </label>
           <label>Home State*
             <select value={form.homeState} onChange={(e) => update('homeState', e.target.value)} style={inputStyle}>
