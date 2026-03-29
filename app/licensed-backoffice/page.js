@@ -256,7 +256,6 @@ export default function LicensedBackofficePage() {
   const [submitMsg, setSubmitMsg] = useState('');
   const [financeRange, setFinanceRange] = useState('month');
   const [financeDrawer, setFinanceDrawer] = useState({ open: false, title: '', items: [] });
-  const [copiedLinkLeads, setCopiedLinkLeads] = useState(false);
   const [copiedSponsor, setCopiedSponsor] = useState(false);
   const [appForm, setAppForm] = useState({
     appType: '',
@@ -1590,40 +1589,17 @@ export default function LicensedBackofficePage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                   <div>
                     <h3 style={{ margin: 0, fontSize: 22, letterSpacing: '.01em' }}>VIP Links</h3>
-                    <small style={{ color: '#94A3B8' }}>Your daily command center to launch lead orders and share your personal referral flow.</small>
+                    <small style={{ color: '#94A3B8' }}>Your personal sponsorship link hub.</small>
                   </div>
                   <span style={{ border: '1px solid #14532d', background: '#052e16', color: '#86efac', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 800 }}>HARDWIRED</span>
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <span className="pill onpace">Standalone Builder</span>
                   <span className="pill">Attribution Locked</span>
                   <span className="pill">Cross-Device Saved</span>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(360px,1fr))', gap: 14 }}>
-                  <div style={{ border: '1px solid #1e3a8a', borderRadius: 14, background: 'linear-gradient(180deg,#0B1220 0%, #0a1838 100%)', padding: 14, display: 'grid', gap: 10 }}>
-                    <strong style={{ color: '#DBEAFE', fontSize: 16 }}>Open Lead Marketplace</strong>
-                    <small style={{ color: '#93C5FD' }}>Prefilled with your licensed profile details and optimized for clean checkout flow.</small>
-
-                    <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #1e3a8a', background: '#020617', color: '#DBEAFE', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, wordBreak: 'break-all' }}>
-                      {`${typeof window !== 'undefined' ? window.location.origin : 'https://innercirclelink.com'}${personalLinkLeadsUrl}`}
-                    </div>
-
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <a href={personalLinkLeadsUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-                        <button type="button" style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,.15)', background: '#1D4ED8', color: '#fff', fontWeight: 700, boxShadow: '0 8px 18px rgba(29,78,216,.35)' }}>Open Lead Marketplace</button>
-                      </a>
-                      <button type="button" className="ghost" onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}${personalLinkLeadsUrl}`);
-                        setCopiedLinkLeads(true);
-                        setTimeout(() => setCopiedLinkLeads(false), 1400);
-                      }}>
-                        {copiedLinkLeads ? 'Copied ✅' : 'Copy Marketplace URL'}
-                      </button>
-                    </div>
-                  </div>
-
                   <div style={{ border: '1px solid #166534', borderRadius: 14, background: 'linear-gradient(180deg,#0B1220 0%, #0a2316 100%)', padding: 14, display: 'grid', gap: 10 }}>
                     <strong style={{ color: '#DCFCE7', fontSize: 16 }}>Your Personal Sponsorship Link</strong>
                     <small style={{ color: '#86EFAC' }}>Share this link so every referral is automatically attributed to your agent profile.</small>
