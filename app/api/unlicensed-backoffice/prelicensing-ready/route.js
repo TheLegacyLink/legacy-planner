@@ -39,6 +39,7 @@ async function sendReadyEmail({ member = {}, jamalEmail = '' } = {}) {
     `Email: ${clean(member?.email) || '—'}`,
     `State: ${clean(member?.state) || '—'}`,
     `Referrer: ${clean(member?.referrerName) || '—'}`,
+    `Phone: ${clean(member?.phone) || '—'}`,
     '',
     'Please help this person get started within the next 48 hours.',
     '',
@@ -55,6 +56,7 @@ async function sendReadyEmail({ member = {}, jamalEmail = '' } = {}) {
         <li><strong>Email:</strong> ${clean(member?.email) || '—'}</li>
         <li><strong>State:</strong> ${clean(member?.state) || '—'}</li>
         <li><strong>Referrer:</strong> ${clean(member?.referrerName) || '—'}</li>
+        <li><strong>Phone:</strong> ${clean(member?.phone) || '—'}</li>
       </ul>
       <p><strong>Please help this person get started within the next 48 hours.</strong></p>
       <p>Thank you,<br/>Legacy Link Support Team</p>
