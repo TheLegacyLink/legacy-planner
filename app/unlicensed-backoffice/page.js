@@ -38,6 +38,8 @@ export default function UnlicensedBackofficePage() {
   const [profile, setProfile] = useState(null);
   const [progress, setProgress] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [readySubmitting, setReadySubmitting] = useState(false);
+  const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -133,6 +135,7 @@ export default function UnlicensedBackofficePage() {
     if (!token) return;
     setSaving(true);
     setError('');
+    setNotice('');
     try {
       const res = await fetch('/api/unlicensed-backoffice/progress', {
         method: 'POST',
@@ -147,6 +150,35 @@ export default function UnlicensedBackofficePage() {
       setProgress(data.progress || progress);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function notifyPrelicensingReady() {
+    if (!token) return;
+    setReadySubmitting(true);
+    setError('');
+    setNotice('');
+    try {
+      const res = await fetch('/api/unlicensed-backoffice/prelicensing-ready', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({})
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setError(data?.error ? `Request failed: ${data.error}` : 'Unable to notify Jamal right now');
+        return;
+      }
+      if (data?.progress) setProgress(data.progress);
+      if (data?.alreadyRequested) {
+        setNotice('Already sent. Jamal was already notified to help you get started.');
+      } else {
+        setNotice('Perfect — Jamal has been notified. He will help you get started within 48 hours.');
+      }
+    } catch {
+      setError('Unable to notify Jamal right now');
+    } finally {
+      setReadySubmitting(false);
     }
   }
 
@@ -194,13 +226,18 @@ export default function UnlicensedBackofficePage() {
               <h2 style={{ margin: 0 }}>Unlicensed License Sprint</h2>
               <p style={{ margin: '6px 0 0', color: '#9CA3AF' }}>{profile.name} • {profile.email} • {profile.state || 'State Pending'}</p>
             </div>
-            <button onClick={logout} style={{ borderRadius: 10, border: '1px solid #334155', padding: '8px 12px', background: '#111827', color: '#E5E7EB' }}>Sign Out</button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <a href="/community-service?home=/unlicensed-backoffice" className="ghost" style={{ textDecoration: 'none', borderRadius: 10, border: '1px solid #334155', padding: '8px 12px', background: '#111827', color: '#E5E7EB' }}>Community Service</a>
+              <button onClick={logout} style={{ borderRadius: 10, border: '1px solid #334155', padding: '8px 12px', background: '#111827', color: '#E5E7EB' }}>Sign Out</button>
+            </div>
           </div>
           <div style={{ marginTop: 10 }}>
             <div style={{ color: '#9CA3AF', fontSize: 12 }}>Completion: {completion.done}/{completion.total}</div>
             <div style={{ marginTop: 6, height: 10, borderRadius: 999, background: '#1F2937', overflow: 'hidden' }}>
               <div style={{ width: `${completion.pct}%`, height: '100%', background: 'linear-gradient(90deg,#34D399,#10B981)' }} />
             </div>
+            {notice ? <div style={{ marginTop: 8, color: '#86EFAC', fontSize: 13 }}>{notice}</div> : null}
+            {error ? <div style={{ marginTop: 8, color: '#FCA5A5', fontSize: 13 }}>{error}</div> : null}
           </div>
         </header>
 
@@ -214,15 +251,32 @@ export default function UnlicensedBackofficePage() {
                     <strong>{s.title}</strong>
                     <div style={{ color: '#9CA3AF', marginTop: 4 }}>{s.note}</div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => save({ steps: { ...steps, [s.key]: !steps[s.key] }, fields })}
-                    disabled={saving}
-                    style={{ borderRadius: 999, border: '1px solid #334155', padding: '8px 12px', background: steps[s.key] ? '#065F46' : '#111827', color: '#E5E7EB', fontWeight: 700 }}
-                  >
-                    {steps[s.key] ? '✅ Complete' : 'Mark Complete'}
-                  </button>
+                  {s.key === 'prelicensingStarted' ? (
+                    <button
+                      type="button"
+                      onClick={notifyPrelicensingReady}
+                      disabled={readySubmitting || saving}
+                      style={{ borderRadius: 999, border: '1px solid #334155', padding: '8px 12px', background: steps[s.key] ? '#065F46' : '#1D4ED8', color: '#E5E7EB', fontWeight: 700 }}
+                    >
+                      {readySubmitting ? 'Sending…' : steps[s.key] ? '✅ Request Sent' : "I'm Ready"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => save({ steps: { ...steps, [s.key]: !steps[s.key] }, fields })}
+                      disabled={saving || readySubmitting}
+                      style={{ borderRadius: 999, border: '1px solid #334155', padding: '8px 12px', background: steps[s.key] ? '#065F46' : '#111827', color: '#E5E7EB', fontWeight: 700 }}
+                    >
+                      {steps[s.key] ? '✅ Complete' : 'Mark Complete'}
+                    </button>
+                  )}
                 </div>
+
+                {s.key === 'prelicensingStarted' && fields.prelicensingReadyRequestedAt ? (
+                  <div style={{ marginTop: 8, color: '#93C5FD', fontSize: 12 }}>
+                    Request sent: {new Date(fields.prelicensingReadyRequestedAt).toLocaleString()}
+                  </div>
+                ) : null}
 
                 {s.key === 'examPassed' ? (
                   <label style={{ display: 'grid', gap: 4, marginTop: 8, color: '#9CA3AF' }}>
