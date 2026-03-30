@@ -82,6 +82,8 @@ export default function AppointmentSetterBackofficePage() {
   const [dragLeadId, setDragLeadId] = useState('');
   const [settingsDraft, setSettingsDraft] = useState({ slaMinutes: 5, assignmentMode: 'smart', adminOverrideEnabled: true, capState: 'CA', capValue: 2 });
   const [newLead, setNewLead] = useState({ fullName: '', phone: '', email: '', state: '', campaignSource: '', productType: '' });
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [userForm, setUserForm] = useState({ name: '', email: '', role: 'setter', password: '' });
 
   useEffect(() => {
     try {
@@ -130,6 +132,10 @@ export default function AppointmentSetterBackofficePage() {
       adminOverrideEnabled: store?.settings?.adminOverrideEnabled === undefined ? prev.adminOverrideEnabled : Boolean(store?.settings?.adminOverrideEnabled)
     }));
   }, [store?.settings?.slaMinutes, store?.settings?.assignmentMode, store?.settings?.adminOverrideEnabled]);
+
+  useEffect(() => {
+    if (session?.role === 'admin') loadAdminUsers();
+  }, [session?.role, loadAdminUsers]);
 
   const filteredLeads = useMemo(() => {
     const q = clean(search).toLowerCase();
@@ -325,6 +331,29 @@ export default function AppointmentSetterBackofficePage() {
 
   async function saveStateCap() {
     await act('set_state_cap', { state: settingsDraft.capState, cap: Number(settingsDraft.capValue || 1) });
+  }
+
+  const loadAdminUsers = useCallback(async () => {
+    if (session?.role !== 'admin') return;
+    const url = `/api/appointment-setter-users?actorName=${encodeURIComponent(session.name)}&actorRole=${encodeURIComponent(session.role)}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data?.ok) setAdminUsers(Array.isArray(data.rows) ? data.rows : []);
+  }, [session?.name, session?.role]);
+
+  async function adminUserAction(payload = {}) {
+    const res = await fetch('/api/appointment-setter-users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actorName: session?.name, actorRole: session?.role, ...payload })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) {
+      setMessage(`⚠️ ${data?.error || 'User action failed'}`);
+      return;
+    }
+    await loadAdminUsers();
+    setMessage('User settings updated');
   }
 
   if (!session) {
@@ -597,6 +626,48 @@ export default function AppointmentSetterBackofficePage() {
                       <button style={btnMiniGhost} onClick={saveStateCap}>Save</button>
                     </div>
                   </div>
+
+                  {session.role === 'admin' ? (
+                    <div style={{ borderTop: '1px solid #24304a', paddingTop: 8, display: 'grid', gap: 8 }}>
+                      <small style={{ color: '#9fb4d8' }}>User / Credential Management</small>
+                      <div style={{ display: 'grid', gap: 6, gridTemplateColumns: '1fr 1fr' }}>
+                        <input value={userForm.name} onChange={(e) => setUserForm((p) => ({ ...p, name: e.target.value }))} placeholder="Name" style={fieldStyle} />
+                        <input value={userForm.email} onChange={(e) => setUserForm((p) => ({ ...p, email: e.target.value }))} placeholder="Email" style={fieldStyle} />
+                        <select value={userForm.role} onChange={(e) => setUserForm((p) => ({ ...p, role: e.target.value }))} style={fieldStyle}>
+                          <option value="setter">Setter</option>
+                          <option value="manager">Manager</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                        <input value={userForm.password} onChange={(e) => setUserForm((p) => ({ ...p, password: e.target.value }))} placeholder="Password" type="password" style={fieldStyle} />
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button style={btnMini} onClick={() => adminUserAction({ action: 'upsert', ...userForm, active: true })}>Add / Update User</button>
+                        <button style={btnMiniGhost} onClick={loadAdminUsers}>Reload Users</button>
+                      </div>
+
+                      <div style={{ display: 'grid', gap: 6 }}>
+                        {adminUsers.map((u) => (
+                          <div key={u.name} style={{ border: '1px solid #334155', borderRadius: 8, padding: 6, background: '#071126' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'center' }}>
+                              <div>
+                                <strong style={{ fontSize: 12 }}>{u.name}</strong>
+                                <div style={{ fontSize: 11, color: '#9fb4d8' }}>{u.role} • {u.email || 'no email'} • {u.active ? 'active' : 'inactive'}</div>
+                              </div>
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button style={btnMiniGhost} onClick={() => adminUserAction({ action: 'set_active', name: u.name, active: !u.active })}>{u.active ? 'Disable' : 'Enable'}</button>
+                                <button style={btnMiniGhost} onClick={() => {
+                                  const p = window.prompt(`New password for ${u.name}`);
+                                  if (!p) return;
+                                  adminUserAction({ action: 'reset_password', name: u.name, password: p });
+                                }}>Reset PW</button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {!adminUsers.length ? <small style={{ color: '#94a3b8' }}>No users loaded.</small> : null}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ) : null}

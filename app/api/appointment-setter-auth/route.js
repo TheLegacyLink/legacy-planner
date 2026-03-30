@@ -1,5 +1,8 @@
 import { createHash } from 'crypto';
-import users from '../../../data/setterBackofficeUsers.json';
+import { loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
+import defaultUsers from '../../../data/setterBackofficeUsers.json';
+
+const USERS_PATH = 'stores/appointment-setter-users.json';
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -20,6 +23,15 @@ function resolveRole(role = '') {
   return 'setter';
 }
 
+async function getUsers() {
+  const rows = await loadJsonFile(USERS_PATH, null);
+  if (!Array.isArray(rows) || !rows.length) {
+    await saveJsonFile(USERS_PATH, defaultUsers || []);
+    return [...(defaultUsers || [])];
+  }
+  return rows;
+}
+
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
   const name = clean(body?.name);
@@ -29,6 +41,7 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'missing_credentials' }, { status: 400 });
   }
 
+  const users = await getUsers();
   const row = (users || []).find((u) => normalize(u?.name) === normalize(name) && u?.active !== false);
   if (!row) return Response.json({ ok: false, error: 'invalid_login' }, { status: 401 });
 

@@ -9,7 +9,15 @@ function stateCodeFromAny(v = '') {
   if (!raw) return '';
   if (raw.length === 2) return raw;
   const map = {
-    CALIFORNIA: 'CA', TEXAS: 'TX', GEORGIA: 'GA', FLORIDA: 'FL', NEWJERSEY: 'NJ', 'NEW JERSEY': 'NJ', NEWYORK: 'NY', 'NEW YORK': 'NY'
+    ALABAMA: 'AL', ALASKA: 'AK', ARIZONA: 'AZ', ARKANSAS: 'AR', CALIFORNIA: 'CA', COLORADO: 'CO',
+    CONNECTICUT: 'CT', DELAWARE: 'DE', FLORIDA: 'FL', GEORGIA: 'GA', HAWAII: 'HI', IDAHO: 'ID',
+    ILLINOIS: 'IL', INDIANA: 'IN', IOWA: 'IA', KANSAS: 'KS', KENTUCKY: 'KY', LOUISIANA: 'LA',
+    MAINE: 'ME', MARYLAND: 'MD', MASSACHUSETTS: 'MA', MICHIGAN: 'MI', MINNESOTA: 'MN', MISSISSIPPI: 'MS',
+    MISSOURI: 'MO', MONTANA: 'MT', NEBRASKA: 'NE', NEVADA: 'NV', 'NEW HAMPSHIRE': 'NH', 'NEW JERSEY': 'NJ',
+    'NEW MEXICO': 'NM', 'NEW YORK': 'NY', 'NORTH CAROLINA': 'NC', 'NORTH DAKOTA': 'ND', OHIO: 'OH',
+    OKLAHOMA: 'OK', OREGON: 'OR', PENNSYLVANIA: 'PA', 'RHODE ISLAND': 'RI', 'SOUTH CAROLINA': 'SC',
+    'SOUTH DAKOTA': 'SD', TENNESSEE: 'TN', TEXAS: 'TX', UTAH: 'UT', VERMONT: 'VT', VIRGINIA: 'VA',
+    WASHINGTON: 'WA', 'WEST VIRGINIA': 'WV', WISCONSIN: 'WI', WYOMING: 'WY', 'DISTRICT OF COLUMBIA': 'DC'
   };
   return map[raw] || raw.slice(0, 2);
 }
@@ -28,6 +36,92 @@ function pushTimeline(lead = {}, event = '') {
   return [row, ...history].slice(0, 80);
 }
 
+function pick(...vals) {
+  for (const v of vals) {
+    const c = clean(v);
+    if (c) return c;
+  }
+  return '';
+}
+
+function customFieldMap(body = {}) {
+  const out = {};
+  const arr = body?.customFields || body?.custom_fields || body?.contact?.customFields || body?.contact?.custom_fields || [];
+  if (!Array.isArray(arr)) return out;
+
+  for (const row of arr) {
+    const key = clean(row?.key || row?.name || row?.field || row?.id).toLowerCase();
+    const value = pick(row?.value, row?.field_value, row?.text, row?.stringValue, row?.numberValue);
+    if (key && value) out[key] = value;
+  }
+  return out;
+}
+
+function parseIncoming(body = {}) {
+  const c = body?.contact || {};
+  const cf = customFieldMap(body);
+
+  const firstName = pick(body?.firstName, body?.first_name, c?.firstName, c?.first_name, cf.firstname, cf.first_name);
+  const lastName = pick(body?.lastName, body?.last_name, c?.lastName, c?.last_name, cf.lastname, cf.last_name);
+  const fullName = pick(
+    body?.fullName,
+    body?.full_name,
+    body?.name,
+    c?.name,
+    `${firstName} ${lastName}`.trim(),
+    `${pick(c?.firstName, c?.first_name)} ${pick(c?.lastName, c?.last_name)}`.trim()
+  ) || 'Unknown Lead';
+
+  const phone = pick(body?.phone, body?.phoneNumber, body?.phone_number, c?.phone, c?.phoneNumber, cf.phone, cf.phone_number);
+  const email = pick(body?.email, c?.email, cf.email);
+  const state = stateCodeFromAny(pick(
+    body?.state,
+    body?.region,
+    body?.stateCode,
+    body?.state_code,
+    c?.state,
+    c?.region,
+    c?.address1_state,
+    c?.address?.state,
+    cf.state,
+    cf.state_code,
+    cf.region
+  ));
+
+  const campaignSource = pick(
+    body?.campaignSource,
+    body?.campaign_source,
+    body?.source,
+    body?.trigger,
+    body?.workflow,
+    c?.source,
+    cf.campaign,
+    cf.campaign_source,
+    cf.source,
+    'GHL / Lead Connector'
+  );
+
+  const productType = pick(
+    body?.productType,
+    body?.product_type,
+    body?.campaign,
+    body?.funnel,
+    cf.product,
+    cf.product_type,
+    cf.campaign,
+    'General'
+  );
+
+  return {
+    fullName,
+    phone,
+    email,
+    state,
+    campaignSource,
+    productType
+  };
+}
+
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
 
@@ -43,16 +137,10 @@ export async function POST(req) {
   }
 
   const leads = Array.isArray(store?.leads) ? [...store.leads] : [];
+  const parsed = parseIncoming(body);
 
-  const fullName = clean(body?.fullName || body?.name || `${clean(body?.firstName)} ${clean(body?.lastName)}`.trim() || 'Unknown Lead');
-  const phone = clean(body?.phone || body?.phoneNumber);
-  const email = clean(body?.email);
-  const state = stateCodeFromAny(body?.state || body?.region || '');
-  const campaignSource = clean(body?.campaignSource || body?.source || 'Webhook');
-  const productType = clean(body?.productType || body?.campaign || 'General');
-
-  const phoneDigits = normalizePhone(phone);
-  const emailKey = clean(email).toLowerCase();
+  const phoneDigits = normalizePhone(parsed.phone);
+  const emailKey = clean(parsed.email).toLowerCase();
   const existing = leads.find((l) => {
     const samePhone = phoneDigits && normalizePhone(l?.phone) === phoneDigits;
     const sameEmail = emailKey && clean(l?.email).toLowerCase() === emailKey;
@@ -63,8 +151,8 @@ export async function POST(req) {
     const idx = leads.findIndex((l) => clean(l.id) === clean(existing.id));
     leads[idx] = {
       ...existing,
-      campaignSource: clean(existing?.campaignSource || campaignSource),
-      productType: clean(existing?.productType || productType),
+      campaignSource: clean(existing?.campaignSource || parsed.campaignSource),
+      productType: clean(existing?.productType || parsed.productType),
       updatedAt: new Date().toISOString(),
       timeline: pushTimeline(existing, 'Duplicate webhook event received')
     };
@@ -74,12 +162,12 @@ export async function POST(req) {
 
   const lead = {
     id: id('lead'),
-    fullName,
-    phone,
-    email,
-    state,
-    campaignSource,
-    productType,
+    fullName: parsed.fullName,
+    phone: parsed.phone,
+    email: parsed.email,
+    state: parsed.state,
+    campaignSource: parsed.campaignSource,
+    productType: parsed.productType,
     createdAt: new Date().toISOString(),
     status: 'New',
     priority: 'Urgent',
@@ -97,5 +185,5 @@ export async function POST(req) {
   leads.unshift(lead);
   await saveJsonFile(STORE_PATH, { ...store, leads });
 
-  return Response.json({ ok: true, leadId: lead.id });
+  return Response.json({ ok: true, leadId: lead.id, normalized: parsed });
 }

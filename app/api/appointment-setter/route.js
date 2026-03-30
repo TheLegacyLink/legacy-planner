@@ -197,6 +197,10 @@ async function getStore() {
   return data;
 }
 
+function appBaseUrl() {
+  return clean(process.env.NEXT_PUBLIC_APP_URL || process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
+}
+
 function emailFrame(title = '', bodyHtml = '') {
   return `<div style="font-family:Inter,Arial,sans-serif;background:#f8fafc;padding:20px;color:#0f172a;"><div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:#0f172a;color:#fff;padding:16px 20px;text-align:center;font-weight:800;font-size:24px;line-height:1;">THE LEGACY LINK</div><div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;">${title}</h2>${bodyHtml}<p style="margin:10px 0 0;color:#334155;"><strong>Legacy Link Support Team</strong></p></div></div></div>`;
 }
@@ -244,6 +248,32 @@ async function sendAssignmentEmail({ agent = {}, lead = {}, assignedBy = '' }) {
     return { ok: true, messageId: info?.messageId || '' };
   } catch (error) {
     return { ok: false, error: error?.message || 'send_failed' };
+  }
+}
+
+async function sendAssignmentSms({ agent = {}, lead = {} }) {
+  const token = clean(process.env.GHL_SMS_ROUTE_TOKEN || process.env.GHL_INTAKE_TOKEN);
+  const phone = clean(agent?.phone);
+  if (!token || !phone) return { ok: false, error: 'sms_not_configured' };
+
+  const message = `The Legacy Link: New appointment assigned. Lead ${clean(lead?.fullName) || 'Lead'} (${clean(lead?.state) || '—'}) at ${clean(lead?.appointment?.dateTime) || 'TBD'}. Phone ${clean(lead?.phone) || '—'}.`;
+
+  try {
+    const res = await fetch(`${appBaseUrl()}/api/ghl-sms-send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ phone, message })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) {
+      return { ok: false, error: clean(data?.error || `sms_http_${res.status}`) };
+    }
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error?.message || 'sms_failed' };
   }
 }
 
@@ -521,12 +551,23 @@ export async function POST(req) {
 
   if (action === 'assign_agent' || action === 'auto_assign') {
     const workingLead = { ...current };
+    const rec = recommendAgent(store, workingLead);
+    const mode = clean(store?.settings?.assignmentMode || 'smart').toLowerCase();
+
+    if (action === 'auto_assign' && mode === 'manual' && !(actorRole === 'admin' || actorRole === 'manager')) {
+      return Response.json({ ok: false, error: 'auto_assign_disabled_in_manual_mode' }, { status: 409 });
+    }
+
     const selectedAgentId = action === 'auto_assign'
-      ? clean(recommendAgent(store, workingLead)?.agent?.id)
+      ? clean(rec?.agent?.id)
       : clean(body?.agentId);
 
     const agent = (store.agents || []).find((a) => clean(a.id) === selectedAgentId);
     if (!agent) return Response.json({ ok: false, error: 'agent_not_found' }, { status: 404 });
+
+    if (action === 'assign_agent' && mode === 'round-robin' && clean(rec?.agent?.id) && clean(rec?.agent?.id) !== clean(agent?.id) && !(actorRole === 'admin' || actorRole === 'manager')) {
+      return Response.json({ ok: false, error: 'round_robin_locked', recommendedAgentId: clean(rec?.agent?.id), recommendedAgentName: clean(rec?.agent?.name) }, { status: 409 });
+    }
 
     const state = stateCodeFromAny(workingLead?.state);
     const eligible = eligibleAgentsForLead(store?.agents || [], workingLead).some((a) => clean(a.id) === selectedAgentId);
@@ -567,6 +608,7 @@ export async function POST(req) {
     leads[idx] = next;
 
     const emailResult = await sendAssignmentEmail({ agent, lead: next, assignedBy: actorName });
+    const smsResult = await sendAssignmentSms({ agent, lead: next });
 
     notifications.unshift({
       id: id('ntf'),
@@ -574,7 +616,7 @@ export async function POST(req) {
       type: 'assignment',
       recipientAgentId: agent.id,
       recipientAgentName: clean(agent.name),
-      channel: emailResult?.ok ? 'in-app/email' : 'in-app',
+      channel: `in-app${emailResult?.ok ? '/email' : ''}${smsResult?.ok ? '/sms' : ''}`,
       title: 'New Appointment Assigned',
       body: `${next.fullName} (${state}) booked for ${clean(next?.appointment?.dateTime || 'TBD')}`,
       payload: {
@@ -586,11 +628,13 @@ export async function POST(req) {
         notes: clean(next?.appointment?.setterNotes || '')
       },
       emailStatus: emailResult?.ok ? 'sent' : 'failed',
-      emailError: emailResult?.ok ? '' : clean(emailResult?.error)
+      emailError: emailResult?.ok ? '' : clean(emailResult?.error),
+      smsStatus: smsResult?.ok ? 'sent' : 'failed',
+      smsError: smsResult?.ok ? '' : clean(smsResult?.error)
     });
 
     await saveJsonFile(STORE_PATH, { ...store, leads, notifications: notifications.slice(0, 250) });
-    return Response.json({ ok: true, lead: next, assignment, notificationQueued: true, assignmentEmail: emailResult?.ok ? 'sent' : 'failed', assignmentEmailError: emailResult?.ok ? '' : clean(emailResult?.error) });
+    return Response.json({ ok: true, lead: next, assignment, notificationQueued: true, assignmentEmail: emailResult?.ok ? 'sent' : 'failed', assignmentEmailError: emailResult?.ok ? '' : clean(emailResult?.error), assignmentSms: smsResult?.ok ? 'sent' : 'failed', assignmentSmsError: smsResult?.ok ? '' : clean(smsResult?.error) });
   }
 
   if (action === 'recover_no_show') {
