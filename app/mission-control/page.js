@@ -260,7 +260,7 @@ export default function MissionControl() {
   const [lastSyncAt, setLastSyncAt] = useState(null);
   const [passcodeInput, setPasscodeInput] = useState('');
   const [passError, setPassError] = useState('');
-  const [authed, setAuthed] = useState(false);
+  const [authed, setAuthed] = useState(true);
   const scopeLabel = 'This Month';
   const payoutMonthKey = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`;
 
