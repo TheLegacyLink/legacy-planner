@@ -80,6 +80,8 @@ export default function AppointmentSetterBackofficePage() {
   const [bookingAt, setBookingAt] = useState('');
   const [bookingNotes, setBookingNotes] = useState('');
   const [dragLeadId, setDragLeadId] = useState('');
+  const [settingsDraft, setSettingsDraft] = useState({ slaMinutes: 5, assignmentMode: 'smart', adminOverrideEnabled: true, capState: 'CA', capValue: 2 });
+  const [newLead, setNewLead] = useState({ fullName: '', phone: '', email: '', state: '', campaignSource: '', productType: '' });
 
   useEffect(() => {
     try {
@@ -119,6 +121,15 @@ export default function AppointmentSetterBackofficePage() {
   const slaMinutes = Number(store?.settings?.slaMinutes || 5);
 
   const selectedLead = useMemo(() => leads.find((l) => clean(l.id) === clean(selectedLeadId)) || null, [leads, selectedLeadId]);
+
+  useEffect(() => {
+    setSettingsDraft((prev) => ({
+      ...prev,
+      slaMinutes: Number(store?.settings?.slaMinutes || prev.slaMinutes || 5),
+      assignmentMode: clean(store?.settings?.assignmentMode || prev.assignmentMode || 'smart'),
+      adminOverrideEnabled: store?.settings?.adminOverrideEnabled === undefined ? prev.adminOverrideEnabled : Boolean(store?.settings?.adminOverrideEnabled)
+    }));
+  }, [store?.settings?.slaMinutes, store?.settings?.assignmentMode, store?.settings?.adminOverrideEnabled]);
 
   const filteredLeads = useMemo(() => {
     const q = clean(search).toLowerCase();
@@ -293,6 +304,29 @@ export default function AppointmentSetterBackofficePage() {
     setDragLeadId('');
   }
 
+  async function createLeadManually() {
+    if (!clean(newLead.fullName) || !clean(newLead.phone) || !clean(newLead.state)) {
+      setMessage('⚠️ Name, phone, and state are required for a new lead.');
+      return;
+    }
+    await act('create_lead', newLead);
+    setNewLead({ fullName: '', phone: '', email: '', state: '', campaignSource: '', productType: '' });
+  }
+
+  async function saveAdminSettings() {
+    await act('set_settings', {
+      settings: {
+        slaMinutes: Number(settingsDraft.slaMinutes || 5),
+        assignmentMode: settingsDraft.assignmentMode || 'smart',
+        adminOverrideEnabled: Boolean(settingsDraft.adminOverrideEnabled)
+      }
+    });
+  }
+
+  async function saveStateCap() {
+    await act('set_state_cap', { state: settingsDraft.capState, cap: Number(settingsDraft.capValue || 1) });
+  }
+
   if (!session) {
     return (
       <main style={{ minHeight: '100vh', background: 'radial-gradient(circle at top right, #1e293b 0%, #020617 36%)', color: '#f8fafc', display: 'grid', placeItems: 'center', padding: 20 }}>
@@ -355,6 +389,21 @@ export default function AppointmentSetterBackofficePage() {
                   <option value="all">All States</option>
                   {[...new Set(leads.map((l) => stateCode(l.state)).filter(Boolean))].map((st) => <option key={st} value={st}>{st}</option>)}
                 </select>
+              </div>
+            </div>
+
+            <div style={{ border: '1px solid #24304a', borderRadius: 12, background: '#0a1225', padding: 10 }}>
+              <strong style={{ display: 'block', marginBottom: 8 }}>Manual Lead Intake (Backup)</strong>
+              <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(6,minmax(0,1fr))' }}>
+                <input value={newLead.fullName} onChange={(e) => setNewLead((p) => ({ ...p, fullName: e.target.value }))} placeholder="Full Name" style={fieldStyle} />
+                <input value={newLead.phone} onChange={(e) => setNewLead((p) => ({ ...p, phone: e.target.value }))} placeholder="Phone" style={fieldStyle} />
+                <input value={newLead.email} onChange={(e) => setNewLead((p) => ({ ...p, email: e.target.value }))} placeholder="Email" style={fieldStyle} />
+                <input value={newLead.state} onChange={(e) => setNewLead((p) => ({ ...p, state: e.target.value }))} placeholder="State" style={fieldStyle} />
+                <input value={newLead.campaignSource} onChange={(e) => setNewLead((p) => ({ ...p, campaignSource: e.target.value }))} placeholder="Campaign Source" style={fieldStyle} />
+                <input value={newLead.productType} onChange={(e) => setNewLead((p) => ({ ...p, productType: e.target.value }))} placeholder="Product" style={fieldStyle} />
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <button style={btnMini} onClick={createLeadManually}>Add Lead</button>
               </div>
             </div>
 
@@ -471,6 +520,9 @@ export default function AppointmentSetterBackofficePage() {
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <button style={btnMiniGhost} onClick={() => setSelectedLeadId(lead.id)}>Open</button>
                       <button style={btnMini} onClick={() => quickCall(lead, 'Called')}>Call Now</button>
+                      {(clean(lead.status) === 'No-Show' || clean(lead.status) === 'Rescheduled') ? (
+                        <button style={btnMiniGhost} onClick={() => act('recover_no_show', { leadId: lead.id, note: 'No-show recovery initiated from queue.' })}>Recovery</button>
+                      ) : null}
                     </div>
                   </div>
                 ))}
@@ -516,6 +568,38 @@ export default function AppointmentSetterBackofficePage() {
                 {!notifications.length ? <small style={{ color: '#94a3b8' }}>No notifications yet.</small> : null}
               </div>
             </div>
+
+            {(session.role === 'admin' || session.role === 'manager') ? (
+              <div style={{ border: '1px solid #24304a', borderRadius: 12, background: '#0a1225', padding: 10 }}>
+                <strong>Admin Assignment Settings</strong>
+                <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>
+                  <label style={{ fontSize: 12, color: '#9fb4d8' }}>SLA Minutes
+                    <input type="number" min={1} value={settingsDraft.slaMinutes} onChange={(e) => setSettingsDraft((p) => ({ ...p, slaMinutes: Number(e.target.value || 1) }))} style={fieldStyle} />
+                  </label>
+                  <label style={{ fontSize: 12, color: '#9fb4d8' }}>Assignment Mode
+                    <select value={settingsDraft.assignmentMode} onChange={(e) => setSettingsDraft((p) => ({ ...p, assignmentMode: e.target.value }))} style={fieldStyle}>
+                      <option value="smart">Smart Recommended</option>
+                      <option value="manual">Manual</option>
+                      <option value="round-robin">Round Robin</option>
+                    </select>
+                  </label>
+                  <label style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#cbd5e1' }}>
+                    <input type="checkbox" checked={Boolean(settingsDraft.adminOverrideEnabled)} onChange={(e) => setSettingsDraft((p) => ({ ...p, adminOverrideEnabled: e.target.checked }))} />
+                    Admin override when cap reached
+                  </label>
+                  <button style={btnMini} onClick={saveAdminSettings}>Save Core Settings</button>
+
+                  <div style={{ borderTop: '1px solid #24304a', paddingTop: 8, display: 'grid', gap: 6 }}>
+                    <small style={{ color: '#9fb4d8' }}>State Weekly Cap</small>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 6 }}>
+                      <input value={settingsDraft.capState} onChange={(e) => setSettingsDraft((p) => ({ ...p, capState: e.target.value.toUpperCase() }))} placeholder="State" style={fieldStyle} />
+                      <input type="number" min={1} value={settingsDraft.capValue} onChange={(e) => setSettingsDraft((p) => ({ ...p, capValue: Number(e.target.value || 1) }))} placeholder="Cap" style={fieldStyle} />
+                      <button style={btnMiniGhost} onClick={saveStateCap}>Save</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <div style={{ border: '1px solid #24304a', borderRadius: 12, background: '#0a1225', padding: 10 }}>
               <strong>Quick Scripts Panel</strong>

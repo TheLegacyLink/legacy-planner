@@ -1,4 +1,5 @@
 import { loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
+import nodemailer from 'nodemailer';
 
 const STORE_PATH = 'stores/appointment-setter-backoffice.json';
 
@@ -196,6 +197,56 @@ async function getStore() {
   return data;
 }
 
+function emailFrame(title = '', bodyHtml = '') {
+  return `<div style="font-family:Inter,Arial,sans-serif;background:#f8fafc;padding:20px;color:#0f172a;"><div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:#0f172a;color:#fff;padding:16px 20px;text-align:center;font-weight:800;font-size:24px;line-height:1;">THE LEGACY LINK</div><div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;">${title}</h2>${bodyHtml}<p style="margin:10px 0 0;color:#334155;"><strong>Legacy Link Support Team</strong></p></div></div></div>`;
+}
+
+async function sendAssignmentEmail({ agent = {}, lead = {}, assignedBy = '' }) {
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  const to = clean(agent?.email);
+  if (!user || !pass || !to) return { ok: false, error: 'email_not_configured' };
+
+  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+
+  const subject = `New Appointment Assigned • ${clean(lead?.fullName) || 'Lead'}`;
+  const text = [
+    `Hi ${clean(agent?.name) || 'Agent'},`,
+    '',
+    `${assignedBy || 'Operations'} assigned you a booked appointment.`,
+    '',
+    `Lead: ${clean(lead?.fullName) || '—'}`,
+    `Phone: ${clean(lead?.phone) || '—'}`,
+    `Email: ${clean(lead?.email) || '—'}`,
+    `State: ${clean(lead?.state) || '—'}`,
+    `Appointment: ${clean(lead?.appointment?.dateTime) || 'TBD'}`,
+    `Setter Notes: ${clean(lead?.appointment?.setterNotes) || '—'}`,
+    ''
+  ].join('\n');
+
+  const html = emailFrame(
+    'New Appointment Assigned',
+    `<p>Hi <strong>${clean(agent?.name) || 'Agent'}</strong>,</p>
+     <p>${assignedBy || 'Operations'} assigned you a booked appointment.</p>
+     <ul style="padding-left:18px;line-height:1.6;">
+       <li><strong>Lead:</strong> ${clean(lead?.fullName) || '—'}</li>
+       <li><strong>Phone:</strong> ${clean(lead?.phone) || '—'}</li>
+       <li><strong>Email:</strong> ${clean(lead?.email) || '—'}</li>
+       <li><strong>State:</strong> ${clean(lead?.state) || '—'}</li>
+       <li><strong>Appointment:</strong> ${clean(lead?.appointment?.dateTime) || 'TBD'}</li>
+       <li><strong>Setter Notes:</strong> ${clean(lead?.appointment?.setterNotes) || '—'}</li>
+     </ul>`
+  );
+
+  try {
+    const info = await tx.sendMail({ from, to, cc: 'support@thelegacylink.com', subject, text, html });
+    return { ok: true, messageId: info?.messageId || '' };
+  } catch (error) {
+    return { ok: false, error: error?.message || 'send_failed' };
+  }
+}
+
 function currentWeekAssignments(leads = []) {
   const week = isoWeekKey(new Date());
   const rows = [];
@@ -353,9 +404,12 @@ export async function POST(req) {
     return Response.json({ ok: true, lead });
   }
 
-  if (idx < 0) return Response.json({ ok: false, error: 'lead_not_found' }, { status: 404 });
+  const nonLeadActions = new Set(['set_agent_availability', 'set_state_cap', 'set_settings']);
+  if (idx < 0 && !nonLeadActions.has(action)) {
+    return Response.json({ ok: false, error: 'lead_not_found' }, { status: 404 });
+  }
 
-  const current = { ...leads[idx] };
+  const current = idx >= 0 ? { ...leads[idx] } : null;
 
   if (action === 'update_status') {
     const status = clean(body?.status || 'New');
@@ -512,13 +566,15 @@ export async function POST(req) {
 
     leads[idx] = next;
 
+    const emailResult = await sendAssignmentEmail({ agent, lead: next, assignedBy: actorName });
+
     notifications.unshift({
       id: id('ntf'),
       at: nowIso(),
       type: 'assignment',
       recipientAgentId: agent.id,
       recipientAgentName: clean(agent.name),
-      channel: 'in-app/email',
+      channel: emailResult?.ok ? 'in-app/email' : 'in-app',
       title: 'New Appointment Assigned',
       body: `${next.fullName} (${state}) booked for ${clean(next?.appointment?.dateTime || 'TBD')}`,
       payload: {
@@ -528,11 +584,47 @@ export async function POST(req) {
         state,
         appointmentDateTime: clean(next?.appointment?.dateTime || ''),
         notes: clean(next?.appointment?.setterNotes || '')
-      }
+      },
+      emailStatus: emailResult?.ok ? 'sent' : 'failed',
+      emailError: emailResult?.ok ? '' : clean(emailResult?.error)
     });
 
     await saveJsonFile(STORE_PATH, { ...store, leads, notifications: notifications.slice(0, 250) });
-    return Response.json({ ok: true, lead: next, assignment, notificationQueued: true });
+    return Response.json({ ok: true, lead: next, assignment, notificationQueued: true, assignmentEmail: emailResult?.ok ? 'sent' : 'failed', assignmentEmailError: emailResult?.ok ? '' : clean(emailResult?.error) });
+  }
+
+  if (action === 'recover_no_show') {
+    const next = {
+      ...current,
+      status: 'Follow-Up Needed',
+      followUpAt: clean(body?.followUpAt) || new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      updatedAt: nowIso(),
+      timeline: pushTimeline(current, `${actorName} moved lead into no-show recovery queue`),
+      notes: [{ id: id('note'), at: nowIso(), by: actorName, text: clean(body?.note || 'No-show recovery initiated.'), tags: ['no-show', 'recovery'] }, ...(current?.notes || [])]
+    };
+
+    leads[idx] = next;
+    await saveJsonFile(STORE_PATH, { ...store, leads, notifications });
+    return Response.json({ ok: true, lead: next });
+  }
+
+  if (action === 'set_settings') {
+    if (!(actorRole === 'admin' || actorRole === 'manager')) {
+      return Response.json({ ok: false, error: 'admin_or_manager_only' }, { status: 403 });
+    }
+
+    const nextSettings = {
+      ...(store?.settings || {}),
+      ...(body?.settings || {}),
+      slaMinutes: Math.max(1, Number(body?.settings?.slaMinutes ?? store?.settings?.slaMinutes ?? 5)),
+      adminOverrideEnabled: body?.settings?.adminOverrideEnabled === undefined
+        ? Boolean(store?.settings?.adminOverrideEnabled)
+        : Boolean(body?.settings?.adminOverrideEnabled),
+      assignmentMode: clean(body?.settings?.assignmentMode || store?.settings?.assignmentMode || 'smart')
+    };
+
+    await saveJsonFile(STORE_PATH, { ...store, settings: nextSettings, leads, notifications });
+    return Response.json({ ok: true, settings: nextSettings });
   }
 
   if (action === 'set_agent_availability') {
