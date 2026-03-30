@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Kimora Link",
+    "email": "support@thelegacylink.com",
+    "role": "admin",
+    "passwordHash": "2877ec04da7ad98a1b0a896caef991a487d534f7f9bc562c662808f432744759",
+    "active": true
+  },
+  {
+    "name": "Emani",
+    "email": "support@thelegacylink.com",
+    "role": "setter",
+    "passwordHash": "dfb64fde14abfe8b7efcd8507815a2cc38235d5bef61bda4056a1b9a624fdebc",
+    "active": true
+  },
+  {
+    "name": "Operations Manager",
+    "email": "support@thelegacylink.com",
+    "role": "manager",
+    "passwordHash": "dfb64fde14abfe8b7efcd8507815a2cc38235d5bef61bda4056a1b9a624fdebc",
+    "active": true
+  }
+]
