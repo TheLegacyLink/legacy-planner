@@ -152,6 +152,20 @@
     "effective_date": "08-22-2024"
   },
   {
+    "agent_id": "21778572",
+    "full_name": "BLACKWELL, ASHUNTI",
+    "email": "graceguidedlife@gmail.com",
+    "phone": "312-437-0359",
+    "city": "CHICAGO",
+    "home_state": "IL",
+    "state_code": "IL",
+    "license_status": "Active",
+    "carriers_active": [],
+    "carriers_all": [],
+    "carrier_details": [],
+    "effective_date": "03-17-2026"
+  },
+  {
     "agent_id": "CL371C4000",
     "full_name": "BOURNES, ALPHA M",
     "email": "alphabournesfg@gmail.com",
@@ -395,6 +409,54 @@
       }
     ],
     "effective_date": "09-25-2025"
+  },
+  {
+    "agent_id": "000735342",
+    "full_name": "BYRD, AKIAMI",
+    "email": "akiamimbyrd@gmail.com",
+    "phone": "859-347-6756",
+    "city": "LEXINGTON",
+    "home_state": "KY",
+    "state_code": "KY",
+    "license_status": "Active",
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000735342"
+      }
+    ],
+    "effective_date": "03-09-2026"
+  },
+  {
+    "agent_id": "CA42626000",
+    "full_name": "CANNON, ANDREA D",
+    "email": "andreadcannon@gmail.com",
+    "phone": "646-945-9530",
+    "city": "BALTIMORE",
+    "home_state": "MD",
+    "state_code": "MD",
+    "license_status": "Active",
+    "effective_date": "12-17-2025",
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "CA42626000"
+      }
+    ]
   },
   {
     "agent_id": "CA37555000",
@@ -1166,6 +1228,30 @@
     "effective_date": "12-27-2025"
   },
   {
+    "agent_id": "000631663",
+    "full_name": "INVESTALINK",
+    "email": "investalinkinsurance@gmail.com",
+    "phone": "646-945-9530",
+    "city": "ROUND ROCK",
+    "home_state": "TX",
+    "state_code": "TX",
+    "license_status": "Active",
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000631663"
+      }
+    ],
+    "effective_date": "06-14-2024"
+  },
+  {
     "agent_id": "MOO-2060778",
     "full_name": "James, Breanna Michelle",
     "email": "drboss637@gmail.com",
@@ -1173,6 +1259,216 @@
     "city": "Oakley",
     "home_state": "CA",
     "state_code": "CA",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060778"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "543I5"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060778",
+    "full_name": "James, Breanna Michelle",
+    "email": "drboss637@gmail.com",
+    "phone": "",
+    "city": "Oakley",
+    "home_state": "CA",
+    "state_code": "FL",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060778"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "543I5"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060778",
+    "full_name": "James, Breanna Michelle",
+    "email": "drboss637@gmail.com",
+    "phone": "",
+    "city": "Oakley",
+    "home_state": "CA",
+    "state_code": "MD",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060778"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "543I5"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060778",
+    "full_name": "James, Breanna Michelle",
+    "email": "drboss637@gmail.com",
+    "phone": "",
+    "city": "Oakley",
+    "home_state": "CA",
+    "state_code": "NC",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060778"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "543I5"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060778",
+    "full_name": "James, Breanna Michelle",
+    "email": "drboss637@gmail.com",
+    "phone": "",
+    "city": "Oakley",
+    "home_state": "CA",
+    "state_code": "OH",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060778"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "543I5"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060778",
+    "full_name": "James, Breanna Michelle",
+    "email": "drboss637@gmail.com",
+    "phone": "",
+    "city": "Oakley",
+    "home_state": "CA",
+    "state_code": "SC",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060778"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "543I5"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060778",
+    "full_name": "James, Breanna Michelle",
+    "email": "drboss637@gmail.com",
+    "phone": "",
+    "city": "Oakley",
+    "home_state": "CA",
+    "state_code": "TX",
+    "license_status": "Active",
+    "carriers_active": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2060778"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "543I5"
+      }
+    ]
+  },
+  {
+    "agent_id": "MOO-2060778",
+    "full_name": "James, Breanna Michelle",
+    "email": "drboss637@gmail.com",
+    "phone": "",
+    "city": "Oakley",
+    "home_state": "CA",
+    "state_code": "VA",
     "license_status": "Active",
     "carriers_active": [
       "Mutual of Omaha",
@@ -2134,6 +2430,82 @@
     "effective_date": "06-14-2024"
   },
   {
+    "agent_id": "000631664",
+    "full_name": "LINK, KIMORA",
+    "email": "investalinkinsurance@gmail.com",
+    "phone": "646-945-9530",
+    "city": "NEW YORK",
+    "home_state": "NY",
+    "state_code": "SC",
+    "license_status": "Active",
+    "carriers_active": [
+      "F&G",
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "F&G",
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000631664"
+      },
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2058112"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "7685T"
+      }
+    ],
+    "effective_date": "06-14-2024"
+  },
+  {
+    "agent_id": "000631664",
+    "full_name": "LINK, KIMORA",
+    "email": "investalinkinsurance@gmail.com",
+    "phone": "646-945-9530",
+    "city": "NEW YORK",
+    "home_state": "NY",
+    "state_code": "TX",
+    "license_status": "Active",
+    "carriers_active": [
+      "F&G",
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "F&G",
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000631664"
+      },
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2058112"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "7685T"
+      }
+    ],
+    "effective_date": "06-14-2024"
+  },
+  {
     "agent_id": "MOO-2061900",
     "full_name": "Lykes, Sherry",
     "email": "ladysherrylykes@gmail.com",
@@ -2238,6 +2610,30 @@
       }
     ],
     "effective_date": "03-07-2025"
+  },
+  {
+    "agent_id": "000699337",
+    "full_name": "MERCHANT CRUMBLY, WEINER LOUIN",
+    "email": "herstoinspire@gmail.com",
+    "phone": "475-777-0607",
+    "city": "CHARLOTTE",
+    "home_state": "NC",
+    "state_code": "NC",
+    "license_status": "Active",
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000699337"
+      }
+    ],
+    "effective_date": "03-10-2026"
   },
   {
     "agent_id": "MOO-2061867",
@@ -2704,6 +3100,30 @@
       }
     ],
     "effective_date": "10-17-2025"
+  },
+  {
+    "agent_id": "SM10225000",
+    "full_name": "SMITH, PRINCESS T",
+    "email": "multiplemarket@gmail.com",
+    "phone": "929-237-9368",
+    "city": "BRONX",
+    "home_state": "NY",
+    "state_code": "NY",
+    "license_status": "Active",
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "SM10225000"
+      }
+    ],
+    "effective_date": "03-09-2026"
   },
   {
     "agent_id": "MOO-2062917",
@@ -3216,6 +3636,30 @@
     "effective_date": "02-13-2025"
   },
   {
+    "agent_id": "WH25436000",
+    "full_name": "WHALEY, MIRICK J",
+    "email": "mirickw@gmail.com",
+    "phone": "407-615-9819",
+    "city": "WINTER PARK",
+    "home_state": "FL",
+    "state_code": "FL",
+    "license_status": "Active",
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "WH25436000"
+      }
+    ],
+    "effective_date": "03-10-2026"
+  },
+  {
     "agent_id": "MOO-2060544",
     "full_name": "White, Shadae",
     "email": "",
@@ -3413,29 +3857,5 @@
       }
     ],
     "effective_date": "12-22-2025"
-  },
-  {
-    "agent_id": "CA42626000",
-    "full_name": "CANNON, ANDREA D",
-    "email": "andreadcannon@gmail.com",
-    "phone": "646-945-9530",
-    "city": "BALTIMORE",
-    "home_state": "MD",
-    "state_code": "MD",
-    "license_status": "Active",
-    "effective_date": "12-17-2025",
-    "carriers_active": [
-      "F&G"
-    ],
-    "carriers_all": [
-      "F&G"
-    ],
-    "carrier_details": [
-      {
-        "carrier": "F&G",
-        "contract_status": "Active",
-        "carrier_agent_id": "CA42626000"
-      }
-    ]
   }
 ]
