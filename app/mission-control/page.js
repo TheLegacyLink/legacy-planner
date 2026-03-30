@@ -100,6 +100,18 @@ function shortDate(date) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function fmtDate(value = '') {
+  if (!value) return '—';
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return '—';
+  return dt.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+}
+
 function ctDateKey(date = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Chicago',
