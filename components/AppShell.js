@@ -23,7 +23,7 @@ const tabs = [
   { href: '/sponsorship-sop', label: 'Sponsorship SOP' },
   { href: '/lead-router', label: 'Lead Router' },
   { href: '/lead-claims', label: 'Lead Claims' },
-  { href: '/lead-marketplace', label: 'Lead Marketplace' },
+  { href: '/linkleads', label: 'Link Leads' },
   { href: '/referrer-dashboard', label: 'Referrer Dashboard' },
   { href: '/sponsorship-signup', label: 'Sponsor Signup' },
   { href: '/inner-circle-app-submit', label: 'App Submit' },
@@ -33,6 +33,7 @@ const tabs = [
   { href: '/inner-circle-links', label: 'Inner Circle Links' },
   { href: '/inner-circle-bookings', label: 'IC Bookings' },
   { href: '/inner-circle-activity-rewards', label: 'Activity Rewards' },
+  { href: '/champions-circle', label: 'Champions Circle' },
   { href: '/contract-agreement', label: 'Contract Agreement' },
   { href: '/sponsorship-booking', label: 'Booking Hub' },
   { href: '/fng-policies', label: 'F&G Policies' },
@@ -41,7 +42,6 @@ const tabs = [
 ];
 
 const OWNER_ACCESS_KEY = 'legacy_planner_owner_access_v1';
-const OWNER_PASSCODE = 'KimoraOnly!2026';
 
 export default function AppShell({ title, children }) {
   const pathname = usePathname();
@@ -59,14 +59,25 @@ export default function AppShell({ title, children }) {
     }
   }, []);
 
-  function unlockOwnerAccess() {
-    if (passcodeInput.trim() === OWNER_PASSCODE) {
+  async function unlockOwnerAccess() {
+    try {
+      const res = await fetch('/api/admin-skeleton-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: 'Kimora Link', password: passcodeInput || '' })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setPassError('Incorrect owner passcode.');
+        return;
+      }
+
       localStorage.setItem(OWNER_ACCESS_KEY, 'ok');
       setAccessGranted(true);
       setPassError('');
-      return;
+    } catch {
+      setPassError('Unable to verify owner passcode right now.');
     }
-    setPassError('Incorrect owner passcode.');
   }
 
   function lockOwnerAccess() {
