@@ -6,7 +6,6 @@ import { loadRuntimeConfig } from '../../lib/runtimeConfig';
 import licensedAgents from '../../data/licensedAgents.json';
 
 const DEFAULTS = loadRuntimeConfig();
-const PAGE_PASSCODE = 'LegacyLink2026';
 const PASSCODE_STORAGE_KEY = 'legacy-mission-control-passcode-ok-v1';
 
 function byScope(obj, scope, aliases = []) {
@@ -261,7 +260,7 @@ export default function MissionControl() {
   const [lastSyncAt, setLastSyncAt] = useState(null);
   const [passcodeInput, setPasscodeInput] = useState('');
   const [passError, setPassError] = useState('');
-  const [authed, setAuthed] = useState(true);
+  const [authed, setAuthed] = useState(false);
   const scopeLabel = 'This Month';
   const payoutMonthKey = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`;
 
@@ -725,8 +724,19 @@ export default function MissionControl() {
     reader.readAsText(file);
   };
 
-  const unlockMissionControl = () => {
-    if ((passcodeInput || '').trim() === PAGE_PASSCODE) {
+  const unlockMissionControl = async () => {
+    try {
+      const res = await fetch('/api/admin-skeleton-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: 'Kimora Link', password: passcodeInput || '' })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setPassError('Incorrect passcode.');
+        return;
+      }
+
       setAuthed(true);
       setPassError('');
       try {
@@ -734,9 +744,9 @@ export default function MissionControl() {
       } catch {
         // ignore storage errors
       }
-      return;
+    } catch {
+      setPassError('Unable to verify passcode right now.');
     }
-    setPassError('Incorrect passcode.');
   };
 
   const bookingQueueDeduped = useMemo(() => {

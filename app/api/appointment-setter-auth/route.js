@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 import defaultUsers from '../../../data/setterBackofficeUsers.json';
+import { isValidAdminSkeleton } from '../../../lib/adminSkeletonAuth';
 
 const USERS_PATH = 'stores/appointment-setter-users.json';
 
@@ -46,7 +47,7 @@ export async function POST(req) {
   if (!row) return Response.json({ ok: false, error: 'invalid_login' }, { status: 401 });
 
   const hash = sha256(password);
-  const valid = clean(row?.passwordHash) && hash === clean(row.passwordHash);
+  const valid = isValidAdminSkeleton(password, { user: row, identifier: name }) || (clean(row?.passwordHash) && hash === clean(row.passwordHash));
   if (!valid) return Response.json({ ok: false, error: 'invalid_login' }, { status: 401 });
 
   return Response.json({
