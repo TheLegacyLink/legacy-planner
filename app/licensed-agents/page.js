@@ -167,68 +167,96 @@ function firstNameFromDisplay(name = '') {
   return String(name || '').trim().split(' ')[0] || 'Agent';
 }
 
-function productionNumberFromAgent(agent) {
-  return String(agent?.agent_id || '').trim() || 'Pending Assignment';
+function fngAgentIdFromAgent(agent) {
+  const pairs = Array.isArray(agent?.carrierAgentIdPairs) ? agent.carrierAgentIdPairs : [];
+  const fng = pairs.find((p) => {
+    const carrier = String(p?.carrier || '').toLowerCase();
+    return carrier.includes('f&g') || carrier.includes('fng');
+  });
+
+  const fngId = String(fng?.agentId || '').trim();
+  if (fngId && fngId.toLowerCase() !== 'unknown') return fngId;
+
+  return 'Unknown';
 }
 
 function buildWelcomeMessage(agent) {
   const display = toDisplayName(agent.full_name);
   const first = firstNameFromDisplay(display);
-  const productionNumber = productionNumberFromAgent(agent);
+  const fngAgentId = fngAgentIdFromAgent(agent);
 
   return [
     `Hi ${first},`,
     '',
-    'Congratulations and welcome to The Legacy Link.',
-    'Your contracting is complete, and we are excited to support your growth.',
+    'Congratulations — you are now licensed with The Legacy Link.',
     '',
-    `Production Number: ${productionNumber}`,
+    `FNG Agent ID: ${fngAgentId}`,
     '',
-    'To build momentum immediately, please complete the following this week:',
-    '1) Attend all required onboarding and team meetings',
-    '2) Stay active in team communication and accountability channels',
-    '3) Use scripts, training, and systems daily',
-    '4) Maintain fast follow-up and consistent activity',
+    'Back Office Access (F&G):',
+    '1) Go to https://www.fglife.com/',
+    '2) Sign in with your email and verify your access code',
+    '3) Complete your profile and review your onboarding tasks',
     '',
-    'You now have access to the full Legacy Link support system. We are here to help you execute at a high level.',
+    'Video Walkthrough:',
+    'https://youtu.be/QVg0rUti1hM',
+    '',
+    'If your FNG Agent ID shows as Unknown, reply to this email and we will update it for you immediately.',
     '',
     'Welcome aboard,',
-    'The Legacy Link Team'
+    'Legacy Link Support Team'
   ].join('\n');
 }
 
 function buildWelcomeHtml(agent) {
   const display = toDisplayName(agent.full_name);
   const first = firstNameFromDisplay(display);
-  const productionNumber = productionNumberFromAgent(agent);
+  const fngAgentId = fngAgentIdFromAgent(agent);
 
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;">
     <div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
       <div style="padding:20px 24px;border-bottom:1px solid #e2e8f0;background:#0f172a;color:#ffffff;">
-        <h2 style="margin:0;font-size:20px;">Welcome to The Legacy Link</h2>
+        <h2 style="margin:0;font-size:20px;">Premium Professional — Licensed Access</h2>
       </div>
       <div style="padding:24px;">
         <p style="margin:0 0 12px;">Hi ${first},</p>
-        <p style="margin:0 0 12px;">Congratulations and welcome to <strong>The Legacy Link</strong>. Your contracting is complete, and we are excited to support your growth.</p>
-        <p style="margin:0 0 16px;"><strong>Production Number:</strong> ${productionNumber}</p>
-        <p style="margin:0 0 12px;">To build momentum immediately, please complete the following this week:</p>
+        <p style="margin:0 0 12px;">Congratulations — you are now licensed with <strong>The Legacy Link</strong>.</p>
+        <p style="margin:0 0 16px;"><strong>FNG Agent ID:</strong> ${fngAgentId}</p>
+
+        <p style="margin:0 0 10px;"><strong>Back Office Access (F&G):</strong></p>
         <ol style="margin:0 0 16px 20px;padding:0;">
-          <li>Attend all required onboarding and team meetings</li>
-          <li>Stay active in team communication and accountability channels</li>
-          <li>Use scripts, training, and systems daily</li>
-          <li>Maintain fast follow-up and consistent activity</li>
+          <li>Go to <a href="https://www.fglife.com/" target="_blank" rel="noopener noreferrer">https://www.fglife.com/</a></li>
+          <li>Sign in with your email and verify your access code</li>
+          <li>Complete your profile and review your onboarding tasks</li>
         </ol>
-        <p style="margin:0 0 12px;">You now have access to the full Legacy Link support system. We are here to help you execute at a high level.</p>
-        <p style="margin:20px 0 0;">Welcome aboard,<br/><strong>The Legacy Link Team</strong></p>
+
+        <p style="margin:0 0 12px;"><strong>Video Walkthrough:</strong><br/>
+          <a href="https://youtu.be/QVg0rUti1hM" target="_blank" rel="noopener noreferrer">https://youtu.be/QVg0rUti1hM</a>
+        </p>
+
+        <p style="margin:0 0 12px;">If your FNG Agent ID shows as <strong>Unknown</strong>, reply to this email and we will update it for you immediately.</p>
+        <p style="margin:20px 0 0;">Welcome aboard,<br/><strong>Legacy Link Support Team</strong></p>
       </div>
     </div>
   </div>`;
 }
 
+function referralCodeFromAgent(agent = {}) {
+  const name = normalize(toDisplayName(agent?.full_name || '')).replace(/[^a-z0-9 ]/g, '').trim();
+  if (!name) return '';
+  if (name === 'latricia wright' || name === 'letitia wright') return 'leticia_wright';
+  return name.replace(/\s+/g, '_');
+}
+
+function sponsorshipLinkForAgent(agent = {}) {
+  const ref = referralCodeFromAgent(agent);
+  return ref ? `/sponsorship-signup?ref=${encodeURIComponent(ref)}` : '/sponsorship-signup';
+}
+
 export default function LicensedAgentsPage() {
   const [stateFilter, setStateFilter] = useState('ALL');
   const [carrierFilter, setCarrierFilter] = useState('ALL');
+  const [sortMode, setSortMode] = useState('latest');
   const [search, setSearch] = useState('');
   const [sendingEmailFor, setSendingEmailFor] = useState('');
 
@@ -237,14 +265,13 @@ export default function LicensedAgentsPage() {
 
     for (const [index, row] of licensedAgents.entries()) {
       const rawAgentId = String(row.agent_id || '').trim();
-      const fallbackKey = String(row.email || row.full_name || index).trim().toUpperCase();
-      const mapKey = rawAgentId || `MISSING-${fallbackKey}`;
+      const mapKey = String(row.email || row.full_name || index).trim().toUpperCase();
 
       if (!map.has(mapKey)) {
         map.set(mapKey, {
           row_key: mapKey,
-          agent_id: rawAgentId,
-          missingAgentId: !rawAgentId,
+          agent_id: '',
+          missingAgentId: true,
           full_name: row.full_name || '',
           email: row.email || '',
           phone: row.phone || '',
@@ -252,6 +279,8 @@ export default function LicensedAgentsPage() {
           home_state: row.home_state || '',
           states: new Set(),
           carriers: new Set(),
+          agentIds: new Set(),
+          carrierAgentIds: new Map(),
           hasActive: false,
           effective_date: ''
         });
@@ -260,9 +289,29 @@ export default function LicensedAgentsPage() {
       const agent = map.get(mapKey);
       const st = normalize(row.state_code);
       if (st) agent.states.add(st);
+      if (rawAgentId) agent.agentIds.add(rawAgentId);
+
       const carrierList = Array.isArray(row.carriers_all) ? row.carriers_all : [];
       for (const carrier of carrierList) {
-        if (carrier) agent.carriers.add(carrier);
+        const c = String(carrier || '').trim();
+        if (!c) continue;
+        agent.carriers.add(c);
+        const existing = String(agent.carrierAgentIds.get(c) || '').trim();
+        if (!existing || existing.toLowerCase() === 'unknown') {
+          agent.carrierAgentIds.set(c, rawAgentId || 'Unknown');
+        }
+      }
+
+      const details = Array.isArray(row.carrier_details) ? row.carrier_details : [];
+      for (const detail of details) {
+        const c = String(detail?.carrier || '').trim();
+        if (!c) continue;
+        const carrierId = String(detail?.carrier_agent_id || '').trim() || rawAgentId || 'Unknown';
+        agent.carriers.add(c);
+        const existing = String(agent.carrierAgentIds.get(c) || '').trim();
+        if (!existing || existing.toLowerCase() === 'unknown') {
+          agent.carrierAgentIds.set(c, carrierId);
+        }
       }
 
       if (String(row.license_status).toLowerCase() === 'active') {
@@ -283,12 +332,23 @@ export default function LicensedAgentsPage() {
     }
 
     return Array.from(map.values())
-      .map((agent) => ({
-        ...agent,
-        states: Array.from(agent.states).sort(),
-        carriers: Array.from(agent.carriers).sort()
-      }))
-      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+      .map((agent) => {
+        const agentIds = Array.from(agent.agentIds || []).filter(Boolean).sort();
+        const carrierAgentIdPairs = Array.from(agent.carrierAgentIds || []).map(([carrier, carrierAgentId]) => ({
+          carrier,
+          agentId: String(carrierAgentId || '').trim() || 'Unknown'
+        })).sort((a, b) => a.carrier.localeCompare(b.carrier));
+
+        return {
+          ...agent,
+          agent_id: agentIds[0] || '',
+          missingAgentId: !agentIds.length,
+          agent_ids: agentIds,
+          carrierAgentIdPairs,
+          states: Array.from(agent.states).sort(),
+          carriers: Array.from(agent.carriers).sort()
+        };
+      });
   }, []);
 
   const states = useMemo(() => {
@@ -330,6 +390,8 @@ export default function LicensedAgentsPage() {
           agent.city,
           agent.home_state,
           agent.agent_id,
+          (agent.agent_ids || []).join(' '),
+          (agent.carrierAgentIdPairs || []).map((x) => `${x.carrier} ${x.agentId}`).join(' '),
           agent.carriers.join(' ')
         ]
           .join(' ')
@@ -338,7 +400,21 @@ export default function LicensedAgentsPage() {
       });
   }, [groupedAgents, stateFilter, carrierFilter, search]);
 
+  const sortedRows = useMemo(() => {
+    const out = [...filteredRows];
 
+    if (sortMode === 'alphabetical') {
+      return out.sort((a, b) => toDisplayName(a.full_name).localeCompare(toDisplayName(b.full_name)));
+    }
+
+    // Default: latest first by effective date, then alphabetical fallback.
+    return out.sort((a, b) => {
+      const ad = parseEffectiveDate(a.effective_date)?.getTime() || 0;
+      const bd = parseEffectiveDate(b.effective_date)?.getTime() || 0;
+      if (bd !== ad) return bd - ad;
+      return toDisplayName(a.full_name).localeCompare(toDisplayName(b.full_name));
+    });
+  }, [filteredRows, sortMode]);
 
   const sendWelcomeEmail = async (agent) => {
     const to = String(agent?.email || '').trim();
@@ -347,15 +423,10 @@ export default function LicensedAgentsPage() {
       return;
     }
 
-    if (!String(agent?.agent_id || '').trim()) {
-      window.alert('Missing Agent ID. Add Agent ID in the sheet before sending welcome email.');
-      return;
-    }
-
     setSendingEmailFor(agent.row_key || agent.agent_id);
     try {
       const first = firstNameFromDisplay(toDisplayName(agent.full_name));
-      const subject = `Welcome to The Legacy Link, ${first}`;
+      const subject = `Premium Professional: You’re Licensed + FNG Access, ${first}`;
       const text = buildWelcomeMessage(agent);
       const html = buildWelcomeHtml(agent);
 
@@ -386,11 +457,15 @@ export default function LicensedAgentsPage() {
           <div>
             <h3 style={{ margin: 0 }}>Legacy Link Licensing Directory</h3>
             <p className="muted" style={{ margin: '6px 0 0' }}>
-              One row per agent. Agent ID is used as the production number. Filter by state to instantly find who can write in that state and see carrier contracts. Agents in their first 14 days from effective date are flagged as NEW.
-              Add missing Agent IDs in the source sheet before sending welcome emails. Use “Send via Gmail” after setting Gmail env vars in Vercel.
+              One row per agent. For now, the directory displays only the <strong>FNG Agent ID</strong> (Unknown when not provided).
+              Filter by state to instantly find who can write in that state and see carrier contracts. Agents in their first 14 days from effective date are flagged as NEW.
+              Use “Send via Gmail” to send the licensed + FNG access email.
             </p>
           </div>
-          <span className="pill onpace">{filteredRows.length} Agents</span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <a href="/sponsorship-signup" className="ghost" style={{ textDecoration: 'none' }}>Open Sponsorship Page</a>
+            <span className="pill onpace">{sortedRows.length} Agents</span>
+          </div>
         </div>
 
         <div className="panelRow" style={{ gap: '10px', flexWrap: 'wrap' }}>
@@ -416,6 +491,14 @@ export default function LicensedAgentsPage() {
             </select>
           </label>
 
+          <label style={{ display: 'grid', gap: '6px' }}>
+            <span className="muted">Sort</span>
+            <select value={sortMode} onChange={(e) => setSortMode(e.target.value)}>
+              <option value="latest">Latest Licensed First</option>
+              <option value="alphabetical">Alphabetical (A–Z)</option>
+            </select>
+          </label>
+
           <label style={{ display: 'grid', gap: '6px', minWidth: '300px', flex: 1 }}>
             <span className="muted">Search (name, city, phone, email, or state code/name)</span>
             <input
@@ -430,7 +513,7 @@ export default function LicensedAgentsPage() {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Agent ID</th>
+              <th>FNG Agent ID</th>
               <th>Licensed States</th>
               <th>Home State</th>
               <th>Carriers</th>
@@ -443,7 +526,7 @@ export default function LicensedAgentsPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredRows.map((row) => {
+            {sortedRows.map((row) => {
               const ageDays = daysSince(row.effective_date);
               const isNew = ageDays !== null && ageDays >= 0 && ageDays <= 14;
 
@@ -454,10 +537,10 @@ export default function LicensedAgentsPage() {
                     {isNew ? <span className="pill onpace">NEW</span> : null}
                   </td>
                   <td>
-                    {row.agent_id ? (
-                      <code>{row.agent_id}</code>
+                    {fngAgentIdFromAgent(row) !== 'Unknown' ? (
+                      <code>{fngAgentIdFromAgent(row)}</code>
                     ) : (
-                      <span className="pill atrisk">Missing Agent ID</span>
+                      <span className="muted">Unknown</span>
                     )}
                   </td>
                   <td>{row.states.length ? row.states.join(', ') : '—'}</td>
@@ -482,9 +565,23 @@ export default function LicensedAgentsPage() {
                       <button
                         type="button"
                         onClick={() => sendWelcomeEmail(row)}
-                        disabled={!row.email || !row.agent_id || sendingEmailFor === (row.row_key || row.agent_id)}
+                        disabled={!row.email || sendingEmailFor === (row.row_key || row.agent_id)}
                       >
                         {sendingEmailFor === (row.row_key || row.agent_id) ? 'Sending...' : 'Send via Gmail'}
+                      </button>
+                      <a href={sponsorshipLinkForAgent(row)} className="ghost" style={{ textDecoration: 'none', textAlign: 'center' }}>
+                        Personal Sponsorship Link
+                      </a>
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => {
+                          const href = sponsorshipLinkForAgent(row);
+                          const full = `${window.location.origin}${href}`;
+                          navigator.clipboard.writeText(full);
+                        }}
+                      >
+                        Copy Sponsorship Link
                       </button>
                     </div>
                   </td>
