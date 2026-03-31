@@ -1071,6 +1071,7 @@ export default function LicensedBackofficePage() {
             ['awards', 'Achievement Center'],
             ['growth', 'Growth Hub'],
             ['resources', 'Resources'],
+            ['scriptvault', 'Script Vault 2.0'],
             ['linkleads', 'VIP Links'],
             ['incentives', 'Champions Circle'],
             ['community', 'Community Service']
@@ -1581,6 +1582,16 @@ export default function LicensedBackofficePage() {
                 <a href="/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Licensed Onboarding Playbook</a>
                 <a href="/docs/onboarding/legacy-link-comp-schedule-bonuses-v2.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Comp Schedule + Bonuses + FAQ</a>
                 <a href="/docs/onboarding/legacy-link-sponsorship-phone-application-sop.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Sponsorship Application Call SOP</a>
+              </div>
+            ) : null}
+
+            {tab === 'scriptvault' ? (
+              <div style={{ border: '1px solid #2A3142', borderRadius: 12, overflow: 'hidden', background: '#0F172A' }}>
+                <iframe
+                  title="Script Vault 2.0"
+                  src={`/inner-circle-scripts?home=/licensed-backoffice&name=${encodeURIComponent(session?.name || '')}&email=${encodeURIComponent(session?.email || '')}&licensed=1`}
+                  style={{ width: '100%', minHeight: 1150, border: 0, background: '#020617' }}
+                />
               </div>
             ) : null}
 
