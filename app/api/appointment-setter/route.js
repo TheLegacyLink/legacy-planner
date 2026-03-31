@@ -1,5 +1,7 @@
 import { loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 import nodemailer from 'nodemailer';
+import innerCircleUsers from '../../../data/innerCircleUsers.json';
+import licensedAgents from '../../../data/licensedAgents.json';
 
 const STORE_PATH = 'stores/appointment-setter-backoffice.json';
 
@@ -39,6 +41,108 @@ function id(prefix = 'id') {
 
 function minuteAgo(minutes = 0) {
   return new Date(Date.now() - Number(minutes || 0) * 60000).toISOString();
+}
+
+function normalizeNameKey(v = '') {
+  return clean(v).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function displayNameFromDirectory(fullName = '') {
+  const raw = clean(fullName);
+  if (!raw) return '';
+  if (!raw.includes(',')) return raw;
+  const [last, rest] = raw.split(',', 2);
+  return `${clean(rest)} ${clean(last)}`.trim().replace(/\s+/g, ' ');
+}
+
+function statesForInnerCircleName(name = '') {
+  const key = normalizeNameKey(name);
+  if (!key) return [];
+  const set = new Set();
+  for (const row of (licensedAgents || [])) {
+    const candidate = normalizeNameKey(displayNameFromDirectory(row?.full_name || ''));
+    if (candidate && candidate === key) {
+      const st = stateCodeFromAny(row?.state_code || row?.home_state || '');
+      if (st) set.add(st);
+    }
+  }
+  return [...set].sort();
+}
+
+function buildAgentId(name = '') {
+  const slug = clean(name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return `agent_${slug || 'unknown'}`;
+}
+
+function shouldIncludeInnerCircleUser(u = {}) {
+  const name = clean(u?.name || u?.fullName || '');
+  if (!name) return false;
+  const n = normalize(name);
+  if (n.includes('test')) return false;
+  return true;
+}
+
+function syncAgentsWithInnerCircle(store = {}) {
+  const existing = Array.isArray(store?.agents) ? [...store.agents] : [];
+  const byName = new Map(existing.map((a, i) => [normalizeNameKey(a?.name), i]));
+  let changed = false;
+
+  for (const u of (innerCircleUsers || [])) {
+    if (!shouldIncludeInnerCircleUser(u)) continue;
+    const name = clean(u?.name || u?.fullName || '');
+    const email = clean(u?.email || '').toLowerCase();
+    const key = normalizeNameKey(name);
+    if (!key) continue;
+
+    const derivedStates = statesForInnerCircleName(name);
+    const idx = byName.has(key) ? byName.get(key) : -1;
+    if (idx >= 0) {
+      const row = { ...existing[idx] };
+      if (!clean(row?.email) && email) row.email = email;
+      if (!Array.isArray(row?.licensedStates) || !row.licensedStates.length) row.licensedStates = derivedStates;
+      if (!clean(row?.phone)) row.phone = '201-862-7040';
+      row.active = row.active === false ? false : true;
+      row.unavailable = row.unavailable === true ? true : false;
+      existing[idx] = row;
+      continue;
+    }
+
+    existing.push({
+      id: buildAgentId(name),
+      name,
+      phone: '201-862-7040',
+      email,
+      licensedStates: derivedStates,
+      weeklyCapByState: {},
+      active: u?.active !== false,
+      unavailable: u?.active === false
+    });
+    byName.set(key, existing.length - 1);
+    changed = true;
+  }
+
+  // Force Kimora visibility in assignment board
+  const kimoraKey = normalizeNameKey('Kimora Link');
+  if (!byName.has(kimoraKey)) {
+    existing.push({
+      id: 'agent_kimora_link',
+      name: 'Kimora Link',
+      phone: '201-862-7040',
+      email: 'support@thelegacylink.com',
+      licensedStates: statesForInnerCircleName('Kimora Link'),
+      weeklyCapByState: {},
+      active: true,
+      unavailable: false
+    });
+    changed = true;
+  }
+
+  return { agents: existing, changed };
+}
+
+function isKimoraActor(name = '') {
+  const n = normalize(name);
+  return n === 'kimora link' || n === 'kimora' || n === 'kimora@thelegacylink.com' || n === 'support@thelegacylink.com' || n === 'investalinkinsurance@gmail.com';
 }
 
 function seedStore() {
@@ -191,9 +295,19 @@ async function getStore() {
   const data = await loadJsonFile(STORE_PATH, null);
   if (!data || typeof data !== 'object') {
     const seeded = seedStore();
-    await saveJsonFile(STORE_PATH, seeded);
-    return seeded;
+    const synced = syncAgentsWithInnerCircle(seeded);
+    const ready = { ...seeded, agents: synced.agents };
+    await saveJsonFile(STORE_PATH, ready);
+    return ready;
   }
+
+  const synced = syncAgentsWithInnerCircle(data);
+  if (synced.changed) {
+    const next = { ...data, agents: synced.agents };
+    await saveJsonFile(STORE_PATH, next);
+    return next;
+  }
+
   return data;
 }
 
@@ -653,8 +767,8 @@ export async function POST(req) {
   }
 
   if (action === 'set_settings') {
-    if (!(actorRole === 'admin' || actorRole === 'manager')) {
-      return Response.json({ ok: false, error: 'admin_or_manager_only' }, { status: 403 });
+    if (!isKimoraActor(actorName)) {
+      return Response.json({ ok: false, error: 'kimora_admin_only' }, { status: 403 });
     }
 
     const nextSettings = {
@@ -672,8 +786,8 @@ export async function POST(req) {
   }
 
   if (action === 'set_agent_availability') {
-    if (!(actorRole === 'admin' || actorRole === 'manager')) {
-      return Response.json({ ok: false, error: 'admin_or_manager_only' }, { status: 403 });
+    if (!isKimoraActor(actorName)) {
+      return Response.json({ ok: false, error: 'kimora_admin_only' }, { status: 403 });
     }
 
     const agentId = clean(body?.agentId);
@@ -692,8 +806,8 @@ export async function POST(req) {
   }
 
   if (action === 'set_state_cap') {
-    if (!(actorRole === 'admin' || actorRole === 'manager')) {
-      return Response.json({ ok: false, error: 'admin_or_manager_only' }, { status: 403 });
+    if (!isKimoraActor(actorName)) {
+      return Response.json({ ok: false, error: 'kimora_admin_only' }, { status: 403 });
     }
 
     const state = stateCodeFromAny(body?.state);

@@ -10,6 +10,10 @@ const STATUS_OPTIONS = [
 ];
 
 function clean(v = '') { return String(v || '').trim(); }
+function isKimoraName(v = '') {
+  const n = clean(v).toLowerCase();
+  return n === 'kimora link' || n === 'kimora' || n === 'kimora@thelegacylink.com' || n === 'support@thelegacylink.com' || n === 'investalinkinsurance@gmail.com';
+}
 
 function timeAgo(iso = '') {
   const d = new Date(iso);
@@ -212,14 +216,6 @@ export default function AppointmentSetterBackofficePage() {
     () => leads.filter((l) => clean(l.status) === 'Booked' && !clean(l.assignedAgentId)),
     [leads]
   );
-
-  const stateColumns = useMemo(() => {
-    const states = new Set(bookedUnassigned.map((l) => stateCode(l.state)));
-    if (!states.size) {
-      ['CA', 'TX', 'GA', 'FL'].forEach((s) => states.add(s));
-    }
-    return [...states];
-  }, [bookedUnassigned]);
 
   const fairnessRows = useMemo(() => {
     const rows = [];
@@ -495,32 +491,25 @@ export default function AppointmentSetterBackofficePage() {
                 <strong>Drag-and-Drop Assignment Board</strong>
                 <small style={{ color: '#94a3b8' }}>Booked + unassigned: {bookedUnassigned.length}</small>
               </div>
-              <div style={{ display: 'grid', gap: 10, gridTemplateColumns: `repeat(${Math.max(2, stateColumns.length)}, minmax(0,1fr))` }}>
-                {stateColumns.map((st) => {
-                  const cards = bookedUnassigned.filter((l) => stateCode(l.state) === st);
-                  return (
-                    <div key={st} style={{ border: '1px solid #334155', borderRadius: 10, background: '#071126', padding: 8, minHeight: 130 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <strong>{st} Unassigned</strong>
-                        <small>{cards.length}</small>
-                      </div>
-                      <div style={{ display: 'grid', gap: 6 }}>
-                        {cards.map((lead) => (
-                          <div
-                            key={lead.id}
-                            draggable
-                            onDragStart={() => setDragLeadId(lead.id)}
-                            style={{ border: '1px solid #334155', borderRadius: 8, background: '#0b1225', padding: 7, cursor: 'grab' }}
-                          >
-                            <strong style={{ fontSize: 13 }}>{lead.fullName}</strong>
-                            <div style={{ fontSize: 12, color: '#94a3b8' }}>{localDateTime(lead?.appointment?.dateTime || '')}</div>
-                            <button onClick={() => recommendAssign(lead)} style={{ ...btnMini, marginTop: 6 }}>Recommended Agent</button>
-                          </div>
-                        ))}
-                      </div>
+              <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#071126', padding: 8, minHeight: 130 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <strong>Unassigned Booked Leads</strong>
+                  <small>{bookedUnassigned.length}</small>
+                </div>
+                <div style={{ display: 'grid', gap: 6 }}>
+                  {bookedUnassigned.map((lead) => (
+                    <div
+                      key={lead.id}
+                      draggable
+                      onDragStart={() => setDragLeadId(lead.id)}
+                      style={{ border: '1px solid #334155', borderRadius: 8, background: '#0b1225', padding: 7, cursor: 'grab' }}
+                    >
+                      <strong style={{ fontSize: 13 }}>{lead.fullName}</strong>
+                      <div style={{ fontSize: 12, color: '#94a3b8' }}>{stateCode(lead.state)}</div>
                     </div>
-                  );
-                })}
+                  ))}
+                  {!bookedUnassigned.length ? <small style={{ color: '#94a3b8' }}>No unassigned booked leads right now.</small> : null}
+                </div>
               </div>
 
               <div style={{ marginTop: 10, display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
@@ -604,7 +593,7 @@ export default function AppointmentSetterBackofficePage() {
               </div>
             </div>
 
-            {(session.role === 'admin' || session.role === 'manager') ? (
+            {(session.role === 'admin' && isKimoraName(session.name)) ? (
               <div style={{ border: '1px solid #24304a', borderRadius: 12, background: '#0a1225', padding: 10 }}>
                 <strong>Admin Assignment Settings</strong>
                 <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>
