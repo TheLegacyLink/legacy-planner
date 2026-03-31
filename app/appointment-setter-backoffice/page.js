@@ -134,8 +134,14 @@ export default function AppointmentSetterBackofficePage() {
   }, [store?.settings?.slaMinutes, store?.settings?.assignmentMode, store?.settings?.adminOverrideEnabled]);
 
   useEffect(() => {
-    if (session?.role === 'admin') loadAdminUsers();
-  }, [session?.role, loadAdminUsers]);
+    if (session?.role !== 'admin' || !session?.name) return;
+    (async () => {
+      const url = `/api/appointment-setter-users?actorName=${encodeURIComponent(session.name)}&actorRole=${encodeURIComponent(session.role)}`;
+      const res = await fetch(url, { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) setAdminUsers(Array.isArray(data.rows) ? data.rows : []);
+    })();
+  }, [session?.role, session?.name]);
 
   const filteredLeads = useMemo(() => {
     const q = clean(search).toLowerCase();
@@ -333,13 +339,13 @@ export default function AppointmentSetterBackofficePage() {
     await act('set_state_cap', { state: settingsDraft.capState, cap: Number(settingsDraft.capValue || 1) });
   }
 
-  const loadAdminUsers = useCallback(async () => {
+  async function loadAdminUsers() {
     if (session?.role !== 'admin') return;
     const url = `/api/appointment-setter-users?actorName=${encodeURIComponent(session.name)}&actorRole=${encodeURIComponent(session.role)}`;
     const res = await fetch(url, { cache: 'no-store' });
     const data = await res.json().catch(() => ({}));
     if (res.ok && data?.ok) setAdminUsers(Array.isArray(data.rows) ? data.rows : []);
-  }, [session?.name, session?.role]);
+  }
 
   async function adminUserAction(payload = {}) {
     const res = await fetch('/api/appointment-setter-users', {
