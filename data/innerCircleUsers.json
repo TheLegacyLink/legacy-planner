@@ -28,10 +28,10 @@
     "active": true
   },
   {
-    "name": "Leticia Wright",
+    "name": "Latricia Wright",
     "email": "leticiawright05@gmail.com",
     "role": "submitter",
-    "passwordHash": "119cb7eef0623f871d15a2fbb53c0ac56c91c0f0d0bac61d38395ce035e37e10",
+    "passwordHash": "4941836600d4c197582ff671f395f7df0d5cdcee7b627798f69eba81e18ec435",
     "active": true
   },
   {
@@ -84,7 +84,7 @@
     "role": "submitter",
     "ghlUserId": "xipuVQqrFDTmPs6XMgz3",
     "passwordHash": "97ae26b04999422ef0d6465f1937baabdc6a66907d92fb783d741a2c2fbbe558",
-    "active": true
+    "active": false
   },
   {
     "name": "Portal Test",
@@ -92,5 +92,26 @@
     "role": "submitter",
     "passwordHash": "97ae26b04999422ef0d6465f1937baabdc6a66907d92fb783d741a2c2fbbe558",
     "active": true
+  },
+  {
+    "name": "Jarkesha",
+    "email": "jarkesha@gmail.com",
+    "role": "submitter",
+    "active": false,
+    "ghlUserId": ""
+  },
+  {
+    "name": "Legacy Link Test",
+    "email": "info@thelegacylink.com",
+    "role": "admin",
+    "active": true,
+    "password": "LegacyTest#2026!"
+  },
+  {
+    "name": "Letitia Wright",
+    "email": "leticiawright05@gmail.com",
+    "role": "submitter",
+    "active": true,
+    "passwordHash": "4941836600d4c197582ff671f395f7df0d5cdcee7b627798f69eba81e18ec435"
   }
 ]

@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'crypto';
 import { loadJsonStore, saveJsonStore } from '../../../../lib/blobJsonStore';
 
 const APPS_PATH = 'stores/sponsorship-applications.json';
+const START_INTAKE_PATH = 'stores/start-intake.json';
 export const CODES_PATH = 'stores/unlicensed-backoffice-login-codes.json';
 export const SESSIONS_PATH = 'stores/unlicensed-backoffice-sessions.json';
 
@@ -13,6 +14,13 @@ const UNLICENSED_PREVIEW_USERS = [
     phone: '',
     state: 'GA',
     applicationId: 'preview_unlicensed_kimora'
+  },
+  {
+    email: 'leticiawright05@gmail.com',
+    name: 'Letitia Wright',
+    phone: '',
+    state: 'GA',
+    applicationId: 'preview_unlicensed_letitia'
   }
 ];
 
@@ -28,6 +36,30 @@ function isUnlicensed(row = {}) {
   return v === 'false' || v === '' || v === '0';
 }
 
+async function resolveFromSignedIntake({ email = '' } = {}) {
+  const e = norm(email);
+  if (!e) return null;
+
+  const rows = await loadJsonStore(START_INTAKE_PATH, []);
+  const list = Array.isArray(rows) ? rows : [];
+  const hit = list.find((r) => (
+    norm(r?.email) === e
+    && norm(r?.trackType) === 'unlicensed'
+    && norm(r?.contractStatus) === 'signed'
+  ));
+
+  if (!hit) return null;
+
+  return {
+    email: clean(hit?.email).toLowerCase(),
+    name: clean(`${clean(hit?.firstName)} ${clean(hit?.lastName)}`),
+    phone: clean(hit?.phone),
+    state: clean(hit?.homeState),
+    applicationId: clean(hit?.id || `intake_${Date.now()}`),
+    referrerName: clean(hit?.referredBy || '')
+  };
+}
+
 export async function resolveUnlicensedProfile({ email = '', fullName = '' } = {}) {
   const rows = await loadJsonStore(APPS_PATH, []);
   const list = (Array.isArray(rows) ? rows : []).filter(isUnlicensed);
@@ -35,10 +67,14 @@ export async function resolveUnlicensedProfile({ email = '', fullName = '' } = {
   const e = norm(email);
   const n = norm(fullName);
 
-  if (!e || !n) return { ok: false, error: 'email_and_full_name_required' };
+  if (!e) return { ok: false, error: 'email_required' };
 
   // Preview/testing allowlist (temporary helper)
-  const preview = UNLICENSED_PREVIEW_USERS.find((u) => norm(u?.email) === e && norm(u?.name) === n);
+  const preview = UNLICENSED_PREVIEW_USERS.find((u) => {
+    const emailMatch = norm(u?.email) === e;
+    const nameMatch = n ? norm(u?.name) === n : true;
+    return emailMatch && nameMatch;
+  });
   if (preview) {
     return {
       ok: true,
@@ -53,10 +89,15 @@ export async function resolveUnlicensedProfile({ email = '', fullName = '' } = {
     };
   }
 
+  const signedIntake = await resolveFromSignedIntake({ email: e });
+  if (signedIntake) {
+    if (!n || norm(signedIntake?.name) === n) return { ok: true, profile: signedIntake };
+  }
+
   const hit = list.find((r) => {
     const re = norm(r?.email);
     const rn = norm(`${clean(r?.firstName)} ${clean(r?.lastName)}`);
-    return re === e && rn === n;
+    return re === e && (!n || rn === n);
   }) || null;
 
   if (!hit) return { ok: false, error: 'not_found' };
