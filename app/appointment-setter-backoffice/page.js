@@ -371,7 +371,7 @@ export default function AppointmentSetterBackofficePage() {
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" style={{ padding: '11px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
           <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" style={{ padding: '11px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} onKeyDown={(e) => e.key === 'Enter' && login()} />
           <button onClick={login} style={{ padding: '11px 14px', borderRadius: 10, border: '1px solid #7c6330', background: 'linear-gradient(180deg,#d4af37,#8a6a18)', color: '#111827', fontWeight: 800 }}>Secure Login</button>
-          <small style={{ color: '#94a3b8' }}>Default build creds: Kimora Link / LegacyAdmin#2026 • Emani / LegacySetter#2026</small>
+          <span style={{ display: 'none' }} />
           {loginError ? <p style={{ color: '#fca5a5', margin: 0 }}>{loginError}</p> : null}
         </section>
       </main>
