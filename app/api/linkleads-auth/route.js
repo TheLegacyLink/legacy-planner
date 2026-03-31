@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import leadClaimsUsers from '../../../data/leadClaimsUsers.json';
 import { loadJsonStore } from '../../../lib/blobJsonStore';
 import { isValidAdminSkeleton } from '../../../lib/adminSkeletonAuth';
+import { normalizePersonName } from '../../../lib/nameAliases';
 
 const USERS_PATH = 'stores/linkleads-users.json';
 
@@ -73,7 +74,7 @@ export async function POST(req) {
 
   const users = await loadAllUsers();
   const idNorm = normalize(emailOrName);
-  const user = users.find((u) => u?.active !== false && (normalize(u?.email) === idNorm || normalize(u?.name) === idNorm));
+  const user = users.find((u) => u?.active !== false && (normalize(u?.email) === idNorm || normalizePersonName(u?.name) === normalizePersonName(emailOrName)));
   if (!user || !isValidPassword(user, password, emailOrName)) {
     return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
   }

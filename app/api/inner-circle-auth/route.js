@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import users from '../../../data/innerCircleUsers.json';
 import { isValidAdminSkeleton } from '../../../lib/adminSkeletonAuth';
+import { normalizePersonName } from '../../../lib/nameAliases';
 
 function clean(v = '') {
   return String(v || '').trim();
@@ -41,7 +42,7 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'missing_credentials' }, { status: 400 });
   }
 
-  const user = (users || []).find((u) => u?.active !== false && normalize(u?.name) === normalize(name));
+  const user = (users || []).find((u) => u?.active !== false && normalizePersonName(u?.name) === normalizePersonName(name));
   if (!user || !isValidPassword(user, password, name)) {
     return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
   }

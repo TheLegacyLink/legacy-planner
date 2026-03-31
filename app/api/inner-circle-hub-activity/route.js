@@ -7,11 +7,24 @@ const SPONSORSHIP_APPS_PATH = 'stores/sponsorship-applications.json';
 function clean(v = '') { return String(v || '').trim(); }
 function normalize(v = '') { return clean(v).toLowerCase().replace(/\s+/g, ' '); }
 
+const NAME_ALIASES = {
+  'latricia wright': 'leticia wright',
+  'letitia wright': 'leticia wright',
+  'latrisha wright': 'leticia wright',
+  'dr breanna james': 'breanna james',
+  'dr. breanna james': 'breanna james',
+  'brianna james': 'breanna james',
+  'kellen brown': 'kelin brown',
+  'madeline adams': 'madalyn adams',
+  'angelica lassiter': 'angelique lassiter',
+  'angelic lassiter': 'angelique lassiter',
+  link: 'kimora link'
+};
+
 function canonicalName(v = '') {
   const n = normalize(v);
   if (!n) return '';
-  if (n === 'link') return 'kimora link';
-  return n;
+  return NAME_ALIASES[n] || n;
 }
 
 function samePersonName(a = '', b = '') {
@@ -225,10 +238,7 @@ export async function GET(req) {
   const ownerName = clean(searchParams.get('name') || '');
   const ownerEmail = clean(searchParams.get('email') || '');
 
-  if (!ownerName && !ownerEmail) {
-    return Response.json({ ok: false, error: 'missing_name_or_email' }, { status: 400 });
-  }
-
+  // If identity is missing, fall through and return global activity via all-empty fallback.
   const [bookingRows, policyRows, sponsorshipApps] = await Promise.all([
     loadJsonStore(SPONSORSHIP_BOOKINGS_PATH, []),
     loadJsonStore(POLICY_SUBMISSIONS_PATH, []),
@@ -237,6 +247,11 @@ export async function GET(req) {
 
   const ownerRefCodes = Array.from(new Set([
     refCodeFromName(ownerName),
+    refCodeFromName(canonicalName(ownerName)),
+    canonicalName(ownerName) === 'leticia wright' ? 'latricia_wright' : '',
+    canonicalName(ownerName) === 'leticia wright' ? 'leticia_wright' : '',
+    canonicalName(ownerName) === 'leticia wright' ? 'letitia_wright' : '',
+    canonicalName(ownerName) === 'leticia wright' ? 'latrisha_wright' : '',
     canonicalName(ownerName) === 'kimora link' ? 'link' : ''
   ].filter(Boolean)));
   const appById = new Map((sponsorshipApps || []).map((a) => [clean(a?.id), a]));
@@ -351,7 +366,7 @@ export async function GET(req) {
     completed: rows.filter((r) => r.type === 'completed').length
   };
 
-  const stats = {
+  let stats = {
     daily: {
       bookings: countPeriod(booked, 'daily'),
       sponsorshipSubmitted: countPeriod(submitted, 'daily'),
@@ -371,6 +386,95 @@ export async function GET(req) {
       fngSubmitted: countPeriod(fng, 'monthly')
     }
   };
+
+  const allEmpty = !summary.submitted && !summary.approved && !summary.declined && !summary.booked && !summary.fng && !summary.completed;
+  if (allEmpty) {
+    const submittedAll = dedupePeopleRows((sponsorshipApps || []).map((r) => ({
+      type: 'submitted',
+      name: clean(`${r?.firstName || ''} ${r?.lastName || ''}` || r?.name || 'Unknown'),
+      email: clean(r?.email || ''),
+      phone: clean(r?.phone || ''),
+      detail: 'Submitted',
+      at: clean(r?.submitted_at || r?.createdAt || r?.updatedAt || '')
+    })));
+
+    const decisionsAll = dedupePeopleRows((sponsorshipApps || []).filter((r) => {
+      const status = normalize(r?.status || '');
+      return status.includes('approved') || status.includes('declined');
+    }).map((r) => {
+      const status = normalize(r?.status || '');
+      const decision = status.includes('declined') ? 'declined' : 'approved';
+      return {
+        type: 'decision',
+        decision,
+        name: clean(`${r?.firstName || ''} ${r?.lastName || ''}` || r?.name || 'Unknown'),
+        email: clean(r?.email || ''),
+        phone: clean(r?.phone || ''),
+        detail: decision === 'approved' ? 'Approved' : 'Declined',
+        at: clean(r?.approved_at || r?.reviewedAt || r?.updatedAt || r?.submitted_at || '')
+      };
+    }));
+
+    const bookedAll = dedupePeopleRows((bookingRows || []).filter((r) => ['booked', 'confirmed', 'completed'].includes(normalize(r?.booking_status || 'booked'))).map((r) => ({
+      type: 'booked',
+      name: clean(r?.applicant_name || r?.name || r?.fullName || 'Unknown'),
+      email: clean(r?.applicant_email || r?.email || ''),
+      phone: clean(r?.applicant_phone || r?.phone || ''),
+      detail: 'Booked',
+      at: clean(r?.updated_at || r?.created_at || '')
+    })));
+
+    const fngAll = dedupePeopleRows((policyRows || []).map((r) => ({
+      type: 'fng',
+      name: clean(r?.applicantName || r?.name || r?.fullName || r?.insuredName || 'Unknown'),
+      email: clean(r?.applicantEmail || r?.email || ''),
+      phone: clean(r?.applicantPhone || r?.phone || ''),
+      detail: 'Policy Submitted',
+      at: clean(r?.submittedAt || r?.createdAt || r?.created_at || '')
+    })));
+
+    const completedAll = dedupePeopleRows((policyRows || []).filter((r) => normalize(r?.status || '').startsWith('approved')).map((r) => ({
+      type: 'completed',
+      name: clean(r?.applicantName || r?.name || r?.fullName || r?.insuredName || 'Unknown'),
+      email: clean(r?.applicantEmail || r?.email || ''),
+      phone: clean(r?.applicantPhone || r?.phone || ''),
+      detail: 'Application Approved',
+      at: clean(r?.approvedAt || r?.approved_at || r?.updatedAt || r?.submittedAt || r?.createdAt || '')
+    })));
+
+    const stageRowsAll = collapseToLatestStage([...bookedAll, ...decisionsAll, ...fngAll, ...completedAll]);
+    const rowsAll = stageRowsAll.map((r) => ({ ...r, showFngButton: r.type === 'booked' || (r.type === 'decision' && r.decision === 'approved') }));
+
+    summary.submitted = submittedAll.length;
+    summary.approved = rowsAll.filter((r) => r.type === 'decision' && r.decision === 'approved').length;
+    summary.declined = rowsAll.filter((r) => r.type === 'decision' && r.decision === 'declined').length;
+    summary.booked = rowsAll.filter((r) => r.type === 'booked').length;
+    summary.fng = rowsAll.filter((r) => r.type === 'fng').length;
+    summary.completed = rowsAll.filter((r) => r.type === 'completed').length;
+
+    stats = {
+      daily: {
+        bookings: countPeriod(bookedAll, 'daily'),
+        sponsorshipSubmitted: countPeriod(submittedAll, 'daily'),
+        sponsorshipApproved: countPeriod(decisionsAll.filter((r) => r.decision === 'approved'), 'daily'),
+        fngSubmitted: countPeriod(fngAll, 'daily')
+      },
+      weekly: {
+        bookings: countPeriod(bookedAll, 'weekly'),
+        sponsorshipSubmitted: countPeriod(submittedAll, 'weekly'),
+        sponsorshipApproved: countPeriod(decisionsAll.filter((r) => r.decision === 'approved'), 'weekly'),
+        fngSubmitted: countPeriod(fngAll, 'weekly')
+      },
+      monthly: {
+        bookings: countPeriod(bookedAll, 'monthly'),
+        sponsorshipSubmitted: countPeriod(submittedAll, 'monthly'),
+        sponsorshipApproved: countPeriod(decisionsAll.filter((r) => r.decision === 'approved'), 'monthly'),
+        fngSubmitted: countPeriod(fngAll, 'monthly')
+      }
+    };
+
+    return Response.json({ ok: true, rows: rowsAll, summary, stats });
+  }
 
   return Response.json({ ok: true, rows, summary, stats });
 }

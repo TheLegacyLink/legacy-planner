@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { loadJsonStore } from '../../../lib/blobJsonStore';
 import innerCircleUsers from '../../../data/innerCircleUsers.json';
 
@@ -11,6 +14,27 @@ const SPONSORSHIP_APPS_PATH = 'stores/sponsorship-applications.json';
 
 function clean(v = '') { return String(v || '').trim(); }
 function normalize(v = '') { return clean(v).toLowerCase().replace(/\s+/g, ' '); }
+
+const NAME_ALIASES = {
+  'latricia wright': 'leticia wright',
+  'letitia wright': 'leticia wright',
+  'latrisha wright': 'leticia wright',
+  'dr breanna james': 'breanna james',
+  'dr. breanna james': 'breanna james',
+  'brianna james': 'breanna james',
+  'kellen brown': 'kelin brown',
+  'madeline adams': 'madalyn adams',
+  'angelica lassiter': 'angelique lassiter',
+  'angelic lassiter': 'angelique lassiter',
+  link: 'kimora link'
+};
+
+function canonicalName(v = '') {
+  const n = normalize(v);
+  if (!n) return '';
+  return NAME_ALIASES[n] || n;
+}
+
 function toNum(v = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
@@ -63,8 +87,8 @@ function uniquePeopleCount(rows = []) {
 }
 
 function likelyNameMatch(a = '', b = '') {
-  const na = normalize(a);
-  const nb = normalize(b);
+  const na = canonicalName(a);
+  const nb = canonicalName(b);
   if (!na || !nb) return false;
   if (na === nb) return true;
 
@@ -135,6 +159,11 @@ function kpiForMember(events = [], policyRows = [], bookingRows = [], sponsorshi
   const ownerEmail = clean(member?.email);
   const ownerRefCodes = Array.from(new Set([
     refCodeFromName(ownerName),
+    refCodeFromName(canonicalName(ownerName)),
+    canonicalName(ownerName) === 'leticia wright' ? 'latricia_wright' : '',
+    canonicalName(ownerName) === 'leticia wright' ? 'leticia_wright' : '',
+    canonicalName(ownerName) === 'leticia wright' ? 'letitia_wright' : '',
+    canonicalName(ownerName) === 'leticia wright' ? 'latrisha_wright' : '',
     normalize(ownerName) === 'kimora link' ? 'link' : ''
   ].filter(Boolean)));
   const appById = new Map((sponsorshipApps || []).map((a) => [clean(a?.id), a]));

@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { createHash, randomBytes } from 'crypto';
 import { loadJsonStore, saveJsonStore } from '../../../../lib/blobJsonStore';
+import { normalizePersonName } from '../../../../lib/nameAliases';
 
 const APPS_PATH = 'stores/sponsorship-applications.json';
 const START_INTAKE_PATH = 'stores/start-intake.json';
@@ -17,15 +18,16 @@ const UNLICENSED_PREVIEW_USERS = [
   },
   {
     email: 'leticiawright05@gmail.com',
-    name: 'Letitia Wright',
+    name: 'Leticia Wright',
     phone: '',
     state: 'GA',
-    applicationId: 'preview_unlicensed_letitia'
+    applicationId: 'preview_unlicensed_leticia'
   }
 ];
 
 function clean(v = '') { return String(v || '').trim(); }
 function norm(v = '') { return clean(v).toLowerCase().replace(/\s+/g, ' '); }
+function normName(v = '') { return normalizePersonName(v); }
 function digits(v = '') { return clean(v).replace(/\D+/g, ''); }
 
 export function nowIso() { return new Date().toISOString(); }
@@ -65,14 +67,14 @@ export async function resolveUnlicensedProfile({ email = '', fullName = '' } = {
   const list = (Array.isArray(rows) ? rows : []).filter(isUnlicensed);
 
   const e = norm(email);
-  const n = norm(fullName);
+  const n = normName(fullName);
 
   if (!e) return { ok: false, error: 'email_required' };
 
   // Preview/testing allowlist (temporary helper)
   const preview = UNLICENSED_PREVIEW_USERS.find((u) => {
     const emailMatch = norm(u?.email) === e;
-    const nameMatch = n ? norm(u?.name) === n : true;
+    const nameMatch = n ? normName(u?.name) === n : true;
     return emailMatch && nameMatch;
   });
   if (preview) {
@@ -91,12 +93,12 @@ export async function resolveUnlicensedProfile({ email = '', fullName = '' } = {
 
   const signedIntake = await resolveFromSignedIntake({ email: e });
   if (signedIntake) {
-    if (!n || norm(signedIntake?.name) === n) return { ok: true, profile: signedIntake };
+    if (!n || normName(signedIntake?.name) === n) return { ok: true, profile: signedIntake };
   }
 
   const hit = list.find((r) => {
     const re = norm(r?.email);
-    const rn = norm(`${clean(r?.firstName)} ${clean(r?.lastName)}`);
+    const rn = normName(`${clean(r?.firstName)} ${clean(r?.lastName)}`);
     return re === e && (!n || rn === n);
   }) || null;
 

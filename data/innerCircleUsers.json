@@ -28,7 +28,7 @@
     "active": true
   },
   {
-    "name": "Latricia Wright",
+    "name": "Leticia Wright",
     "email": "leticiawright05@gmail.com",
     "role": "submitter",
     "passwordHash": "e2f07dee4d99f63602809444050963e25e6da39b03920e68d07dbe384a23b613",
@@ -106,12 +106,5 @@
     "role": "admin",
     "active": true,
     "password": "LegacyTest#2026!"
-  },
-  {
-    "name": "Letitia Wright",
-    "email": "leticiawright05@gmail.com",
-    "role": "submitter",
-    "active": true,
-    "passwordHash": "e2f07dee4d99f63602809444050963e25e6da39b03920e68d07dbe384a23b613"
   }
 ]

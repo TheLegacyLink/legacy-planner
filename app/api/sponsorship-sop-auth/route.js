@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 import { isValidAdminSkeleton } from '../../../lib/adminSkeletonAuth';
+import { normalizePersonName } from '../../../lib/nameAliases';
 
 const STORE_PATH = 'stores/sponsorship-sop-auth-users.json';
 
@@ -69,7 +70,7 @@ export async function POST(req) {
   const password = clean(body?.password || '');
   if (!name || !password) return Response.json({ ok: false, error: 'missing_credentials' }, { status: 400 });
 
-  const user = list.find((u) => u?.active !== false && normalize(u?.name) === normalize(name));
+  const user = list.find((u) => u?.active !== false && normalizePersonName(u?.name) === normalizePersonName(name));
   if (!user || !isValidPassword(user, password, name)) {
     return Response.json({ ok: false, error: 'invalid_credentials' }, { status: 401 });
   }
