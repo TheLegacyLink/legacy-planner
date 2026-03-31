@@ -31,7 +31,7 @@
     "name": "Latricia Wright",
     "email": "leticiawright05@gmail.com",
     "role": "submitter",
-    "passwordHash": "4941836600d4c197582ff671f395f7df0d5cdcee7b627798f69eba81e18ec435",
+    "passwordHash": "e2f07dee4d99f63602809444050963e25e6da39b03920e68d07dbe384a23b613",
     "active": true
   },
   {
@@ -112,6 +112,6 @@
     "email": "leticiawright05@gmail.com",
     "role": "submitter",
     "active": true,
-    "passwordHash": "4941836600d4c197582ff671f395f7df0d5cdcee7b627798f69eba81e18ec435"
+    "passwordHash": "e2f07dee4d99f63602809444050963e25e6da39b03920e68d07dbe384a23b613"
   }
 ]
