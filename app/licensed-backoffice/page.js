@@ -254,6 +254,11 @@ export default function LicensedBackofficePage() {
   const [error, setError] = useState('');
   const [submitBusy, setSubmitBusy] = useState(false);
   const [submitMsg, setSubmitMsg] = useState('');
+  const [contractStatus, setContractStatus] = useState({ loading: false, checkedEmail: '', signed: false, signedAt: '' });
+  const [contractEmailBusy, setContractEmailBusy] = useState(false);
+  const [contractEmailMsg, setContractEmailMsg] = useState('');
+  const [contractLinkInfo, setContractLinkInfo] = useState({ loading: false, sentAt: '', requestedByName: '' });
+  const [contractLastCheckedAt, setContractLastCheckedAt] = useState('');
   const [financeRange, setFinanceRange] = useState('month');
   const [financeDrawer, setFinanceDrawer] = useState({ open: false, title: '', items: [] });
   const [copiedSponsor, setCopiedSponsor] = useState(false);
@@ -278,6 +283,18 @@ export default function LicensedBackofficePage() {
   const [googleReady, setGoogleReady] = useState(false);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
   const isAdmin = normalize(session?.role || '') === 'admin';
+  const requiresContract = useMemo(() => {
+    const t = normalize(appForm?.appType || '');
+    return t.includes('sponsorship') || t.includes('bonus') || t.includes('inner circle');
+  }, [appForm?.appType]);
+  const canSubmitPolicy = useMemo(() => {
+    const applicantName = clean(appForm.applicantName);
+    const appType = clean(appForm.appType);
+    const referredByName = clean(appForm.referredByName || session?.name || '');
+    const policyWriterName = clean(appForm.policyWriterName || session?.name || '');
+    const contractOk = !requiresContract || contractStatus.signed;
+    return Boolean(applicantName && appType && referredByName && policyWriterName && contractOk);
+  }, [appForm, session?.name, requiresContract, contractStatus.signed]);
   const personalSponsorshipLink = useMemo(() => sponsorshipLinkForProfile(session || {}), [session]);
   const personalLinkLeadsUrl = useMemo(() => linkLeadsUrlForProfile({
     name: session?.name,
@@ -503,6 +520,117 @@ export default function LicensedBackofficePage() {
     return () => { cancelled = true; };
   }, [session?.email]);
 
+  async function loadContractLinkInfo(emailValue = '') {
+    const em = clean(emailValue).toLowerCase();
+    if (!em) {
+      setContractLinkInfo({ loading: false, sentAt: '', requestedByName: '' });
+      return;
+    }
+
+    setContractLinkInfo((prev) => ({ ...prev, loading: true }));
+    try {
+      const res = await fetch(`/api/contract-signatures/send-link?email=${encodeURIComponent(em)}`, { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok || !data?.row) {
+        setContractLinkInfo({ loading: false, sentAt: '', requestedByName: '' });
+        return;
+      }
+      setContractLinkInfo({ loading: false, sentAt: data.row.sentAt || '', requestedByName: data.row.requestedByName || '' });
+    } catch {
+      setContractLinkInfo({ loading: false, sentAt: '', requestedByName: '' });
+    }
+  }
+
+  async function refreshContractStatus(emailValue = '', nameValue = '') {
+    const em = clean(emailValue).toLowerCase();
+    const nm = clean(nameValue);
+
+    if (!requiresContract || (!em && !nm)) {
+      setContractStatus({ loading: false, checkedEmail: em, signed: false, signedAt: '' });
+      setContractLastCheckedAt('');
+      return;
+    }
+
+    setContractStatus((prev) => ({ ...prev, loading: true, checkedEmail: em }));
+    try {
+      const qs = new URLSearchParams();
+      if (em) qs.set('email', em);
+      if (nm) qs.set('name', nm);
+      const res = await fetch(`/api/contract-signatures?${qs.toString()}`, { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      const signedAt = clean(data?.row?.signedAt || data?.row?.signed_at || data?.row?.completedAt || data?.row?.completed_at || '');
+      const signed = Boolean(signedAt);
+      setContractStatus({ loading: false, checkedEmail: em, signed, signedAt });
+      setContractLastCheckedAt(new Date().toISOString());
+      await loadContractLinkInfo(em);
+    } catch {
+      setContractStatus({ loading: false, checkedEmail: em, signed: false, signedAt: '' });
+      setContractLastCheckedAt(new Date().toISOString());
+    }
+  }
+
+  async function sendAgreementLinkEmail() {
+    const applicantEmail = clean(appForm.applicantEmail).toLowerCase();
+    const applicantName = clean(appForm.applicantName);
+    if (!requiresContract || !applicantEmail || !applicantName) {
+      setContractEmailMsg('Enter applicant name + email first.');
+      return;
+    }
+
+    setContractEmailBusy(true);
+    setContractEmailMsg('');
+    try {
+      const res = await fetch('/api/contract-signatures/send-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          applicantName,
+          applicantEmail,
+          applicantPhone: clean(appForm.applicantPhone),
+          applicantState: clean(appForm.state),
+          requestedByName: clean(session?.name || ''),
+          requestedByEmail: clean(session?.email || '')
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setContractEmailMsg(`Could not send agreement link: ${clean(data?.error || `HTTP ${res.status}`)}`);
+        return;
+      }
+      setContractEmailMsg('Agreement link sent.');
+      await loadContractLinkInfo(applicantEmail);
+      await refreshContractStatus(applicantEmail, applicantName);
+    } catch {
+      setContractEmailMsg('Could not send agreement link right now.');
+    } finally {
+      setContractEmailBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    const emailValue = clean(appForm.applicantEmail).toLowerCase();
+    const nameValue = clean(appForm.applicantName);
+
+    if (!requiresContract) {
+      setContractStatus({ loading: false, checkedEmail: '', signed: false, signedAt: '' });
+      setContractEmailMsg('');
+      setContractLinkInfo({ loading: false, sentAt: '', requestedByName: '' });
+      setContractLastCheckedAt('');
+      return;
+    }
+
+    if (!emailValue && !nameValue) {
+      setContractStatus({ loading: false, checkedEmail: '', signed: false, signedAt: '' });
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      refreshContractStatus(emailValue, nameValue);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [appForm.applicantEmail, appForm.applicantName, appForm.appType]);
+
   async function submitPolicyFromBackoffice() {
     if (!session?.name || !session?.email) return;
 
@@ -526,6 +654,10 @@ export default function LicensedBackofficePage() {
     }
     if (!policyWriterName) {
       setSubmitMsg('Policy written by is required.');
+      return;
+    }
+    if (requiresContract && !contractStatus.signed) {
+      setSubmitMsg('Contracting must be completed before submitting this policy.');
       return;
     }
 
@@ -555,7 +687,10 @@ export default function LicensedBackofficePage() {
           status: 'Submitted',
           deliveryRequirementNeeded: Boolean(appForm.deliveryRequirementNeeded),
           deliveryRequirementStatus: Boolean(appForm.deliveryRequirementNeeded) ? 'required' : 'none',
-          deliveryRequirementNote: clean(appForm.deliveryRequirementNote || '')
+          deliveryRequirementNote: clean(appForm.deliveryRequirementNote || ''),
+          contractRequired: requiresContract,
+          contractSignedAt: requiresContract ? clean(contractStatus.signedAt || '') : '',
+          contractSignatureVerified: requiresContract ? Boolean(contractStatus.signed) : true
         },
         skipSopProvision: true
       };
@@ -592,6 +727,10 @@ export default function LicensedBackofficePage() {
       }));
       setTab('policies');
       setSubmitMsg('Policy app submitted successfully.');
+      setContractStatus({ loading: false, checkedEmail: '', signed: false, signedAt: '' });
+      setContractEmailMsg('');
+      setContractLinkInfo({ loading: false, sentAt: '', requestedByName: '' });
+      setContractLastCheckedAt('');
     } catch {
       setSubmitMsg('Submit failed. Please try again.');
     } finally {
@@ -1495,6 +1634,29 @@ export default function LicensedBackofficePage() {
                     <option value="Regular App">Regular App</option>
                     <option value="Juvenile App">Juvenile App</option>
                   </select>
+                  {requiresContract ? (
+                    <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#020617', padding: 10, display: 'grid', gap: 8, gridColumn: '1 / -1' }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        {contractStatus.loading ? <span className="pill">Checking contract signature…</span> : null}
+                        {!contractStatus.loading && clean(appForm.applicantEmail) && contractStatus.signed ? (
+                          <span className="pill onpace">Contracting Complete ✅ {contractStatus.signedAt ? `(${new Date(contractStatus.signedAt).toLocaleDateString()})` : ''}</span>
+                        ) : null}
+                        {!contractStatus.loading && clean(appForm.applicantEmail) && !contractStatus.signed ? (
+                          <span className="pill atrisk">Contracting Not Completed</span>
+                        ) : null}
+                        <button type="button" className="ghost" onClick={sendAgreementLinkEmail} disabled={contractEmailBusy || !clean(appForm.applicantEmail) || !clean(appForm.applicantName)}>
+                          {contractEmailBusy ? 'Sending Agreement…' : 'Send Agreement Link to Applicant'}
+                        </button>
+                      </div>
+                      {contractEmailMsg ? <small className="muted">{contractEmailMsg}</small> : null}
+                      {contractLinkInfo.sentAt ? (
+                        <small className="muted">Agreement link last sent: {new Date(contractLinkInfo.sentAt).toLocaleString()}{contractLinkInfo.requestedByName ? ` by ${contractLinkInfo.requestedByName}` : ''}</small>
+                      ) : null}
+                      {contractLastCheckedAt ? (
+                        <small className="muted">Signature status last checked: {new Date(contractLastCheckedAt).toLocaleString()}</small>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <input value={appForm.applicantName} onChange={(e) => setAppForm((p) => ({ ...p, applicantName: e.target.value }))} placeholder="Client name *" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
                   <input value={appForm.applicantEmail} onChange={(e) => setAppForm((p) => ({ ...p, applicantEmail: e.target.value }))} placeholder="Applicant email" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
                   <input value={appForm.applicantPhone} onChange={(e) => setAppForm((p) => ({ ...p, applicantPhone: e.target.value }))} placeholder="Applicant phone" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
@@ -1548,8 +1710,9 @@ export default function LicensedBackofficePage() {
                 </div>
                 <div style={{ color: '#9CA3AF', fontSize: 13 }}>Estimated Sponsorship Policy payout: <strong style={{ color: '#E5E7EB' }}>{String(appForm.appType || '').toLowerCase().includes('sponsorship') ? `$${isInnerCircleName(clean(appForm.policyWriterName || session?.name || '')) ? 500 : 400}` : 'Based on policy type rules'}</strong></div>
                 <div style={{ color: '#9CA3AF', fontSize: 12 }}>Automatic payout runs as normal. The only standard delay is when Delivery Requirement is marked and documents are still pending.</div>
+                {requiresContract && !contractStatus.signed ? <div style={{ color: '#FCA5A5', fontSize: 12 }}>Policy submit is locked until contracting is completed.</div> : null}
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button type="button" onClick={submitPolicyFromBackoffice} disabled={submitBusy} style={{ padding: '10px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
+                  <button type="button" onClick={submitPolicyFromBackoffice} disabled={submitBusy || !canSubmitPolicy} style={{ padding: '10px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
                     {submitBusy ? 'Submitting…' : 'Submit App'}
                   </button>
                   <a href="/inner-circle-app-submit" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Open full app submit page</a>
