@@ -1160,28 +1160,51 @@ async function runDelayedReleasePass({ settings, leads, events, submittedBlockLo
   return out;
 }
 
-function buildWeekUnsubmittedLeads(leads = [], submittedBlockLookup = new Set(), now = new Date()) {
-  const currentMonth = cstMonthKey(now);
+function monthKeyWithOffset(now = new Date(), offsetMonths = 0) {
+  const d = new Date(now.getTime());
+  d.setUTCMonth(d.getUTCMonth() + Number(offsetMonths || 0));
+  return cstMonthKey(d);
+}
+
+function hasBookedAppointment(row = {}) {
+  if (clean(row?.bookedAt || row?.appointmentAt || row?.appointmentDate || row?.appointmentDateTime)) return true;
+  const stage = clean(row?.stage || '').toLowerCase();
+  const bookedStages = ['booked', 'appointment set', 'appointment booked', 'no-show', 'rescheduled'];
+  return bookedStages.some((s) => stage.includes(s));
+}
+
+function buildWeekUnsubmittedLeads(leads = [], submittedBlockLookup = new Set(), now = new Date(), distributionMonthScope = 'current') {
+  const monthKey = distributionMonthScope === 'previous' ? monthKeyWithOffset(now, -1) : cstMonthKey(now);
   return (leads || [])
-    .filter((r) => cstMonthKeyFromIso(r?.createdAt || r?.updatedAt || '') === currentMonth)
-    .sort((a, b) => new Date(b?.createdAt || b?.updatedAt || 0).getTime() - new Date(a?.createdAt || a?.updatedAt || 0).getTime())
-    .slice(0, 500)
-    .map((r) => ({
-      id: r.id,
-      externalId: r.externalId || '',
-      name: r.name || '',
-      email: r.email || '',
-      phone: r.phone || '',
-      owner: r.owner || '',
-      stage: r.stage || '',
-      createdAt: r.createdAt || '',
-      releaseMode: r.releaseMode || 'live',
-      releaseStatus: r.releaseStatus || '',
-      manualHold: Boolean(r.manualHold),
-      responded: hasLeadResponded(r),
-      submitted: hasSponsorshipFormSubmitted(r) || isBlockedBySubmittedCrossCheck(r, submittedBlockLookup),
-      releaseEligibleAt: r.releaseEligibleAt || ''
-    }));
+    .filter((r) => cstMonthKeyFromIso(r?.createdAt || r?.updatedAt || '') === monthKey)
+    .map((r) => {
+      const submitted = hasSponsorshipFormSubmitted(r) || isBlockedBySubmittedCrossCheck(r, submittedBlockLookup);
+      const booked = hasBookedAppointment(r);
+      const prioritySponsorshipNotBooked = submitted && !booked;
+      return {
+        id: r.id,
+        externalId: r.externalId || '',
+        name: r.name || '',
+        email: r.email || '',
+        phone: r.phone || '',
+        owner: r.owner || '',
+        stage: r.stage || '',
+        createdAt: r.createdAt || '',
+        releaseMode: r.releaseMode || 'live',
+        releaseStatus: r.releaseStatus || '',
+        manualHold: Boolean(r.manualHold),
+        responded: hasLeadResponded(r),
+        submitted,
+        booked,
+        prioritySponsorshipNotBooked,
+        releaseEligibleAt: r.releaseEligibleAt || ''
+      };
+    })
+    .sort((a, b) => {
+      if (a.prioritySponsorshipNotBooked !== b.prioritySponsorshipNotBooked) return a.prioritySponsorshipNotBooked ? -1 : 1;
+      return new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime();
+    })
+    .slice(0, 500);
 }
 
 function pickAutoBulkAgent(settings = {}, counts = {}, events = [], now = new Date()) {
@@ -1198,6 +1221,7 @@ function pickAutoBulkAgent(settings = {}, counts = {}, events = [], now = new Da
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const runRelease = clean(searchParams.get('runRelease')).toLowerCase() === '1';
+  const distributionMonthScope = clean(searchParams.get('distributionMonthScope')).toLowerCase() === 'previous' ? 'previous' : 'current';
 
   const settings = withDefaults(await loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS));
   const events = await loadJsonStore(EVENTS_PATH, []);
@@ -1317,7 +1341,8 @@ export async function GET(req) {
       responded: hasLeadResponded(r),
       formCompletedAt: r.formCompletedAt || ''
     }));
-  const weekUnsubmittedLeads = buildWeekUnsubmittedLeads(leads, submittedBlockLookup, new Date());
+  const weekUnsubmittedLeads = buildWeekUnsubmittedLeads(leads, submittedBlockLookup, new Date(), distributionMonthScope);
+  const distributionMonthKey = distributionMonthScope === 'previous' ? monthKeyWithOffset(new Date(), -1) : cstMonthKey(new Date());
 
   const tomorrowStartOrder = [...(settings.agents || [])]
     .filter((a) => a.active && !a.paused)
@@ -1336,7 +1361,7 @@ export async function GET(req) {
       yesterday: Number(yesterdayCounts[a.name] || 0)
     }));
 
-  return Response.json({ ok: true, settings, counts, recent, keys, tomorrowStartOrder, callMetrics, calledLeadRows, delayedQueue, weekUnsubmittedLeads, releaseRun, ghlSyncSummary });
+  return Response.json({ ok: true, settings, counts, recent, keys, tomorrowStartOrder, callMetrics, calledLeadRows, delayedQueue, weekUnsubmittedLeads, distributionMonthScope, distributionMonthKey, releaseRun, ghlSyncSummary });
 }
 
 export async function PATCH(req) {
@@ -1417,16 +1442,18 @@ export async function PATCH(req) {
     const leadIds = Array.isArray(body?.leadIds) ? body.leadIds.map((x) => clean(x)).filter(Boolean) : [];
     const leadIdSet = new Set(leadIds);
 
+    const distributionMonthScope = clean(body?.distributionMonthScope || '').toLowerCase() === 'previous' ? 'previous' : 'current';
+
     const keys = {
       dateKey: cstDateKey(now),
       weekKey: cstWeekKey(now),
       monthKey: cstMonthKey(now)
     };
-    const currentMonth = keys.monthKey;
+    const targetMonthKey = distributionMonthScope === 'previous' ? monthKeyWithOffset(now, -1) : keys.monthKey;
     const counts = buildAgentCounts(settings, events, keys);
 
     const candidates = (leads || [])
-      .filter((r) => cstMonthKeyFromIso(r?.createdAt || r?.updatedAt || '') === currentMonth)
+      .filter((r) => cstMonthKeyFromIso(r?.createdAt || r?.updatedAt || '') === targetMonthKey)
       .filter((r) => !hasSponsorshipFormSubmitted(r))
       .filter((r) => !hasLeadResponded(r))
       .filter((r) => !isBlockedBySubmittedCrossCheck(r, submittedBlockLookup))
@@ -1552,7 +1579,7 @@ export async function PATCH(req) {
       await saveJsonStore(EVENTS_PATH, trimmed);
     }
 
-    return Response.json({ ok: true, mode: 'bulk-release-week-unsubmitted', strategy, targetAgent: targetAgent || null, requestedLeadIds: leadIds.length, updated });
+    return Response.json({ ok: true, mode: 'bulk-release-week-unsubmitted', strategy, distributionMonthScope, distributionMonthKey: targetMonthKey, targetAgent: targetAgent || null, requestedLeadIds: leadIds.length, updated });
   }
 
   const current = withDefaults(await loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS));

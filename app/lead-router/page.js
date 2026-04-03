@@ -53,6 +53,8 @@ export default function LeadRouterPage() {
   const [delayedQueue, setDelayedQueue] = useState([]);
   const [weekUnsubmittedLeads, setWeekUnsubmittedLeads] = useState([]);
   const [weekReplyFilter, setWeekReplyFilter] = useState('all');
+  const [distributionMonthScope, setDistributionMonthScope] = useState('current');
+  const [distributionMonthKey, setDistributionMonthKey] = useState('');
   const [bulkTargetAgent, setBulkTargetAgent] = useState('');
   const [selectedWeekLeadIds, setSelectedWeekLeadIds] = useState([]);
   const [innerCircleNames, setInnerCircleNames] = useState([]);
@@ -75,7 +77,7 @@ export default function LeadRouterPage() {
   const [ghlSyncSummary, setGhlSyncSummary] = useState({ total: 0, success: 0, failed: 0, recentAttempts: [], recentFailures: [] });
 
   async function load() {
-    const res = await fetch('/api/lead-router?runRelease=1', { cache: 'no-store' });
+    const res = await fetch(`/api/lead-router?runRelease=1&distributionMonthScope=${encodeURIComponent(distributionMonthScope)}`, { cache: 'no-store' });
     const data = await res.json().catch(() => ({}));
     if (res.ok && data?.ok) {
       if (!isDirty) setSettings(data.settings);
@@ -88,6 +90,8 @@ export default function LeadRouterPage() {
       setDelayedQueue(data.delayedQueue || []);
       const weekRows = data.weekUnsubmittedLeads || [];
       setWeekUnsubmittedLeads(weekRows);
+      setDistributionMonthKey(String(data.distributionMonthKey || ''));
+      if (data.distributionMonthScope) setDistributionMonthScope(data.distributionMonthScope);
       setSelectedWeekLeadIds((prev) => {
         const valid = new Set(weekRows.map((r) => r.id));
         return prev.filter((id) => valid.has(id));
@@ -123,7 +127,7 @@ export default function LeadRouterPage() {
     load();
     const id = setInterval(load, 5 * 60 * 1000); // every 5 minutes
     return () => clearInterval(id);
-  }, []);
+  }, [distributionMonthScope]);
 
   async function savePatch(patch) {
     setSaving(true);
@@ -218,7 +222,8 @@ export default function LeadRouterPage() {
   async function bulkReleaseWeekUnsubmitted(strategy = 'auto', onlySelected = false) {
     const payload = {
       mode: 'bulk-release-week-unsubmitted',
-      strategy
+      strategy,
+      distributionMonthScope
     };
     if (strategy === 'agent') payload.targetAgent = bulkTargetAgent;
     if (onlySelected) payload.leadIds = selectedWeekLeadIds;
@@ -326,7 +331,7 @@ export default function LeadRouterPage() {
       const owner = clean(r?.owner || '').toLowerCase();
       const isUnknownOwner = !owner || owner === 'unknown' || owner.includes('unknown');
       const isKimoraOwner = owner === 'kimora link';
-      return !Boolean(r?.submitted) && !Boolean(r?.responded) && !isUnknownOwner && isKimoraOwner;
+      return !isUnknownOwner && isKimoraOwner;
     });
   }, [weekUnsubmittedLeads]);
 
@@ -334,6 +339,8 @@ export default function LeadRouterPage() {
     const all = weekUnsubmittedLeads || [];
     const replied = all.filter((r) => Boolean(r?.responded)).length;
     const submitted = all.filter((r) => Boolean(r?.submitted)).length;
+    const booked = all.filter((r) => Boolean(r?.booked)).length;
+    const prioritySponsorshipNotBooked = all.filter((r) => Boolean(r?.prioritySponsorshipNotBooked)).length;
     const unknownOwner = all.filter((r) => {
       const owner = clean(r?.owner || '').toLowerCase();
       return !owner || owner === 'unknown' || owner.includes('unknown');
@@ -347,6 +354,8 @@ export default function LeadRouterPage() {
       replied,
       notReplied: all.length - replied,
       submitted,
+      booked,
+      prioritySponsorshipNotBooked,
       unknownOwner,
       nonKimoraOwner,
       eligible: distributionEligibleLeads.length
@@ -355,6 +364,7 @@ export default function LeadRouterPage() {
 
   const filteredWeekUnsubmittedLeads = useMemo(() => {
     if (weekReplyFilter === 'not_replied') return distributionEligibleLeads.filter((r) => !Boolean(r?.responded));
+    if (weekReplyFilter === 'priority_sponsorship_not_booked') return distributionEligibleLeads.filter((r) => Boolean(r?.prioritySponsorshipNotBooked));
     return distributionEligibleLeads;
   }, [distributionEligibleLeads, weekReplyFilter]);
 
@@ -631,23 +641,49 @@ export default function LeadRouterPage() {
       </div>
 
       <div className="panel" style={{ marginBottom: 10 }}>
-        <h3 style={{ marginTop: 0 }}>This Month: Distribution Leads</h3>
-        <small className="muted" style={{ display: 'block', marginBottom: 8 }}>Showing only leads eligible for distribution (current owner Kimora Link only; submitted/in-house/unknown/non-Kimora removed).</small>
+        <h3 style={{ marginTop: 0 }}>Distribution Leads</h3>
+        <small className="muted" style={{ display: 'block', marginBottom: 8 }}>View current or previous month. Rows tagged <strong>Sponsorship Submitted • Not Booked</strong> are priority focus leads.</small>
         <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-          <span className="pill">Total this month: {weekReplyCounts.total}</span>
-          <span className="pill">Eligible to distribute: {weekReplyCounts.eligible}</span>
-          <span className="pill">Removed (Submitted): {weekReplyCounts.submitted}</span>
-          <span className="pill">Removed (In-house replied): {weekReplyCounts.replied}</span>
-          <span className="pill">Removed (Unknown owner/new): {weekReplyCounts.unknownOwner}</span>
-          <span className="pill">Removed (Not Kimora owner): {weekReplyCounts.nonKimoraOwner}</span>
+          <button
+            type="button"
+            className="ghost"
+            style={{ ...tinyBtn, background: distributionMonthScope === 'current' ? '#0f766e' : undefined, color: distributionMonthScope === 'current' ? '#fff' : undefined }}
+            onClick={() => {
+              setDistributionMonthScope('current');
+              setSelectedWeekLeadIds([]);
+            }}
+          >
+            Current Month
+          </button>
+          <button
+            type="button"
+            className="ghost"
+            style={{ ...tinyBtn, background: distributionMonthScope === 'previous' ? '#0f766e' : undefined, color: distributionMonthScope === 'previous' ? '#fff' : undefined }}
+            onClick={() => {
+              setDistributionMonthScope('previous');
+              setSelectedWeekLeadIds([]);
+            }}
+          >
+            Previous Month
+          </button>
+          <span className="pill">Scope: {distributionMonthKey || '—'}</span>
+          <span className="pill">Total in scope: {weekReplyCounts.total}</span>
+          <span className="pill">Kimora-owned in scope: {weekReplyCounts.eligible}</span>
+          <span className="pill onpace">Priority (Submitted, Not Booked): {weekReplyCounts.prioritySponsorshipNotBooked}</span>
+          <span className="pill">Submitted: {weekReplyCounts.submitted}</span>
+          <span className="pill">Booked: {weekReplyCounts.booked}</span>
+          <span className="pill">Replied: {weekReplyCounts.replied}</span>
+          <span className="pill">Unknown owner: {weekReplyCounts.unknownOwner}</span>
+          <span className="pill">Not Kimora owner: {weekReplyCounts.nonKimoraOwner}</span>
           <span className="pill">Selected: {selectedWeekLeadIds.length}</span>
           <button type="button" className="ghost" style={tinyBtn} onClick={selectAllWeekLeads} disabled={!filteredWeekUnsubmittedLeads.length}>Select Visible</button>
           <button type="button" className="ghost" style={tinyBtn} onClick={clearWeekLeadSelection} disabled={!selectedWeekLeadIds.length}>Clear Selection</button>
           <label>
             Reply Filter
             <select value={weekReplyFilter} onChange={(e) => setWeekReplyFilter(e.target.value)} style={{ marginLeft: 6 }}>
-              <option value="all">All eligible</option>
-              <option value="not_replied">Not replied (eligible)</option>
+              <option value="all">All Kimora-owned (scope)</option>
+              <option value="priority_sponsorship_not_booked">Priority: Sponsorship submitted, not booked</option>
+              <option value="not_replied">Not replied</option>
             </select>
           </label>
           <button type="button" style={tinyBtn} onClick={() => bulkReleaseWeekUnsubmitted('auto')} disabled={!filteredWeekUnsubmittedLeads.length}>Auto-Assign ALL</button>
@@ -679,7 +715,9 @@ export default function LeadRouterPage() {
               <th>Current Owner</th>
               <th>Created</th>
               <th>Stage</th>
+              <th>Priority</th>
               <th>Submitted</th>
+              <th>Booked</th>
               <th>Release Status</th>
               <th>Responded</th>
               <th>Manual Hold</th>
@@ -687,7 +725,7 @@ export default function LeadRouterPage() {
           </thead>
           <tbody>
             {(filteredWeekUnsubmittedLeads || []).slice(0, 250).map((r) => (
-              <tr key={r.id}>
+              <tr key={r.id} style={r.prioritySponsorshipNotBooked ? { background: '#fff7ed' } : undefined}>
                 <td>
                   <input
                     type="checkbox"
@@ -702,7 +740,9 @@ export default function LeadRouterPage() {
                 <td>{r.owner || '—'}</td>
                 <td>{fmt(r.createdAt)}</td>
                 <td>{r.stage || 'New'}</td>
+                <td>{r.prioritySponsorshipNotBooked ? 'Sponsorship Submitted • Not Booked' : '—'}</td>
                 <td>{r.submitted ? 'Yes' : 'No'}</td>
+                <td>{r.booked ? 'Yes' : 'No'}</td>
                 <td>{r.releaseStatus || '—'}</td>
                 <td>{r.responded ? 'Yes (in-house)' : 'No'}</td>
                 <td>
@@ -714,7 +754,7 @@ export default function LeadRouterPage() {
                 </td>
               </tr>
             ))}
-            {!(filteredWeekUnsubmittedLeads || []).length ? <tr><td colSpan={9} className="muted">No eligible distribution leads right now.</td></tr> : null}
+            {!(filteredWeekUnsubmittedLeads || []).length ? <tr><td colSpan={11} className="muted">No eligible distribution leads right now.</td></tr> : null}
           </tbody>
         </table>
       </div>
