@@ -101,7 +101,8 @@ export default function AppointmentSetterBackofficePage() {
 
   const loadData = useCallback(async () => {
     if (!session?.name) return;
-    const res = await fetch('/api/appointment-setter', { cache: 'no-store' });
+    const url = `/api/appointment-setter?actorName=${encodeURIComponent(session.name)}&actorRole=${encodeURIComponent(session.role || 'setter')}`;
+    const res = await fetch(url, { cache: 'no-store' });
     const data = await res.json().catch(() => ({}));
     if (res.ok && data?.ok) {
       setStore(data.store || null);
@@ -260,7 +261,7 @@ export default function AppointmentSetterBackofficePage() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data?.ok) {
-      setLoginError('Invalid login. Check name/password.');
+      setLoginError('Invalid login. Check login/password.');
       return;
     }
 
@@ -300,6 +301,18 @@ export default function AppointmentSetterBackofficePage() {
       voicemailLeft,
       status: voicemailLeft ? 'Voicemail Left' : outcome
     });
+  }
+
+  function scheduleLead(lead) {
+    if (!lead?.id) return;
+    setSelectedLeadId(lead.id);
+    setBookingAt((prev) => prev || new Date(Date.now() + 30 * 60000).toISOString().slice(0, 16));
+    setBookingNotes((prev) => prev || `Booked by ${session?.name || 'Setter'} from lead queue.`);
+    setTimeout(() => {
+      if (typeof window === 'undefined') return;
+      const el = document.getElementById('lead-workbench');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 20);
   }
 
   async function recommendAssign(lead) {
@@ -364,7 +377,7 @@ export default function AppointmentSetterBackofficePage() {
         <section style={{ width: 'min(460px, 100%)', border: '1px solid #334155', borderRadius: 16, background: 'rgba(15,23,42,0.86)', backdropFilter: 'blur(8px)', padding: 18, display: 'grid', gap: 10 }}>
           <h2 style={{ margin: 0 }}>The Legacy Link</h2>
           <p style={{ margin: 0, color: '#cbd5e1' }}>Appointment Setter Back Office</p>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" style={{ padding: '11px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Login (name or email)" style={{ padding: '11px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
           <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" style={{ padding: '11px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} onKeyDown={(e) => e.key === 'Enter' && login()} />
           <button onClick={login} style={{ padding: '11px 14px', borderRadius: 10, border: '1px solid #7c6330', background: 'linear-gradient(180deg,#d4af37,#8a6a18)', color: '#111827', fontWeight: 800 }}>Secure Login</button>
           <span style={{ display: 'none' }} />
@@ -476,6 +489,7 @@ export default function AppointmentSetterBackofficePage() {
                             <button onClick={() => quickCall(lead, 'Called')} style={btnMini}>Call</button>
                             <button onClick={() => quickCall(lead, 'No Answer')} style={btnMiniGhost}>No Answer</button>
                             <button onClick={() => quickCall(lead, 'Voicemail Left', true)} style={btnMiniGhost}>Voicemail</button>
+                            <button onClick={() => scheduleLead(lead)} style={btnMini}>Schedule</button>
                             <button onClick={() => setSelectedLeadId(lead.id)} style={btnMiniGhost}>Open</button>
                           </div>
                         </td>
@@ -681,7 +695,7 @@ export default function AppointmentSetterBackofficePage() {
         </section>
 
         {selectedLead ? (
-          <section style={{ border: '1px solid #24304a', borderRadius: 12, background: '#0a1225', padding: 10 }}>
+          <section id="lead-workbench" style={{ border: '1px solid #24304a', borderRadius: 12, background: '#0a1225', padding: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
               <div>
                 <strong style={{ fontSize: 16 }}>{selectedLead.fullName}</strong>

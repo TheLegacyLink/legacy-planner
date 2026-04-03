@@ -118,7 +118,8 @@ function parseIncoming(body = {}) {
     email,
     state,
     campaignSource,
-    productType
+    productType,
+    contactId: pick(body?.contactId, body?.contact_id, body?.id, c?.id, cf.contactid, cf.contact_id)
   };
 }
 
@@ -151,6 +152,7 @@ export async function POST(req) {
     const idx = leads.findIndex((l) => clean(l.id) === clean(existing.id));
     leads[idx] = {
       ...existing,
+      contactId: clean(existing?.contactId || parsed.contactId),
       campaignSource: clean(existing?.campaignSource || parsed.campaignSource),
       productType: clean(existing?.productType || parsed.productType),
       updatedAt: new Date().toISOString(),
@@ -165,6 +167,7 @@ export async function POST(req) {
     fullName: parsed.fullName,
     phone: parsed.phone,
     email: parsed.email,
+    contactId: parsed.contactId,
     state: parsed.state,
     campaignSource: parsed.campaignSource,
     productType: parsed.productType,

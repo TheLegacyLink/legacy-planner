@@ -44,6 +44,15 @@ const STATIC_SETTER_LOGINS = [
     passwordHash: 'f3a6378034f8bcf46b3fd0f64ce8f528519d56f2eff0e6e8306af27ce2c56f05',
     active: true,
     isStatic: true
+  },
+  {
+    name: 'Andrea Cannon',
+    email: 'andreadcannon@gmail.com',
+    aliases: ['andrea cannon', 'adriana cannon', 'adriana'],
+    role: 'setter',
+    passwordHash: 'f3a6378034f8bcf46b3fd0f64ce8f528519d56f2eff0e6e8306af27ce2c56f05',
+    active: true,
+    isStatic: true
   }
 ];
 

@@ -74,70 +74,138 @@ function buildAgentId(name = '') {
   return `agent_${slug || 'unknown'}`;
 }
 
+const REQUIRED_ASSIGNMENT_AGENT_ORDER = [
+  'Kelin Brown',
+  'Leticia Wright',
+  'Dr. Breanna James',
+  'Kimora Link',
+  'Donyell Richardson',
+  'Andrea Cannon'
+];
+
+const ASSIGNMENT_AGENT_ALIAS_TO_CANONICAL = {
+  kelinbrown: 'Kelin Brown',
+  kellynbrown: 'Kelin Brown',
+  calvinbrown: 'Kelin Brown',
+  leticiawright: 'Leticia Wright',
+  letitiawright: 'Leticia Wright',
+  latriciawright: 'Leticia Wright',
+  drbreannajames: 'Dr. Breanna James',
+  breannajames: 'Dr. Breanna James',
+  briannajames: 'Dr. Breanna James',
+  breannamichellejames: 'Dr. Breanna James',
+  kimoralink: 'Kimora Link',
+  kamoralink: 'Kimora Link',
+  donyellrichardson: 'Donyell Richardson',
+  darnellrichardson: 'Donyell Richardson',
+  andreacannon: 'Andrea Cannon',
+  adrianacannon: 'Andrea Cannon'
+};
+
+function canonicalAssignmentAgentName(name = '') {
+  const key = normalizeNameKey(name);
+  return ASSIGNMENT_AGENT_ALIAS_TO_CANONICAL[key] || '';
+}
+
 function shouldIncludeInnerCircleUser(u = {}) {
   const name = clean(u?.name || u?.fullName || '');
   if (!name) return false;
   const n = normalize(name);
   if (n.includes('test')) return false;
-  return true;
+  return Boolean(canonicalAssignmentAgentName(name));
+}
+
+function upsertByCanonical(map = new Map(), canonical = '', candidate = {}) {
+  if (!canonical) return;
+  const prev = map.get(canonical) || {};
+  const next = {
+    id: clean(prev?.id || candidate?.id || buildAgentId(canonical)),
+    name: canonical,
+    phone: clean(prev?.phone || candidate?.phone || '201-862-7040'),
+    email: clean(prev?.email || candidate?.email || 'support@thelegacylink.com').toLowerCase(),
+    licensedStates: Array.isArray(prev?.licensedStates) && prev.licensedStates.length
+      ? prev.licensedStates
+      : (Array.isArray(candidate?.licensedStates) && candidate.licensedStates.length ? candidate.licensedStates : statesForInnerCircleName(canonical)),
+    weeklyCapByState: { ...(prev?.weeklyCapByState || {}), ...(candidate?.weeklyCapByState || {}) },
+    active: candidate?.active === false && canonical !== 'Andrea Cannon' ? false : true,
+    unavailable: candidate?.unavailable === true && canonical !== 'Andrea Cannon'
+  };
+  map.set(canonical, next);
 }
 
 function syncAgentsWithInnerCircle(store = {}) {
-  const existing = Array.isArray(store?.agents) ? [...store.agents] : [];
-  const byName = new Map(existing.map((a, i) => [normalizeNameKey(a?.name), i]));
-  let changed = false;
+  const byCanonical = new Map();
+
+  for (const row of (Array.isArray(store?.agents) ? store.agents : [])) {
+    const canonical = canonicalAssignmentAgentName(row?.name || '');
+    if (!canonical) continue;
+    upsertByCanonical(byCanonical, canonical, row);
+  }
 
   for (const u of (innerCircleUsers || [])) {
     if (!shouldIncludeInnerCircleUser(u)) continue;
-    const name = clean(u?.name || u?.fullName || '');
-    const email = clean(u?.email || '').toLowerCase();
-    const key = normalizeNameKey(name);
-    if (!key) continue;
-
-    const derivedStates = statesForInnerCircleName(name);
-    const idx = byName.has(key) ? byName.get(key) : -1;
-    if (idx >= 0) {
-      const row = { ...existing[idx] };
-      if (!clean(row?.email) && email) row.email = email;
-      if (!Array.isArray(row?.licensedStates) || !row.licensedStates.length) row.licensedStates = derivedStates;
-      if (!clean(row?.phone)) row.phone = '201-862-7040';
-      row.active = row.active === false ? false : true;
-      row.unavailable = row.unavailable === true ? true : false;
-      existing[idx] = row;
-      continue;
-    }
-
-    existing.push({
-      id: buildAgentId(name),
-      name,
+    const canonical = canonicalAssignmentAgentName(u?.name || u?.fullName || '');
+    if (!canonical) continue;
+    upsertByCanonical(byCanonical, canonical, {
+      id: buildAgentId(canonical),
+      name: canonical,
       phone: '201-862-7040',
-      email,
-      licensedStates: derivedStates,
+      email: clean(u?.email || '').toLowerCase(),
+      licensedStates: statesForInnerCircleName(canonical),
       weeklyCapByState: {},
       active: u?.active !== false,
       unavailable: u?.active === false
     });
-    byName.set(key, existing.length - 1);
-    changed = true;
   }
 
-  // Force Kimora visibility in assignment board
-  const kimoraKey = normalizeNameKey('Kimora Link');
-  if (!byName.has(kimoraKey)) {
-    existing.push({
-      id: 'agent_kimora_link',
-      name: 'Kimora Link',
-      phone: '201-862-7040',
-      email: 'support@thelegacylink.com',
-      licensedStates: statesForInnerCircleName('Kimora Link'),
-      weeklyCapByState: {},
-      active: true,
-      unavailable: false
-    });
-    changed = true;
+  for (const canonical of REQUIRED_ASSIGNMENT_AGENT_ORDER) {
+    if (!byCanonical.has(canonical)) {
+      upsertByCanonical(byCanonical, canonical, {
+        id: buildAgentId(canonical),
+        name: canonical,
+        phone: '201-862-7040',
+        email: canonical === 'Kimora Link' ? 'support@thelegacylink.com' : '',
+        licensedStates: statesForInnerCircleName(canonical),
+        weeklyCapByState: {},
+        active: true,
+        unavailable: false
+      });
+    }
   }
 
-  return { agents: existing, changed };
+  const agents = REQUIRED_ASSIGNMENT_AGENT_ORDER
+    .map((name) => byCanonical.get(name))
+    .filter(Boolean)
+    .map((row) => ({
+      ...row,
+      id: clean(row?.id || buildAgentId(row?.name)),
+      name: clean(row?.name),
+      phone: clean(row?.phone || '201-862-7040'),
+      email: clean(row?.email || '').toLowerCase(),
+      licensedStates: [...new Set((Array.isArray(row?.licensedStates) ? row.licensedStates : []).map((s) => stateCodeFromAny(s)).filter(Boolean))].sort(),
+      weeklyCapByState: { ...(row?.weeklyCapByState || {}) },
+      active: row?.name === 'Andrea Cannon' ? true : row?.active !== false,
+      unavailable: row?.name === 'Andrea Cannon' ? false : row?.unavailable === true
+    }));
+
+  const prevJson = JSON.stringify((Array.isArray(store?.agents) ? store.agents : []).map((a) => ({
+    id: clean(a?.id),
+    name: clean(a?.name),
+    email: clean(a?.email).toLowerCase(),
+    active: a?.active !== false,
+    unavailable: a?.unavailable === true,
+    licensedStates: [...new Set((Array.isArray(a?.licensedStates) ? a.licensedStates : []).map((s) => stateCodeFromAny(s)).filter(Boolean))].sort()
+  })));
+  const nextJson = JSON.stringify(agents.map((a) => ({
+    id: clean(a?.id),
+    name: clean(a?.name),
+    email: clean(a?.email).toLowerCase(),
+    active: a?.active !== false,
+    unavailable: a?.unavailable === true,
+    licensedStates: [...new Set((Array.isArray(a?.licensedStates) ? a.licensedStates : []).map((s) => stateCodeFromAny(s)).filter(Boolean))].sort()
+  })));
+
+  return { agents, changed: prevJson !== nextJson };
 }
 
 function isKimoraActor(name = '') {
@@ -391,6 +459,73 @@ async function sendAssignmentSms({ agent = {}, lead = {} }) {
   }
 }
 
+function resolveGhlUserId(assignedToName = '') {
+  const raw = clean(process.env.GHL_USER_ID_MAP_JSON || '{}');
+  let map = {};
+  try { map = JSON.parse(raw || '{}'); } catch { map = {}; }
+  const direct = clean(map?.[assignedToName] || map?.[clean(assignedToName)] || '');
+  if (direct) return direct;
+  return clean(process.env.GHL_FALLBACK_USER_ID || '');
+}
+
+async function syncGhlOwnerForAppointmentSetterAssignment({ lead = {}, assignedTo = '' } = {}) {
+  const contactId = clean(lead?.contactId || lead?.ghlContactId || lead?.contact?.id || '');
+  const assignedUserId = resolveGhlUserId(assignedTo);
+  const token = clean(process.env.GHL_API_TOKEN || '');
+
+  if (!contactId) return { ok: false, skipped: true, reason: 'missing_contact_id' };
+  if (!assignedUserId) return { ok: false, skipped: true, reason: 'missing_assigned_user_id' };
+  if (!token) return { ok: false, skipped: true, reason: 'missing_ghl_api_token' };
+
+  const body = JSON.stringify({ assignedTo: assignedUserId });
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+    Version: '2021-07-28'
+  };
+
+  const bases = [
+    clean(process.env.GHL_API_BASE_URL || ''),
+    'https://services.leadconnectorhq.com',
+    'https://rest.gohighlevel.com'
+  ].filter(Boolean);
+
+  const paths = [
+    `/contacts/${encodeURIComponent(contactId)}`,
+    `/v1/contacts/${encodeURIComponent(contactId)}`
+  ];
+
+  let lastError = 'unknown';
+  for (const base of bases) {
+    for (const path of paths) {
+      const url = `${base.replace(/\/$/, '')}${path}`;
+      try {
+        const res = await fetch(url, { method: 'PUT', headers, body, cache: 'no-store' });
+        if (res.ok) return { ok: true, status: res.status, contactId, assignedUserId };
+        const text = await res.text().catch(() => '');
+        lastError = `${res.status} ${text.slice(0, 180)}`;
+      } catch (error) {
+        lastError = String(error?.message || error);
+      }
+    }
+  }
+
+  return { ok: false, skipped: false, reason: 'ghl_owner_update_failed', detail: clean(lastError), contactId, assignedUserId };
+}
+
+function isPrivilegedRole(role = '') {
+  const r = normalize(role);
+  return r === 'admin' || r === 'manager';
+}
+
+function canAccessLeadForActor(lead = {}, actorName = '', actorRole = '') {
+  if (isPrivilegedRole(actorRole)) return true;
+  const actor = normalize(actorName);
+  if (!actor) return false;
+  const assignedSetter = normalize(lead?.assignedSetter || '');
+  return !assignedSetter || assignedSetter === actor;
+}
+
 function currentWeekAssignments(leads = []) {
   const week = isoWeekKey(new Date());
   const rows = [];
@@ -489,16 +624,24 @@ export async function GET(req) {
   const store = await getStore();
   const { searchParams } = new URL(req.url);
   const includeRecommendation = clean(searchParams.get('recommendForLeadId'));
+  const actorName = clean(searchParams.get('actorName'));
+  const actorRole = clean(searchParams.get('actorRole'));
+
+  const filteredLeads = (store?.leads || []).filter((lead) => canAccessLeadForActor(lead, actorName, actorRole));
+  const scopedStore = {
+    ...store,
+    leads: filteredLeads
+  };
 
   let recommendation = null;
   if (includeRecommendation) {
-    const lead = (store.leads || []).find((l) => clean(l.id) === includeRecommendation);
-    if (lead) recommendation = recommendAgent(store, lead);
+    const lead = (scopedStore.leads || []).find((l) => clean(l.id) === includeRecommendation);
+    if (lead) recommendation = recommendAgent(scopedStore, lead);
   }
 
   return Response.json({
     ok: true,
-    store,
+    store: scopedStore,
     recommendation
   });
 }
@@ -524,6 +667,7 @@ export async function POST(req) {
       fullName: clean(body?.fullName || 'Unknown Lead'),
       phone: clean(body?.phone),
       email: clean(body?.email),
+      contactId: clean(body?.contactId || ''),
       state: stateCodeFromAny(body?.state || ''),
       campaignSource: clean(body?.campaignSource || 'Manual'),
       productType: clean(body?.productType || 'General'),
@@ -554,6 +698,9 @@ export async function POST(req) {
   }
 
   const current = idx >= 0 ? { ...leads[idx] } : null;
+  if (current && !canAccessLeadForActor(current, actorName, actorRole)) {
+    return Response.json({ ok: false, error: 'forbidden_lead_access' }, { status: 403 });
+  }
 
   if (action === 'update_status') {
     const status = clean(body?.status || 'New');
@@ -723,6 +870,7 @@ export async function POST(req) {
 
     const emailResult = await sendAssignmentEmail({ agent, lead: next, assignedBy: actorName });
     const smsResult = await sendAssignmentSms({ agent, lead: next });
+    const ghlOwnerSync = await syncGhlOwnerForAppointmentSetterAssignment({ lead: next, assignedTo: clean(agent?.name) });
 
     notifications.unshift({
       id: id('ntf'),
@@ -744,11 +892,23 @@ export async function POST(req) {
       emailStatus: emailResult?.ok ? 'sent' : 'failed',
       emailError: emailResult?.ok ? '' : clean(emailResult?.error),
       smsStatus: smsResult?.ok ? 'sent' : 'failed',
-      smsError: smsResult?.ok ? '' : clean(smsResult?.error)
+      smsError: smsResult?.ok ? '' : clean(smsResult?.error),
+      ghlSyncStatus: ghlOwnerSync?.ok ? 'sent' : (ghlOwnerSync?.skipped ? 'skipped' : 'failed'),
+      ghlSyncError: ghlOwnerSync?.ok ? '' : clean(ghlOwnerSync?.reason || ghlOwnerSync?.detail || '')
     });
 
     await saveJsonFile(STORE_PATH, { ...store, leads, notifications: notifications.slice(0, 250) });
-    return Response.json({ ok: true, lead: next, assignment, notificationQueued: true, assignmentEmail: emailResult?.ok ? 'sent' : 'failed', assignmentEmailError: emailResult?.ok ? '' : clean(emailResult?.error), assignmentSms: smsResult?.ok ? 'sent' : 'failed', assignmentSmsError: smsResult?.ok ? '' : clean(smsResult?.error) });
+    return Response.json({
+      ok: true,
+      lead: next,
+      assignment,
+      notificationQueued: true,
+      assignmentEmail: emailResult?.ok ? 'sent' : 'failed',
+      assignmentEmailError: emailResult?.ok ? '' : clean(emailResult?.error),
+      assignmentSms: smsResult?.ok ? 'sent' : 'failed',
+      assignmentSmsError: smsResult?.ok ? '' : clean(smsResult?.error),
+      ghlOwnerSync
+    });
   }
 
   if (action === 'recover_no_show') {
