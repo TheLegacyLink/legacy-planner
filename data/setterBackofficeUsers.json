@@ -19,5 +19,12 @@
     "role": "manager",
     "passwordHash": "dfb64fde14abfe8b7efcd8507815a2cc38235d5bef61bda4056a1b9a624fdebc",
     "active": true
+  },
+  {
+    "name": "Leticia Wright",
+    "email": "leticiawright05@gmail.com",
+    "role": "setter",
+    "passwordHash": "f3a6378034f8bcf46b3fd0f64ce8f528519d56f2eff0e6e8306af27ce2c56f05",
+    "active": true
   }
 ]
