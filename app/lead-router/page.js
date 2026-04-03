@@ -331,7 +331,7 @@ export default function LeadRouterPage() {
       const owner = clean(r?.owner || '').toLowerCase();
       const isUnknownOwner = !owner || owner === 'unknown' || owner.includes('unknown');
       const isKimoraOwner = owner === 'kimora link';
-      return !isUnknownOwner && isKimoraOwner;
+      return !isUnknownOwner && isKimoraOwner && !Boolean(r?.booked);
     });
   }, [weekUnsubmittedLeads]);
 
@@ -668,7 +668,7 @@ export default function LeadRouterPage() {
           </button>
           <span className="pill">Scope: {distributionMonthKey || '—'}</span>
           <span className="pill">Total in scope: {weekReplyCounts.total}</span>
-          <span className="pill">Kimora-owned in scope: {weekReplyCounts.eligible}</span>
+          <span className="pill">Kimora-owned, not booked: {weekReplyCounts.eligible}</span>
           <span className="pill onpace">Priority (Submitted, Not Booked): {weekReplyCounts.prioritySponsorshipNotBooked}</span>
           <span className="pill">Submitted: {weekReplyCounts.submitted}</span>
           <span className="pill">Booked: {weekReplyCounts.booked}</span>

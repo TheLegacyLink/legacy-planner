@@ -1454,12 +1454,10 @@ export async function PATCH(req) {
 
     const candidates = (leads || [])
       .filter((r) => cstMonthKeyFromIso(r?.createdAt || r?.updatedAt || '') === targetMonthKey)
-      .filter((r) => !hasSponsorshipFormSubmitted(r))
-      .filter((r) => !hasLeadResponded(r))
-      .filter((r) => !isBlockedBySubmittedCrossCheck(r, submittedBlockLookup))
       .filter((r) => !isUnknownOwnerLabel(r?.owner || ''))
       .filter((r) => isKimoraOwner(r?.owner || ''))
       .filter((r) => !Boolean(r?.manualHold))
+      .filter((r) => !hasBookedAppointment(r))
       .filter((r) => leadIdSet.size ? leadIdSet.has(clean(r?.id)) : true)
       .sort((a, b) => new Date(a?.createdAt || 0).getTime() - new Date(b?.createdAt || 0).getTime());
 
