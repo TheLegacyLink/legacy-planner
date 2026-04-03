@@ -1202,6 +1202,7 @@ export default function LicensedBackofficePage() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {[
             ['overview', 'Overview'],
+            ['tracker', 'Onboarding Tracker'],
             ['financials', 'Financials'],
             ['sponsorships', 'Sponsorships'],
             ['policies', 'Policies'],
@@ -1320,6 +1321,16 @@ export default function LicensedBackofficePage() {
             ) : null}
 
 
+
+            {tab === 'tracker' ? (
+              <div style={{ border: '1px solid #2A3142', borderRadius: 12, overflow: 'hidden', background: '#0F172A' }}>
+                <iframe
+                  title="Licensed Onboarding Tracker"
+                  src={`/licensed-onboarding-tracker?viewerName=${encodeURIComponent(session?.name || '')}&viewerEmail=${encodeURIComponent(session?.email || '')}&viewerRole=${encodeURIComponent(session?.role || 'agent')}`}
+                  style={{ width: '100%', minHeight: 1450, border: 0, background: '#020617' }}
+                />
+              </div>
+            ) : null}
 
             {tab === 'financials' && financials ? (
               <div style={{ display: 'grid', gap: 12 }}>

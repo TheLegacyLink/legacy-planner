@@ -1,8 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import licensedAgents from '../../data/licensedAgents.json';
+import CommunityServiceTab from './community-service-tab';
+import LinkBlendBuilderTab from './tools-link-blend-builder';
 
 const SESSION_KEY = 'inner_circle_hub_member_v1';
+const LINK_LEADS_SESSION_KEY = 'legacy_lead_marketplace_user_v1';
 const INNER_CIRCLE_DEFAULT_PASSWORD = 'InnerCircle#2026';
 
 function clean(v = '') { return String(v || '').trim(); }
@@ -30,6 +34,13 @@ function toNum(v = 0) {
   return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
 }
 
+function formatUsPhone(v = '') {
+  const digits = String(v || '').replace(/\D+/g, '');
+  const core = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
+  if (core.length !== 10) return clean(v);
+  return `${core.slice(0, 3)}-${core.slice(3, 6)}-${core.slice(6)}`;
+}
+
 function normName(v = '') {
   return clean(v).toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -39,6 +50,34 @@ function nameSig(v = '') {
   if (parts.length === 1) return parts[0];
   return `${parts[0]}_${parts[parts.length - 1]}`;
 }
+
+function slugify(v = '') {
+  return clean(v)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function licensedDisplayName(row = {}) {
+  const full = clean(row?.full_name || row?.name || '');
+  if (!full) return '';
+  if (!full.includes(',')) return full;
+  const [last, first] = full.split(',').map((x) => clean(x));
+  return clean(`${first} ${last}`);
+}
+
+const LICENSED_NAME_OVERRIDES = new Set([
+  'angelique lassiter',
+  'angelic lassiter',
+  'shannon maxwell'
+]);
+
+const INNER_CIRCLE_NAME_OVERRIDES = new Set([
+  'mahogany burn',
+  'mahogany burns',
+  'shannon maxwell'
+]);
+
 function rowTs(row = {}) {
   const raw = row?.approvedAt || row?.submittedAt || row?.updatedAt || row?.createdAt || row?.created_at || row?.approved_at || '';
   const t = new Date(raw || 0).getTime();
@@ -165,15 +204,25 @@ function inWindow(ts = 0, windowKey = 'all') {
 }
 function availableTabs(member = {}) {
   const modules = member?.modules || {};
+  const email = clean(member?.email || '').toLowerCase();
+  const isKimora = email === 'kimora@thelegacylink.com';
   const all = [
     { key: 'dashboard', label: 'The Lounge' },
     { key: 'faststart', label: 'Fast Start' },
-    { key: 'scripts', label: 'Script Vault' },
+    { key: 'growth', label: 'Growth Hub' },
+    { key: 'scripts2', label: 'Script Vault 2.0' },
     { key: 'execution', label: 'Daily Execution' },
     { key: 'vault', label: 'Resource Vault' },
+    { key: 'media', label: 'VIP Media Vault' },
     { key: 'tracker', label: 'KPI Tracker' },
+    { key: 'onboarding', label: 'Onboarding Tracker' },
     { key: 'production', label: 'My Production' },
+    { key: 'submitapp', label: 'Submit App' },
     { key: 'team', label: 'Team Tree' },
+    { key: 'community', label: 'Community Service' },
+    { key: 'incentives', label: 'Champions Circle' },
+    { key: 'tools', label: 'Tools' },
+    ...(isKimora ? [{ key: 'contracts', label: 'Contract Queue' }] : []),
     { key: 'rewards', label: 'VIP Rewards' },
     { key: 'academy', label: 'IUL Academy' },
     { key: 'awards', label: 'Achievement Center' },
@@ -230,22 +279,41 @@ export default function InnerCircleHubPage() {
   const [activityType, setActivityType] = useState('all');
   const [activityRows, setActivityRows] = useState([]);
   const [policyRows, setPolicyRows] = useState([]);
+  const [sponsorshipRows, setSponsorshipRows] = useState([]);
+  const [leadClaimRows, setLeadClaimRows] = useState([]);
   const [onboardingDecisionRows, setOnboardingDecisionRows] = useState([]);
   const [teamHierarchyRows, setTeamHierarchyRows] = useState([]);
   const [teamExpanded, setTeamExpanded] = useState({});
   const [hubMembers, setHubMembers] = useState([]);
+  const [startIntakeRows, setStartIntakeRows] = useState([]);
+  const [startIntakeLoading, setStartIntakeLoading] = useState(false);
+  const [startIntakeFilter, setStartIntakeFilter] = useState('pending');
+  const [startIntakeSearch, setStartIntakeSearch] = useState('');
+  const [startIntakeNotice, setStartIntakeNotice] = useState('');
+  const [startIntakeCheckingId, setStartIntakeCheckingId] = useState('');
+  const [activityDetail, setActivityDetail] = useState(null);
+  const [mediaItems, setMediaItems] = useState([]);
+  const [mediaProgress, setMediaProgress] = useState({});
+  const [mediaFilter, setMediaFilter] = useState('all');
+  const [mediaNotice, setMediaNotice] = useState('');
+  const [mediaForm, setMediaForm] = useState({ id: '', type: 'video', title: '', description: '', url: '', tag: 'inner-circle', featured: false, required: false, sortOrder: 100 });
+  const [mediaCommentDrafts, setMediaCommentDrafts] = useState({});
   const [assignParentByChild, setAssignParentByChild] = useState({});
   const [assigningChildKey, setAssigningChildKey] = useState('');
   const [moveSearch, setMoveSearch] = useState('');
   const [bulkParentKey, setBulkParentKey] = useState('');
   const [bulkMoveMap, setBulkMoveMap] = useState({});
   const [bulkMoving, setBulkMoving] = useState(false);
+  const [bulkRemoving, setBulkRemoving] = useState(false);
+  const [removingChildKey, setRemovingChildKey] = useState('');
   const [undoingMove, setUndoingMove] = useState(false);
   const [teamParentSearch, setTeamParentSearch] = useState('');
+  const [moveParentSearch, setMoveParentSearch] = useState('');
   const [teamAssignNotice, setTeamAssignNotice] = useState('');
   const [productionFilter, setProductionFilter] = useState('all');
   const [productionWindow, setProductionWindow] = useState('month');
   const [pointsHistoryOpen, setPointsHistoryOpen] = useState(false);
+  const [pendingBreakdownOpen, setPendingBreakdownOpen] = useState(false);
   const [activitySummary, setActivitySummary] = useState({ submitted: 0, approved: 0, declined: 0, booked: 0, fng: 0, completed: 0 });
   const [activityStats, setActivityStats] = useState({
     daily: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 },
@@ -266,6 +334,9 @@ export default function InnerCircleHubPage() {
       updateTracker: false
     }
   });
+  const [incomePlanner, setIncomePlanner] = useState({
+    monthlyGoal: '5000'
+  });
   const [savingTracker, setSavingTracker] = useState(false);
   const [copiedKey, setCopiedKey] = useState('');
 
@@ -273,10 +344,72 @@ export default function InnerCircleHubPage() {
   const unlocked = gate.active;
   const tabs = useMemo(() => availableTabs(member || {}), [member]);
 
+  const leadMarketplaceHref = useMemo(() => {
+    const params = new URLSearchParams();
+    const displayName = clean(member?.applicantName || member?.name || '');
+    const email = clean(member?.email || '');
+    const npn = clean(member?.npnId || member?.npn || member?.agentNpn || '').replace(/\D/g, '');
+    const statesRaw = Array.isArray(member?.licensedStates)
+      ? member.licensedStates
+      : String(member?.licensedStates || member?.licensedState || member?.state || '').split(',');
+    const states = statesRaw.map((s) => clean(s)).filter(Boolean);
+
+    if (displayName) params.set('name', displayName);
+    if (email) params.set('email', email);
+    if (npn) params.set('npn', npn);
+    if (states.length) params.set('states', states.join(','));
+    params.set('role', 'agent');
+
+    return `/linkleads/order-builder${params.toString() ? `?${params.toString()}` : ''}`;
+  }, [member]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const name = clean(member?.applicantName || member?.name || '');
+    const email = clean(member?.email || '');
+    if (!name && !email) return;
+    try {
+      window.sessionStorage.setItem(
+        LINK_LEADS_SESSION_KEY,
+        JSON.stringify({
+          name: name || email,
+          email,
+          role: 'agent'
+        })
+      );
+    } catch {}
+  }, [member?.applicantName, member?.name, member?.email]);
+
   const filteredScripts = useMemo(() => {
     if (scriptFilter === 'all') return scripts;
     return (scripts || []).filter((s) => clean(s?.category).toLowerCase() === scriptFilter);
   }, [scripts, scriptFilter]);
+
+  const filteredStartIntakeRows = useMemo(() => {
+    const q = clean(startIntakeSearch).toLowerCase();
+    let rows = Array.isArray(startIntakeRows) ? [...startIntakeRows] : [];
+    if (startIntakeFilter === 'pending') rows = rows.filter((r) => clean(r?.contractStatus).toLowerCase() !== 'signed');
+    if (startIntakeFilter === 'signed') rows = rows.filter((r) => clean(r?.contractStatus).toLowerCase() === 'signed');
+    if (q) {
+      rows = rows.filter((r) => {
+        const n = clean(`${r?.firstName || ''} ${r?.lastName || ''}`).toLowerCase();
+        const e = clean(r?.email || '').toLowerCase();
+        const p = clean(r?.phone || '').toLowerCase();
+        return n.includes(q) || e.includes(q) || p.includes(q);
+      });
+    }
+    return rows;
+  }, [startIntakeRows, startIntakeFilter, startIntakeSearch]);
+
+  const filteredMediaItems = useMemo(() => {
+    const all = Array.isArray(mediaItems) ? mediaItems : [];
+    if (mediaFilter === 'all') return all;
+    return all.filter((i) => clean(i?.type).toLowerCase() === mediaFilter);
+  }, [mediaItems, mediaFilter]);
+
+  const featuredMediaItems = useMemo(() => {
+    return (Array.isArray(mediaItems) ? mediaItems : []).filter((i) => Boolean(i?.featured));
+  }, [mediaItems]);
 
   const checklistDoneCount = useMemo(() => {
     const c = tracker?.checklist || {};
@@ -529,6 +662,68 @@ export default function InnerCircleHubPage() {
     });
   }, [onboardingDecisionRows, member?.applicantName, member?.name, member?.email]);
 
+  const teamIdentityMeta = useMemo(() => {
+    const rows = Array.isArray(teamHierarchyRows) ? teamHierarchyRows : [];
+    const map = new Map();
+    if (!rows.length) return map;
+
+    const licensedEmailSet = new Set();
+    const licensedNameSigSet = new Set();
+
+    for (const a of (Array.isArray(licensedAgents) ? licensedAgents : [])) {
+      const status = clean(a?.license_status || 'active').toLowerCase();
+      if (status && !(status.includes('active') || status.includes('licensed'))) continue;
+      const em = clean(a?.email || '').toLowerCase();
+      const nm = licensedDisplayName(a);
+      if (em) licensedEmailSet.add(em);
+      if (nm) licensedNameSigSet.add(nameSig(nm));
+    }
+
+    const innerCircleEmailSet = new Set();
+    const innerCircleNameSigSet = new Set();
+    for (const m of (Array.isArray(hubMembers) ? hubMembers : [])) {
+      if (m?.active === false) continue;
+      const n = clean(m?.applicantName || m?.name || '');
+      const e = clean(m?.email || '').toLowerCase();
+      if (e) innerCircleEmailSet.add(e);
+      if (n) innerCircleNameSigSet.add(nameSig(n));
+    }
+
+    for (const r of rows) {
+      const childKey = clean(r?.childKey || '');
+      const childName = clean(r?.childName || '');
+      const childEmail = clean(r?.childEmail || '').toLowerCase();
+      const childNorm = normName(childName);
+
+      const matchedMember = (Array.isArray(hubMembers) ? hubMembers : []).find((m) => {
+        const em = clean(m?.email || '').toLowerCase();
+        const nm = clean(m?.applicantName || m?.name || '');
+        return (childEmail && em && childEmail === em) || (childNorm && nameSig(nm) === nameSig(childName));
+      }) || null;
+      const childPhone = clean(matchedMember?.phone || '');
+
+      const licenseEvidence = (policyRows || [])
+        .filter((p) => {
+          const applicantName = normName(p?.applicantName || '');
+          const applicantEmail = clean(p?.applicantEmail || '').toLowerCase();
+          return (childEmail && applicantEmail && childEmail === applicantEmail) || (childNorm && applicantName === childNorm);
+        })
+        .sort((a, b) => rowTs(b) - rowTs(a));
+
+      const latestLicenseRaw = clean(licenseEvidence[0]?.applicantLicensedStatus || licenseEvidence[0]?.agentLicensedStatus || '');
+      const fromPolicy = normalizeLicenseFlag(latestLicenseRaw);
+      const fromRoster = (childEmail && licensedEmailSet.has(childEmail)) || licensedNameSigSet.has(nameSig(childName));
+      const fromLicensedOverride = LICENSED_NAME_OVERRIDES.has(normName(childName));
+
+      const licenseTag = (fromRoster || fromLicensedOverride) ? 'licensed' : fromPolicy;
+      const isInnerCircle = (childEmail && innerCircleEmailSet.has(childEmail)) || innerCircleNameSigSet.has(nameSig(childName)) || INNER_CIRCLE_NAME_OVERRIDES.has(normName(childName));
+
+      map.set(childKey || `${childName}|${childEmail}`, { licenseTag, isInnerCircle, childPhone });
+    }
+
+    return map;
+  }, [teamHierarchyRows, hubMembers, policyRows]);
+
   const teamCards = useMemo(() => {
     const makeKey = (name = '', email = '') => {
       const em = clean(email).toLowerCase();
@@ -577,28 +772,20 @@ export default function InnerCircleHubPage() {
         })
         .sort((a, b) => rowTs(b) - rowTs(a));
 
-      const licenseEvidence = (policyRows || [])
-        .filter((p) => {
-          const applicantName = normName(p?.applicantName || '');
-          const applicantEmail = clean(p?.applicantEmail || '').toLowerCase();
-          return (childEmail && applicantEmail && childEmail === applicantEmail) || (childNorm && applicantName === childNorm);
-        })
-        .sort((a, b) => rowTs(b) - rowTs(a));
-      const latestLicenseRaw = clean(licenseEvidence[0]?.applicantLicensedStatus || licenseEvidence[0]?.agentLicensedStatus || '');
-      const licenseTag = normalizeLicenseFlag(latestLicenseRaw);
+      const meta = teamIdentityMeta.get(clean(r?.childKey || '')) || teamIdentityMeta.get(`${childName}|${childEmail}`) || {};
+      const licenseTag = clean(meta?.licenseTag || '');
+      const isInnerCircle = Boolean(meta?.isInnerCircle);
 
       const submitted30 = activity.filter((a) => inDays(rowTs(a), 30)).length;
       const submitted7 = activity.filter((a) => inDays(rowTs(a), 7)).length;
       const latest = activity[0] || null;
       const latestType = latest ? normalizePolicyTypeLabel(latest?.policyType || latest?.appType || 'App') : 'No app yet';
       const descendants = countDescendants(clean(r?.childKey));
-      const coachRating = Number(r?.rating || 0) || 0;
 
       const score = Math.min(100,
         (submitted30 * 15)
         + (submitted7 > 0 ? 20 : 0)
         + Math.min(20, descendants * 5)
-        + (coachRating * 8)
       );
 
       const momentumLabel = score >= 70 ? 'Lean In' : score >= 35 ? 'Build' : 'Reconnect';
@@ -611,15 +798,64 @@ export default function InnerCircleHubPage() {
         latestType,
         latestAt: latest ? (latest?.submittedAt || latest?.updatedAt || latest?.createdAt || '') : '',
         descendants,
-        coachRating,
+        childPhone: formatUsPhone(meta?.childPhone || ''),
         score,
         momentumLabel,
-        licenseTag
+        licenseTag,
+        isInnerCircle
       };
     });
 
     return cards.sort((a, b) => b.score - a.score || b.submitted30 - a.submitted30 || a.childName.localeCompare(b.childName));
-  }, [teamHierarchyRows, policyRows, member?.applicantName, member?.name, member?.email]);
+  }, [teamHierarchyRows, policyRows, teamIdentityMeta, member?.applicantName, member?.name, member?.email]);
+
+  const loungeTeamSnapshotRows = useMemo(() => {
+    const norm = (v = '') => clean(v).toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const ts = (v = '') => {
+      const t = Date.parse(v || '');
+      return Number.isNaN(t) ? 0 : t;
+    };
+
+    return (teamCards || []).map((card) => {
+      const name = clean(card?.childName || '');
+      const email = clean(card?.childEmail || '').toLowerCase();
+      const nameNorm = norm(name);
+
+      const apps = (sponsorshipRows || [])
+        .filter((r) => {
+          const re = clean(r?.email || '').toLowerCase();
+          const rn = norm(`${r?.firstName || ''} ${r?.lastName || ''}`);
+          return (email && re && email === re) || (nameNorm && rn === nameNorm);
+        })
+        .sort((a, b) => ts(b?.submitted_at || b?.updatedAt) - ts(a?.submitted_at || a?.updatedAt));
+
+      const latestApp = apps[0] || null;
+      const sponsorshipCompletedAt = clean(latestApp?.submitted_at || '');
+      const approvalAt = clean(latestApp?.approved_at || '');
+      const state = clean(latestApp?.state || '');
+
+      const claims = (leadClaimRows || [])
+        .filter((r) => {
+          const re = clean(r?.applicant_email || '').toLowerCase();
+          const rn = norm(r?.applicant_name || `${r?.applicant_first_name || ''} ${r?.applicant_last_name || ''}`);
+          return (email && re && email === re) || (nameNorm && rn === nameNorm);
+        })
+        .sort((a, b) => ts(b?.updated_at || b?.created_at) - ts(a?.updated_at || a?.created_at));
+
+      const latestClaim = claims[0] || null;
+      const scheduledAt = clean(latestClaim?.requested_at_est || '');
+      const hasMeetingScheduled = Boolean(scheduledAt);
+
+      return {
+        ...card,
+        sponsorshipCompletedAt,
+        approvalAt,
+        state: state || clean(latestClaim?.applicant_state || ''),
+        hasMeetingScheduled,
+        scheduledAt,
+      };
+    });
+  }, [teamCards, sponsorshipRows, leadClaimRows]);
 
   const teamAdminData = useMemo(() => {
     const makeKey = (name = '', email = '') => {
@@ -679,6 +915,17 @@ export default function InnerCircleHubPage() {
       return n.includes(q) || e.includes(q);
     });
   }, [teamAdminData, teamParentSearch]);
+
+  const filteredMoveParentOptions = useMemo(() => {
+    const q = clean(moveParentSearch).toLowerCase();
+    const all = teamAdminData?.options || [];
+    if (!q) return all;
+    return all.filter((o) => {
+      const n = clean(o?.name).toLowerCase();
+      const e = clean(o?.email).toLowerCase();
+      return n.includes(q) || e.includes(q);
+    });
+  }, [teamAdminData, moveParentSearch]);
 
   const teamManageRows = useMemo(() => {
     const options = teamAdminData?.options || [];
@@ -746,16 +993,23 @@ export default function InnerCircleHubPage() {
       const payoutStatus = clean(r?.payoutStatus || '').toLowerCase();
       const paid = payoutStatus === 'paid' || Boolean(paidAt);
       const approved = isApprovedStatus(r?.status || '');
+      const deliveryRequired = Boolean(r?.deliveryRequirementNeeded) || clean(r?.deliveryRequirementStatus || '').toLowerCase() === 'required';
+      const deliveryCompleted = clean(r?.deliveryRequirementStatus || '').toLowerCase() === 'completed';
       const fgNlg = isFgNlgRow(r);
       const points = Number((r?.__effectivePoints ?? computeEffectivePoints(r)) || 0);
       const amount = Number((r?.__effectiveAdvance ?? computeEffectiveAdvance(r, points)) || 0);
       const expectedPayoutAt = clean(r?.payoutDueAt || (approved && fgNlg ? followingWeekFridayIso(approvedAt || submittedAt) : (approvedAt ? new Date(new Date(approvedAt).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() : '')));
+      const pendingStage = paid
+        ? 'paid'
+        : ((deliveryRequired && !deliveryCompleted) ? 'delivery_requirement' : 'pending');
+
       return {
         id: clean(r?.id || `prod_${i}`),
         applicant: clean(r?.applicantName || 'Applicant'),
         policyType: clean(r?.policyType || r?.appType || ''),
         sourceType,
         status: paid ? 'paid' : 'pending',
+        pendingStage,
         amount,
         points,
         approved,
@@ -763,7 +1017,10 @@ export default function InnerCircleHubPage() {
         submittedAt,
         qualifiedAt: approvedAt,
         paidAt,
-        expectedPayoutAt
+        expectedPayoutAt,
+        deliveryRequirementNeeded: deliveryRequired,
+        deliveryRequirementStatus: clean(r?.deliveryRequirementStatus || (deliveryRequired ? 'required' : 'none')),
+        deliveryRequirementNote: clean(r?.deliveryRequirementNote || '')
       };
     });
 
@@ -777,7 +1034,8 @@ export default function InnerCircleHubPage() {
     };
 
     const thisMonthPaid = events.filter((e) => e.status === 'paid' && isThisMonth(e.paidAt || e.qualifiedAt)).reduce((a, e) => a + e.amount, 0);
-    const thisMonthPending = events.filter((e) => e.status === 'pending' && isThisMonth(e.qualifiedAt || e.submittedAt)).reduce((a, e) => a + e.amount, 0);
+    const thisMonthPendingEntries = events.filter((e) => e.status === 'pending' && isThisMonth(e.qualifiedAt || e.submittedAt));
+    const thisMonthPending = thisMonthPendingEntries.reduce((a, e) => a + e.amount, 0);
 
     const byMonth = new Map();
     for (const e of events) {
@@ -857,6 +1115,7 @@ export default function InnerCircleHubPage() {
       allTimePending,
       thisMonthPaid,
       thisMonthPending,
+      thisMonthPendingEntries,
       trend,
       sourceTotals,
       sourceSum,
@@ -889,6 +1148,99 @@ export default function InnerCircleHubPage() {
       total: Number(productionFinancials?.monthlyIncentiveAmount || 0)
     };
   }, [productionFinancials]);
+
+  const trackerUpcomingSummary = useMemo(() => {
+    const upcoming = Array.isArray(productionFinancials?.upcoming) ? productionFinancials.upcoming : [];
+    const now = new Date();
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const endToday = startToday + (24 * 60 * 60 * 1000) - 1;
+    const endNext7 = startToday + (7 * 24 * 60 * 60 * 1000);
+
+    let dueToday = 0;
+    let dueNext7 = 0;
+    let delayedByDelivery = 0;
+    for (const e of upcoming) {
+      if (e?.pendingStage === 'delivery_requirement') delayedByDelivery += 1;
+      const dueTs = new Date(e?.expectedPayoutAt || e?.qualifiedAt || e?.submittedAt || 0).getTime();
+      if (!Number.isFinite(dueTs)) continue;
+      if (dueTs >= startToday && dueTs <= endToday) dueToday += 1;
+      if (dueTs >= startToday && dueTs <= endNext7) dueNext7 += 1;
+    }
+
+    return { dueToday, dueNext7, delayedByDelivery };
+  }, [productionFinancials]);
+
+  const pendingBreakdown = useMemo(() => {
+    const entries = Array.isArray(productionFinancials?.thisMonthPendingEntries) ? productionFinancials.thisMonthPendingEntries : [];
+
+    const sponsorshipPoliciesCount = entries.filter((e) => e?.sourceType === 'sponsorship').length;
+    const applicationsWrittenCount = entries.filter((e) => e?.sourceType !== 'sponsorship').length;
+
+    const policyApprovals = entries
+      .filter((e) => e?.sourceType !== 'sponsorship' && Boolean(e?.approved))
+      .sort((a, b) => new Date(a?.expectedPayoutAt || a?.qualifiedAt || a?.submittedAt || 0).getTime() - new Date(b?.expectedPayoutAt || b?.qualifiedAt || b?.submittedAt || 0).getTime());
+
+    return {
+      sponsorshipPoliciesCount,
+      applicationsWrittenCount,
+      policyApprovals
+    };
+  }, [productionFinancials]);
+
+  const incomePlannerStats = useMemo(() => {
+    const MONTH_WEEKS = 4.333;
+    const REFERRAL_PAYOUT = 500;
+
+    const monthlyGoal = toNum(incomePlanner?.monthlyGoal || 0);
+    const requiredMonthlyConversations = monthlyGoal > 0 ? Math.ceil(monthlyGoal / 150) : 0;
+    const requiredWeeklyConversations = requiredMonthlyConversations > 0 ? Math.ceil(requiredMonthlyConversations / MONTH_WEEKS) : 0;
+
+    const targetInterested = Math.ceil(requiredWeeklyConversations * 0.8);
+    const targetMoveForward = Math.ceil(targetInterested * 0.75);
+    const targetBooked = Math.ceil(targetMoveForward * 0.667);
+    const targetShowed = Math.ceil(targetBooked * 0.75);
+    const targetPaidReferrals = targetShowed;
+
+    const targetWeeklyRevenue = targetPaidReferrals * REFERRAL_PAYOUT;
+    const monthlyProjectedRevenue = Math.round(targetWeeklyRevenue * MONTH_WEEKS);
+    const annualProjectedRevenue = monthlyProjectedRevenue * 12;
+
+    const expectedPayoutStartIso = followingWeekFridayIso(new Date().toISOString());
+    const expectedPayoutEndIso = followingWeekFridayIso(new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)).toISOString());
+
+    const coaching = [];
+    if (requiredWeeklyConversations > 0) {
+      coaching.push(`To hit ${monthlyGoal.toLocaleString()} monthly, target at least ${requiredWeeklyConversations} conversations per week.`);
+      coaching.push(`Daily pace target: ${Math.ceil(requiredWeeklyConversations / 7)} conversation(s) per day minimum.`);
+      coaching.push('Protect your show rate with same-day reminder + 2-hour confirmation touch.');
+    } else {
+      coaching.push('Set a monthly income goal to auto-build your weekly execution targets.');
+    }
+
+    return {
+      monthlyGoal,
+      requiredMonthlyConversations,
+      requiredWeeklyConversations,
+      target: {
+        interested: targetInterested,
+        moveForward: targetMoveForward,
+        booked: targetBooked,
+        showed: targetShowed,
+        paidReferrals: targetPaidReferrals,
+        weeklyRevenue: targetWeeklyRevenue
+      },
+      projections: {
+        monthly: monthlyProjectedRevenue,
+        annual: annualProjectedRevenue
+      },
+      payoutLag: {
+        expectedEarned: targetWeeklyRevenue,
+        windowStart: expectedPayoutStartIso,
+        windowEnd: expectedPayoutEndIso
+      },
+      coaching
+    };
+  }, [incomePlanner]);
 
   const periodTotals = useMemo(() => {
     const key = trackerPeriod === 'weekly' ? 'weekly' : trackerPeriod === 'monthly' ? 'monthly' : 'daily';
@@ -941,6 +1293,13 @@ export default function InnerCircleHubPage() {
     return base.includes('?') ? `${base}&ref=${ref}` : `${base}?ref=${ref}`;
   }, [member?.email, member?.id, siteBase, toAbsoluteLink]);
 
+  const personalCoverageLink = useMemo(() => {
+    const configured = clean(process.env.NEXT_PUBLIC_COVERAGE_LINK_BASE || 'https://coverage.thelegacylink.com/life-insurance');
+    const base = toAbsoluteLink(configured).replace(/\/$/, '');
+    const slug = slugify(member?.applicantName || member?.name || member?.email?.split('@')?.[0] || 'member') || 'member';
+    return `${base}/${slug}`;
+  }, [member?.applicantName, member?.name, member?.email, toAbsoluteLink]);
+
   const onboardingPlaybookUrl = useMemo(() => {
     return process.env.NEXT_PUBLIC_INNER_CIRCLE_PLAYBOOK_URL || '/docs/inner-circle/legacy-link-inner-circle-onboarding-playbook-v3.pdf';
   }, []);
@@ -967,17 +1326,22 @@ export default function InnerCircleHubPage() {
   }, [toAbsoluteLink]);
 
   const contractLinks = useMemo(() => {
+    const agentGatewayUrl = toAbsoluteLink(process.env.NEXT_PUBLIC_AGENT_GATEWAY_URL || '/start');
     return [
       {
         name: 'Contract Agreement Page',
         url: toAbsoluteLink('/contract-agreement')
+      },
+      {
+        name: 'Agent Gateway (Licensed / Unlicensed)',
+        url: agentGatewayUrl
       }
     ];
   }, [toAbsoluteLink]);
 
   const sponsorshipSubmissionsCount = Number(activitySummary?.submitted || 0) || 0;
   const isAdminUser = ['admin', 'manager'].includes(clean(member?.role || '').toLowerCase());
-  const canManageHierarchy = ['kimora@thelegacylink.com', 'investalinkinsurance@gmail.com'].includes(clean(member?.email || '').toLowerCase());
+  const canManageHierarchy = clean(member?.email || '').toLowerCase() === 'kimora@thelegacylink.com';
 
   const vipPdfLinks = useMemo(() => {
     const pathwaysLocked = !isAdminUser && sponsorshipSubmissionsCount < 10;
@@ -1019,7 +1383,10 @@ export default function InnerCircleHubPage() {
         const onboardingUrl = `/api/onboarding-decisions?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}`;
         const teamUrl = `/api/team-hierarchy?viewerName=${encodeURIComponent(member?.applicantName || member?.name || '')}&viewerEmail=${encodeURIComponent(member?.email || '')}`;
 
-        const [kpiRes, dailyRes, scriptsRes, vaultRes, activityRes, progressRes, policiesRes, onboardingRes, teamRes, membersRes] = await Promise.all([
+        const leadClaimsUrl = `/api/lead-claims?viewer=${encodeURIComponent(member?.applicantName || member?.name || '')}`;
+        const mediaUrl = `/api/inner-circle-media-vault?email=${encodeURIComponent(member?.email || '')}&name=${encodeURIComponent(member?.applicantName || member?.name || '')}`;
+
+        const [kpiRes, dailyRes, scriptsRes, vaultRes, activityRes, progressRes, policiesRes, sponsorshipRes, leadClaimsRes, mediaRes, onboardingRes, teamRes, membersRes] = await Promise.all([
           fetch(kpiUrl, { cache: 'no-store' }),
           fetch(dailyUrl, { cache: 'no-store' }),
           fetch('/api/inner-circle-hub-scripts', { cache: 'no-store' }),
@@ -1027,6 +1394,9 @@ export default function InnerCircleHubPage() {
           fetch(activityUrl, { cache: 'no-store' }),
           fetch('/api/inner-circle-hub-progress', { cache: 'no-store' }),
           fetch('/api/policy-submissions', { cache: 'no-store' }),
+          fetch('/api/sponsorship-applications', { cache: 'no-store' }),
+          fetch(leadClaimsUrl, { cache: 'no-store' }),
+          fetch(mediaUrl, { cache: 'no-store' }),
           fetch(onboardingUrl, { cache: 'no-store' }),
           fetch(teamUrl, { cache: 'no-store' }),
           fetch('/api/inner-circle-hub-members', { cache: 'no-store' })
@@ -1039,11 +1409,34 @@ export default function InnerCircleHubPage() {
         const activityData = await activityRes.json().catch(() => ({}));
         const progressData = await progressRes.json().catch(() => ({}));
         const policiesData = await policiesRes.json().catch(() => ({}));
+        const sponsorshipData = await sponsorshipRes.json().catch(() => ({}));
+        const leadClaimsData = await leadClaimsRes.json().catch(() => ({}));
+        const mediaData = await mediaRes.json().catch(() => ({}));
         const onboardingData = await onboardingRes.json().catch(() => ({}));
         const teamData = await teamRes.json().catch(() => ({}));
         const membersData = await membersRes.json().catch(() => ({}));
 
-        if (!canceled && kpiRes.ok && kpiData?.ok) setKpi(kpiData.kpi || null);
+        if (!canceled && kpiRes.ok && kpiData?.ok) {
+          let nextKpi = kpiData.kpi || null;
+          const maybeKimora = ['kimora@thelegacylink.com', 'investalinkinsurance@gmail.com'].includes(clean(member?.email || '').toLowerCase()) || clean(member?.applicantName || '').toLowerCase().includes('kimora');
+          const looksEmpty = !nextKpi || (
+            Number(nextKpi?.leadsReceived || 0) === 0
+            && Number(nextKpi?.bookingsThisMonth || 0) === 0
+            && Number(nextKpi?.closesThisMonth || 0) === 0
+          );
+
+          if (maybeKimora && looksEmpty) {
+            try {
+              const fallbackRes = await fetch('/api/inner-circle-hub-kpi?name=Kimora%20Link&email=kimora@thelegacylink.com', { cache: 'no-store' });
+              const fallbackData = await fallbackRes.json().catch(() => ({}));
+              if (fallbackRes.ok && fallbackData?.ok && fallbackData?.kpi) {
+                nextKpi = fallbackData.kpi;
+              }
+            } catch {}
+          }
+
+          setKpi(nextKpi);
+        }
         if (!canceled && dailyRes.ok && dailyData?.ok) {
           const rows = Array.isArray(dailyData.rows) ? dailyData.rows : [];
           setDailyRows(rows);
@@ -1083,6 +1476,17 @@ export default function InnerCircleHubPage() {
         if (!canceled && policiesRes.ok && policiesData?.ok) {
           setPolicyRows(Array.isArray(policiesData?.rows) ? policiesData.rows : []);
         }
+        if (!canceled && sponsorshipRes.ok && sponsorshipData?.ok) {
+          setSponsorshipRows(Array.isArray(sponsorshipData?.rows) ? sponsorshipData.rows : []);
+        }
+        if (!canceled && leadClaimsRes.ok && leadClaimsData?.ok) {
+          setLeadClaimRows(Array.isArray(leadClaimsData?.rows) ? leadClaimsData.rows : []);
+        }
+        if (!canceled && mediaRes.ok && mediaData?.ok) {
+          setMediaItems(Array.isArray(mediaData?.items) ? mediaData.items : []);
+          setMediaProgress(mediaData?.myProgress && typeof mediaData.myProgress === 'object' ? mediaData.myProgress : {});
+          setMediaCommentDrafts(Object.fromEntries(Object.entries(mediaData?.myProgress || {}).map(([k, v]) => [k, clean(v?.comment || '')])));
+        }
         if (!canceled && onboardingRes.ok && onboardingData?.ok) {
           setOnboardingDecisionRows(Array.isArray(onboardingData?.rows) ? onboardingData.rows : []);
         }
@@ -1100,6 +1504,10 @@ export default function InnerCircleHubPage() {
           setVault({ content: [], calls: [], onboarding: [] });
           setLeaderboard({ month: '', rows: [] });
           setPolicyRows([]);
+          setSponsorshipRows([]);
+          setLeadClaimRows([]);
+          setMediaItems([]);
+          setMediaProgress({});
           setOnboardingDecisionRows([]);
           setTeamHierarchyRows([]);
           setHubMembers([]);
@@ -1114,6 +1522,227 @@ export default function InnerCircleHubPage() {
   useEffect(() => {
     if (!tabs.find((t) => t.key === tab) && tabs[0]) setTab(tabs[0].key);
   }, [tabs, tab]);
+
+  async function loadStartIntakeQueue() {
+    if (clean(member?.email || '').toLowerCase() !== 'kimora@thelegacylink.com') return;
+    setStartIntakeLoading(true);
+    setStartIntakeNotice('');
+    try {
+      const res = await fetch('/api/start-intake', { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setStartIntakeNotice('Could not load contract queue.');
+        setStartIntakeRows([]);
+        return;
+      }
+      setStartIntakeRows(Array.isArray(data?.rows) ? data.rows : []);
+    } catch {
+      setStartIntakeNotice('Could not load contract queue.');
+      setStartIntakeRows([]);
+    } finally {
+      setStartIntakeLoading(false);
+    }
+  }
+
+  async function markStartIntakeContract(row = {}, signed = true) {
+    const actorEmail = clean(member?.email || '').toLowerCase();
+    if (actorEmail !== 'kimora@thelegacylink.com') return;
+    setStartIntakeNotice('');
+    try {
+      const res = await fetch('/api/start-intake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'admin_mark_contract',
+          actorEmail,
+          id: clean(row?.id || ''),
+          email: clean(row?.email || ''),
+          signed
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setStartIntakeNotice(data?.error || 'Could not update contract status.');
+        return;
+      }
+      const updated = data?.row || {};
+      setStartIntakeRows((prev) => (Array.isArray(prev) ? prev.map((r) => (clean(r?.id) === clean(updated?.id) ? updated : r)) : prev));
+      setStartIntakeNotice(signed ? 'Marked as signed.' : 'Marked as pending.');
+    } catch {
+      setStartIntakeNotice('Could not update contract status.');
+    }
+  }
+
+  async function checkStartIntakeSignature(row = {}) {
+    const id = clean(row?.id || row?.email || '');
+    if (!id) return;
+    setStartIntakeCheckingId(id);
+    setStartIntakeNotice('');
+    try {
+      const email = clean(row?.email || '');
+      const name = clean(`${row?.firstName || ''} ${row?.lastName || ''}`);
+      const qs = new URLSearchParams();
+      if (email) qs.set('email', email);
+      if (name) qs.set('name', name);
+      const res = await fetch(`/api/contract-signatures?${qs.toString()}`, { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setStartIntakeNotice('Could not verify signature record right now.');
+        return;
+      }
+
+      if (data?.signed) {
+        const signedAt = clean(data?.row?.signedAt || '');
+        await markStartIntakeContract(row, true);
+        await loadStartIntakeQueue();
+        setStartIntakeNotice(`Signature found${signedAt ? ` (${new Date(signedAt).toLocaleString()})` : ''} and auto-marked signed.`);
+      } else {
+        setStartIntakeNotice('No signature record found yet for this person.');
+      }
+    } catch {
+      setStartIntakeNotice('Could not verify signature record right now.');
+    } finally {
+      setStartIntakeCheckingId('');
+    }
+  }
+
+  async function refreshMediaVault() {
+    const memberName = clean(member?.applicantName || member?.name || '');
+    const memberEmail = clean(member?.email || '');
+    const url = `/api/inner-circle-media-vault?email=${encodeURIComponent(memberEmail)}&name=${encodeURIComponent(memberName)}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) throw new Error('media_fetch_failed');
+    setMediaItems(Array.isArray(data?.items) ? data.items : []);
+    const my = data?.myProgress && typeof data.myProgress === 'object' ? data.myProgress : {};
+    setMediaProgress(my);
+    setMediaCommentDrafts(Object.fromEntries(Object.entries(my).map(([k, v]) => [k, clean(v?.comment || '')])));
+  }
+
+  async function saveMediaProgress(itemId = '', patch = {}) {
+    const memberName = clean(member?.applicantName || member?.name || '');
+    const memberEmail = clean(member?.email || '').toLowerCase();
+    if (!itemId || (!memberName && !memberEmail)) return;
+
+    const existing = mediaProgress?.[itemId] || {};
+    const completed = typeof patch?.completed === 'boolean' ? patch.completed : Boolean(existing?.completed);
+    const comment = typeof patch?.comment === 'string' ? patch.comment : clean(existing?.comment || '');
+
+    const res = await fetch('/api/inner-circle-media-vault', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set_progress', itemId, memberName, memberEmail, completed, comment })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) throw new Error(data?.error || 'save_failed');
+
+    setMediaProgress((prev) => ({ ...prev, [itemId]: { completed, comment, updatedAt: new Date().toISOString() } }));
+  }
+
+  async function adminSaveMediaItem() {
+    const actorEmail = clean(member?.email || '').toLowerCase();
+    if (actorEmail !== 'kimora@thelegacylink.com') return;
+    setMediaNotice('');
+    try {
+      const res = await fetch('/api/inner-circle-media-vault', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'admin_upsert_item', actorEmail, ...mediaForm })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setMediaNotice(data?.error || 'Could not save media item.');
+        return;
+      }
+      setMediaForm({ id: '', type: 'video', title: '', description: '', url: '', tag: 'inner-circle', featured: false, required: false, sortOrder: 100 });
+      setMediaNotice('Media item saved.');
+      await refreshMediaVault();
+    } catch {
+      setMediaNotice('Could not save media item.');
+    }
+  }
+
+  async function adminDeleteMediaItem(itemId = '') {
+    const actorEmail = clean(member?.email || '').toLowerCase();
+    if (actorEmail !== 'kimora@thelegacylink.com' || !itemId) return;
+    setMediaNotice('');
+    try {
+      const res = await fetch('/api/inner-circle-media-vault', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'admin_delete_item', actorEmail, id: itemId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setMediaNotice(data?.error || 'Could not delete item.');
+        return;
+      }
+      setMediaNotice('Item removed.');
+      await refreshMediaVault();
+    } catch {
+      setMediaNotice('Could not delete item.');
+    }
+  }
+
+  function openActivityFlowDetail(row = {}) {
+    const norm = (v = '') => clean(v).toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const ts = (v = '') => { const t = Date.parse(v || ''); return Number.isNaN(t) ? 0 : t; };
+    const fuzzyNameMatch = (a = '', b = '') => {
+      const na = norm(a);
+      const nb = norm(b);
+      if (!na || !nb) return false;
+      if (na === nb) return true;
+      if (na.includes(nb) || nb.includes(na)) return true;
+      const aFirst = na.split(' ')[0] || '';
+      const bFirst = nb.split(' ')[0] || '';
+      return Boolean(aFirst && bFirst && aFirst === bFirst);
+    };
+
+    const rowEmail = clean(row?.email || row?.applicantEmail || '').toLowerCase();
+    const rowPhone = clean(row?.phone || row?.applicantPhone || '');
+    const rowName = norm(row?.name || row?.applicantName || '');
+
+    const appRows = (sponsorshipRows || [])
+      .filter((r) => {
+        const e = clean(r?.email || '').toLowerCase();
+        const n = norm(`${r?.firstName || ''} ${r?.lastName || ''}`);
+        return (rowEmail && e && rowEmail === e) || fuzzyNameMatch(rowName, n);
+      })
+      .sort((a, b) => ts(b?.submitted_at || b?.updatedAt) - ts(a?.submitted_at || a?.updatedAt));
+
+    const claimRows = (leadClaimRows || [])
+      .filter((r) => {
+        const e = clean(r?.applicant_email || '').toLowerCase();
+        const p = clean(r?.applicant_phone || '');
+        const n = norm(r?.applicant_name || `${r?.applicant_first_name || ''} ${r?.applicant_last_name || ''}`);
+        return (rowEmail && e && rowEmail === e) || (rowPhone && p && rowPhone === p) || fuzzyNameMatch(rowName, n);
+      })
+      .sort((a, b) => ts(b?.updated_at || b?.created_at) - ts(a?.updated_at || a?.created_at));
+
+    const app = appRows[0] || null;
+    const claim = claimRows[0] || null;
+
+    setActivityDetail({
+      name: clean(row?.name || claim?.applicant_name || `${app?.firstName || ''} ${app?.lastName || ''}`) || 'Member',
+      approvalAt: clean(app?.approved_at || ''),
+      state: clean(app?.state || claim?.applicant_state || ''),
+      email: clean(rowEmail || claim?.applicant_email || app?.email || ''),
+      phone: clean(rowPhone || claim?.applicant_phone || app?.phone || '')
+    });
+  }
+
+  useEffect(() => {
+    if (tab !== 'contracts') return;
+    if (clean(member?.email || '').toLowerCase() !== 'kimora@thelegacylink.com') return;
+    loadStartIntakeQueue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, member?.email]);
+
+  useEffect(() => {
+    if (tab !== 'media') return;
+    refreshMediaVault().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, member?.email, member?.applicantName, member?.name]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || member) return;
@@ -1275,18 +1904,6 @@ export default function InnerCircleHubPage() {
     }
   }
 
-  async function saveTeamRating(row = {}, rating = 0) {
-    const id = clean(row?.id || '');
-    if (!id) return;
-    const nextRating = Number(rating || 0) || 0;
-    setTeamHierarchyRows((prev) => (Array.isArray(prev) ? prev.map((r) => clean(r?.id) === id ? { ...r, rating: nextRating } : r) : prev));
-    await fetch('/api/team-hierarchy', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, rating: nextRating })
-    }).catch(() => null);
-  }
-
   async function refreshTeamHierarchy() {
     const teamUrl = `/api/team-hierarchy?viewerName=${encodeURIComponent(member?.applicantName || member?.name || '')}&viewerEmail=${encodeURIComponent(member?.email || '')}`;
     const res = await fetch(teamUrl, { cache: 'no-store' });
@@ -1382,6 +1999,63 @@ export default function InnerCircleHubPage() {
     }
   }
 
+  async function removeTeamLink(row = {}) {
+    if (!canManageHierarchy) return;
+    const childKey = clean(row?.childKey || '');
+    if (!childKey) return;
+
+    setRemovingChildKey(childKey);
+    setTeamAssignNotice('');
+    try {
+      const res = await fetch('/api/team-hierarchy', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: clean(row?.id || ''),
+          childKey,
+          actorEmail: member?.email || ''
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setTeamAssignNotice(`Remove failed: ${clean(data?.error || 'unknown_error')}`);
+        return;
+      }
+      await refreshTeamHierarchy();
+      setTeamAssignNotice('Member removed from hierarchy (now unassigned).');
+    } finally {
+      setRemovingChildKey('');
+    }
+  }
+
+  async function bulkRemoveSelected() {
+    if (!canManageHierarchy) return;
+    const selectedKeys = Object.entries(bulkMoveMap || {}).filter(([, v]) => Boolean(v)).map(([k]) => clean(k)).filter(Boolean);
+    if (!selectedKeys.length) return;
+
+    setBulkRemoving(true);
+    setTeamAssignNotice('');
+    try {
+      const selectedRows = (teamManageRows || []).filter((r) => selectedKeys.includes(clean(r?.childKey)));
+      for (const r of selectedRows) {
+        await fetch('/api/team-hierarchy', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: clean(r?.id || ''),
+            childKey: clean(r?.childKey || ''),
+            actorEmail: member?.email || ''
+          })
+        });
+      }
+      await refreshTeamHierarchy();
+      setBulkMoveMap({});
+      setTeamAssignNotice('Bulk remove complete. Selected members are now unassigned.');
+    } finally {
+      setBulkRemoving(false);
+    }
+  }
+
   async function undoLastMove() {
     if (!canManageHierarchy) return;
     const latest = (recentReassignments || []).find((r) => parseMoveNote(r?.note));
@@ -1438,8 +2112,12 @@ export default function InnerCircleHubPage() {
             <p style={{ margin: 0, color: '#c8a96b', fontWeight: 700, letterSpacing: '.06em' }}>THE LEGACY LINK</p>
             <h2 style={{ marginTop: 6, color: '#fff' }}>Inner Circle VIP Lounge</h2>
             <p className="muted" style={{ marginTop: -8 }}>Welcome back, {firstNameFromMember(member)} • Premium Member Access</p>
+            <small style={{ color: '#94a3b8' }}>Signed in as: {clean(member?.email || 'unknown')}</small>
           </div>
-          <button type="button" className="ghost" onClick={logout}>Logout</button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <a href={leadMarketplaceHref} target="_blank" rel="noreferrer" className="publicPrimaryBtn" style={{ textDecoration: 'none' }}>Open Lead Marketplace</a>
+            <button type="button" className="ghost" onClick={logout}>Logout</button>
+          </div>
         </div>
 
         {mustChangePassword ? (
@@ -1471,7 +2149,7 @@ export default function InnerCircleHubPage() {
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
             <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
-              {tabs.map((t) => <button key={t.key} type="button" className={tab === t.key ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setTab(t.key)}>{t.label}</button>)}
+              {tabs.map((t) => <button key={t.key} type="button" className={tab === t.key ? 'publicPrimaryBtn' : 'ghost'} onClick={() => { if (t.key === 'incentives') { if (typeof window !== 'undefined') window.open('/champions-circle/inner-circle?home=/inner-circle-hub', '_blank', 'noopener,noreferrer'); return; } if (t.key === 'scripts2') { if (typeof window !== 'undefined') window.open('/inner-circle-scripts?home=/inner-circle-hub', '_blank','noopener,noreferrer'); return; } if (t.key === 'submitapp') { const me = clean(member?.applicantName || member?.name || ''); const href = `/inner-circle-app-submit?referredBy=${encodeURIComponent(me)}&policyWriter=${encodeURIComponent(me)}&source=inner-circle-hub`; if (typeof window !== 'undefined') window.open(href, '_blank', 'noopener,noreferrer'); return; } setTab(t.key); }}>{t.label}</button>)}
             </div>
 
             {tab === 'dashboard' ? (
@@ -1500,7 +2178,6 @@ export default function InnerCircleHubPage() {
                     <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Potential</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>${kpi?.potentialEarned ?? kpi?.grossEarned ?? 0}</div></div>
                   </div>
                 </div>
-
                 <div style={{ border: '1px solid #3a2f1a', borderRadius: 12, padding: 14, background: '#0f172a' }}>
                   <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                     <strong style={{ color: '#fff', fontSize: 16 }}>Member Status</strong>
@@ -1602,44 +2279,80 @@ export default function InnerCircleHubPage() {
 
                   <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                     <small className="muted">Legend:</small>
-                    <span className="pill onpace">Booked</span>
-                    <span className="pill" style={{ background: '#1e3a8a', color: '#dbeafe', border: '1px solid #1d4ed8' }}>Sponsorship</span>
-                    <span className="pill offpace">Policy Submitted</span>
-                    <span className="pill onpace">Application Approved</span>
+                    <span className="pill" style={{ background: '#7f1d1d', color: '#fee2e2', border: '1px solid #ef4444' }}>Sponsorship Approved</span>
+                    <span className="pill" style={{ background: '#fef9c3', color: '#854d0e', border: '1px solid #facc15' }}>Booked</span>
+                    <span className="pill" style={{ background: '#1e3a8a', color: '#dbeafe', border: '1px solid #2563eb' }}>Application Submitted</span>
+                    <span className="pill" style={{ background: '#14532d', color: '#dcfce7', border: '1px solid #22c55e' }}>Application Approved ★★★ (Green Highlight)</span>
                   </div>
 
                   <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
                     {(filteredActivityRows || []).map((row, idx) => {
-                      const toneClass = row?.type === 'booked' || row?.type === 'completed'
-                        ? 'onpace'
-                        : row?.type === 'decision'
-                          ? ''
-                          : 'offpace';
                       const label = row?.type === 'booked'
                         ? 'Booked'
                         : row?.type === 'decision'
-                          ? (row?.decision === 'declined' ? 'Declined' : 'Approved')
+                          ? (row?.decision === 'declined' ? 'Declined' : 'Sponsorship Approved')
                           : row?.type === 'completed'
                             ? 'Application Approved'
-                            : 'Policy Submitted';
+                            : 'Application Submitted';
+
+                      const isBooked = row?.type === 'booked';
+                      const isSponsorDecision = row?.type === 'decision';
+                      const isAppSubmitted = row?.type === 'fng';
+                      const isAppApproved = row?.type === 'completed';
+
+                      const pillStyle = isBooked
+                        ? { background: '#fef9c3', color: '#854d0e', border: '1px solid #facc15' }
+                        : isSponsorDecision
+                          ? { background: '#7f1d1d', color: '#fee2e2', border: '1px solid #ef4444' }
+                          : isAppSubmitted
+                            ? { background: '#1e3a8a', color: '#dbeafe', border: '1px solid #2563eb' }
+                            : { background: '#14532d', color: '#dcfce7', border: '1px solid #22c55e' };
+
+                      const rowStyle = isAppApproved
+                        ? { border: '1px solid #22c55e', boxShadow: '0 0 0 1px rgba(34,197,94,0.20), 0 0 12px rgba(34,197,94,0.16)' }
+                        : { border: '1px solid #1f2937', boxShadow: 'none' };
+
                       const fngHref = `/inner-circle-app-submit?name=${encodeURIComponent(row?.name || '')}&email=${encodeURIComponent(row?.email || '')}&phone=${encodeURIComponent(row?.phone || '')}&referredBy=${encodeURIComponent(member?.applicantName || '')}`;
                       return (
-                        <div key={`${row?.type}_${row?.name}_${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 8, border: row?.type === 'booked' ? '1px solid #22c55e' : '1px solid #1f2937', boxShadow: row?.type === 'booked' ? '0 0 0 1px rgba(34,197,94,0.25), 0 0 14px rgba(34,197,94,0.20)' : 'none', borderRadius: 8, padding: '8px 10px', background: '#030a17' }}>
-                          {row?.type === 'decision' ? (
-                            <span className="pill" style={{ background: '#1e3a8a', color: '#dbeafe', border: '1px solid #1d4ed8' }}>{label}</span>
-                          ) : (
-                            <span className={`pill ${toneClass}`}>{label}</span>
-                          )}
-                          <div style={{ color: '#e2e8f0', fontSize: 14, flex: 1 }}>{row?.name || 'Unknown'}</div>
-                          {row?.showFngButton ? (
-                            <a href={fngHref} className="ghost" style={{ textDecoration: 'none', marginLeft: 'auto', fontSize: 12 }}>Submit App</a>
-                          ) : null}
-                        </div>
+                        <button
+                          key={`${row?.type}_${row?.name}_${idx}`}
+                          type="button"
+                          onClick={() => openActivityFlowDetail(row)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', ...rowStyle, borderRadius: 8, padding: '8px 10px', background: '#030a17', cursor: 'pointer', textAlign: 'left' }}
+                        >
+                          <span className="pill" style={pillStyle}>{label}</span>
+                          <div style={{ color: '#e2e8f0', fontSize: 14, flex: 1 }}>
+                            {row?.name || 'Unknown'}{isAppApproved ? <span title="Application Approved" style={{ marginLeft: 8, color: '#fbbf24', textShadow: '0 0 8px rgba(251,191,36,0.45)', letterSpacing: 1.5 }}>⭐⭐⭐</span> : null}
+                          </div>
+                          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                            <small className="muted" style={{ whiteSpace: 'nowrap' }}>Tap for details</small>
+                            {row?.showFngButton ? (
+                              <a href={fngHref} onClick={(e) => e.stopPropagation()} className="ghost" style={{ textDecoration: 'none', fontSize: 12, whiteSpace: 'nowrap' }}>Submit App</a>
+                            ) : null}
+                          </div>
+                        </button>
                       );
                     })}
                     {!filteredActivityRows.length ? <small className="muted">No activity yet.</small> : null}
                   </div>
                 </div>
+
+                {activityDetail ? (
+                  <div role="dialog" aria-modal="true" onClick={() => setActivityDetail(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.62)', zIndex: 85, display: 'grid', placeItems: 'center' }}>
+                    <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(560px, 95vw)', background: '#0B1220', border: '1px solid #334155', borderRadius: 12, padding: 14 }}>
+                      <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                        <strong style={{ color: '#fff' }}>{activityDetail.name}</strong>
+                        <button type="button" className="ghost" onClick={() => setActivityDetail(null)}>Close</button>
+                      </div>
+                      <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                        <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: 10 }}><small className="muted">Approval Date</small><div style={{ color: '#fff', fontWeight: 700 }}>{activityDetail.approvalAt ? new Date(activityDetail.approvalAt).toLocaleString() : '—'}</div></div>
+                        <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: 10 }}><small className="muted">State</small><div style={{ color: '#fff', fontWeight: 700 }}>{activityDetail.state || '—'}</div></div>
+                        <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: 10 }}><small className="muted">Email</small><div style={{ color: '#fff', fontWeight: 700 }}>{activityDetail.email || '—'}</div></div>
+                        <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: 10 }}><small className="muted">Phone</small><div style={{ color: '#fff', fontWeight: 700 }}>{activityDetail.phone || '—'}</div></div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -1668,6 +2381,12 @@ export default function InnerCircleHubPage() {
                     <li style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: 10, padding: '11px 13px', color: '#0F172A', fontWeight: 800, lineHeight: 1.65 }}><span style={{ color: '#1D4ED8' }}>Day 13–14:</span> <span style={{ color: '#0F172A' }}>Tighten close rate, lock in consistency</span></li>
                   </ul>
                 </div>
+              </div>
+            ) : null}
+
+            {tab === 'growth' ? (
+              <div style={{ border: '1px solid #334155', borderRadius: 14, overflow: 'hidden', background: '#0B1220' }}>
+                <iframe title="Growth Hub" src="/growth-hub" style={{ width: '100%', minHeight: 980, border: 0, background: '#020617' }} />
               </div>
             ) : null}
 
@@ -1743,6 +2462,105 @@ export default function InnerCircleHubPage() {
               </div>
             ) : null}
 
+            {tab === 'media' ? (
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div style={{ border: '1px solid #5f4a23', borderRadius: 14, padding: 14, background: 'linear-gradient(135deg,#1f2937 0%,#0b1020 55%,#111827 100%)' }}>
+                  <div className="panelRow" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                    <strong style={{ color: '#fff', fontSize: 17 }}>VIP Media Vault</strong>
+                    <div className="panelRow" style={{ gap: 6, flexWrap: 'wrap' }}>
+                      <button type="button" className={mediaFilter === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setMediaFilter('all')}>All</button>
+                      <button type="button" className={mediaFilter === 'video' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setMediaFilter('video')}>Videos</button>
+                      <button type="button" className={mediaFilter === 'audio' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setMediaFilter('audio')}>Audios</button>
+                      <button type="button" className={mediaFilter === 'reading' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setMediaFilter('reading')}>Reading</button>
+                      <button type="button" className="ghost" onClick={() => refreshMediaVault().catch(() => setMediaNotice('Could not refresh media vault.'))}>Refresh</button>
+                    </div>
+                  </div>
+                  {mediaNotice ? <small className="muted" style={{ color: '#93c5fd', marginTop: 8, display: 'block' }}>{mediaNotice}</small> : null}
+                </div>
+
+                {canManageHierarchy ? (
+                  <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 12, background: '#0B1220', display: 'grid', gap: 8 }}>
+                    <strong style={{ color: '#fff' }}>Admin Upload (Kimora only)</strong>
+                    <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+                      <select value={mediaForm.type} onChange={(e) => setMediaForm((p) => ({ ...p, type: e.target.value }))} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px' }}>
+                        <option value="video">Video</option>
+                        <option value="audio">Audio</option>
+                        <option value="reading">Reading</option>
+                      </select>
+                      <input value={mediaForm.title} onChange={(e) => setMediaForm((p) => ({ ...p, title: e.target.value }))} placeholder="Title" style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 10px', minWidth: 220 }} />
+                      <input value={mediaForm.url} onChange={(e) => setMediaForm((p) => ({ ...p, url: e.target.value }))} placeholder="URL" style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 10px', minWidth: 280 }} />
+                    </div>
+                    <input value={mediaForm.description} onChange={(e) => setMediaForm((p) => ({ ...p, description: e.target.value }))} placeholder="Short description" style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 10px' }} />
+                    <div className="panelRow" style={{ gap: 12, flexWrap: 'wrap' }}>
+                      <label style={{ color: '#cbd5e1', fontSize: 13 }}><input type="checkbox" checked={Boolean(mediaForm.featured)} onChange={(e) => setMediaForm((p) => ({ ...p, featured: e.target.checked }))} /> Featured</label>
+                      <label style={{ color: '#cbd5e1', fontSize: 13 }}><input type="checkbox" checked={Boolean(mediaForm.required)} onChange={(e) => setMediaForm((p) => ({ ...p, required: e.target.checked }))} /> Required</label>
+                      <label style={{ color: '#cbd5e1', fontSize: 13 }}>Sort Order <input type="number" value={mediaForm.sortOrder} onChange={(e) => setMediaForm((p) => ({ ...p, sortOrder: Number(e.target.value || 0) }))} style={{ marginLeft: 6, width: 90, background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '5px 8px' }} /></label>
+                    </div>
+                    <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+                      <button type="button" className="publicPrimaryBtn" onClick={adminSaveMediaItem}>{mediaForm.id ? 'Update Item' : 'Add Item'}</button>
+                      {mediaForm.id ? <button type="button" className="ghost" onClick={() => setMediaForm({ id: '', type: 'video', title: '', description: '', url: '', tag: 'inner-circle', featured: false, required: false, sortOrder: 100 })}>Clear</button> : null}
+                    </div>
+                  </div>
+                ) : null}
+
+                {(featuredMediaItems || []).length ? (
+                  <div style={{ border: '1px solid #5f4a23', borderRadius: 12, padding: 12, background: '#0B1220', display: 'grid', gap: 8 }}>
+                    <strong style={{ color: '#fff' }}>Featured This Week</strong>
+                    <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
+                      {(featuredMediaItems || []).slice(0, 3).map((f) => (
+                        <a key={`feat-${f.id}`} href={f?.url || '#'} target="_blank" rel="noreferrer" style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, textDecoration: 'none', background: '#111827' }}>
+                          <small className="muted">{clean(f?.type || 'media').toUpperCase()}</small>
+                          <div style={{ color: '#fff', fontWeight: 700, marginTop: 4 }}>{f?.title || 'Untitled'}</div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))' }}>
+                  {(filteredMediaItems || []).map((item) => {
+                    const id = clean(item?.id || '');
+                    const progress = mediaProgress?.[id] || {};
+                    const completed = Boolean(progress?.completed);
+                    const draftComment = mediaCommentDrafts?.[id] ?? clean(progress?.comment || '');
+                    return (
+                      <div key={id} style={{ border: '1px solid #334155', borderRadius: 12, padding: 12, background: '#0B1220', display: 'grid', gap: 8 }}>
+                        <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <div className="panelRow" style={{ gap: 6, flexWrap: 'wrap' }}>
+                            <span className={`pill ${item?.type === 'video' ? 'onpace' : item?.type === 'audio' ? 'neutral' : 'atrisk'}`}>{clean(item?.type || 'media').toUpperCase()}</span>
+                            {item?.featured ? <span className="pill onpace">Featured</span> : null}
+                            {item?.required ? <span className="pill atrisk">Required</span> : null}
+                          </div>
+                          <span className={`pill ${completed ? 'onpace' : 'neutral'}`}>{completed ? 'Completed' : 'Not Completed'}</span>
+                        </div>
+                        <strong style={{ color: '#fff' }}>{item?.title || 'Untitled'}</strong>
+                        <small className="muted">{item?.description || '—'}</small>
+                        <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+                          <a href={item?.url || '#'} target="_blank" rel="noreferrer" className="ghost" style={{ textDecoration: 'none' }}>Open</a>
+                          <button type="button" className={completed ? 'ghost' : 'publicPrimaryBtn'} onClick={() => saveMediaProgress(id, { completed: !completed }).catch(() => setMediaNotice('Could not save completion.'))}>{completed ? 'Mark Incomplete' : 'Mark Complete'}</button>
+                          {canManageHierarchy ? <button type="button" className="ghost" onClick={() => setMediaForm({ id, type: item?.type || 'video', title: item?.title || '', description: item?.description || '', url: item?.url || '', tag: item?.tag || 'inner-circle', featured: Boolean(item?.featured), required: Boolean(item?.required), sortOrder: Number(item?.sortOrder ?? 100) })}>Edit</button> : null}
+                          {canManageHierarchy ? <button type="button" className="ghost" onClick={() => adminDeleteMediaItem(id)}>Delete</button> : null}
+                        </div>
+                        <textarea value={draftComment} onChange={(e) => setMediaCommentDrafts((p) => ({ ...p, [id]: e.target.value }))} placeholder="Comment (honor system)" style={{ width: '100%', minHeight: 68, background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 10px', boxSizing: 'border-box' }} />
+                        <button type="button" className="ghost" onClick={() => saveMediaProgress(id, { comment: clean(mediaCommentDrafts?.[id] || '') }).catch(() => setMediaNotice('Could not save comment.'))}>Save Comment</button>
+                      </div>
+                    );
+                  })}
+                  {!(filteredMediaItems || []).length ? <small className="muted">No media items yet.</small> : null}
+                </div>
+              </div>
+            ) : null}
+
+            {tab === 'onboarding' ? (
+              <div style={{ border: '1px solid #2A3142', borderRadius: 12, overflow: 'hidden', background: '#0F172A' }}>
+                <iframe
+                  title="Licensed Onboarding Tracker"
+                  src={`/licensed-onboarding-tracker?viewerName=${encodeURIComponent(clean(member?.applicantName || member?.name || ''))}&viewerEmail=${encodeURIComponent(clean(member?.email || ''))}&viewerRole=${encodeURIComponent(clean(member?.role || 'agent'))}`}
+                  style={{ width: '100%', minHeight: 1450, border: 0, background: '#020617' }}
+                />
+              </div>
+            ) : null}
+
             {tab === 'tracker' ? (
               <div style={{ display: 'grid', gap: 12 }}>
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
@@ -1753,18 +2571,150 @@ export default function InnerCircleHubPage() {
                     <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1.08 }}>${productionFinancials.allTimePaid.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
                   </div>
                   <div style={{ border: '1px solid #2A3142', borderRadius: 16, background: 'rgba(245, 158, 11, 0.14)', padding: 20, minHeight: 150 }}>
-                    <div style={{ color: '#FCD34D', fontSize: 14, marginBottom: 8 }}>All-Time Pending</div>
-                    <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1.08 }}>${productionFinancials.allTimePending.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                    <div style={{ color: '#FCD34D', fontSize: 14, marginBottom: 8 }}>Upcoming (Next 7 Days)</div>
+                    <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1.08 }}>{trackerUpcomingSummary.dueNext7}</div>
+                    <small className="muted">Due Today: {trackerUpcomingSummary.dueToday}</small>
                   </div>
                   <div style={{ border: '1px solid #2A3142', borderRadius: 16, background: 'rgba(34, 197, 94, 0.14)', padding: 20, minHeight: 150 }}>
                     <div style={{ color: '#86EFAC', fontSize: 14, marginBottom: 8 }}>This Month Paid</div>
                     <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1.08 }}>${productionFinancials.thisMonthPaid.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
                   </div>
-                  <div style={{ border: '1px solid #2A3142', borderRadius: 16, background: 'rgba(59, 130, 246, 0.14)', padding: 20, minHeight: 150 }}>
+                  <button
+                    type="button"
+                    onClick={() => setPendingBreakdownOpen(true)}
+                    style={{ border: '1px solid #2A3142', borderRadius: 16, background: 'rgba(59, 130, 246, 0.14)', padding: 20, minHeight: 150, textAlign: 'left', color: '#fff', cursor: 'pointer' }}
+                  >
                     <div style={{ color: '#93C5FD', fontSize: 14, marginBottom: 8 }}>This Month Pending</div>
                     <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1.08 }}>${productionFinancials.thisMonthPending.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                    <small className="muted">Tap to view breakdown</small>
+                  </button>
+                </div>
+
+                <div style={{ border: '1px solid #334155', borderRadius: 12, padding: 14, background: '#020617' }}>
+                  <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <strong style={{ color: '#fff', fontSize: 16 }}>KPI + Sponsorship Income Planner</strong>
+                    <span className="pill neutral">Default: 10 conv → 3 paid referrals → $1,500</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 10, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+                    <label style={{ color: '#dbeafe', fontWeight: 600 }}>Monthly Income Goal
+                      <input type="number" min="0" value={incomePlanner.monthlyGoal} onChange={(e) => setIncomePlanner((p) => ({ ...p, monthlyGoal: e.target.value }))} style={{ background: '#0b1220', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '8px 10px' }} />
+                    </label>
+                    <div style={{ border: '1px solid #334155', borderRadius: 8, padding: '10px', background: '#0b1220' }}>
+                      <small className="muted">Required Conversations</small>
+                      <div style={{ color: '#fff', fontWeight: 800, fontSize: 20 }}>{incomePlannerStats.requiredWeeklyConversations}/week</div>
+                      <small className="muted">{incomePlannerStats.requiredMonthlyConversations}/month to hit goal</small>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 12, border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#0f172a' }}>
+                    <strong style={{ color: '#fff' }}>Auto-Filled Weekly Targets</strong>
+                    <div style={{ marginTop: 8, overflowX: 'auto' }}>
+                      <table className="table">
+                        <thead>
+                          <tr>
+                            <th>Stage</th>
+                            <th>Target</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr><td>Conversations</td><td>{incomePlannerStats.requiredWeeklyConversations}</td></tr>
+                          <tr><td>Interested</td><td>{incomePlannerStats.target.interested}</td></tr>
+                          <tr><td>Move Forward</td><td>{incomePlannerStats.target.moveForward}</td></tr>
+                          <tr><td>Booked</td><td>{incomePlannerStats.target.booked}</td></tr>
+                          <tr><td>Showed</td><td>{incomePlannerStats.target.showed}</td></tr>
+                          <tr><td>Paid Referrals</td><td>{incomePlannerStats.target.paidReferrals}</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 10, marginTop: 12, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+                    <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#0f172a' }}>
+                      <small className="muted">Weekly Revenue Target</small>
+                      <div style={{ color: '#86EFAC', fontWeight: 800, fontSize: 24 }}>${incomePlannerStats.target.weeklyRevenue.toLocaleString()}</div>
+                    </div>
+                    <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#0f172a' }}>
+                      <small className="muted">Monthly Projected Revenue</small>
+                      <div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>${incomePlannerStats.projections.monthly.toLocaleString()}</div>
+                    </div>
+                    <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#0f172a' }}>
+                      <small className="muted">Annual Projected Revenue</small>
+                      <div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>${incomePlannerStats.projections.annual.toLocaleString()}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 12, border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#0f172a' }}>
+                    <strong style={{ color: '#fff' }}>Payout Lag Awareness</strong>
+                    <p className="muted" style={{ marginTop: 8 }}>
+                      Expected earned this week: <strong>${incomePlannerStats.payoutLag.expectedEarned.toLocaleString()}</strong>.
+                      Estimated payout timing: {incomePlannerStats.payoutLag.windowStart ? new Date(incomePlannerStats.payoutLag.windowStart).toLocaleDateString() : '—'} to {incomePlannerStats.payoutLag.windowEnd ? new Date(incomePlannerStats.payoutLag.windowEnd).toLocaleDateString() : '—'}.
+                    </p>
+                  </div>
+
+                  <div style={{ marginTop: 12, border: '1px solid #f59e0b', borderRadius: 10, padding: 10, background: '#111827' }}>
+                    <strong style={{ color: '#fef3c7' }}>Coaching Insights</strong>
+                    <ul style={{ margin: '8px 0 0', paddingLeft: 18, color: '#f8fafc', display: 'grid', gap: 6, lineHeight: 1.5 }}>
+                      {incomePlannerStats.coaching.map((tip, idx) => <li key={`coach-tip-${idx}`} style={{ color: '#f8fafc' }}>{tip}</li>)}
+                    </ul>
                   </div>
                 </div>
+
+                {pendingBreakdownOpen ? (
+                  <div role="dialog" aria-modal="true" onClick={() => setPendingBreakdownOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.62)', zIndex: 82, display: 'grid', placeItems: 'center' }}>
+                    <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(760px, 95vw)', maxHeight: '84vh', overflow: 'auto', background: '#0B1220', border: '1px solid #334155', borderRadius: 12, padding: 14 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                        <strong style={{ color: '#fff' }}>This Month Pending Breakdown</strong>
+                        <button type="button" className="ghost" onClick={() => setPendingBreakdownOpen(false)}>Close</button>
+                      </div>
+
+                      <div style={{ display: 'grid', gap: 10, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+                        <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#111827' }}>
+                          <small className="muted">Sponsorship Policies (Pending)</small>
+                          <div style={{ color: '#fff', fontWeight: 800, fontSize: 26, marginTop: 4 }}>{pendingBreakdown.sponsorshipPoliciesCount}</div>
+                          <small className="muted">Names hidden intentionally</small>
+                        </div>
+                        <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#111827' }}>
+                          <small className="muted">Applications Written (Pending)</small>
+                          <div style={{ color: '#fff', fontWeight: 800, fontSize: 26, marginTop: 4 }}>{pendingBreakdown.applicationsWrittenCount}</div>
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 12, border: '1px solid #334155', borderRadius: 10, padding: 10, background: '#0f172a' }}>
+                        <strong style={{ color: '#fff' }}>Policy Approvals Pending Payout</strong>
+                        {pendingBreakdown.policyApprovals.length ? (
+                          <div style={{ marginTop: 8, overflowX: 'auto' }}>
+                            <table className="table">
+                              <thead>
+                                <tr>
+                                  <th>Client</th>
+                                  <th>Type</th>
+                                  <th>Est. Pay Date</th>
+                                  <th>Amount</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {pendingBreakdown.policyApprovals.map((e) => {
+                                  const due = new Date(e?.expectedPayoutAt || e?.qualifiedAt || e?.submittedAt || 0);
+                                  return (
+                                    <tr key={`pending-approval-${e.id}`}>
+                                      <td>{e?.applicant || 'Applicant'}</td>
+                                      <td>{e?.policyType || 'Policy'}</td>
+                                      <td>{Number.isNaN(due.getTime()) ? '—' : due.toLocaleDateString()}</td>
+                                      <td>${Number(e?.amount || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <p className="muted" style={{ marginTop: 8 }}>- None</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 12 }}>
                   <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
@@ -1830,14 +2780,52 @@ export default function InnerCircleHubPage() {
                 </div>
 
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617' }}>
-                  <strong style={{ color: '#fff' }}>{trackerPeriod === 'daily' ? 'Daily Totals' : trackerPeriod === 'weekly' ? 'Weekly Totals' : 'Monthly Totals'}</strong>
-                  <p className="muted" style={{ marginBottom: 8 }}>
-                    Calls: {periodTotals.calls} • Bookings: {periodTotals.bookings}
-                  </p>
-                  <p className="muted" style={{ marginTop: 0 }}>
-                    Sponsorship Submitted: {periodTotals.sponsorshipApps} • Sponsorship Approved: {periodTotals.sponsorshipApproved} • Policy Submitted: {periodTotals.fngSubmittedApps} • App Total: {periodTotals.appsTotal}
-                  </p>
-                  <small className="muted">Entries Loaded: {dailyRows.length}</small>
+                  <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <strong style={{ color: '#fff' }}>Upcoming Payments</strong>
+                    <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+                      <span className="pill neutral">Today: {trackerUpcomingSummary.dueToday}</span>
+                      <span className="pill onpace">Next 7 Days: {trackerUpcomingSummary.dueNext7}</span>
+                      <span className="pill offpace">Delivery Delay: {trackerUpcomingSummary.delayedByDelivery}</span>
+                    </div>
+                  </div>
+                  {!productionFinancials.upcoming.length ? (
+                    <p className="muted" style={{ marginTop: 8 }}>No pending payouts in the queue right now.</p>
+                  ) : (
+                    <div style={{ marginTop: 10, overflowX: 'auto' }}>
+                      <table className="table">
+                        <thead>
+                          <tr>
+                            <th>Pay Date</th>
+                            <th>Who It’s For</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {productionFinancials.upcoming.map((e) => {
+                            const dueIso = e?.expectedPayoutAt || e?.qualifiedAt || e?.submittedAt || '';
+                            const due = new Date(dueIso || 0);
+                            const validDate = !Number.isNaN(due.getTime());
+                            return (
+                              <tr key={`tracker-upcoming-${e.id}`}>
+                                <td>{validDate ? due.toLocaleDateString() : '—'}</td>
+                                <td>{e?.applicant || 'Applicant'}</td>
+                                <td>{e?.policyType || 'Policy'}</td>
+                                <td>
+                                  {e?.pendingStage === 'delivery_requirement' ? 'Delivery Requirement' : 'Pending'}
+                                  {e?.pendingStage === 'delivery_requirement' && e?.deliveryRequirementNote ? (
+                                    <div style={{ color: '#94A3B8', fontSize: 12 }}>{e.deliveryRequirementNote}</div>
+                                  ) : null}
+                                </td>
+                                <td>${Number(e?.amount || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : null}
@@ -1864,11 +2852,14 @@ export default function InnerCircleHubPage() {
                         <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                           <div>
                             <div className="panelRow" style={{ gap: 6, flexWrap: 'wrap' }}>
-                              <div style={{ color: '#fff', fontWeight: 700 }}>{card.childName}</div>
+                              <div style={{ color: '#fff', fontWeight: 700 }}>
+                                {card.childName}{card.isInnerCircle ? <span title="Inner Circle" style={{ marginLeft: 6, color: '#facc15' }}>★</span> : null}
+                              </div>
                               {card.licenseTag === 'licensed' ? <span className="pill" style={{ background: '#064e3b', color: '#d1fae5', border: '1px solid #10b981' }}>Licensed</span> : null}
                               {card.licenseTag === 'unlicensed' ? <span className="pill" style={{ background: '#7f1d1d', color: '#fee2e2', border: '1px solid #ef4444' }}>Unlicensed</span> : null}
                             </div>
                             <small className="muted">{card.childEmail || 'No email on file'}</small>
+                            <small className="muted">{card.childPhone || 'No phone on file'}</small>
                           </div>
                           <span className={`pill ${card.score >= 70 ? 'onpace' : card.score >= 35 ? 'neutral' : 'offpace'}`}>{card.momentumLabel} • {card.score}</span>
                         </div>
@@ -1885,16 +2876,6 @@ export default function InnerCircleHubPage() {
                         </div>
 
                         <div className="panelRow" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                          <label style={{ color: '#cbd5e1', fontSize: 12 }}>Coach Rating
-                            <select value={Number(card.coachRating || 0)} onChange={(e) => saveTeamRating(card, Number(e.target.value || 0))} style={{ marginLeft: 8, background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '6px 8px' }}>
-                              <option value={0}>Unrated</option>
-                              <option value={1}>1</option>
-                              <option value={2}>2</option>
-                              <option value={3}>3</option>
-                              <option value={4}>4</option>
-                              <option value={5}>5</option>
-                            </select>
-                          </label>
                           {children.length ? (
                             <button type="button" className="ghost" onClick={() => setTeamExpanded((p) => ({ ...p, [card.id]: !expanded }))}>
                               {expanded ? 'Hide Downlink' : `View Downlink (${children.length})`}
@@ -1904,11 +2885,20 @@ export default function InnerCircleHubPage() {
 
                         {expanded && children.length ? (
                           <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
-                            {children.map((c) => (
-                              <div key={c.id} style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: '8px 10px', color: '#e2e8f0', fontSize: 13 }}>
-                                {c?.childName || 'Member'}
-                              </div>
-                            ))}
+                            {children.map((c) => {
+                              const meta = teamIdentityMeta.get(clean(c?.childKey || '')) || teamIdentityMeta.get(`${clean(c?.childName || '')}|${clean(c?.childEmail || '').toLowerCase()}`) || {};
+                              const licenseTag = clean(meta?.licenseTag || '');
+                              const isInnerCircle = Boolean(meta?.isInnerCircle);
+                              return (
+                                <div key={c.id} style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: '8px 10px', color: '#e2e8f0', fontSize: 13 }}>
+                                  <div className="panelRow" style={{ gap: 6, flexWrap: 'wrap' }}>
+                                    <span>{c?.childName || 'Member'}{isInnerCircle ? <span title="Inner Circle" style={{ marginLeft: 6, color: '#facc15' }}>★</span> : null}</span>
+                                    {licenseTag === 'licensed' ? <span className="pill" style={{ background: '#064e3b', color: '#d1fae5', border: '1px solid #10b981' }}>Licensed</span> : null}
+                                    {licenseTag === 'unlicensed' ? <span className="pill" style={{ background: '#7f1d1d', color: '#fee2e2', border: '1px solid #ef4444' }}>Unlicensed</span> : null}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : null}
                       </div>
@@ -1973,14 +2963,24 @@ export default function InnerCircleHubPage() {
                       placeholder="Search member, email, or current upline..."
                       style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 10px', minWidth: 260 }}
                     />
+                    <input
+                      value={moveParentSearch}
+                      onChange={(e) => setMoveParentSearch(e.target.value)}
+                      placeholder="Search move-to name/email..."
+                      style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 10px', minWidth: 240 }}
+                    />
+                    <small className="muted">Move-to options: {filteredMoveParentOptions.length}</small>
                     <select disabled={!canManageHierarchy} value={bulkParentKey} onChange={(e) => setBulkParentKey(e.target.value)} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px', minWidth: 230 }}>
                       <option value="">Bulk move selected under...</option>
-                      {(filteredParentOptions || []).map((o) => (
+                      {(filteredMoveParentOptions || []).map((o) => (
                         <option key={`bulk-opt-${o.key}`} value={o.key}>{o.name}{o.email ? ` (${o.email})` : ''}</option>
                       ))}
                     </select>
                     <button type="button" className="publicPrimaryBtn" disabled={!canManageHierarchy || !bulkParentKey || bulkMoving || !Object.values(bulkMoveMap || {}).some(Boolean)} onClick={bulkMoveSelected}>
                       {bulkMoving ? 'Bulk Moving...' : 'Bulk Move Selected'}
+                    </button>
+                    <button type="button" className="ghost" disabled={!canManageHierarchy || bulkRemoving || !Object.values(bulkMoveMap || {}).some(Boolean)} onClick={bulkRemoveSelected}>
+                      {bulkRemoving ? 'Bulk Removing...' : 'Bulk Remove Selected'}
                     </button>
                   </div>
 
@@ -2003,7 +3003,7 @@ export default function InnerCircleHubPage() {
                           </div>
                           <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
                             <select disabled={!canManageHierarchy} value={selectedParent} onChange={(e) => setAssignParentByChild((p) => ({ ...p, [childKey]: e.target.value }))} style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 8px', minWidth: 220 }}>
-                              {(filteredParentOptions || []).map((o) => (
+                              {(filteredMoveParentOptions || []).map((o) => (
                                 <option key={`mv-opt-${r.id}-${o.key}`} value={o.key} disabled={clean(o?.key) === childKey}>{o.name}{o.email ? ` (${o.email})` : ''}</option>
                               ))}
                             </select>
@@ -2014,6 +3014,14 @@ export default function InnerCircleHubPage() {
                               onClick={() => assignTeamParent({ childKey, childName: r?.childName, childEmail: r?.childEmail }, 'admin_reassign')}
                             >
                               {assigningChildKey === childKey ? 'Moving...' : 'Move'}
+                            </button>
+                            <button
+                              type="button"
+                              className="ghost"
+                              disabled={!canManageHierarchy || removingChildKey === childKey}
+                              onClick={() => removeTeamLink(r)}
+                            >
+                              {removingChildKey === childKey ? 'Removing...' : 'Remove'}
                             </button>
                           </div>
                         </div>
@@ -2042,6 +3050,69 @@ export default function InnerCircleHubPage() {
                 </>
                 ) : null}
 
+              </div>
+            ) : null}
+
+            {tab === 'community' ? (
+              <CommunityServiceTab member={member} hubMembers={hubMembers} isAdmin={canManageHierarchy} />
+            ) : null}
+
+            {tab === 'tools' ? (
+              <LinkBlendBuilderTab member={member} />
+            ) : null}
+
+            {tab === 'contracts' ? (
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#0B1220', padding: 14 }}>
+                  <div className="panelRow" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                    <strong style={{ color: '#fff' }}>Contract Queue (Signed vs Pending)</strong>
+                    <button type="button" className="ghost" onClick={loadStartIntakeQueue} disabled={startIntakeLoading}>
+                      {startIntakeLoading ? 'Refreshing...' : 'Refresh'}
+                    </button>
+                  </div>
+                  <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                    <input
+                      value={startIntakeSearch}
+                      onChange={(e) => setStartIntakeSearch(e.target.value)}
+                      placeholder="Search name, email, phone..."
+                      style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 10px', minWidth: 260 }}
+                    />
+                    <button type="button" className={startIntakeFilter === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setStartIntakeFilter('all')}>All</button>
+                    <button type="button" className={startIntakeFilter === 'pending' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setStartIntakeFilter('pending')}>Pending</button>
+                    <button type="button" className={startIntakeFilter === 'signed' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setStartIntakeFilter('signed')}>Signed</button>
+                    <span className="pill neutral">Visible: {filteredStartIntakeRows.length}</span>
+                    <span className="pill onpace">Signed: {(startIntakeRows || []).filter((r) => clean(r?.contractStatus).toLowerCase() === 'signed').length}</span>
+                    <span className="pill atrisk">Pending: {(startIntakeRows || []).filter((r) => clean(r?.contractStatus).toLowerCase() !== 'signed').length}</span>
+                  </div>
+                  {startIntakeNotice ? <small className="muted" style={{ color: '#93c5fd', marginTop: 8, display: 'block' }}>{startIntakeNotice}</small> : null}
+                </div>
+
+                <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#0B1220', padding: 12, display: 'grid', gap: 8 }}>
+                  {(filteredStartIntakeRows || []).slice(0, 200).map((r) => {
+                    const fullName = clean(`${r?.firstName || ''} ${r?.lastName || ''}`) || 'Member';
+                    const signed = clean(r?.contractStatus || '').toLowerCase() === 'signed';
+                    return (
+                      <div key={`start-row-${r?.id || r?.email}`} style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: '10px 12px', display: 'grid', gap: 8 }}>
+                        <div className="panelRow" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                          <div>
+                            <div style={{ color: '#fff', fontWeight: 700 }}>{fullName}</div>
+                            <small className="muted">{clean(r?.email || '—')} • {clean(r?.phone || '—')} • {clean(r?.trackType || '—')}</small>
+                          </div>
+                          <span className={`pill ${signed ? 'onpace' : 'atrisk'}`}>{signed ? 'Signed' : 'Pending'}</span>
+                        </div>
+                        <small className="muted">Signed At: {r?.contractSignedAt ? new Date(r.contractSignedAt).toLocaleString() : '—'} {r?.contractOverrideAt ? `• Last override: ${new Date(r.contractOverrideAt).toLocaleString()}` : ''}</small>
+                        <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+                          <button type="button" className="publicPrimaryBtn" onClick={() => markStartIntakeContract(r, true)}>Mark Signed</button>
+                          <button type="button" className="ghost" onClick={() => markStartIntakeContract(r, false)}>Mark Pending</button>
+                          <button type="button" className="ghost" onClick={() => checkStartIntakeSignature(r)} disabled={startIntakeCheckingId === clean(r?.id || r?.email || '')}>
+                            {startIntakeCheckingId === clean(r?.id || r?.email || '') ? 'Checking...' : 'Check Signature Log'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {!(filteredStartIntakeRows || []).length ? <small className="muted">No matching rows.</small> : null}
+                </div>
               </div>
             ) : null}
 
@@ -2318,6 +3389,15 @@ export default function InnerCircleHubPage() {
                     <img src={qrUrl(sponsorshipLink)} alt="Sponsorship QR" width={118} height={118} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
                     <button type="button" className="ghost" onClick={() => copyLink(sponsorshipLink, 'sponsor')}>
                       {copiedKey === 'sponsor' ? 'Copied' : 'Copy Link'}
+                    </button>
+                  </div>
+
+                  <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 12, background: '#020617', display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8 }}>
+                    <strong style={{ color: '#fff' }}>Personal Life Insurance Page</strong>
+                    <small className="muted" style={{ marginTop: -2 }}>Share this direct page so prospects land on your personal quote flow.</small>
+                    <img src={qrUrl(personalCoverageLink)} alt="Coverage QR" width={118} height={118} style={{ borderRadius: 8, border: '1px solid #334155', background: '#fff' }} />
+                    <button type="button" className="ghost" onClick={() => copyLink(personalCoverageLink, 'coverage')}>
+                      {copiedKey === 'coverage' ? 'Copied' : 'Copy Link'}
                     </button>
                   </div>
 
