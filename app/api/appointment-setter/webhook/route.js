@@ -36,6 +36,35 @@ function pushTimeline(lead = {}, event = '') {
   return [row, ...history].slice(0, 80);
 }
 
+function normalize(v = '') {
+  return clean(v).toLowerCase().replace(/\s+/g, ' ');
+}
+
+function setterRosterFromStore(store = {}) {
+  const raw = Array.isArray(store?.settings?.setterRoster) ? store.settings.setterRoster : [];
+  const cleaned = raw.map((n) => clean(n)).filter(Boolean);
+  if (cleaned.length) return cleaned;
+  return ['Leticia Wright', 'Andrea Cannon'];
+}
+
+function pickSetterForLead(store = {}, leads = []) {
+  const roster = setterRosterFromStore(store);
+  if (!roster.length) return '';
+
+  const counts = new Map(roster.map((name) => [name, 0]));
+  for (const lead of (leads || [])) {
+    const assigned = normalize(lead?.assignedSetter || '');
+    const hit = roster.find((name) => normalize(name) === assigned);
+    if (!hit) continue;
+    counts.set(hit, Number(counts.get(hit) || 0) + 1);
+  }
+
+  return [...counts.entries()].sort((a, b) => {
+    if (a[1] !== b[1]) return a[1] - b[1];
+    return roster.indexOf(a[0]) - roster.indexOf(b[0]);
+  })[0]?.[0] || roster[0];
+}
+
 function pick(...vals) {
   for (const v of vals) {
     const c = clean(v);
@@ -162,6 +191,7 @@ export async function POST(req) {
     return Response.json({ ok: true, duplicate: true, leadId: existing.id });
   }
 
+  const assignedSetter = pickSetterForLead(store, leads);
   const lead = {
     id: id('lead'),
     fullName: parsed.fullName,
@@ -177,12 +207,12 @@ export async function POST(req) {
     attempts: [],
     voicemailLeft: false,
     notes: [],
-    assignedSetter: '',
+    assignedSetter,
     appointment: null,
     assignedAgentId: '',
     assignmentLog: [],
     followUpAt: '',
-    timeline: [{ id: id('tl'), at: new Date().toISOString(), event: 'Lead ingested from webhook' }]
+    timeline: [{ id: id('tl'), at: new Date().toISOString(), event: `Lead ingested from webhook${assignedSetter ? ` and assigned to ${assignedSetter}` : ''}` }]
   };
 
   leads.unshift(lead);

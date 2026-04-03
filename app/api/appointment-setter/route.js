@@ -219,7 +219,8 @@ function seedStore() {
       slaMinutes: 5,
       stateCaps: { CA: 2, TX: 3, GA: 3, FL: 3 },
       adminOverrideEnabled: true,
-      assignmentMode: 'smart'
+      assignmentMode: 'smart',
+      setterRoster: ['Leticia Wright', 'Andrea Cannon']
     },
     agents: [
       {
@@ -526,6 +527,42 @@ function canAccessLeadForActor(lead = {}, actorName = '', actorRole = '') {
   return !assignedSetter || assignedSetter === actor;
 }
 
+function setterRosterFromStore(store = {}) {
+  const raw = Array.isArray(store?.settings?.setterRoster) ? store.settings.setterRoster : [];
+  const cleaned = raw.map((n) => clean(n)).filter(Boolean);
+  if (cleaned.length) return cleaned;
+  return ['Leticia Wright', 'Andrea Cannon'];
+}
+
+function assignSetterRoundRobin(leads = [], roster = []) {
+  const set = (roster || []).map((n) => clean(n)).filter(Boolean);
+  if (!set.length) return leads;
+
+  const counts = new Map(set.map((name) => [name, 0]));
+  for (const lead of (leads || [])) {
+    const assigned = normalize(lead?.assignedSetter || '');
+    const hit = set.find((name) => normalize(name) === assigned);
+    if (!hit) continue;
+    counts.set(hit, Number(counts.get(hit) || 0) + 1);
+  }
+
+  return (leads || []).map((lead) => {
+    if (clean(lead?.assignedSetter)) return lead;
+    const picked = [...counts.entries()].sort((a, b) => {
+      if (a[1] !== b[1]) return a[1] - b[1];
+      return set.indexOf(a[0]) - set.indexOf(b[0]);
+    })[0]?.[0] || set[0];
+
+    counts.set(picked, Number(counts.get(picked) || 0) + 1);
+    return {
+      ...lead,
+      assignedSetter: picked,
+      updatedAt: nowIso(),
+      timeline: pushTimeline(lead, `Setter auto-assigned to ${picked}`)
+    };
+  });
+}
+
 function currentWeekAssignments(leads = []) {
   const week = isoWeekKey(new Date());
   const rows = [];
@@ -692,7 +729,36 @@ export async function POST(req) {
     return Response.json({ ok: true, lead });
   }
 
-  const nonLeadActions = new Set(['set_agent_availability', 'set_state_cap', 'set_settings']);
+  if (action === 'go_live_cleanup') {
+    if (!isKimoraActor(actorName)) {
+      return Response.json({ ok: false, error: 'kimora_admin_only' }, { status: 403 });
+    }
+
+    const roster = ['Leticia Wright', 'Andrea Cannon'];
+    const beforeCount = leads.length;
+    const filtered = leads.filter((lead) => {
+      const email = clean(lead?.email).toLowerCase();
+      return !email.endsWith('@example.com');
+    });
+    const removed = beforeCount - filtered.length;
+
+    const reassigned = assignSetterRoundRobin(filtered, roster);
+    const nextSettings = {
+      ...(store?.settings || {}),
+      setterRoster: roster
+    };
+
+    await saveJsonFile(STORE_PATH, {
+      ...store,
+      settings: nextSettings,
+      leads: reassigned,
+      notifications
+    });
+
+    return Response.json({ ok: true, removedSampleLeads: removed, activeSetterRoster: roster, leadsRemaining: reassigned.length });
+  }
+
+  const nonLeadActions = new Set(['set_agent_availability', 'set_state_cap', 'set_settings', 'go_live_cleanup']);
   if (idx < 0 && !nonLeadActions.has(action)) {
     return Response.json({ ok: false, error: 'lead_not_found' }, { status: 404 });
   }
@@ -931,6 +997,10 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'kimora_admin_only' }, { status: 403 });
     }
 
+    const requestedRoster = Array.isArray(body?.settings?.setterRoster)
+      ? body.settings.setterRoster.map((n) => clean(n)).filter(Boolean)
+      : setterRosterFromStore(store);
+
     const nextSettings = {
       ...(store?.settings || {}),
       ...(body?.settings || {}),
@@ -938,7 +1008,8 @@ export async function POST(req) {
       adminOverrideEnabled: body?.settings?.adminOverrideEnabled === undefined
         ? Boolean(store?.settings?.adminOverrideEnabled)
         : Boolean(body?.settings?.adminOverrideEnabled),
-      assignmentMode: clean(body?.settings?.assignmentMode || store?.settings?.assignmentMode || 'smart')
+      assignmentMode: clean(body?.settings?.assignmentMode || store?.settings?.assignmentMode || 'smart'),
+      setterRoster: requestedRoster.length ? requestedRoster : ['Leticia Wright', 'Andrea Cannon']
     };
 
     await saveJsonFile(STORE_PATH, { ...store, settings: nextSettings, leads, notifications });
