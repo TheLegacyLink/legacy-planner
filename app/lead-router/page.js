@@ -725,7 +725,7 @@ export default function LeadRouterPage() {
           </thead>
           <tbody>
             {(filteredWeekUnsubmittedLeads || []).slice(0, 250).map((r) => (
-              <tr key={r.id} style={r.prioritySponsorshipNotBooked ? { background: '#fff7ed' } : undefined}>
+              <tr key={r.id}>
                 <td>
                   <input
                     type="checkbox"
@@ -740,7 +740,20 @@ export default function LeadRouterPage() {
                 <td>{r.owner || '—'}</td>
                 <td>{fmt(r.createdAt)}</td>
                 <td>{r.stage || 'New'}</td>
-                <td>{r.prioritySponsorshipNotBooked ? 'Sponsorship Submitted • Not Booked' : '—'}</td>
+                <td>
+                  {r.prioritySponsorshipNotBooked ? (
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '3px 8px',
+                      borderRadius: 999,
+                      border: '1px solid rgba(245,158,11,.9)',
+                      boxShadow: '0 0 10px rgba(245,158,11,.35)',
+                      color: 'inherit'
+                    }}>
+                      Sponsorship Submitted • Not Booked
+                    </span>
+                  ) : '—'}
+                </td>
                 <td>{r.submitted ? 'Yes' : 'No'}</td>
                 <td>{r.booked ? 'Yes' : 'No'}</td>
                 <td>{r.releaseStatus || '—'}</td>
