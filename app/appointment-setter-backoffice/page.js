@@ -66,6 +66,16 @@ function pillColor(status = '') {
   return '#3b82f6';
 }
 
+function isPreClosedSponsorshipLead(lead = {}) {
+  const product = clean(lead?.productType).toLowerCase();
+  const source = clean(lead?.campaignSource).toLowerCase();
+  const status = clean(lead?.status).toLowerCase();
+  const hasBookedTime = Boolean(clean(lead?.appointment?.dateTime));
+  const sponsorshipContext = product.includes('sponsorship') || source.includes('sponsorship');
+  const alreadyBooked = hasBookedTime || status === 'booked';
+  return sponsorshipContext && alreadyBooked;
+}
+
 export default function AppointmentSetterBackofficePage() {
   const [session, setSession] = useState(null);
   const [name, setName] = useState('');
@@ -471,7 +481,14 @@ export default function AppointmentSetterBackofficePage() {
                     return (
                       <tr key={lead.id} style={{ borderBottom: '1px solid #1e293b', background: sla ? 'rgba(127,29,29,.2)' : 'transparent' }}>
                         <td style={{ padding: '8px 6px' }}>
-                          <div style={{ fontWeight: 700 }}>{lead.fullName}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <div style={{ fontWeight: 700 }}>{lead.fullName}</div>
+                            {isPreClosedSponsorshipLead(lead) ? (
+                              <span style={{ border: '1px solid #f59e0b', color: '#fbbf24', borderRadius: 999, padding: '2px 8px', fontSize: 11 }}>
+                                Sponsorship Approved / Pre-Closed
+                              </span>
+                            ) : null}
+                          </div>
                           <small style={{ color: '#94a3b8' }}>{lead.phone} • {lead.email}</small>
                         </td>
                         <td style={{ padding: '8px 6px' }}>{stateCode(lead.state)}</td>

@@ -388,6 +388,16 @@ function emailFrame(title = '', bodyHtml = '') {
   return `<div style="font-family:Inter,Arial,sans-serif;background:#f8fafc;padding:20px;color:#0f172a;"><div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:#0f172a;color:#fff;padding:16px 20px;text-align:center;font-weight:800;font-size:24px;line-height:1;">THE LEGACY LINK</div><div style="padding:20px;"><h2 style="margin:0 0 12px;font-size:20px;">${title}</h2>${bodyHtml}<p style="margin:10px 0 0;color:#334155;"><strong>Legacy Link Support Team</strong></p></div></div></div>`;
 }
 
+function isPreClosedSponsorshipLead(lead = {}) {
+  const product = normalize(lead?.productType || '');
+  const source = normalize(lead?.campaignSource || '');
+  const status = normalize(lead?.status || '');
+  const hasBookedTime = Boolean(clean(lead?.appointment?.dateTime));
+  const sponsorshipContext = product.includes('sponsorship') || source.includes('sponsorship');
+  const alreadyBooked = hasBookedTime || status === 'booked';
+  return sponsorshipContext && alreadyBooked;
+}
+
 async function sendAssignmentEmail({ agent = {}, lead = {}, assignedBy = '' }) {
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
@@ -396,6 +406,11 @@ async function sendAssignmentEmail({ agent = {}, lead = {}, assignedBy = '' }) {
   if (!user || !pass || !to) return { ok: false, error: 'email_not_configured' };
 
   const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+
+  const preClosedSponsorship = isPreClosedSponsorshipLead(lead);
+  const sponsorshipContextLine = preClosedSponsorship
+    ? 'Lead Context: Sponsorship already submitted/approved. This is a follow-up/coordination lead.'
+    : '';
 
   const subject = `New Appointment Assigned • ${clean(lead?.fullName) || 'Lead'}`;
   const text = [
@@ -409,13 +424,15 @@ async function sendAssignmentEmail({ agent = {}, lead = {}, assignedBy = '' }) {
     `State: ${clean(lead?.state) || '—'}`,
     `Appointment: ${clean(lead?.appointment?.dateTime) || 'TBD'}`,
     `Setter Notes: ${clean(lead?.appointment?.setterNotes) || '—'}`,
+    sponsorshipContextLine,
     ''
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 
   const html = emailFrame(
     'New Appointment Assigned',
     `<p>Hi <strong>${clean(agent?.name) || 'Agent'}</strong>,</p>
      <p>${assignedBy || 'Operations'} assigned you a booked appointment.</p>
+     ${preClosedSponsorship ? '<p style="margin:10px 0;padding:10px;border:1px solid #f59e0b;background:#fffbeb;border-radius:8px;"><strong>Lead Context:</strong> Sponsorship already submitted/approved. This is a follow-up/coordination lead.</p>' : ''}
      <ul style="padding-left:18px;line-height:1.6;">
        <li><strong>Lead:</strong> ${clean(lead?.fullName) || '—'}</li>
        <li><strong>Phone:</strong> ${clean(lead?.phone) || '—'}</li>
@@ -524,7 +541,8 @@ function canAccessLeadForActor(lead = {}, actorName = '', actorRole = '') {
   const actor = normalize(actorName);
   if (!actor) return false;
   const assignedSetter = normalize(lead?.assignedSetter || '');
-  return !assignedSetter || assignedSetter === actor;
+  // Setter view is strict: only their own assigned leads.
+  return Boolean(assignedSetter) && assignedSetter === actor;
 }
 
 function setterRosterFromStore(store = {}) {
