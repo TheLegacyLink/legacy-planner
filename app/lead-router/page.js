@@ -40,6 +40,7 @@ function clean(v = '') {
 export default function LeadRouterPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
   const [isDirty, setIsDirty] = useState(false);
   const [settings, setSettings] = useState(null);
   const [counts, setCounts] = useState({});
@@ -126,6 +127,7 @@ export default function LeadRouterPage() {
 
   async function savePatch(patch) {
     setSaving(true);
+    setSaveMessage('Saving...');
     try {
       const res = await fetch('/api/lead-router', {
         method: 'PATCH',
@@ -134,11 +136,15 @@ export default function LeadRouterPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        alert(`Save failed: ${data?.error || 'unknown_error'}`);
+        const msg = `Save failed: ${data?.error || 'unknown_error'}`;
+        setSaveMessage(msg);
+        alert(msg);
         return;
       }
       setSettings(data.settings);
       setIsDirty(false);
+      setSaveMessage('Saved');
+      setTimeout(() => setSaveMessage(''), 1800);
     } finally {
       setSaving(false);
     }
@@ -485,6 +491,8 @@ export default function LeadRouterPage() {
         <button type="button" className="ghost" onClick={() => savePatch(settings)} disabled={saving}>
           Save All
         </button>
+
+        <span className="muted" style={{ minWidth: 120 }}>{saving ? 'Saving...' : (saveMessage || (isDirty ? 'Unsaved changes' : ''))}</span>
       </div>
 
       <div className="panel" style={{ marginBottom: 10 }}>
@@ -872,6 +880,7 @@ export default function LeadRouterPage() {
                         setSettings((s) => ({ ...s, agents }));
                         setIsDirty(true);
                       }}
+                      onBlur={() => savePatch({ agents: settings?.agents || [] })}
                     />
                   </td>
                   <td>
@@ -883,6 +892,7 @@ export default function LeadRouterPage() {
                         setSettings((s) => ({ ...s, agents }));
                         setIsDirty(true);
                       }}
+                      onBlur={() => savePatch({ agents: settings?.agents || [] })}
                     />
                   </td>
                   <td>
