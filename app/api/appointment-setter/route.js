@@ -548,7 +548,7 @@ function isPrivilegedRole(role = '') {
 }
 
 function canAccessLeadForActor(lead = {}, actorName = '', actorRole = '') {
-  if (isPrivilegedRole(actorRole)) return true;
+  if (isPrivilegedRole(actorRole) || isKimoraActor(actorName)) return true;
   const actor = normalize(actorName);
   if (!actor) return false;
   const assignedSetter = normalize(lead?.assignedSetter || '');
