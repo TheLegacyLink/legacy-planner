@@ -94,6 +94,8 @@ const REQUIRED_ASSIGNMENT_AGENT_ORDER = [
   'Andrea Cannon'
 ];
 
+const DEFAULT_SETTER_ROSTER = ['Kimora Link', 'Leticia Wright', 'Andrea Cannon'];
+
 const ASSIGNMENT_AGENT_ALIAS_TO_CANONICAL = {
   kelinbrown: 'Kelin Brown',
   kellynbrown: 'Kelin Brown',
@@ -231,7 +233,7 @@ function seedStore() {
       stateCaps: { CA: 2, TX: 3, GA: 3, FL: 3 },
       adminOverrideEnabled: true,
       assignmentMode: 'smart',
-      setterRoster: ['Leticia Wright', 'Andrea Cannon']
+      setterRoster: [...DEFAULT_SETTER_ROSTER]
     },
     agents: [
       {
@@ -559,8 +561,7 @@ function canAccessLeadForActor(lead = {}, actorName = '', actorRole = '') {
 function setterRosterFromStore(store = {}) {
   const raw = Array.isArray(store?.settings?.setterRoster) ? store.settings.setterRoster : [];
   const cleaned = raw.map((n) => clean(n)).filter(Boolean);
-  if (cleaned.length) return cleaned;
-  return ['Leticia Wright', 'Andrea Cannon'];
+  return [...new Set([...DEFAULT_SETTER_ROSTER, ...cleaned])];
 }
 
 function assignSetterRoundRobin(leads = [], roster = []) {
@@ -813,7 +814,7 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'kimora_admin_only' }, { status: 403 });
     }
 
-    const roster = ['Leticia Wright', 'Andrea Cannon'];
+    const roster = [...DEFAULT_SETTER_ROSTER];
     const beforeCount = leads.length;
     const filtered = leads.filter((lead) => {
       const email = clean(lead?.email).toLowerCase();
@@ -1107,7 +1108,7 @@ export async function POST(req) {
         ? Boolean(store?.settings?.adminOverrideEnabled)
         : Boolean(body?.settings?.adminOverrideEnabled),
       assignmentMode: clean(body?.settings?.assignmentMode || store?.settings?.assignmentMode || 'smart'),
-      setterRoster: requestedRoster.length ? requestedRoster : ['Leticia Wright', 'Andrea Cannon']
+      setterRoster: requestedRoster.length ? requestedRoster : [...DEFAULT_SETTER_ROSTER]
     };
 
     await saveJsonFile(STORE_PATH, { ...store, settings: nextSettings, leads, notifications });

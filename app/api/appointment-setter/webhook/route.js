@@ -1,6 +1,7 @@
 import { loadJsonFile, saveJsonFile } from '../../../../lib/blobJsonStore';
 
 const STORE_PATH = 'stores/appointment-setter-backoffice.json';
+const DEFAULT_SETTER_ROSTER = ['Kimora Link', 'Leticia Wright', 'Andrea Cannon'];
 
 function clean(v = '') { return String(v || '').trim(); }
 
@@ -43,8 +44,7 @@ function normalize(v = '') {
 function setterRosterFromStore(store = {}) {
   const raw = Array.isArray(store?.settings?.setterRoster) ? store.settings.setterRoster : [];
   const cleaned = raw.map((n) => clean(n)).filter(Boolean);
-  if (cleaned.length) return cleaned;
-  return ['Leticia Wright', 'Andrea Cannon'];
+  return [...new Set([...DEFAULT_SETTER_ROSTER, ...cleaned])];
 }
 
 function pickSetterForLead(store = {}, leads = []) {
