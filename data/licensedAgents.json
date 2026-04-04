@@ -1,5 +1,18 @@
 [
   {
+    "agent_id": "*Please see Legend at bottom for column explanations",
+    "full_name": "",
+    "email": "",
+    "phone": "",
+    "city": "",
+    "home_state": "",
+    "state_code": "",
+    "license_status": "Active",
+    "carriers_active": [],
+    "carriers_all": [],
+    "carrier_details": []
+  },
+  {
     "agent_id": "000576030",
     "full_name": "ADAMS, MADALYN",
     "email": "madalynm13@gmail.com",
@@ -93,7 +106,7 @@
   {
     "agent_id": "000599702",
     "full_name": "BENOIT, JAMES",
-    "email": "jbenoit@benoitlegacygroup.com",
+    "email": "JBENOIT@BENOITLEGACYGROUP.COM",
     "phone": "929-213-5531",
     "city": "NEW YORK",
     "home_state": "NY",
@@ -375,7 +388,7 @@
   {
     "agent_id": "BU34325000",
     "full_name": "BURNS, MAHOGANY DEANDREA",
-    "email": "Lovelyfloral78@gmail.com",
+    "email": "divinedynasty1@icloud.com",
     "phone": "314-201-2104",
     "city": "SAINT LOUIS",
     "home_state": "MO",
@@ -397,10 +410,24 @@
     "effective_date": "09-25-2025"
   },
   {
+    "agent_id": "000735342",
+    "full_name": "BYRD, AKIAMI",
+    "email": "akiamimbyrd@gmail.com",
+    "phone": "859-347-6756",
+    "city": "LEXINGTON",
+    "home_state": "KY",
+    "state_code": "KY",
+    "license_status": "Active",
+    "carriers_active": [],
+    "carriers_all": [],
+    "carrier_details": [],
+    "effective_date": "03-09-2026"
+  },
+  {
     "agent_id": "CA42626000",
     "full_name": "CANNON, ANDREA D",
     "email": "andreadcannon@gmail.com",
-    "phone": "646-945-9530",
+    "phone": "443-694-5872",
     "city": "BALTIMORE",
     "home_state": "MD",
     "state_code": "MD",
@@ -504,7 +531,7 @@
   {
     "agent_id": "CH27845D80",
     "full_name": "CHAMBERS, TIARA",
-    "email": "tchamberslsw@gmail.com",
+    "email": "Tchamberslsw@gmail.com",
     "phone": "513-787-4637",
     "city": "CINCINNATI",
     "home_state": "OH",
@@ -762,7 +789,7 @@
   {
     "agent_id": "000603553",
     "full_name": "ENGRAM, CHANDRIA",
-    "email": "chandriaengram@gmail.com",
+    "email": "CHANDRIAENGRAM@GMAIL.COM",
     "phone": "407-558-5233",
     "city": "ORLANDO",
     "home_state": "FL",
@@ -1107,7 +1134,7 @@
   {
     "agent_id": "HO06125000",
     "full_name": "HOLMES, JAMAL",
-    "email": "support@Jdholmesagencyllc.com",
+    "email": "jamalholmes195@yahoo.com",
     "phone": "215-954-9163",
     "city": "BRIDGETON",
     "home_state": "NJ",
@@ -1161,7 +1188,7 @@
   {
     "agent_id": "HU04395000",
     "full_name": "HUGHES, FREDERICK L",
-    "email": "fhughes0506@gmail.com",
+    "email": "FHUGHES0506@GMAIL.COM",
     "phone": "817-768-0740",
     "city": "FORT WORTH",
     "home_state": "TX",
@@ -1214,6 +1241,34 @@
     "effective_date": "12-27-2025"
   },
   {
+    "agent_id": "000631663",
+    "full_name": "INVESTALINK",
+    "email": "INVESTALINKINSURANCE@GMAIL.COM",
+    "phone": "646-945-9530",
+    "city": "ROUND ROCK",
+    "home_state": "TX",
+    "state_code": "TX",
+    "license_status": "Active",
+    "carriers_active": [],
+    "carriers_all": [],
+    "carrier_details": [],
+    "effective_date": "06-14-2024"
+  },
+  {
+    "agent_id": "000747478",
+    "full_name": "JACKSON, CLIFFORD",
+    "email": "cjackjr02@gmail.com",
+    "phone": "216-307-9049",
+    "city": "EUCLID",
+    "home_state": "OH",
+    "state_code": "OH",
+    "license_status": "Active",
+    "carriers_active": [],
+    "carriers_all": [],
+    "carrier_details": [],
+    "effective_date": "03-31-2026"
+  },
+  {
     "agent_id": "MOO-2060778",
     "full_name": "James, Breanna Michelle",
     "email": "drboss637@gmail.com",
@@ -1246,7 +1301,7 @@
   {
     "agent_id": "000640231",
     "full_name": "JOHNSON, KRISTI D",
-    "email": "kristid2018@gmail.com",
+    "email": "KRISTID2018@GMAIL.COM",
     "phone": "713-724-3978",
     "city": "HOUSTON",
     "home_state": "TX",
@@ -1307,7 +1362,7 @@
   {
     "agent_id": "000655502",
     "full_name": "JONES, GLENN",
-    "email": "glennjinsure@gmail.com",
+    "email": "GLENNJINSURE@GMAIL.COM",
     "phone": "240-498-4477",
     "city": "CLINTON",
     "home_state": "MD",
@@ -1337,7 +1392,7 @@
   {
     "agent_id": "000657051",
     "full_name": "JONES, LATANYA R",
-    "email": "lrjworldwideenterprises@gmail.com",
+    "email": "LRJWORLDWIDEENTERPRISES@GMAIL.COM",
     "phone": "404-951-0176",
     "city": "ATLANTA",
     "home_state": "GA",
@@ -2070,7 +2125,7 @@
   {
     "agent_id": "000631664",
     "full_name": "LINK, KIMORA",
-    "email": "investalinkinsurance@gmail.com",
+    "email": "INVESTALINKINSURANCE@GMAIL.COM",
     "phone": "646-945-9530",
     "city": "NEW YORK",
     "home_state": "NY",
@@ -2151,6 +2206,158 @@
     "city": "NEW YORK",
     "home_state": "NY",
     "state_code": "PA",
+    "license_status": "Active",
+    "carriers_active": [
+      "F&G",
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "F&G",
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000631664"
+      },
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2058112"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "7685T"
+      }
+    ],
+    "effective_date": "06-14-2024"
+  },
+  {
+    "agent_id": "000631664",
+    "full_name": "LINK, KIMORA",
+    "email": "investalinkinsurance@gmail.com",
+    "phone": "646-945-9530",
+    "city": "NEW YORK",
+    "home_state": "NY",
+    "state_code": "SC",
+    "license_status": "Active",
+    "carriers_active": [
+      "F&G",
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "F&G",
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000631664"
+      },
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2058112"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "7685T"
+      }
+    ],
+    "effective_date": "06-14-2024"
+  },
+  {
+    "agent_id": "000631664",
+    "full_name": "LINK, KIMORA",
+    "email": "investalinkinsurance@gmail.com",
+    "phone": "646-945-9530",
+    "city": "NEW YORK",
+    "home_state": "NY",
+    "state_code": "TN",
+    "license_status": "Active",
+    "carriers_active": [
+      "F&G",
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "F&G",
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000631664"
+      },
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2058112"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "7685T"
+      }
+    ],
+    "effective_date": "06-14-2024"
+  },
+  {
+    "agent_id": "000631664",
+    "full_name": "LINK, KIMORA",
+    "email": "investalinkinsurance@gmail.com",
+    "phone": "646-945-9530",
+    "city": "NEW YORK",
+    "home_state": "NY",
+    "state_code": "TX",
+    "license_status": "Active",
+    "carriers_active": [
+      "F&G",
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "F&G",
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000631664"
+      },
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2058112"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "7685T"
+      }
+    ],
+    "effective_date": "06-14-2024"
+  },
+  {
+    "agent_id": "000631664",
+    "full_name": "LINK, KIMORA",
+    "email": "investalinkinsurance@gmail.com",
+    "phone": "646-945-9530",
+    "city": "NEW YORK",
+    "home_state": "NY",
+    "state_code": "VA",
     "license_status": "Active",
     "carriers_active": [
       "F&G",
@@ -2286,6 +2493,20 @@
       }
     ],
     "effective_date": "03-07-2025"
+  },
+  {
+    "agent_id": "000699337",
+    "full_name": "MERCHANT CRUMBLY, WEINER LOUIN",
+    "email": "HERSTOINSPIRE@GMAIL.COM",
+    "phone": "475-777-0607",
+    "city": "CHARLOTTE",
+    "home_state": "NC",
+    "state_code": "NC",
+    "license_status": "Active",
+    "carriers_active": [],
+    "carriers_all": [],
+    "carrier_details": [],
+    "effective_date": "03-10-2026"
   },
   {
     "agent_id": "MOO-2061867",
@@ -2657,7 +2878,7 @@
   {
     "agent_id": "000634217",
     "full_name": "SHIVERS, VAUGHN A",
-    "email": "vaughnshivers@gmail.com",
+    "email": "VAUGHNSHIVERS@GMAIL.COM",
     "phone": "314-497-7070",
     "city": "SAINT PETERS",
     "home_state": "MO",
@@ -2688,7 +2909,7 @@
   {
     "agent_id": "000647242",
     "full_name": "SMALL, KIRKLAND R",
-    "email": "kirklandrsmall@gmail.com",
+    "email": "KIRKLANDrSMALL@gmail.com",
     "phone": "727-480-5189",
     "city": "LAKEWOOD RANCH",
     "home_state": "FL",
@@ -2776,6 +2997,20 @@
       }
     ],
     "effective_date": "10-17-2025"
+  },
+  {
+    "agent_id": "SM10225000",
+    "full_name": "SMITH, PRINCESS T",
+    "email": "multiplemarket@gmail.com",
+    "phone": "929-237-9368",
+    "city": "BRONX",
+    "home_state": "NY",
+    "state_code": "NY",
+    "license_status": "Active",
+    "carriers_active": [],
+    "carriers_all": [],
+    "carrier_details": [],
+    "effective_date": "03-09-2026"
   },
   {
     "agent_id": "MOO-2062917",
@@ -2952,7 +3187,7 @@
   {
     "agent_id": "000591422",
     "full_name": "TAYLOR, TANEISHA",
-    "email": "tking756@gmail.com",
+    "email": "tking756@GMAIL.COM",
     "phone": "573-703-3659",
     "city": "PORTAGEVILLE",
     "home_state": "MO",
@@ -3109,7 +3344,7 @@
   {
     "agent_id": "000664120",
     "full_name": "TROUPE, NONI",
-    "email": "nonitroupe@gmail.com",
+    "email": "NONITROUPE@GMAIL.COM",
     "phone": "404-825-4634",
     "city": "DECATUR",
     "home_state": "GA",
@@ -3133,7 +3368,7 @@
   {
     "agent_id": "UP63265000",
     "full_name": "UPSHAW, ASHANTE",
-    "email": "ashanteupshaw@gmail.com",
+    "email": "AshanteUpshaw@gmail.com",
     "phone": "832-269-4896",
     "city": "SPRING",
     "home_state": "TX",
@@ -3288,6 +3523,20 @@
     "effective_date": "02-13-2025"
   },
   {
+    "agent_id": "WH25436000",
+    "full_name": "WHALEY, MIRICK J",
+    "email": "mirickw@gmail.com",
+    "phone": "407-615-9819",
+    "city": "WINTER PARK",
+    "home_state": "FL",
+    "state_code": "FL",
+    "license_status": "Active",
+    "carriers_active": [],
+    "carriers_all": [],
+    "carrier_details": [],
+    "effective_date": "03-10-2026"
+  },
+  {
     "agent_id": "MOO-2060544",
     "full_name": "White, Shadae",
     "email": "",
@@ -3373,7 +3622,7 @@
   {
     "agent_id": "000591457",
     "full_name": "WRIGHT, LETICIA",
-    "email": "leticiawright05@gmail.com",
+    "email": "LETICIAWRIGHT05@GMAIL.COM",
     "phone": "330-315-2551",
     "city": "AURORA",
     "home_state": "CO",
@@ -3411,7 +3660,7 @@
   {
     "agent_id": "000620914",
     "full_name": "WYNN, DANIELLE",
-    "email": "dwynn28@hotmail.com",
+    "email": "DWYNN28@HOTMAIL.COM",
     "phone": "570-664-1023",
     "city": "ELIZABETH",
     "home_state": "NJ",
@@ -3485,157 +3734,5 @@
       }
     ],
     "effective_date": "12-22-2025"
-  },
-  {
-    "agent_id": "000631664",
-    "full_name": "LINK, KIMORA",
-    "email": "investalinkinsurance@gmail.com",
-    "phone": "646-945-9530",
-    "city": "NEW YORK",
-    "home_state": "NY",
-    "state_code": "SC",
-    "license_status": "Active",
-    "carriers_active": [
-      "F&G",
-      "Mutual of Omaha",
-      "National Life Group"
-    ],
-    "carriers_all": [
-      "F&G",
-      "Mutual of Omaha",
-      "National Life Group"
-    ],
-    "carrier_details": [
-      {
-        "carrier": "F&G",
-        "contract_status": "Active",
-        "carrier_agent_id": "000631664"
-      },
-      {
-        "carrier": "Mutual of Omaha",
-        "contract_status": "Active",
-        "carrier_agent_id": "2058112"
-      },
-      {
-        "carrier": "National Life Group",
-        "contract_status": "Active",
-        "carrier_agent_id": "7685T"
-      }
-    ],
-    "effective_date": "06-14-2024"
-  },
-  {
-    "agent_id": "000631664",
-    "full_name": "LINK, KIMORA",
-    "email": "investalinkinsurance@gmail.com",
-    "phone": "646-945-9530",
-    "city": "NEW YORK",
-    "home_state": "NY",
-    "state_code": "TN",
-    "license_status": "Active",
-    "carriers_active": [
-      "F&G",
-      "Mutual of Omaha",
-      "National Life Group"
-    ],
-    "carriers_all": [
-      "F&G",
-      "Mutual of Omaha",
-      "National Life Group"
-    ],
-    "carrier_details": [
-      {
-        "carrier": "F&G",
-        "contract_status": "Active",
-        "carrier_agent_id": "000631664"
-      },
-      {
-        "carrier": "Mutual of Omaha",
-        "contract_status": "Active",
-        "carrier_agent_id": "2058112"
-      },
-      {
-        "carrier": "National Life Group",
-        "contract_status": "Active",
-        "carrier_agent_id": "7685T"
-      }
-    ],
-    "effective_date": "06-14-2024"
-  },
-  {
-    "agent_id": "000631664",
-    "full_name": "LINK, KIMORA",
-    "email": "investalinkinsurance@gmail.com",
-    "phone": "646-945-9530",
-    "city": "NEW YORK",
-    "home_state": "NY",
-    "state_code": "TX",
-    "license_status": "Active",
-    "carriers_active": [
-      "F&G",
-      "Mutual of Omaha",
-      "National Life Group"
-    ],
-    "carriers_all": [
-      "F&G",
-      "Mutual of Omaha",
-      "National Life Group"
-    ],
-    "carrier_details": [
-      {
-        "carrier": "F&G",
-        "contract_status": "Active",
-        "carrier_agent_id": "000631664"
-      },
-      {
-        "carrier": "Mutual of Omaha",
-        "contract_status": "Active",
-        "carrier_agent_id": "2058112"
-      },
-      {
-        "carrier": "National Life Group",
-        "contract_status": "Active",
-        "carrier_agent_id": "7685T"
-      }
-    ],
-    "effective_date": "06-14-2024"
-  },
-  {
-    "agent_id": "000631664",
-    "full_name": "LINK, KIMORA",
-    "email": "investalinkinsurance@gmail.com",
-    "phone": "646-945-9530",
-    "city": "NEW YORK",
-    "home_state": "NY",
-    "state_code": "VA",
-    "license_status": "Active",
-    "carriers_active": [
-      "F&G",
-      "Mutual of Omaha",
-      "National Life Group"
-    ],
-    "carriers_all": [
-      "F&G",
-      "Mutual of Omaha",
-      "National Life Group"
-    ],
-    "carrier_details": [
-      {
-        "carrier": "F&G",
-        "contract_status": "Active",
-        "carrier_agent_id": "000631664"
-      },
-      {
-        "carrier": "Mutual of Omaha",
-        "contract_status": "Active",
-        "carrier_agent_id": "2058112"
-      },
-      {
-        "carrier": "National Life Group",
-        "contract_status": "Active",
-        "carrier_agent_id": "7685T"
-      }
-    ],
-    "effective_date": "06-14-2024"
   }
 ]
