@@ -353,6 +353,16 @@ function canonicalKey(row = {}) {
   return `${name}|${email || '-'}|${phone || '-'}`;
 }
 
+function calculateAgeFromBirthday(birthday = '') {
+  const dob = new Date(birthday);
+  if (Number.isNaN(dob.getTime())) return 0;
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age -= 1;
+  return age;
+}
+
 function validateRequiredSubmissionFields(record = {}) {
   const missing = [];
   const age = Number(record.age || 0);
@@ -363,6 +373,7 @@ function validateRequiredSubmissionFields(record = {}) {
   if (!clean(record.state)) missing.push('state');
   if (!clean(record.email)) missing.push('email');
   if (!phone || phone.length < 10) missing.push('phone');
+  if (!clean(record.birthday)) missing.push('birthday');
   if (!record.age || age < 18 || age > 100) missing.push('age');
 
   if (!clean(record.healthStatus)) missing.push('healthStatus');
@@ -459,10 +470,16 @@ export async function POST(req) {
       phone: clean(body?.phone),
       status: clean(body?.status || 'Pending Review'),
       decision_bucket: clean(body?.decision_bucket || 'manual_review'),
+      birthday: clean(body?.birthday || body?.dateOfBirth || ''),
       submitted_at: body?.submitted_at || nowIso(),
       updatedAt: nowIso(),
       normalizedName: normalizeName(`${body?.firstName || ''} ${body?.lastName || ''}`)
     };
+
+    if ((!record.age || Number(record.age) <= 0) && record.birthday) {
+      const derivedAge = calculateAgeFromBirthday(record.birthday);
+      if (derivedAge > 0) record.age = derivedAge;
+    }
 
     const sponsorName = resolveSponsorDisplayName(record);
     if (sponsorName && sponsorName !== 'Unattributed') {

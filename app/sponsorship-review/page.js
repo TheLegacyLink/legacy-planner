@@ -69,6 +69,7 @@ function sponsorNameFromRow(row = {}) {
 
 function answerFields(row = {}) {
   return [
+    ['Birthday', row.birthday || row.dateOfBirth],
     ['Age', row.age],
     ['State', row.state],
     ['Income Source', row.hasIncome === 'yes' ? (row.incomeSource || 'Yes (not specified)') : 'No'],

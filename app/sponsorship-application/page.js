@@ -11,6 +11,16 @@ function normalizeRef(ref = '') {
   return cleaned;
 }
 
+function calculateAgeFromBirthday(birthday = '') {
+  const dob = new Date(birthday);
+  if (Number.isNaN(dob.getTime())) return 0;
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age -= 1;
+  return age;
+}
+
 function getFieldErrors(form, termsViewed, referralLocked = false) {
   const phone = String(form.phone || '').replace(/\D/g, '');
   const age = Number(form.age || 0);
@@ -21,6 +31,7 @@ function getFieldErrors(form, termsViewed, referralLocked = false) {
   if (!form.state.trim()) fieldErrors.state = true;
   if (!form.email.trim()) fieldErrors.email = true;
   if (!phone || phone.length < 10) fieldErrors.phone = true;
+  if (!String(form.birthday || '').trim()) fieldErrors.birthday = true;
   if (!form.age || age < 18 || age > 100) fieldErrors.age = true;
 
   if (!String(form.healthStatus || '').trim()) fieldErrors.healthStatus = true;
@@ -131,6 +142,7 @@ export default function SponsorshipApplicationPage() {
     firstName: signupSeed?.firstName || '',
     lastName: signupSeed?.lastName || '',
     age: '',
+    birthday: '',
     state: '',
     email: '',
     phone: signupSeed?.phone || '',
@@ -155,11 +167,18 @@ export default function SponsorshipApplicationPage() {
   const [validationErrors, setValidationErrors] = useState({});
 
   const update = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => {
+      if (key === 'birthday') {
+        const derivedAge = calculateAgeFromBirthday(value);
+        return { ...prev, birthday: value, age: derivedAge > 0 ? String(derivedAge) : '' };
+      }
+      return { ...prev, [key]: value };
+    });
     setValidationErrors((prev) => {
-      if (!prev[key]) return prev;
+      if (!prev[key] && !(key === 'birthday' && prev.age)) return prev;
       const next = { ...prev };
       delete next[key];
+      if (key === 'birthday') delete next.age;
       return next;
     });
   };
@@ -191,6 +210,7 @@ export default function SponsorshipApplicationPage() {
       ...form,
       phone,
       age,
+      birthday: String(form.birthday || '').trim(),
       refCode: ref || signupSeed?.refCode || '',
       referralLocked: Boolean(ref || signupSeed?.refCode),
       status: decision.status,
@@ -235,7 +255,7 @@ export default function SponsorshipApplicationPage() {
   const ageNum = Number(form.age || 0);
   const personalReady = Boolean(
     form.firstName.trim() && form.lastName.trim() && form.state.trim() && form.email.trim() &&
-    phoneDigits.length >= 10 && form.age && ageNum >= 18 && ageNum <= 100
+    phoneDigits.length >= 10 && String(form.birthday || '').trim() && form.age && ageNum >= 18 && ageNum <= 100
   );
   const fitReady = Boolean(
     (form.hasIncome !== 'yes' || form.incomeSource.trim()) &&
@@ -313,7 +333,8 @@ export default function SponsorshipApplicationPage() {
         <form id="sponsor-app-form" className="logForm" onSubmit={onSubmit}>
           <label>First Name<input className={validationErrors.firstName ? 'errorInput' : ''} value={form.firstName} onChange={(e) => update('firstName', e.target.value)} /></label>
           <label>Last Name<input className={validationErrors.lastName ? 'errorInput' : ''} value={form.lastName} onChange={(e) => update('lastName', e.target.value)} /></label>
-          <label>Age<input className={validationErrors.age ? 'errorInput' : ''} type="number" value={form.age} onChange={(e) => update('age', e.target.value)} /></label>
+          <label>Birthday<input className={validationErrors.birthday ? 'errorInput' : ''} type="date" value={form.birthday} onChange={(e) => update('birthday', e.target.value)} /></label>
+          <label>Age<input className={validationErrors.age ? 'errorInput' : ''} type="number" value={form.age} readOnly /></label>
           <label>State<input className={validationErrors.state ? 'errorInput' : ''} value={form.state} onChange={(e) => update('state', e.target.value)} /></label>
           <label>Email<input className={validationErrors.email ? 'errorInput' : ''} type="email" value={form.email} onChange={(e) => update('email', e.target.value)} /></label>
           <label>Phone<input className={validationErrors.phone ? 'errorInput' : ''} value={form.phone} onChange={(e) => update('phone', e.target.value)} /></label>
