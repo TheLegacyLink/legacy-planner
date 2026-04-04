@@ -8,9 +8,19 @@
     "home_state": "",
     "state_code": "",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": []
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "*Please see Legend at bottom for column explanations"
+      }
+    ]
   },
   {
     "agent_id": "000576030",
@@ -418,9 +428,19 @@
     "home_state": "KY",
     "state_code": "KY",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": [],
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000735342"
+      }
+    ],
     "effective_date": "03-09-2026"
   },
   {
@@ -1249,9 +1269,19 @@
     "home_state": "TX",
     "state_code": "TX",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": [],
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000631663"
+      }
+    ],
     "effective_date": "06-14-2024"
   },
   {
@@ -1263,9 +1293,19 @@
     "home_state": "OH",
     "state_code": "OH",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": [],
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000747478"
+      }
+    ],
     "effective_date": "03-31-2026"
   },
   {
@@ -2503,9 +2543,19 @@
     "home_state": "NC",
     "state_code": "NC",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": [],
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000699337"
+      }
+    ],
     "effective_date": "03-10-2026"
   },
   {
@@ -3007,9 +3057,19 @@
     "home_state": "NY",
     "state_code": "NY",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": [],
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "SM10225000"
+      }
+    ],
     "effective_date": "03-09-2026"
   },
   {
@@ -3531,9 +3591,19 @@
     "home_state": "FL",
     "state_code": "FL",
     "license_status": "Active",
-    "carriers_active": [],
-    "carriers_all": [],
-    "carrier_details": [],
+    "carriers_active": [
+      "F&G"
+    ],
+    "carriers_all": [
+      "F&G"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "WH25436000"
+      }
+    ],
     "effective_date": "03-10-2026"
   },
   {

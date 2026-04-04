@@ -75,7 +75,36 @@ for row in rows:
             'carrier_details': [],
             **({'effective_date': effective_date} if effective_date else {}),
         }
+        rec = by_key[key]
         new_count += 1
+
+    # Ensure F&G carrier mapping exists and uses Agent # as carrier agent id.
+    details = rec.setdefault('carrier_details', [])
+    fg_detail = None
+    for d in details:
+        if (d.get('carrier') or '').strip().lower() in {'f&g', 'fg'}:
+            fg_detail = d
+            break
+
+    if fg_detail is None:
+        details.append(
+            {
+                'carrier': 'F&G',
+                'contract_status': 'Active',
+                'carrier_agent_id': agent_id,
+            }
+        )
+    else:
+        fg_detail['carrier'] = 'F&G'
+        fg_detail['contract_status'] = fg_detail.get('contract_status') or 'Active'
+        fg_detail['carrier_agent_id'] = agent_id
+
+    carriers_active = set(rec.get('carriers_active') or [])
+    carriers_all = set(rec.get('carriers_all') or [])
+    carriers_active.add('F&G')
+    carriers_all.add('F&G')
+    rec['carriers_active'] = sorted(carriers_active)
+    rec['carriers_all'] = sorted(carriers_all)
 
 merged = list(by_key.values())
 merged.sort(key=lambda r: ((r.get('full_name') or '').upper(), (r.get('state_code') or '')))
