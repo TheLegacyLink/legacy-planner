@@ -1,13 +1,24 @@
-import { loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
+import { loadJsonFile, loadJsonStore, saveJsonFile } from '../../../lib/blobJsonStore';
 import nodemailer from 'nodemailer';
 import innerCircleUsers from '../../../data/innerCircleUsers.json';
 import licensedAgents from '../../../data/licensedAgents.json';
 
 const STORE_PATH = 'stores/appointment-setter-backoffice.json';
+const LEAD_ROUTER_EVENTS_PATH = 'stores/lead-router-events.json';
 
 function clean(v = '') { return String(v || '').trim(); }
 function normalize(v = '') { return clean(v).toLowerCase(); }
 function nowIso() { return new Date().toISOString(); }
+
+function cstDateKey(date = new Date()) {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  return fmt.format(date);
+}
 
 function stateCodeFromAny(v = '') {
   const raw = clean(v).toUpperCase();
@@ -671,6 +682,51 @@ function pushTimeline(lead = {}, event = '') {
   return [row, ...history].slice(0, 80);
 }
 
+async function buildAdminIntakeSnapshot() {
+  const events = await loadJsonStore(LEAD_ROUTER_EVENTS_PATH, []);
+  const todayKey = cstDateKey(new Date());
+  const assignmentTypes = new Set(['assigned', 'manual_bulk_release_assigned', 'delayed_release_assigned']);
+
+  const todayAssignments = (Array.isArray(events) ? events : [])
+    .filter((e) => assignmentTypes.has(normalize(e?.type || '')))
+    .filter((e) => clean(e?.dateKey) === todayKey)
+    .sort((a, b) => new Date(b?.timestamp || 0).getTime() - new Date(a?.timestamp || 0).getTime());
+
+  const byLead = new Map();
+  for (const ev of todayAssignments) {
+    const key = clean(ev?.leadId || ev?.externalId || ev?.email || ev?.name || ev?.id);
+    if (!key || byLead.has(key)) continue;
+    byLead.set(key, {
+      leadId: clean(ev?.leadId),
+      externalId: clean(ev?.externalId),
+      name: clean(ev?.name),
+      email: clean(ev?.email),
+      phone: clean(ev?.phone),
+      stage: clean(ev?.sponsorshipStatus || ev?.stage || ''),
+      assignedTo: clean(ev?.assignedTo || ''),
+      at: clean(ev?.timestamp || ''),
+      reason: clean(ev?.reason || '')
+    });
+  }
+
+  const uniqueAssignedRows = [...byLead.values()]
+    .sort((a, b) => new Date(b?.at || 0).getTime() - new Date(a?.at || 0).getTime());
+
+  const bySetter = {};
+  for (const row of uniqueAssignedRows) {
+    const setter = clean(row?.assignedTo || 'Unassigned');
+    bySetter[setter] = Number(bySetter[setter] || 0) + 1;
+  }
+
+  return {
+    dateKey: todayKey,
+    assignmentEventsToday: todayAssignments.length,
+    uniqueLeadsAssignedToday: uniqueAssignedRows.length,
+    bySetter,
+    rows: uniqueAssignedRows.slice(0, 150)
+  };
+}
+
 function unauthorized() {
   return Response.json({ ok: false, error: 'missing_actor' }, { status: 401 });
 }
@@ -694,10 +750,15 @@ export async function GET(req) {
     if (lead) recommendation = recommendAgent(scopedStore, lead);
   }
 
+  const adminIntakeSnapshot = (isPrivilegedRole(actorRole) || isKimoraActor(actorName))
+    ? await buildAdminIntakeSnapshot()
+    : null;
+
   return Response.json({
     ok: true,
     store: scopedStore,
-    recommendation
+    recommendation,
+    adminIntakeSnapshot
   });
 }
 

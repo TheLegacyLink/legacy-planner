@@ -97,6 +97,7 @@ export default function AppointmentSetterBackofficePage() {
   const [settingsDraft, setSettingsDraft] = useState({ slaMinutes: 5, assignmentMode: 'smart', adminOverrideEnabled: true, capState: 'CA', capValue: 2 });
   const [newLead, setNewLead] = useState({ fullName: '', phone: '', email: '', state: '', campaignSource: '', productType: '' });
   const [adminUsers, setAdminUsers] = useState([]);
+  const [adminIntakeSnapshot, setAdminIntakeSnapshot] = useState(null);
   const [userForm, setUserForm] = useState({ name: '', email: '', role: 'setter', password: '' });
 
   useEffect(() => {
@@ -116,9 +117,10 @@ export default function AppointmentSetterBackofficePage() {
     const data = await res.json().catch(() => ({}));
     if (res.ok && data?.ok) {
       setStore(data.store || null);
+      setAdminIntakeSnapshot(data.adminIntakeSnapshot || null);
     }
     setLoading(false);
-  }, [session?.name]);
+  }, [session?.name, session?.role]);
 
   useEffect(() => {
     if (!session?.name) {
@@ -136,6 +138,8 @@ export default function AppointmentSetterBackofficePage() {
   const agents = useMemo(() => Array.isArray(store?.agents) ? store.agents : [], [store]);
   const notifications = useMemo(() => Array.isArray(store?.notifications) ? store.notifications : [], [store]);
   const slaMinutes = Number(store?.settings?.slaMinutes || 5);
+  const adminCanSeeAllIntake = useMemo(() => Boolean(session?.name) && (['admin', 'manager'].includes(clean(session?.role).toLowerCase()) || isKimoraName(session?.name)), [session?.name, session?.role]);
+  const intakeRows = useMemo(() => Array.isArray(adminIntakeSnapshot?.rows) ? adminIntakeSnapshot.rows : [], [adminIntakeSnapshot]);
 
   const selectedLead = useMemo(() => leads.find((l) => clean(l.id) === clean(selectedLeadId)) || null, [leads, selectedLeadId]);
 
@@ -429,6 +433,57 @@ export default function AppointmentSetterBackofficePage() {
             </div>
           ))}
         </section>
+
+        {adminCanSeeAllIntake ? (
+          <section style={{ border: '1px solid #24304a', borderRadius: 12, background: '#0a1225', padding: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+              <strong>Admin Intake Visibility (Today)</strong>
+              <small style={{ color: '#94a3b8' }}>Date: {clean(adminIntakeSnapshot?.dateKey) || '—'}</small>
+            </div>
+
+            <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', marginBottom: 8 }}>
+              <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#071126', padding: 8 }}>
+                <div style={{ color: '#9fb4d8', fontSize: 12 }}>Assignment Events</div>
+                <strong style={{ fontSize: 22 }}>{Number(adminIntakeSnapshot?.assignmentEventsToday || 0)}</strong>
+              </div>
+              <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#071126', padding: 8 }}>
+                <div style={{ color: '#9fb4d8', fontSize: 12 }}>Unique Leads Assigned</div>
+                <strong style={{ fontSize: 22 }}>{Number(adminIntakeSnapshot?.uniqueLeadsAssignedToday || 0)}</strong>
+              </div>
+              {Object.entries(adminIntakeSnapshot?.bySetter || {}).map(([setter, count]) => (
+                <div key={setter} style={{ border: '1px solid #334155', borderRadius: 10, background: '#071126', padding: 8 }}>
+                  <div style={{ color: '#9fb4d8', fontSize: 12 }}>{setter || 'Unassigned'}</div>
+                  <strong style={{ fontSize: 22 }}>{Number(count || 0)}</strong>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ maxHeight: 220, overflow: 'auto', border: '1px solid #334155', borderRadius: 10 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+                <thead>
+                  <tr>
+                    {['Lead', 'Email', 'Phone', 'Stage', 'Distributed To', 'When'].map((h) => (
+                      <th key={h} style={{ textAlign: 'left', fontSize: 12, color: '#9fb4d8', borderBottom: '1px solid #1e293b', padding: '8px 6px' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {intakeRows.slice(0, 80).map((row) => (
+                    <tr key={`${row.leadId || row.externalId || row.email}-${row.at}`} style={{ borderBottom: '1px solid #1e293b' }}>
+                      <td style={{ padding: '8px 6px' }}>{row.name || '—'}</td>
+                      <td style={{ padding: '8px 6px' }}>{row.email || '—'}</td>
+                      <td style={{ padding: '8px 6px' }}>{row.phone || '—'}</td>
+                      <td style={{ padding: '8px 6px' }}>{row.stage || '—'}</td>
+                      <td style={{ padding: '8px 6px' }}>{row.assignedTo || 'Unassigned'}</td>
+                      <td style={{ padding: '8px 6px' }}>{localDateTime(row.at)}</td>
+                    </tr>
+                  ))}
+                  {!intakeRows.length ? <tr><td colSpan={6} style={{ padding: '10px 8px', color: '#94a3b8' }}>No lead distribution events captured yet for today.</td></tr> : null}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
 
         <section style={{ display: 'grid', gap: 12, gridTemplateColumns: '2.1fr 1fr' }} className="setter-layout">
           <div style={{ display: 'grid', gap: 10 }}>
