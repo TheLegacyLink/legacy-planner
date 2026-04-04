@@ -242,9 +242,8 @@ export default function AppointmentSetterBackofficePage() {
 
   const setterReassignableLeads = useMemo(() => {
     return [...leads]
-      .filter((l) => !clean(l.assignedAgentId))
-      .sort((a, b) => new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime())
-      .slice(0, 120);
+      .sort((a, b) => new Date(b?.updatedAt || b?.createdAt || 0).getTime() - new Date(a?.updatedAt || a?.createdAt || 0).getTime())
+      .slice(0, 200);
   }, [leads]);
 
   const fairnessRows = useMemo(() => {
