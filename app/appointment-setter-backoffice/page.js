@@ -94,6 +94,7 @@ export default function AppointmentSetterBackofficePage() {
   const [bookingAt, setBookingAt] = useState('');
   const [bookingNotes, setBookingNotes] = useState('');
   const [dragLeadId, setDragLeadId] = useState('');
+  const [dragSetterLeadId, setDragSetterLeadId] = useState('');
   const [settingsDraft, setSettingsDraft] = useState({ slaMinutes: 5, assignmentMode: 'smart', adminOverrideEnabled: true, capState: 'CA', capValue: 2 });
   const [newLead, setNewLead] = useState({ fullName: '', phone: '', email: '', state: '', campaignSource: '', productType: '' });
   const [adminUsers, setAdminUsers] = useState([]);
@@ -232,6 +233,20 @@ export default function AppointmentSetterBackofficePage() {
     [leads]
   );
 
+  const setterRoster = useMemo(() => {
+    const preferred = ['Kimora Link', 'Leticia Wright', 'Andrea Cannon'];
+    const fromSettings = Array.isArray(store?.settings?.setterRoster) ? store.settings.setterRoster : [];
+    const fromLeads = leads.map((l) => clean(l.assignedSetter)).filter(Boolean);
+    return [...new Set([...preferred, ...fromSettings, ...fromLeads].map((n) => clean(n)).filter(Boolean))];
+  }, [store?.settings?.setterRoster, leads]);
+
+  const setterReassignableLeads = useMemo(() => {
+    return [...leads]
+      .filter((l) => !clean(l.assignedAgentId))
+      .sort((a, b) => new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime())
+      .slice(0, 120);
+  }, [leads]);
+
   const fairnessRows = useMemo(() => {
     const rows = [];
     const weekStart = new Date();
@@ -337,6 +352,12 @@ export default function AppointmentSetterBackofficePage() {
     if (!dragLeadId || !agentId) return;
     await act('assign_agent', { leadId: dragLeadId, agentId });
     setDragLeadId('');
+  }
+
+  async function dropSetterAssign(setterName) {
+    if (!dragSetterLeadId || !setterName) return;
+    await act('assign_setter', { leadId: dragSetterLeadId, setterName });
+    setDragSetterLeadId('');
   }
 
   async function createLeadManually() {
@@ -570,6 +591,51 @@ export default function AppointmentSetterBackofficePage() {
                   })}
                 </tbody>
               </table>
+            </div>
+
+            <div style={{ border: '1px solid #24304a', borderRadius: 12, background: '#0a1225', padding: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                <strong>Lead Ownership Drag-and-Drop (Setters)</strong>
+                <small style={{ color: '#94a3b8' }}>Visible queue leads: {setterReassignableLeads.length}</small>
+              </div>
+
+              <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#071126', padding: 8, minHeight: 130 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <strong>Reassignable Leads</strong>
+                  <small>{setterReassignableLeads.length}</small>
+                </div>
+                <div style={{ display: 'grid', gap: 6, maxHeight: 220, overflow: 'auto' }}>
+                  {setterReassignableLeads.map((lead) => (
+                    <div
+                      key={lead.id}
+                      draggable
+                      onDragStart={() => setDragSetterLeadId(lead.id)}
+                      style={{ border: '1px solid #334155', borderRadius: 8, background: '#0b1225', padding: 7, cursor: 'grab' }}
+                    >
+                      <strong style={{ fontSize: 13 }}>{lead.fullName}</strong>
+                      <div style={{ fontSize: 12, color: '#94a3b8' }}>{stateCode(lead.state)} • Owner: {clean(lead.assignedSetter) || 'Unassigned'}</div>
+                    </div>
+                  ))}
+                  {!setterReassignableLeads.length ? <small style={{ color: '#94a3b8' }}>No leads available to reassign.</small> : null}
+                </div>
+              </div>
+
+              <div style={{ marginTop: 10, display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+                {setterRoster.map((setter) => {
+                  const count = leads.filter((l) => clean(l.assignedSetter) === clean(setter)).length;
+                  return (
+                    <div
+                      key={setter}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => dropSetterAssign(setter)}
+                      style={{ border: '1px dashed #475569', borderRadius: 10, background: '#0a1225', padding: 8 }}
+                    >
+                      <strong>{setter}</strong>
+                      <div style={{ fontSize: 12, color: '#f8e6ae', marginTop: 4 }}>Currently assigned: {count}</div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <div style={{ border: '1px solid #24304a', borderRadius: 12, background: '#0a1225', padding: 10 }}>

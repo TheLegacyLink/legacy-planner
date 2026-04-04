@@ -847,6 +847,25 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'forbidden_lead_access' }, { status: 403 });
   }
 
+  if (action === 'assign_setter') {
+    if (!(isPrivilegedRole(actorRole) || isKimoraActor(actorName))) {
+      return Response.json({ ok: false, error: 'admin_only_setter_assignment' }, { status: 403 });
+    }
+
+    const setterName = clean(body?.setterName || body?.assignedSetter || '');
+    if (!setterName) return Response.json({ ok: false, error: 'missing_setter_name' }, { status: 400 });
+
+    const next = {
+      ...current,
+      assignedSetter: setterName,
+      updatedAt: nowIso(),
+      timeline: pushTimeline(current, `${actorName} reassigned lead ownership to ${setterName}`)
+    };
+    leads[idx] = next;
+    await saveJsonFile(STORE_PATH, { ...store, leads, notifications });
+    return Response.json({ ok: true, lead: next });
+  }
+
   if (action === 'update_status') {
     const status = clean(body?.status || 'New');
     const next = {
