@@ -258,6 +258,10 @@ export default function LicensedBackofficePage() {
   const [contractEmailBusy, setContractEmailBusy] = useState(false);
   const [contractEmailMsg, setContractEmailMsg] = useState('');
   const [contractLinkInfo, setContractLinkInfo] = useState({ loading: false, sentAt: '', requestedByName: '' });
+  const [uplineData, setUplineData] = useState({ loading: false, error: '', upline: null, rows: [], unreadForViewer: 0, responseSlaHours: 24, recommendedSyncHours: 12 });
+  const [uplineDraft, setUplineDraft] = useState('');
+  const [uplineSendBusy, setUplineSendBusy] = useState(false);
+  const [uplineSendMsg, setUplineSendMsg] = useState('');
   const [contractLastCheckedAt, setContractLastCheckedAt] = useState('');
   const [financeRange, setFinanceRange] = useState('month');
   const [financeDrawer, setFinanceDrawer] = useState({ open: false, title: '', items: [] });
@@ -447,6 +451,44 @@ export default function LicensedBackofficePage() {
     load();
     return () => { cancelled = true; };
   }, [session?.email]);
+
+  useEffect(() => {
+    if (!session?.email) return;
+    let cancelled = false;
+
+    async function loadUplineSupport() {
+      setUplineData((prev) => ({ ...prev, loading: true, error: '' }));
+      try {
+        const qs = new URLSearchParams({
+          name: clean(session?.name || ''),
+          email: clean(session?.email || '').toLowerCase()
+        });
+        const res = await fetch(`/api/upline-support?${qs.toString()}`, { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok || !data?.ok) {
+          setUplineData({ loading: false, error: 'Could not load upline support.', upline: null, rows: [], unreadForViewer: 0, responseSlaHours: 24, recommendedSyncHours: 12 });
+          return;
+        }
+        setUplineData({
+          loading: false,
+          error: '',
+          upline: data?.upline || null,
+          rows: Array.isArray(data?.rows) ? data.rows : [],
+          unreadForViewer: Number(data?.unreadForViewer || 0),
+          responseSlaHours: Number(data?.responseSlaHours || 24),
+          recommendedSyncHours: Number(data?.recommendedSyncHours || 12)
+        });
+      } catch {
+        if (!cancelled) {
+          setUplineData({ loading: false, error: 'Could not load upline support.', upline: null, rows: [], unreadForViewer: 0, responseSlaHours: 24, recommendedSyncHours: 12 });
+        }
+      }
+    }
+
+    loadUplineSupport();
+    return () => { cancelled = true; };
+  }, [session?.email, session?.name]);
 
   async function loadContractLinkInfo(emailValue = '') {
     const em = clean(emailValue).toLowerCase();
@@ -1037,6 +1079,45 @@ export default function LicensedBackofficePage() {
   }
 
 
+  async function sendUplineMessage() {
+    if (!session?.email) return;
+    const message = clean(uplineDraft);
+    if (!message) {
+      setUplineSendMsg('Type a message first.');
+      return;
+    }
+
+    setUplineSendBusy(true);
+    setUplineSendMsg('');
+    try {
+      const res = await fetch('/api/upline-support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send_message',
+          viewerName: clean(session?.name || ''),
+          viewerEmail: clean(session?.email || '').toLowerCase(),
+          message
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setUplineSendMsg('Could not send message right now.');
+        return;
+      }
+      setUplineDraft('');
+      setUplineSendMsg('Message sent. Your upline has 24 hours to respond.');
+      setUplineData((prev) => ({
+        ...prev,
+        rows: [...(Array.isArray(prev?.rows) ? prev.rows : []), data?.row].filter(Boolean)
+      }));
+    } catch {
+      setUplineSendMsg('Could not send message right now.');
+    } finally {
+      setUplineSendBusy(false);
+    }
+  }
+
   if (!session) {
     return (
       <main style={{ minHeight: '100vh', background: 'radial-gradient(circle at top, #15213f 0%, #070b14 55%)', color: '#E5E7EB', display: 'grid', placeItems: 'center', padding: 24 }}>
@@ -1128,6 +1209,7 @@ export default function LicensedBackofficePage() {
             ['tracker', 'Onboarding Tracker'],
             ['financials', 'Financials'],
             ['sponsorships', 'Sponsorships'],
+            ['upline', 'Upline Support'],
             ['policies', 'Policies'],
             ['submit', 'Submit App'],
             ['academy', 'IUL Academy'],
@@ -1504,6 +1586,69 @@ export default function LicensedBackofficePage() {
                     </div>
                   </>
                 )}
+              </div>
+            ) : null}
+
+            {tab === 'upline' ? (
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
+                  <h3 style={{ marginTop: 0, marginBottom: 8 }}>Upline Support</h3>
+                  <p style={{ color: '#9CA3AF', marginTop: 0 }}>
+                    Direct messaging to your highest mapped upline leader. Response expectation: <strong style={{ color: '#E5E7EB' }}>{Number(uplineData?.responseSlaHours || 24)} hours</strong>. Thread sync cadence: every <strong style={{ color: '#E5E7EB' }}>{Number(uplineData?.recommendedSyncHours || 12)} hours</strong>.
+                  </p>
+
+                  {uplineData?.loading ? <p style={{ color: '#9CA3AF' }}>Loading upline support…</p> : null}
+                  {uplineData?.error ? <p style={{ color: '#FCA5A5' }}>{uplineData.error}</p> : null}
+
+                  <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#020617', padding: 12, marginBottom: 10 }}>
+                    <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Primary Upline</div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <strong style={{ fontSize: 18 }}>{clean(uplineData?.upline?.name || 'Support Team')}</strong>
+                      <span className="pill neutral">{clean(uplineData?.upline?.role || 'Mentor')}</span>
+                      {uplineData?.upline?.email ? <span style={{ color: '#93C5FD', fontSize: 13 }}>{uplineData.upline.email}</span> : null}
+                    </div>
+                    <div style={{ color: '#9CA3AF', fontSize: 12, marginTop: 6 }}>Unread in this thread: {Number(uplineData?.unreadForViewer || 0)}</div>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 8, maxHeight: 360, overflow: 'auto', paddingRight: 4 }}>
+                    {!Array.isArray(uplineData?.rows) || !uplineData.rows.length ? (
+                      <div style={{ border: '1px dashed #334155', borderRadius: 10, padding: 12, color: '#9CA3AF' }}>No messages yet. Send your first message to start the thread.</div>
+                    ) : (
+                      uplineData.rows.slice(-40).map((msg, idx) => {
+                        const mine = normalize(msg?.fromRole || '') === 'agent';
+                        const deadlineText = mine && clean(msg?.deadlineAt)
+                          ? `SLA deadline: ${new Date(msg.deadlineAt).toLocaleString()}`
+                          : '';
+                        return (
+                          <div key={msg?.id || `${msg?.createdAt || 'na'}-${idx}`} style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: mine ? '#13203A' : '#111827' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                              <strong>{mine ? 'You' : clean(msg?.fromName || 'Upline')}</strong>
+                              <span style={{ color: '#9CA3AF', fontSize: 12 }}>{clean(msg?.createdAt) ? new Date(msg.createdAt).toLocaleString() : '—'}</span>
+                            </div>
+                            <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{clean(msg?.body || '')}</div>
+                            {deadlineText ? <div style={{ color: '#9CA3AF', fontSize: 12, marginTop: 6 }}>{deadlineText}</div> : null}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                    <textarea
+                      value={uplineDraft}
+                      onChange={(e) => setUplineDraft(e.target.value)}
+                      placeholder="Message your upline leader..."
+                      rows={4}
+                      style={{ width: '100%', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff', padding: '10px 12px', resize: 'vertical' }}
+                    />
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <button type="button" onClick={sendUplineMessage} disabled={uplineSendBusy} style={{ padding: '10px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
+                        {uplineSendBusy ? 'Sending…' : 'Send Message'}
+                      </button>
+                      {uplineSendMsg ? <span style={{ color: uplineSendMsg.toLowerCase().includes('could not') ? '#FCA5A5' : '#86EFAC' }}>{uplineSendMsg}</span> : null}
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : null}
 
