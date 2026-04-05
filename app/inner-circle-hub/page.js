@@ -339,10 +339,39 @@ export default function InnerCircleHubPage() {
   });
   const [savingTracker, setSavingTracker] = useState(false);
   const [copiedKey, setCopiedKey] = useState('');
+  const [uplineUnreadCount, setUplineUnreadCount] = useState(0);
 
   const gate = useMemo(() => onboardingState(member || {}), [member]);
   const unlocked = gate.active;
   const tabs = useMemo(() => availableTabs(member || {}), [member]);
+
+  useEffect(() => {
+    const name = clean(member?.applicantName || member?.name || '');
+    const email = clean(member?.email || '').toLowerCase();
+    if (!name && !email) {
+      setUplineUnreadCount(0);
+      return;
+    }
+
+    let mounted = true;
+    (async () => {
+      try {
+        const qs = new URLSearchParams({ mode: 'inbox', name, email, profileType: 'licensed' });
+        const res = await fetch(`/api/upline-support?${qs.toString()}`, { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!mounted) return;
+        if (!res.ok || !data?.ok) {
+          setUplineUnreadCount(0);
+          return;
+        }
+        setUplineUnreadCount(Number(data?.unreadTotal || 0));
+      } catch {
+        if (mounted) setUplineUnreadCount(0);
+      }
+    })();
+
+    return () => { mounted = false; };
+  }, [member?.applicantName, member?.name, member?.email]);
 
   const leadMarketplaceHref = useMemo(() => {
     const params = new URLSearchParams();
@@ -2120,9 +2149,14 @@ export default function InnerCircleHubPage() {
               target="_blank"
               rel="noreferrer"
               className="publicPrimaryBtn"
-              style={{ textDecoration: 'none', background: '#6D28D9', borderColor: '#C4B5FD' }}
+              style={{ textDecoration: 'none', background: '#B91C1C', borderColor: '#FCA5A5', padding: '8px 12px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 8 }}
             >
-              Upline Messages
+              <span>Messages</span>
+              {Number(uplineUnreadCount || 0) > 0 ? (
+                <span style={{ minWidth: 22, height: 22, borderRadius: 999, background: '#C8A96B', color: '#0B1020', fontWeight: 900, fontSize: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' }}>
+                  {Number(uplineUnreadCount || 0)}
+                </span>
+              ) : null}
             </a>
             <a href={leadMarketplaceHref} target="_blank" rel="noreferrer" className="publicPrimaryBtn" style={{ textDecoration: 'none' }}>Open Lead Marketplace</a>
             <button type="button" className="ghost" onClick={logout}>Logout</button>
