@@ -7,7 +7,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'public' / 'docs' / 'onboarding' / 'legacy-link-licensed-onboarding-playbook.pdf'
@@ -165,7 +165,7 @@ def build():
         'Alternate Path (policy declined / not accepted / not suitable): 20 older leads + drip-based delivery + continued onboarding support.'
     ], st))
 
-    story.append(Spacer(1, 8))
+    story.append(PageBreak())
     story.append(section('Upline Support (Use the Help Button)', [
         'Use Help / Messages in back office to contact your upline directly.',
         'Response SLA: 1 business day (Monday–Friday).',
