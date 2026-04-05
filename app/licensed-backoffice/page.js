@@ -1323,48 +1323,48 @@ export default function LicensedBackofficePage() {
         {metrics ? (
           <>
             {tab === 'overview' ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(290px,1fr))', gap: 16 }}>
-                <div style={{ border: '1px solid #2A3142', borderRadius: 16, background: '#0F172A', padding: 20, minHeight: 170 }}>
-                  <div style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 8, letterSpacing: '.2px' }}>Current Tier</div>
-                  <div style={{ fontSize: 40, fontWeight: 800, lineHeight: 1.08, marginBottom: 8 }}>L{metrics.currentTier.level} • {metrics.currentTier.comp}%</div>
-                  <div style={{ color: '#C7D2FE', fontSize: 26, fontWeight: 600, lineHeight: 1.25 }}>{metrics.currentTier.title}</div>
-                  <div style={{ color: '#94A3B8', marginTop: 6, fontSize: 14, marginBottom: 8, letterSpacing: '.2px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: 12 }}>
+                <div style={{ border: '1px solid #2A3142', borderRadius: 14, background: '#0F172A', padding: 14, minHeight: 136 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 6, letterSpacing: '.2px' }}>Current Tier</div>
+                  <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1.08, marginBottom: 6 }}>L{metrics.currentTier.level} • {metrics.currentTier.comp}%</div>
+                  <div style={{ color: '#C7D2FE', fontSize: 20, fontWeight: 600, lineHeight: 1.2 }}>{metrics.currentTier.title}</div>
+                  <div style={{ color: '#94A3B8', marginTop: 6, fontSize: 13, letterSpacing: '.2px' }}>
                     Start Tier: {metrics.startTier?.status === 'pending' ? 'Pending' : `${metrics.startTier?.comp}%`} {metrics.startTier?.reason ? `• ${metrics.startTier.reason}` : ''}
                   </div>
                 </div>
-                <div style={{ border: '1px solid #2A3142', borderRadius: 16, background: '#0F172A', padding: 20, minHeight: 170 }}>
-                  <div style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 8, letterSpacing: '.2px' }}>Placed AP (Current Month)</div>
-                  <div style={{ fontSize: 40, fontWeight: 800, lineHeight: 1.08, marginBottom: 8 }}>${Number(metrics.monthlyAp || 0).toLocaleString()}</div>
-                  <div style={{ color: '#CBD5E1', fontSize: 24, lineHeight: 1.35 }}>Personal production basis • Lifetime placed AP: ${Number(metrics.lifetimePlacedAp || 0).toLocaleString()}</div>
+                <div style={{ border: '1px solid #2A3142', borderRadius: 14, background: '#0F172A', padding: 14, minHeight: 136 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 6, letterSpacing: '.2px' }}>Placed AP (Current Month)</div>
+                  <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1.08, marginBottom: 6 }}>${Number(metrics.monthlyAp || 0).toLocaleString()}</div>
+                  <div style={{ color: '#CBD5E1', fontSize: 18, lineHeight: 1.3 }}>Personal production basis • Lifetime placed AP: ${Number(metrics.lifetimePlacedAp || 0).toLocaleString()}</div>
                 </div>
-                <div style={{ border: '1px solid #2A3142', borderRadius: 16, background: '#0F172A', padding: 20, minHeight: 170 }}>
-                  <div style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 8, letterSpacing: '.2px' }}>Sponsorships Brought In</div>
-                  <div style={{ fontSize: 40, fontWeight: 800, lineHeight: 1.08, marginBottom: 8 }}>{metrics.mySponsors.length}</div>
-                  <div style={{ color: '#CBD5E1', fontSize: 24, lineHeight: 1.35 }}>Approved: {metrics.approvedSponsors.length} • Booked: {metrics.bookedSponsors.length}</div>
+                <div style={{ border: '1px solid #2A3142', borderRadius: 14, background: '#0F172A', padding: 14, minHeight: 136 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 6, letterSpacing: '.2px' }}>Sponsorships Brought In</div>
+                  <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1.08, marginBottom: 6 }}>{metrics.mySponsors.length}</div>
+                  <div style={{ color: '#CBD5E1', fontSize: 18, lineHeight: 1.3 }}>Approved: {metrics.approvedSponsors.length} • Booked: {metrics.bookedSponsors.length}</div>
                 </div>
-                <div style={{ border: '1px solid #2A3142', borderRadius: 16, background: '#0F172A', padding: 20, minHeight: 170 }}>
-                  <div style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 8, letterSpacing: '.2px' }}>Contracted Carriers</div>
-                  <div style={{ fontSize: 34, fontWeight: 800, lineHeight: 1.08, marginBottom: 8 }}>{(session.carriersActive || []).length || 0}</div>
-                  <div style={{ color: '#CBD5E1', fontSize: 24, lineHeight: 1.35 }}>{(session.carriersActive || []).length ? session.carriersActive.join(' • ') : 'No active carriers mapped yet'}</div>
+                <div style={{ border: '1px solid #2A3142', borderRadius: 14, background: '#0F172A', padding: 14, minHeight: 136 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 6, letterSpacing: '.2px' }}>Contracted Carriers</div>
+                  <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.08, marginBottom: 6 }}>{(session.carriersActive || []).length || 0}</div>
+                  <div style={{ color: '#CBD5E1', fontSize: 18, lineHeight: 1.3 }}>{(session.carriersActive || []).length ? session.carriersActive.join(' • ') : 'No active carriers mapped yet'}</div>
                 </div>
-                <div style={{ border: '1px solid #2A3142', borderRadius: 16, background: '#0F172A', padding: 20, minHeight: 170 }}>
-                  <div style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 8, letterSpacing: '.2px' }}>Estimated Sponsorship Policy Payout (Rolling 30 Days)</div>
-                  <div style={{ fontSize: 40, fontWeight: 800, lineHeight: 1.08, marginBottom: 8 }}>${Number(metrics.incentiveEstimate30 || 0).toLocaleString()}</div>
-                  <div style={{ color: '#CBD5E1', fontSize: 24, lineHeight: 1.35 }}>Sponsorship Policies: {metrics.sponsorshipPolicies30} • Flat Rate: ${isInnerCircleName(session?.name || '') ? '500 (Inner Circle)' : '400 (Licensed)'}</div>
+                <div style={{ border: '1px solid #2A3142', borderRadius: 14, background: '#0F172A', padding: 14, minHeight: 136 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 6, letterSpacing: '.2px' }}>Estimated Sponsorship Policy Payout (Rolling 30 Days)</div>
+                  <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1.08, marginBottom: 6 }}>${Number(metrics.incentiveEstimate30 || 0).toLocaleString()}</div>
+                  <div style={{ color: '#CBD5E1', fontSize: 18, lineHeight: 1.3 }}>Sponsorship Policies: {metrics.sponsorshipPolicies30} • Flat Rate: ${isInnerCircleName(session?.name || '') ? '500 (Inner Circle)' : '400 (Licensed)'}</div>
                 </div>
-                <div style={{ border: '1px solid #2A3142', borderRadius: 16, background: '#0F172A', padding: 20, minHeight: 170 }}>
-                  <div style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 8, letterSpacing: '.2px' }}>Next Tier Progress</div>
-                  <div style={{ fontSize: 34, fontWeight: 800, lineHeight: 1.08, marginBottom: 8 }}>{metrics.nextTier ? `L${metrics.nextTier.level} (${metrics.nextTier.comp}%)` : 'Top Tier'}</div>
-                  <div style={{ marginTop: 8, height: 10, borderRadius: 999, background: '#1F2937', overflow: 'hidden' }}>
+                <div style={{ border: '1px solid #2A3142', borderRadius: 14, background: '#0F172A', padding: 14, minHeight: 136 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 6, letterSpacing: '.2px' }}>Next Tier Progress</div>
+                  <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.08, marginBottom: 6 }}>{metrics.nextTier ? `L${metrics.nextTier.level} (${metrics.nextTier.comp}%)` : 'Top Tier'}</div>
+                  <div style={{ marginTop: 6, height: 10, borderRadius: 999, background: '#1F2937', overflow: 'hidden' }}>
                     <div style={{ width: `${metrics.progress}%`, height: '100%', background: 'linear-gradient(90deg,#C8A96B,#F59E0B)' }} />
                   </div>
-                  <div style={{ color: '#CBD5E1', marginTop: 10, fontSize: 22, lineHeight: 1.35 }}>
+                  <div style={{ color: '#CBD5E1', marginTop: 8, fontSize: 16, lineHeight: 1.3 }}>
                     {metrics.nextTier
                       ? `${Number(metrics.apToNext || 0).toLocaleString()} AP to next level this month`
                       : 'You are at max level'}
                   </div>
                   {metrics.nextTier ? (
-                    <div style={{ color: '#93C5FD', marginTop: 4, fontSize: 14, marginBottom: 8, letterSpacing: '.2px' }}>
+                    <div style={{ color: '#93C5FD', marginTop: 4, fontSize: 13, letterSpacing: '.2px' }}>
                       Promotion streak for L{metrics.nextTier.level}: {Math.min(3, Number(metrics.streakForNext || 0))}/3 consecutive qualifying months
                     </div>
                   ) : null}
