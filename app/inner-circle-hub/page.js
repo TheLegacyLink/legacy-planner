@@ -2115,6 +2115,15 @@ export default function InnerCircleHubPage() {
             <small style={{ color: '#94a3b8' }}>Signed in as: {clean(member?.email || 'unknown')}</small>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <a
+              href={`/upline-inbox?name=${encodeURIComponent(clean(member?.applicantName || member?.name || ''))}&email=${encodeURIComponent(clean(member?.email || ''))}`}
+              target="_blank"
+              rel="noreferrer"
+              className="publicPrimaryBtn"
+              style={{ textDecoration: 'none', background: '#B91C1C', borderColor: '#FCA5A5' }}
+            >
+              Upline Messages
+            </a>
             <a href={leadMarketplaceHref} target="_blank" rel="noreferrer" className="publicPrimaryBtn" style={{ textDecoration: 'none' }}>Open Lead Marketplace</a>
             <button type="button" className="ghost" onClick={logout}>Logout</button>
           </div>
@@ -2555,7 +2564,7 @@ export default function InnerCircleHubPage() {
               <div style={{ border: '1px solid #2A3142', borderRadius: 12, overflow: 'hidden', background: '#0F172A' }}>
                 <iframe
                   title="Licensed Onboarding Tracker"
-                  src={`/licensed-onboarding-tracker?viewerName=${encodeURIComponent(clean(member?.applicantName || member?.name || ''))}&viewerEmail=${encodeURIComponent(clean(member?.email || ''))}&viewerRole=${encodeURIComponent(clean(member?.role || 'agent'))}`}
+                  src={`/licensed-onboarding-tracker?track=inner-circle&viewerName=${encodeURIComponent(clean(member?.applicantName || member?.name || ''))}&viewerEmail=${encodeURIComponent(clean(member?.email || ''))}&viewerRole=${encodeURIComponent(clean(member?.role || 'agent'))}`}
                   style={{ width: '100%', minHeight: 1450, border: 0, background: '#020617' }}
                 />
               </div>

@@ -1302,7 +1302,6 @@ export default function LicensedBackofficePage() {
             ['tracker', 'Onboarding Tracker'],
             ['financials', 'Financials'],
             ['sponsorships', 'Sponsorships'],
-            ['upline', 'Upline Support'],
             ['policies', 'Policies'],
             ['submit', 'Submit App'],
             ['academy', 'IUL Academy'],
@@ -1686,9 +1685,7 @@ export default function LicensedBackofficePage() {
               <div style={{ display: 'grid', gap: 12 }}>
                 <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
                   <h3 style={{ marginTop: 0, marginBottom: 8 }}>Upline Support</h3>
-                  <p style={{ color: '#9CA3AF', marginTop: 0 }}>
-                    Direct messaging to your highest mapped upline leader. Response expectation: <strong style={{ color: '#E5E7EB' }}>{Number(uplineData?.responseSlaHours || 24)} hours</strong>. Thread sync cadence: every <strong style={{ color: '#E5E7EB' }}>{Number(uplineData?.recommendedSyncHours || 12)} hours</strong>.
-                  </p>
+                  <p style={{ color: '#9CA3AF', marginTop: 0 }}>Upline support. Response expectation: <strong style={{ color: '#E5E7EB' }}>24 hours</strong>.</p>
 
                   {uplineData?.loading ? <p style={{ color: '#9CA3AF' }}>Loading upline support…</p> : null}
                   {uplineData?.error ? <p style={{ color: '#FCA5A5' }}>{uplineData.error}</p> : null}
