@@ -183,33 +183,25 @@ function fngAgentIdFromAgent(agent) {
 function buildWelcomeMessage(agent) {
   const display = toDisplayName(agent.full_name);
   const first = firstNameFromDisplay(display);
-  const fngAgentId = fngAgentIdFromAgent(agent);
 
   return [
     `Hi ${first},`,
     '',
-    'Congratulations — you are now licensed with The Legacy Link.',
+    'You are approved on the licensed track. Execute these steps in order:',
     '',
-    `FNG Agent ID: ${fngAgentId}`,
-    '',
-    'Step 1 — Back Office Access (Start Here):',
+    '1) Back Office Access (Start Here):',
     'https://innercirclelink.com/start',
-    'Sign in and follow the guided onboarding steps in-system.',
-    'If prompted, complete contracting before continuing.',
+    'Sign in and follow the guided onboarding steps.',
+    'If prompted, sign company contract before continuing.',
     '',
-    'Step 2 — Contracting (if prompted)',
-    'Part A (Pinnacle Group / P.Group / Business Partners — Mutual of Omaha, Transamerica, Foresters, American National):',
-    'https://surelc.surancebay.com/producer/?gaId=190',
+    '2) Contracting:',
+    'See PDF: https://innercirclelink.com/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf',
     '',
-    'Part B (InvestaLink — F&G + National Life Group):',
-    'https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance',
+    '3) Skool Community:',
+    'https://www.skool.com/legacylink/about',
     '',
-    'National Life Group only: after completing SureLC, look out for a follow-up email within 48 hours (1–2 business days) to complete an additional required form.',
-    '',
-    'Part C — Contracting Tutorial (follow along):',
-    'https://www.loom.com/share/79354f8de2334697ba53cc5b0ff80c86?sid=b88fafc3-96a0-4d6a-9918-f396f0047603',
-    '',
-    'If your FNG Agent ID shows as Unknown, reply to this email and we will update it for you immediately.',
+    '4) YouTube (Whatever It Takes):',
+    'https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX',
     '',
     'Welcome aboard,',
     'Legacy Link Support Team'
@@ -219,42 +211,36 @@ function buildWelcomeMessage(agent) {
 function buildWelcomeHtml(agent) {
   const display = toDisplayName(agent.full_name);
   const first = firstNameFromDisplay(display);
-  const fngAgentId = fngAgentIdFromAgent(agent);
 
   return `
-  <div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;">
-    <div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
-      <div style="padding:20px 24px;border-bottom:1px solid #e2e8f0;background:#0f172a;color:#ffffff;">
-        <h2 style="margin:0;font-size:20px;">Premium Professional — Licensed Access</h2>
+  <div style="font-family:Arial,Helvetica,sans-serif;background:#040B23;padding:24px;color:#E5E7EB;line-height:1.6;">
+    <div style="max-width:860px;margin:0 auto;background:#0B1534;border:1px solid #1E3A8A;border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(0,0,0,0.35);">
+      <div style="padding:18px 24px;background:#1651AE;text-align:center;">
+        <div style="color:#FFFFFF;font-weight:800;font-size:58px;line-height:1;letter-spacing:1px;">THE LEGACY LINK</div>
       </div>
-      <div style="padding:24px;">
-        <p style="margin:0 0 12px;">Hi ${first},</p>
-        <p style="margin:0 0 12px;">Congratulations — you are now licensed with <strong>The Legacy Link</strong>.</p>
-        <p style="margin:0 0 16px;"><strong>FNG Agent ID:</strong> ${fngAgentId}</p>
+      <div style="padding:28px 30px;">
+        <h2 style="margin:0 0 14px;font-size:50px;line-height:1.1;color:#F8FAFC;">Licensed Approval — Execute Your Next Steps</h2>
+        <p style="margin:0 0 14px;color:#E2E8F0;font-size:36px;">Hi ${first},</p>
+        <p style="margin:0 0 18px;color:#CBD5E1;font-size:32px;">You are approved on the licensed track. Complete your next steps in order so you can move into production quickly.</p>
 
-        <p style="margin:0 0 8px;"><strong>Step 1 — Back Office Access (Start Here):</strong><br/>
-          <a href="https://innercirclelink.com/start" target="_blank" rel="noopener noreferrer">https://innercirclelink.com/start</a><br/>
-          Sign in and follow the guided onboarding steps in-system.<br/>
-          If prompted, complete contracting before continuing.
-        </p>
-
-        <p style="margin:14px 0 8px;"><strong>Step 2 — Contracting (if prompted)</strong></p>
-        <p style="margin:0 0 8px;"><strong>Part A (Pinnacle Group / P.Group / Business Partners — Mutual of Omaha, Transamerica, Foresters, American National):</strong><br/>
-          <a href="https://surelc.surancebay.com/producer/?gaId=190" target="_blank" rel="noopener noreferrer">https://surelc.surancebay.com/producer/?gaId=190</a>
-        </p>
-
-        <p style="margin:0 0 8px;"><strong>Part B (InvestaLink — F&G + National Life Group):</strong><br/>
-          <a href="https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance" target="_blank" rel="noopener noreferrer">SureLC Part B Link</a>
-        </p>
-
-        <p style="margin:0 0 8px;">National Life Group only: after completing SureLC, look out for a follow-up email within 48 hours (1–2 business days) to complete an additional required form.</p>
-
-        <p style="margin:0 0 12px;"><strong>Part C — Contracting Tutorial (follow along):</strong><br/>
-          <a href="https://www.loom.com/share/79354f8de2334697ba53cc5b0ff80c86?sid=b88fafc3-96a0-4d6a-9918-f396f0047603" target="_blank" rel="noopener noreferrer">https://www.loom.com/share/79354f8de2334697ba53cc5b0ff80c86?sid=b88fafc3-96a0-4d6a-9918-f396f0047603</a>
-        </p>
-
-        <p style="margin:0 0 12px;">If your FNG Agent ID shows as <strong>Unknown</strong>, reply to this email and we will update it for you immediately.</p>
-        <p style="margin:20px 0 0;">Welcome aboard,<br/><strong>Legacy Link Support Team</strong></p>
+        <div style="background:#071235;border:1px solid #294B8D;border-radius:14px;padding:18px 20px;">
+          <p style="margin:0 0 14px;color:#FB923C;font-weight:800;font-size:34px;">Execute these steps in order</p>
+          <ol style="margin:0;padding-left:28px;color:#E2E8F0;font-size:33px;line-height:1.45;">
+            <li style="margin-bottom:12px;"><strong>Back Office Access (Start Here):</strong><br/>
+              <a href="https://innercirclelink.com/start" target="_blank" rel="noopener noreferrer" style="color:#FB923C;text-decoration:underline;font-weight:700;">https://innercirclelink.com/start</a><br/>
+              Sign in and follow the guided onboarding steps. If prompted, sign company contract before continuing.
+            </li>
+            <li style="margin-bottom:12px;"><strong>Contracting:</strong><br/>See PDF attached:<br/>
+              <a href="https://innercirclelink.com/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf" target="_blank" rel="noopener noreferrer" style="color:#FB923C;text-decoration:underline;font-weight:700;">Licensed Agent Onboarding PDF</a>
+            </li>
+            <li style="margin-bottom:12px;"><strong>Skool Community:</strong><br/>
+              <a href="https://www.skool.com/legacylink/about" target="_blank" rel="noopener noreferrer" style="color:#FB923C;text-decoration:underline;font-weight:700;">https://www.skool.com/legacylink/about</a>
+            </li>
+            <li><strong>YouTube (Whatever It Takes):</strong><br/>
+              <a href="https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX" target="_blank" rel="noopener noreferrer" style="color:#FB923C;text-decoration:underline;font-weight:700;">https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX</a>
+            </li>
+          </ol>
+        </div>
       </div>
     </div>
   </div>`;
