@@ -8,7 +8,7 @@ Complete each step in order and maintain daily execution discipline.
 
 ## Step 1 — Back Office Access + Welcome Instructions
 - Open your Welcome Email and save your links.
-- Start here: **https://innercirclelink.com/unlicensed-backoffice**
+- Start here: **https://innercirclelink.com/start**
 - Sign in and follow the guided onboarding steps shown in the system.
 - Confirm your back office access is active before moving to Step 2.
 

@@ -190,7 +190,7 @@ function buildWelcomeMessage(agent) {
     'You are approved on the licensed track. Execute these steps in order:',
     '',
     '1) Back Office Access (Start Here):',
-    'https://innercirclelink.com/licensed-backoffice',
+    'https://innercirclelink.com/start',
     'Sign in and follow the guided onboarding steps.',
     'If prompted, sign company contract before continuing.',
     '',
@@ -227,7 +227,7 @@ function buildWelcomeHtml(agent) {
           <p style="margin:0 0 14px;color:#FB923C;font-weight:800;font-size:34px;">Execute these steps in order</p>
           <ol style="margin:0;padding-left:28px;color:#E2E8F0;font-size:33px;line-height:1.45;">
             <li style="margin-bottom:12px;"><strong>Back Office Access (Start Here):</strong><br/>
-              <a href="https://innercirclelink.com/licensed-backoffice" target="_blank" rel="noopener noreferrer" style="color:#FB923C;text-decoration:underline;font-weight:700;">https://innercirclelink.com/licensed-backoffice</a><br/>
+              <a href="https://innercirclelink.com/start" target="_blank" rel="noopener noreferrer" style="color:#FB923C;text-decoration:underline;font-weight:700;">https://innercirclelink.com/start</a><br/>
               Sign in and follow the guided onboarding steps. If prompted, sign company contract before continuing.
             </li>
             <li style="margin-bottom:12px;"><strong>Contracting:</strong><br/>See PDF attached:<br/>

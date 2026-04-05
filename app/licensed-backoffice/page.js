@@ -280,8 +280,6 @@ export default function LicensedBackofficePage() {
     deliveryRequirementNeeded: false,
     deliveryRequirementNote: ''
   });
-  const [googleReady, setGoogleReady] = useState(false);
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
   const isAdmin = normalize(session?.role || '') === 'admin';
   const requiresContract = useMemo(() => {
     const t = normalize(appForm?.appType || '');
@@ -325,51 +323,6 @@ export default function LicensedBackofficePage() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    if (session) return;
-    if (!googleClientId) return;
-    if (typeof window === 'undefined') return;
-
-    let cancelled = false;
-    const render = () => {
-      if (cancelled) return;
-      const google = window.google;
-      const host = document.getElementById('google-signin-host');
-      if (!google || !host) return;
-      host.innerHTML = '';
-      google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: (resp) => {
-          if (resp?.credential) verifyGoogleCredential(resp.credential);
-        }
-      });
-      google.accounts.id.renderButton(host, {
-        theme: 'outline',
-        size: 'large',
-        shape: 'pill',
-        text: 'signin_with',
-        width: 320
-      });
-      setGoogleReady(true);
-    };
-
-    const existing = document.getElementById('google-identity-script');
-    if (existing) {
-      render();
-      return () => { cancelled = true; };
-    }
-
-    const script = document.createElement('script');
-    script.id = 'google-identity-script';
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    script.onload = render;
-    document.head.appendChild(script);
-
-    return () => { cancelled = true; };
-  }, [session, googleClientId]);
-
   async function requestCode() {
     setError('');
     const e = clean(email).toLowerCase();
@@ -406,7 +359,7 @@ export default function LicensedBackofficePage() {
     const e = clean(email).toLowerCase();
     const c = clean(code);
     if (!e || !c) {
-      setError('Enter both email and code.');
+      setError('Enter both login and code/password.');
       return;
     }
 
@@ -426,31 +379,6 @@ export default function LicensedBackofficePage() {
       setSession(data.profile);
     } catch {
       setError('Verification failed.');
-    }
-  }
-
-  async function verifyGoogleCredential(idToken = '') {
-    setError('');
-    try {
-      const res = await fetch('/api/licensed-backoffice/auth/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.ok || !data?.token || !data?.profile) {
-        if (res.status === 202 || String(data?.error || '').startsWith('pending_verification')) {
-          setError('Pending verification: we received your Google login request and admin approval is required before access.');
-          return;
-        }
-        setError(data?.error ? `Google login blocked: ${data.error}` : 'Google login failed.');
-        return;
-      }
-      if (typeof window !== 'undefined') window.localStorage.setItem('licensed_backoffice_token', data.token);
-      setAuthToken(data.token);
-      setSession(data.profile);
-    } catch {
-      setError('Google login failed.');
     }
   }
 
@@ -1115,14 +1043,14 @@ export default function LicensedBackofficePage() {
         <section style={{ width: 'min(560px, 95vw)', border: '1px solid #2A3142', borderRadius: 16, background: 'rgba(17,24,39,0.92)', boxShadow: '0 20px 60px rgba(0,0,0,0.45)' }}>
           <div style={{ padding: '24px 26px', borderBottom: '1px solid #2A3142', background: 'linear-gradient(120deg, #1D428A, #006BB6)' }}>
             <h1 style={{ margin: 0, fontSize: 32, lineHeight: 1 }}>THE LEGACY LINK</h1>
-            <p style={{ margin: '8px 0 0', opacity: 0.95 }}>Licensed Agent Back Office (Exclusive Preview • Auth v2)</p>
+            <p style={{ margin: '8px 0 0', opacity: 0.95 }}>Licensed Agent Back Office</p>
           </div>
           <div style={{ padding: 24, display: 'grid', gap: 12 }}>
             <label style={{ fontSize: 14, color: '#9CA3AF' }}>Sign in (licensed-only)</label>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Licensed email (recommended)"
+              placeholder="Licensed email or login"
               style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }}
             />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -1140,15 +1068,20 @@ export default function LicensedBackofficePage() {
               />
             </div>
             {!codeRequested ? (
-              <button onClick={requestCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
-                Send Login Code
-              </button>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button onClick={requestCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
+                  Send Login Code
+                </button>
+                <button onClick={() => setCodeRequested(true)} style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #475569', background: '#0B1220', color: '#E2E8F0', fontWeight: 700 }}>
+                  Use Password Login
+                </button>
+              </div>
             ) : (
               <>
                 <input
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  placeholder="Enter 6-digit code"
+                  placeholder="Enter 6-digit code or password"
                   style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }}
                 />
                 <button onClick={verifyCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
@@ -1156,17 +1089,7 @@ export default function LicensedBackofficePage() {
                 </button>
               </>
             )}
-            {googleClientId ? (
-              <div style={{ display: 'grid', gap: 6 }}>
-                <div id="google-signin-host" style={{ minHeight: 42 }} />
-                {!googleReady ? <small style={{ color: '#9CA3AF' }}>Loading Google Sign-In…</small> : null}
-              </div>
-            ) : (
-              <button type="button" disabled style={{ padding: '10px 14px', borderRadius: 10, border: '1px dashed #475569', background: '#0B1220', color: '#9CA3AF' }}>
-                Google Sign-In (add NEXT_PUBLIC_GOOGLE_CLIENT_ID + GOOGLE_CLIENT_ID)
-              </button>
-            )}
-            {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Licensed-only access. Use email code, with name + phone matching support for alternate emails (max 2 approved alternates per agent).</small>}
+            {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Licensed-only access. Use email code or hardwired login/password backup.</small>}
           </div>
         </section>
       </main>
@@ -1326,7 +1249,7 @@ export default function LicensedBackofficePage() {
               <div style={{ border: '1px solid #2A3142', borderRadius: 12, overflow: 'hidden', background: '#0F172A' }}>
                 <iframe
                   title="Licensed Onboarding Tracker"
-                  src={`/licensed-onboarding-tracker?viewerName=${encodeURIComponent(session?.name || '')}&viewerEmail=${encodeURIComponent(session?.email || '')}&viewerRole=${encodeURIComponent(session?.role || 'agent')}`}
+                  src={`/licensed-onboarding-tracker?track=licensed&viewerName=${encodeURIComponent(session?.name || '')}&viewerEmail=${encodeURIComponent(session?.email || '')}&viewerRole=${encodeURIComponent(session?.role || 'agent')}`}
                   style={{ width: '100%', minHeight: 1450, border: 0, background: '#020617' }}
                 />
               </div>

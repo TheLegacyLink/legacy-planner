@@ -136,7 +136,7 @@ export async function sendCodeEmail({ to = '', code = '' } = {}) {
     '',
     'This code expires in 10 minutes.',
     '',
-    'Start here: https://innercirclelink.com/unlicensed-backoffice'
+    'Start here: https://innercirclelink.com/start'
   ].join('\n');
   const html = `
     <div style="font-family:Arial,Helvetica,sans-serif;background:#040B23;padding:24px;color:#E5E7EB;line-height:1.6;">
@@ -149,7 +149,7 @@ export async function sendCodeEmail({ to = '', code = '' } = {}) {
           <p style="margin:0 0 12px;color:#CBD5E1;">Use this one-time code to sign in:</p>
           <div style="display:inline-block;background:#0F172A;color:#fff;padding:10px 16px;border-radius:10px;font-size:28px;font-weight:800;letter-spacing:2px;">${code}</div>
           <p style="margin:14px 0 10px;color:#CBD5E1;">This code expires in 10 minutes.</p>
-          <p style="margin:0;color:#E2E8F0;">Start here:<br/><a href="https://innercirclelink.com/unlicensed-backoffice" target="_blank" rel="noopener noreferrer" style="color:#60A5FA;text-decoration:underline;font-weight:700;">https://innercirclelink.com/unlicensed-backoffice</a></p>
+          <p style="margin:0;color:#E2E8F0;">Start here:<br/><a href="https://innercirclelink.com/start" target="_blank" rel="noopener noreferrer" style="color:#60A5FA;text-decoration:underline;font-weight:700;">https://innercirclelink.com/start</a></p>
         </div>
       </div>
     </div>`;

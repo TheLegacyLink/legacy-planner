@@ -86,7 +86,7 @@ def build():
 
     story.append(section('Step 1 — Back Office Access + Welcome Instructions', [
         'Open your Welcome Email and save your required links.',
-        'Start here: https://innercirclelink.com/licensed-backoffice',
+        'Start here: https://innercirclelink.com/start',
         'Sign in and follow the guided onboarding steps shown in the system.',
         'If prompted, complete contracting before continuing.',
         'Confirm your back office access is active before moving to Step 2.'
