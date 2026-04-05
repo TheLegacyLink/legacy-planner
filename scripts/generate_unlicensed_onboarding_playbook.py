@@ -103,6 +103,11 @@ def build():
       'Expect outreach from Jamal within 1–3 business days to start pre-licensing.'
     ], st)); story.append(Spacer(1,8))
 
+    story.append(section('Step 4 — Required YouTube Task', [
+      'Watch "Whatever It Takes": https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX',
+      'Leave a comment on the video to confirm completion.'
+    ], st)); story.append(Spacer(1,8))
+
     story.append(Spacer(1,12))
     story.append(Paragraph('<b>Quality Standard</b>', st['h']))
     story.append(Paragraph('• No lead without notes', st['b']))

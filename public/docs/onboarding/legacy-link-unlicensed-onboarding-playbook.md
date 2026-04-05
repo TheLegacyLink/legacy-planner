@@ -22,6 +22,10 @@ Complete each step in order and maintain daily execution discipline.
 - This is true regardless of referral/upline.
 - Expect Jamal to reach out within **1–3 business days** to get your pre-licensing process started.
 
+## Step 4 — Required YouTube Task
+- Watch **Whatever It Takes**: **https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX**
+- Leave a comment on the video to confirm completion.
+
 ---
 
 ## Quality Standard
