@@ -33,6 +33,9 @@ Complete each step in order and maintain daily execution discipline.
 - No same-day activity left unlogged
 - No skipped follow-up without reason
 
-## Support
-- **support@thelegacylink.com**
-- Include: name, email, issue, screenshot, and urgency
+## Upline Support (Use the Help Button)
+- Use the **Help / Messages** section in your back office to message your upline directly.
+- For unlicensed onboarding, your message route is managed through your upline flow.
+- Response expectation: **within 1 business day (Monday–Friday)**.
+- **Saturday and Sunday do not count** as business days.
+- If your upline has not responded within one business day, the issue is escalated internally to support.

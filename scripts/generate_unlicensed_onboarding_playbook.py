@@ -115,7 +115,13 @@ def build():
     story.append(Paragraph('• No skipped follow-up without reason', st['b']))
 
     story.append(Spacer(1,8))
-    story.append(Paragraph('<b>Support:</b> support@thelegacylink.com', st['b']))
+    story.append(section('Upline Support (Use the Help Button)', [
+      'Use the Help / Messages section in your back office to message your upline directly.',
+      'For unlicensed onboarding, your message route is managed through your upline flow.',
+      'Response expectation: within 1 business day (Monday–Friday).',
+      'Saturday and Sunday do not count as business days.',
+      'If your upline has not responded within one business day, the issue is escalated internally to support.'
+    ], st))
 
     doc.build(story, onFirstPage=page_bg, onLaterPages=page_bg)
 

@@ -74,6 +74,8 @@ Complete each step in order, then execute daily standards with clean CRM updates
   - drip-based delivery
   - continued onboarding support
 
-## Support
-- **support@thelegacylink.com**
-- Include: name, email, issue, screenshot, and urgency
+## Upline Support (Use the Help Button)
+- Use the **Help / Messages** section in your back office to message your upline directly.
+- Response expectation: **within 1 business day (Monday–Friday)**.
+- **Saturday and Sunday do not count** as business days.
+- If your upline has not responded within one business day, the issue is escalated internally to support.
