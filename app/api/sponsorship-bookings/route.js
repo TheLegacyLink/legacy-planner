@@ -1,3 +1,4 @@
+import nodemailer from 'nodemailer';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 import users from '../../../data/innerCircleUsers.json';
 
@@ -31,6 +32,30 @@ async function loadHistoricStoreSnapshots(pathname = '', maxSnapshots = 25) {
 
 const STORE_PATH = 'stores/sponsorship-bookings.json';
 const LEDGER_PATH = 'stores/sponsorship-bookings-ledger.json';
+
+const REFERRAL_CODE_NAME_MAP = {
+  kimora_link: 'Kimora Link',
+  jamal_holmes: 'Jamal Holmes',
+  mahogany_burns: 'Mahogany Burns',
+  madalyn_adams: 'Madalyn Adams',
+  kelin_brown: 'Kelin Brown',
+  leticia_wright: 'Leticia Wright',
+  latricia_wright: 'Leticia Wright',
+  breanna_james: 'Breanna James',
+  dr_brianna: 'Breanna James',
+  shannon_maxwell: 'Shannon Maxwell',
+  angelique_lassiter: 'Angelique Lassiter',
+  andrea_cannon: 'Andrea Cannon',
+  donyell_richardson: 'Donyell Richardson'
+};
+
+const OWNER_ALIAS_MAP = {
+  link: 'Kimora Link',
+  kimora: 'Kimora Link',
+  breanna: 'Breanna James',
+  drbreanna: 'Breanna James',
+  latricia: 'Leticia Wright'
+};
 
 const MANUAL_RESTORE_BOOKINGS = [
   {
@@ -355,6 +380,193 @@ function isManager(role = '') {
 function findUser(name = '') {
   const needle = normalize(name);
   return (users || []).find((u) => u?.active && normalize(u.name) === needle) || null;
+}
+
+function compactKey(v = '') {
+  return normalize(v).replace(/[^a-z0-9]/g, '');
+}
+
+function findUserFlexible(value = '') {
+  const needle = compactKey(value);
+  if (!needle) return null;
+
+  const hit = (users || []).find((u) => {
+    if (!u?.active) return false;
+    const nameKey = compactKey(u?.name || '');
+    const email = clean(u?.email || '').toLowerCase();
+    const emailKey = compactKey(email);
+    const localKey = compactKey(email.split('@')[0] || '');
+    return needle === nameKey || needle === emailKey || needle === localKey;
+  });
+
+  return hit || null;
+}
+
+function referralCodeToName(code = '') {
+  const raw = clean(code).toLowerCase();
+  if (!raw) return '';
+  return clean(REFERRAL_CODE_NAME_MAP[raw] || '');
+}
+
+function normalizeOwnerAlias(value = '') {
+  const key = compactKey(value);
+  return clean(OWNER_ALIAS_MAP[key] || value || '');
+}
+
+function resolveBookingOwnerIdentity(row = {}) {
+  const candidates = [
+    clean(row?.claimed_by || ''),
+    clean(row?.priority_agent || ''),
+    clean(row?.referred_by || ''),
+    referralCodeToName(row?.referral_code || ''),
+    referralCodeToName(row?.refCode || '')
+  ].map((v) => normalizeOwnerAlias(v)).filter(Boolean);
+
+  for (const c of candidates) {
+    const u = findUserFlexible(c);
+    if (u?.email) return { recipientName: clean(u?.name || c), recipientEmail: clean(u?.email || '') };
+  }
+
+  // fallback for Kimora / Link if user directory misses email
+  if (candidates.some((c) => compactKey(c) === 'kimoralink' || compactKey(c) === 'link')) {
+    const envEmail = clean(process.env.KIMORA_NOTIFY_EMAIL || process.env.INNER_CIRCLE_BOOKING_NOTIFY_EMAIL || '');
+    if (envEmail) return { recipientName: 'Kimora Link', recipientEmail: envEmail };
+  }
+
+  return { recipientName: clean(candidates[0] || ''), recipientEmail: '' };
+}
+
+function smtp() {
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  if (!user || !pass || !from) return null;
+  return {
+    from,
+    tx: nodemailer.createTransport({ service: 'gmail', auth: { user, pass } })
+  };
+}
+
+function stateToTimezone(state = '') {
+  const s = clean(state).toUpperCase();
+  const map = {
+    AL: 'America/Chicago', AK: 'America/Anchorage', AZ: 'America/Phoenix', AR: 'America/Chicago',
+    CA: 'America/Los_Angeles', CO: 'America/Denver', CT: 'America/New_York', DE: 'America/New_York',
+    FL: 'America/New_York', GA: 'America/New_York', HI: 'Pacific/Honolulu', ID: 'America/Denver',
+    IL: 'America/Chicago', IN: 'America/Indiana/Indianapolis', IA: 'America/Chicago', KS: 'America/Chicago',
+    KY: 'America/New_York', LA: 'America/Chicago', ME: 'America/New_York', MD: 'America/New_York',
+    MA: 'America/New_York', MI: 'America/Detroit', MN: 'America/Chicago', MS: 'America/Chicago',
+    MO: 'America/Chicago', MT: 'America/Denver', NE: 'America/Chicago', NV: 'America/Los_Angeles',
+    NH: 'America/New_York', NJ: 'America/New_York', NM: 'America/Denver', NY: 'America/New_York',
+    NC: 'America/New_York', ND: 'America/Chicago', OH: 'America/New_York', OK: 'America/Chicago',
+    OR: 'America/Los_Angeles', PA: 'America/New_York', RI: 'America/New_York', SC: 'America/New_York',
+    SD: 'America/Chicago', TN: 'America/Chicago', TX: 'America/Chicago', UT: 'America/Denver',
+    VT: 'America/New_York', VA: 'America/New_York', WA: 'America/Los_Angeles', WV: 'America/New_York',
+    WI: 'America/Chicago', WY: 'America/Denver', DC: 'America/New_York'
+  };
+  return map[s] || 'America/New_York';
+}
+
+function parseRequestedAsEastern(value = '') {
+  const v = clean(value);
+  const m = v.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})\s*([AP]M)(?:\s+([A-Z]{2,4}))?$/i);
+  if (!m) return null;
+
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  let h = Number(m[4]) % 12;
+  const mm = Number(m[5]);
+  const ampm = String(m[6] || '').toUpperCase();
+  if (ampm === 'PM') h += 12;
+
+  const tzLabel = String(m[7] || 'ET').toUpperCase();
+  const offset = (tzLabel === 'CT' || tzLabel === 'CST') ? '-06:00'
+    : (tzLabel === 'MT' || tzLabel === 'MST') ? '-07:00'
+      : (tzLabel === 'PT' || tzLabel === 'PST') ? '-08:00'
+        : '-05:00';
+
+  const iso = `${String(y).padStart(4, '0')}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}T${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00${offset}`;
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function formatInZone(date, timeZone = 'America/New_York') {
+  if (!date || Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short'
+  }).format(date);
+}
+
+async function sendBookingOwnerEmail(row = {}, { recipientName = '', recipientEmail = '' } = {}) {
+  const to = clean(recipientEmail);
+  if (!to) return { ok: false, error: 'missing_recipient' };
+
+  const transporter = smtp();
+  if (!transporter) return { ok: false, error: 'missing_gmail_env' };
+
+  const event = parseRequestedAsEastern(row?.requested_at_est || '');
+  const clientZone = stateToTimezone(row?.applicant_state || '');
+  const agentZone = 'America/Chicago';
+
+  const whenEt = formatInZone(event, 'America/New_York');
+  const whenAgent = formatInZone(event, agentZone);
+  const whenClient = formatInZone(event, clientZone);
+
+  const subject = `Appointment Today: ${clean(row?.applicant_name || 'Client')} (${clean(row?.requested_at_est || 'Time TBD')})`;
+  const text = [
+    `Hi ${clean(recipientName || 'Team')},`,
+    '',
+    'You have a sponsorship appointment scheduled.',
+    '',
+    `Client: ${clean(row?.applicant_name || '—')}`,
+    `Client State: ${clean(row?.applicant_state || '—')}`,
+    `Client Phone: ${clean(row?.applicant_phone || '—')}`,
+    `Client Email: ${clean(row?.applicant_email || '—')}`,
+    `Referred By: ${clean(row?.referred_by || '—')}`,
+    `Booking ID: ${clean(row?.id || '—')}`,
+    '',
+    `Booked Slot (ET): ${whenEt}`,
+    `Agent Local Time (CT): ${whenAgent}`,
+    `Client Local Time (${clientZone}): ${whenClient}`,
+    '',
+    'Please reach out and confirm attendance as needed.'
+  ].join('\n');
+
+  try {
+    const info = await transporter.tx.sendMail({
+      from: transporter.from,
+      to,
+      subject,
+      text
+    });
+    return { ok: true, messageId: info.messageId };
+  } catch (error) {
+    return { ok: false, error: clean(error?.message || 'send_failed') || 'send_failed' };
+  }
+}
+
+async function maybeNotifyBookingOwner(row = {}, prevRow = {}) {
+  const resolved = resolveBookingOwnerIdentity(row);
+  const recipientEmail = clean(resolved?.recipientEmail || '');
+  const recipientName = clean(resolved?.recipientName || 'Team');
+  if (!recipientEmail) return { ok: false, skipped: true, reason: 'owner_email_not_found', recipientName };
+
+  const notifyKey = `${clean(row?.requested_at_est || '')}|${compactKey(recipientEmail)}`;
+  const prevKey = clean(prevRow?.booking_owner_notify_key || row?.booking_owner_notify_key || '');
+  if (prevKey && prevKey === notifyKey) {
+    return { ok: true, skipped: true, reason: 'already_notified_for_slot', recipientEmail, recipientName, notifyKey };
+  }
+
+  const sent = await sendBookingOwnerEmail(row, { recipientName, recipientEmail });
+  return { ...sent, recipientEmail, recipientName, notifyKey };
 }
 
 function isWithinPriorityWindow(row = {}) {
@@ -697,12 +909,16 @@ async function writeStore(rows) {
 }
 
 export async function GET() {
-  const state = await getStore();
-  const rows = state.rows;
-  if (state.changed) await writeStore(rows);
+  try {
+    const state = await getStore();
+    const rows = Array.isArray(state?.rows) ? state.rows : [];
+    if (state?.changed) await writeStore(rows);
 
-  rows.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-  return Response.json({ ok: true, rows });
+    rows.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    return Response.json({ ok: true, rows });
+  } catch (error) {
+    return Response.json({ ok: true, rows: [], warning: 'sponsorship_bookings_recovered_empty', error: clean(error?.message || 'unknown') });
+  }
 }
 
 export async function POST(req) {
@@ -776,6 +992,7 @@ export async function POST(req) {
     }
 
     const idx = store.findIndex((r) => clean(r.id) === id);
+    const prevRow = idx >= 0 ? { ...store[idx] } : {};
     const next = {
       ...(idx >= 0 ? store[idx] : {}),
       ...booking,
@@ -790,9 +1007,23 @@ export async function POST(req) {
     const finalRows = deduped.rows;
     await writeStore(finalRows);
 
-    const savedRow = finalRows.find((r) => clean(r.id) === id) || next;
+    const savedIdx = finalRows.findIndex((r) => clean(r.id) === id);
+    const savedRow = savedIdx >= 0 ? finalRows[savedIdx] : next;
+
+    const bookingEmail = await maybeNotifyBookingOwner(savedRow, prevRow);
+    if (bookingEmail?.ok && !bookingEmail?.skipped && savedIdx >= 0) {
+      finalRows[savedIdx] = {
+        ...finalRows[savedIdx],
+        booking_owner_notified_at: nowIso(),
+        booking_owner_notified_to: clean(bookingEmail?.recipientName || ''),
+        booking_owner_notified_email: clean(bookingEmail?.recipientEmail || ''),
+        booking_owner_notify_key: clean(bookingEmail?.notifyKey || '')
+      };
+      await writeStore(finalRows);
+    }
+
     await appendLedger('upsert', savedRow);
-    return Response.json({ ok: true, row: savedRow, deduped: deduped.changed });
+    return Response.json({ ok: true, row: savedRow, deduped: deduped.changed, bookingEmail });
   }
 
   if (mode === 'claim') {
@@ -824,6 +1055,7 @@ export async function POST(req) {
       );
     }
 
+    const prevRow = { ...current };
     store[idx] = {
       ...current,
       claim_status: 'Claimed',
@@ -834,8 +1066,19 @@ export async function POST(req) {
     };
 
     await writeStore(store);
+    const bookingEmail = await maybeNotifyBookingOwner(store[idx], prevRow);
+    if (bookingEmail?.ok && !bookingEmail?.skipped) {
+      store[idx] = {
+        ...store[idx],
+        booking_owner_notified_at: nowIso(),
+        booking_owner_notified_to: clean(bookingEmail?.recipientName || ''),
+        booking_owner_notified_email: clean(bookingEmail?.recipientEmail || ''),
+        booking_owner_notify_key: clean(bookingEmail?.notifyKey || '')
+      };
+      await writeStore(store);
+    }
     await appendLedger('claim', store[idx]);
-    return Response.json({ ok: true, row: store[idx] });
+    return Response.json({ ok: true, row: store[idx], bookingEmail });
   }
 
   if (mode === 'override') {
@@ -856,6 +1099,7 @@ export async function POST(req) {
     const idx = store.findIndex((r) => clean(r.id) === bookingId);
     if (idx < 0) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
 
+    const prevRow = { ...store[idx] };
     store[idx] = {
       ...store[idx],
       claim_status: 'Claimed',
@@ -868,8 +1112,19 @@ export async function POST(req) {
     };
 
     await writeStore(store);
+    const bookingEmail = await maybeNotifyBookingOwner(store[idx], prevRow);
+    if (bookingEmail?.ok && !bookingEmail?.skipped) {
+      store[idx] = {
+        ...store[idx],
+        booking_owner_notified_at: nowIso(),
+        booking_owner_notified_to: clean(bookingEmail?.recipientName || ''),
+        booking_owner_notified_email: clean(bookingEmail?.recipientEmail || ''),
+        booking_owner_notify_key: clean(bookingEmail?.notifyKey || '')
+      };
+      await writeStore(store);
+    }
     await appendLedger('override', store[idx]);
-    return Response.json({ ok: true, row: store[idx] });
+    return Response.json({ ok: true, row: store[idx], bookingEmail });
   }
 
   if (mode === 'invalidate') {
@@ -890,6 +1145,51 @@ export async function POST(req) {
     await writeStore(store);
     await appendLedger('invalidate', store[idx]);
     return Response.json({ ok: true, row: store[idx] });
+  }
+
+
+  if (mode === 'backfill_owner_notifications') {
+    const dryRun = String(body?.dryRun || '').toLowerCase() === 'true' || body?.dryRun === true;
+    let attempted = 0;
+    let sent = 0;
+    let skipped = 0;
+    const details = [];
+
+    for (let i = 0; i < store.length; i += 1) {
+      const row = store[i];
+      if (normalize(row?.claim_status || '').startsWith('invalid') || normalize(row?.claim_status || '').startsWith('canceled')) continue;
+      attempted += 1;
+
+      if (dryRun) {
+        const resolved = resolveBookingOwnerIdentity(row);
+        const recipientEmail = clean(resolved?.recipientEmail || '');
+        const notifyKey = `${clean(row?.requested_at_est || '')}|${compactKey(recipientEmail)}`;
+        const prevKey = clean(row?.booking_owner_notify_key || '');
+        const wouldSend = Boolean(recipientEmail) && (!prevKey || prevKey !== notifyKey);
+        if (wouldSend) sent += 1; else skipped += 1;
+        details.push({ id: clean(row?.id || ''), applicant: clean(row?.applicant_name || ''), result: wouldSend ? 'would_send' : (recipientEmail ? 'already_notified_for_slot' : 'owner_email_not_found') });
+        continue;
+      }
+
+      const out = await maybeNotifyBookingOwner(row, row);
+      if (out?.ok && !out?.skipped) {
+        store[i] = {
+          ...store[i],
+          booking_owner_notified_at: nowIso(),
+          booking_owner_notified_to: clean(out?.recipientName || ''),
+          booking_owner_notified_email: clean(out?.recipientEmail || ''),
+          booking_owner_notify_key: clean(out?.notifyKey || '')
+        };
+        sent += 1;
+      } else {
+        skipped += 1;
+      }
+
+      details.push({ id: clean(row?.id || ''), applicant: clean(row?.applicant_name || ''), result: out?.reason || (out?.ok ? 'sent' : clean(out?.error || 'skipped')) });
+    }
+
+    if (!dryRun) await writeStore(store);
+    return Response.json({ ok: true, mode: 'backfill_owner_notifications', dryRun, attempted, sent, skipped, details: details.slice(0, 100) });
   }
 
   if (mode === 'delete') {
