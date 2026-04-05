@@ -1,8 +1,12 @@
 import nodemailer from 'nodemailer';
+import fs from 'fs';
+import path from 'path';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 
 const STORE_PATH = 'stores/start-intake.json';
 const CONTRACT_SIGNATURES_PATH = 'stores/contract-signatures.json';
+const DEFAULT_LICENSED_ONBOARDING_PLAYBOOK_RELATIVE_PATH = 'public/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf';
+const DEFAULT_UNLICENSED_ONBOARDING_PLAYBOOK_RELATIVE_PATH = 'public/docs/onboarding/legacy-link-unlicensed-onboarding-playbook.pdf';
 
 function clean(v = '') { return String(v || '').trim(); }
 function normalize(v = '') { return clean(v).toLowerCase(); }
@@ -33,6 +37,28 @@ function unlicensedWelcomeHtml({ firstName = 'Agent', jamalEmail = '' } = {}) {
   const f = escapeHtml(firstName || 'Agent');
   const j = escapeHtml(jamalEmail || '');
   return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;"><div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">${brandHeader()}<div style="padding:22px;"><h2 style="margin:0 0 12px;font-size:22px;color:#0f172a;">Welcome to The Legacy Link</h2><p>Hi ${f},</p><p>Welcome to <strong>The Legacy Link</strong> — we’re excited to have you here.</p><p>Your profile has been received. To begin your onboarding and confirm your next steps, please contact:</p><p style="margin:8px 0 14px;"><strong>Jamal</strong><br/><a href="mailto:${j}" style="color:#1d4ed8;text-decoration:none;font-weight:700;">${j}</a></p><p>He will guide you through where you are in the process and what to do next.</p><p style="margin-top:16px;">We’re glad you’re here — let’s execute.</p><p style="margin:18px 0 0;color:#475569;">— The Legacy Link Team</p></div></div></div>`;
+}
+
+function playbookMetaByTrack(track = '') {
+  if (normalize(track) === 'licensed') {
+    return {
+      playbookUrl: 'https://innercirclelink.com/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf',
+      staticPlaybookPath: path.join(process.cwd(), DEFAULT_LICENSED_ONBOARDING_PLAYBOOK_RELATIVE_PATH),
+      filename: 'legacy-link-licensed-onboarding-playbook.pdf'
+    };
+  }
+
+  return {
+    playbookUrl: 'https://innercirclelink.com/docs/onboarding/legacy-link-unlicensed-onboarding-playbook.pdf',
+    staticPlaybookPath: path.join(process.cwd(), DEFAULT_UNLICENSED_ONBOARDING_PLAYBOOK_RELATIVE_PATH),
+    filename: 'legacy-link-unlicensed-onboarding-playbook.pdf'
+  };
+}
+
+function buildPlaybookAttachments(track = '') {
+  const meta = playbookMetaByTrack(track);
+  if (!meta?.staticPlaybookPath || !fs.existsSync(meta.staticPlaybookPath)) return [];
+  return [{ filename: meta.filename, path: meta.staticPlaybookPath }];
 }
 
 function contractRequiredHtml({ firstName = 'Agent', contractLink = '', track = 'unlicensed', jamalEmail = '' } = {}) {
@@ -86,6 +112,8 @@ async function sendWelcomeEmailByTrack(row = {}, options = {}) {
   const jamalEmail = getEnv('SPONSORSHIP_UNLICENSED_COACH_EMAIL') || getEnv('JAMAL_EMAIL') || 'support@thelegacylink.com';
   const contractLink = getEnv('NEXT_PUBLIC_DOCUSIGN_ICA_URL') || getEnv('DOCUSIGN_ICA_URL') || 'https://thelegacylink.com/contract-agreement';
   const contractRequired = options?.contractRequired === true;
+  const playbookMeta = playbookMetaByTrack(track);
+  const attachments = buildPlaybookAttachments(track);
 
   const subject = contractRequired
     ? 'Action Required: Sign Your Legacy Link Contract'
@@ -103,6 +131,8 @@ async function sendWelcomeEmailByTrack(row = {}, options = {}) {
           ? 'After signing, contact your upline. If unknown, email support@thelegacylink.com.'
           : `After signing, contact Jamal: ${jamalEmail}`),
         '',
+        `Onboarding PDF (also attached): ${playbookMeta.playbookUrl}`,
+        '',
         '— The Legacy Link Team'
       ].join('\n')
     : (track === 'licensed'
@@ -115,6 +145,8 @@ async function sendWelcomeEmailByTrack(row = {}, options = {}) {
           'Next step: Contact your upline directly.',
           'If you do not know your upline, email support@thelegacylink.com.',
           '',
+          `Onboarding PDF (also attached): ${playbookMeta.playbookUrl}`,
+          '',
           '— The Legacy Link Team'
         ].join('\n')
       : [
@@ -124,6 +156,8 @@ async function sendWelcomeEmailByTrack(row = {}, options = {}) {
           'To begin onboarding and confirm your next steps, contact Jamal:',
           jamalEmail,
           '',
+          `Onboarding PDF (also attached): ${playbookMeta.playbookUrl}`,
+          '',
           '— The Legacy Link Team'
         ].join('\n'));
 
@@ -132,7 +166,7 @@ async function sendWelcomeEmailByTrack(row = {}, options = {}) {
     : (track === 'licensed' ? licensedWelcomeHtml({ firstName }) : unlicensedWelcomeHtml({ firstName, jamalEmail }));
 
   const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
-  const info = await tx.sendMail({ from, to, subject, text, html });
+  const info = await tx.sendMail({ from, to, subject, text, html, attachments });
   return { ok: true, messageId: clean(info?.messageId || ''), subject };
 }
 
