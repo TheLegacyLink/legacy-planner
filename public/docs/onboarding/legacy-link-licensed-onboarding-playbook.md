@@ -11,30 +11,37 @@ Complete each step in order, then execute daily standards with clean CRM updates
 - Open your SOP instructions portal and follow the checklist in order.
 - Confirm your login works before moving to the next step.
 
-## Step 2 — Complete Contract + Required Profile Setup
-- Complete your onboarding/contract agreement first.
-- Complete all required profile fields accurately.
-- Confirm any required documents are uploaded.
-- If blocked, send support a screenshot + short issue summary.
+## Step 2 — E&O Activated
+- Purchase and activate E&O before production: **https://buy.stripe.com/dRm6oH25qe7521Cg4b3ZK0m**
+- E&O includes a 90-day free period (as applicable) before paid billing starts.
+- Confirm active coverage details are saved.
 
-## Step 3 — Open Legacy Link Back Office
-- Join the app: **https://legacylink.app/**
-- Confirm access and set up your profile.
-- Start using CRM immediately for all lead notes and follow-up tracking.
+## Step 3 — Core Product Training Completed
+- Complete your core product training sequence on each carrier platform.
+- Training resources are available directly on carrier websites (for example: National Life Group, F&G, Mutual of Omaha).
+- Be ready to explain core product basics confidently.
 
-## Step 4 — Community + Skool (Training)
-- Join Skool community: **https://www.skool.com/legacylink/about**
-- Complete required onboarding/training tasks inside community.
-- Stay responsive and active while onboarding is in progress.
+## Step 4 — CRM + Calendar + Dialer Setup
+- Complete CRM/calendar/dialer setup.
+- Use setup video: **https://youtu.be/u3_fIRH8c0w**
+- Keep CRM notes clean and same-day.
 
-## Step 5 — Required Video Task
+## Step 5 — Script Roleplay Certification
+- Complete script roleplay certification with trainer/upline.
+- Apply feedback until delivery is consistent.
+
+## Step 6 — Required YouTube Task
 - Watch **Whatever It Takes**: **https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX**
-- Leave a comment on the video so completion can be verified.
+- Leave a comment on the video.
 
-## Step 7 — Daily Execution Standards (Non-Negotiable)
+## Step 7 — Automated Milestones (System Tracked)
+- First Policy Submitted (auto-updates from policy submissions)
+- First Policy Placed (auto-updates when first policy is approved)
+- These milestones do not require manual marking
+
+## Daily Execution Standards (Non-Negotiable)
 - Work new leads daily
 - Follow up warm leads daily
-- Book at least one conversation daily
 - Follow script framework and improve with coaching feedback
 - Keep CRM notes clean, complete, and updated same day
 
@@ -48,6 +55,16 @@ Complete each step in order, then execute daily standards with clean CRM updates
 ## Lead Activation Requirement
 - Licensed agents start receiving leads after full onboarding is complete.
 - Licensed agents must also complete their first hour of community service before lead activation.
+
+## Lead Distribution and Program Pathways
+- Full Sponsorship Path (policy portion completed):
+  - **60 fresh leads in total**
+  - full JumpStart access and support
+- If you are consistently contacting and following up with leads but have not closed yet, the company may drip additional leads to support your success.
+- Alternate Path (policy declined):
+  - **20 older leads**
+  - drip-based delivery
+  - continued onboarding support
 
 ## Support
 - **support@thelegacylink.com**

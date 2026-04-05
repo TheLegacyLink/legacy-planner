@@ -80,37 +80,47 @@ def build():
     ], st))
     story.append(Spacer(1, 8))
 
-    story.append(section('Step 2 — Complete Contract + Required Profile Setup', [
-        'Complete onboarding/contract agreement first.',
-        'Complete all required profile fields accurately.',
-        'Upload/confirm required items before submitting.',
-        'If blocked, send support a screenshot and short issue summary.'
+    story.append(section('Step 2 — E&O Activated', [
+        'Purchase and activate E&O before production: https://buy.stripe.com/dRm6oH25qe7521Cg4b3ZK0m',
+        'E&O includes a 90-day free period (as applicable) before paid billing starts.',
+        'Confirm active coverage details are saved in your records.'
     ], st))
     story.append(Spacer(1, 8))
 
-    story.append(section('Step 3 — Open Legacy Link Back Office', [
-        'Open back office: https://innercirclelink.com/licensed-backoffice',
-        'Complete first login setup and confirm profile/basic access.',
-        'Track all notes, follow-up, and activity inside your back office workflow.'
+    story.append(section('Step 3 — Core Product Training Completed', [
+        'Complete your core product training sequence on each carrier platform.',
+        'Training resources are available directly on carrier websites (for example: National Life Group, F&G, Mutual of Omaha).',
+        'Be prepared to explain product basics clearly and confidently.'
     ], st))
     story.append(Spacer(1, 8))
 
-    story.append(section('Step 4 — Community + Skool Training', [
-        'Join Skool: https://www.skool.com/legacylink/about',
-        'Complete required onboarding and training actions.',
-        'Stay active and responsive while onboarding is in progress.'
+    story.append(section('Step 4 — CRM + Calendar + Dialer Setup', [
+        'Open setup video: https://youtu.be/u3_fIRH8c0w',
+        'Complete CRM, calendar, and dialer setup before active production.',
+        'Track all notes and follow-up actions in CRM the same day.'
     ], st))
     story.append(Spacer(1, 8))
 
-    story.append(section('Step 5 — Required Video Task', [
+    story.append(section('Step 5 — Script Roleplay Certification', [
+        'Complete script roleplay certification with your trainer/upline.',
+        'Apply coaching feedback until script delivery is consistent.'
+    ], st))
+    story.append(Spacer(1, 8))
+
+    story.append(section('Step 6 — Required YouTube Task', [
       'Watch "Whatever It Takes": https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX',
-      'Leave a comment on the video for completion verification.'
+      'Leave a comment on the video as part of onboarding completion.'
     ], st)); story.append(Spacer(1,8))
 
-    story.append(section('Step 6 — Daily Execution Standards', [
+    story.append(section('Step 7 — Automated Milestones (System Tracked)', [
+        'First Policy Submitted (auto-updates from policy submissions).',
+        'First Policy Placed (auto-updates when first policy is approved).',
+        'These milestones are automated and do not require manual marking.'
+    ], st)); story.append(Spacer(1,8))
+
+    story.append(section('Daily Execution Standards', [
         'Work new leads daily.',
         'Follow up warm leads daily.',
-        'Book at least one conversation daily.',
         'Use script framework and coach feedback daily.',
         'Keep CRM notes clean and updated same day.'
     ], st))
@@ -125,6 +135,13 @@ def build():
     story.append(section('Lead Activation Requirement', [
         'Licensed agents start receiving leads after full onboarding is complete.',
         'Licensed agents must complete their first hour of community service before lead activation.'
+    ], st))
+
+    story.append(Spacer(1, 8))
+    story.append(section('Lead Distribution and Program Pathways', [
+        'Full Sponsorship Path (policy portion completed): 60 fresh leads in total + full JumpStart access and support.',
+        'If you are consistently contacting and following up with leads but have not closed yet, the company may drip additional leads to support your success.',
+        'Alternate Path (policy declined): 20 older leads + drip-based delivery + continued onboarding support.'
     ], st))
 
     story.append(Spacer(1, 8))
