@@ -129,8 +129,30 @@ export async function sendCodeEmail({ to = '', code = '' } = {}) {
 
   const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
   const subject = 'Legacy Link Unlicensed Back Office Login Code';
-  const text = `Your Legacy Link code is: ${code}\n\nThis code expires in 10 minutes.`;
-  const html = `<div style="font-family:Arial,sans-serif"><h3>Legacy Link</h3><p>Your code:</p><div style="font-size:20px;font-weight:700;background:#111827;color:#fff;display:inline-block;padding:8px 14px;border-radius:8px;letter-spacing:1px">${code}</div><p>This code expires in 10 minutes.</p></div>`;
+  const text = [
+    'Legacy Link — Unlicensed Back Office',
+    '',
+    `Your login verification code: ${code}`,
+    '',
+    'This code expires in 10 minutes.',
+    '',
+    'Start here: https://innercirclelink.com/unlicensed-backoffice'
+  ].join('\n');
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif;background:#040B23;padding:24px;color:#E5E7EB;line-height:1.6;">
+      <div style="max-width:720px;margin:0 auto;background:#0B1534;border:1px solid #1E3A8A;border-radius:16px;overflow:hidden;">
+        <div style="padding:16px 22px;background:#1651AE;text-align:center;">
+          <div style="color:#fff;font-weight:800;font-size:34px;line-height:1;letter-spacing:.8px;">THE LEGACY LINK</div>
+        </div>
+        <div style="padding:24px;">
+          <h2 style="margin:0 0 10px;font-size:28px;color:#F8FAFC;">Unlicensed Back Office Access</h2>
+          <p style="margin:0 0 12px;color:#CBD5E1;">Use this one-time code to sign in:</p>
+          <div style="display:inline-block;background:#0F172A;color:#fff;padding:10px 16px;border-radius:10px;font-size:28px;font-weight:800;letter-spacing:2px;">${code}</div>
+          <p style="margin:14px 0 10px;color:#CBD5E1;">This code expires in 10 minutes.</p>
+          <p style="margin:0;color:#E2E8F0;">Start here:<br/><a href="https://innercirclelink.com/unlicensed-backoffice" target="_blank" rel="noopener noreferrer" style="color:#60A5FA;text-decoration:underline;font-weight:700;">https://innercirclelink.com/unlicensed-backoffice</a></p>
+        </div>
+      </div>
+    </div>`;
   const info = await tx.sendMail({ from, to, subject, text, html });
   return { ok: true, messageId: info?.messageId || '' };
 }

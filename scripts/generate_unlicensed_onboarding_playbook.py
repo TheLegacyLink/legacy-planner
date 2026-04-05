@@ -2,6 +2,7 @@
 """Generate polished Unlicensed Agent onboarding playbook PDF."""
 
 from pathlib import Path
+import re
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -37,10 +38,20 @@ def page_bg(canvas, doc):
     canvas.restoreState()
 
 
+def linkify(text=''):
+    raw = str(text or '')
+
+    def repl(match):
+        url = match.group(0)
+        return f'<u><font color="#60A5FA">{url}</font></u>'
+
+    return re.sub(r'https?://\S+', repl, raw)
+
+
 def section(title, bullets, st):
     rows = [[Paragraph(f'<b>{title}</b>', st['h'])]]
     for b in bullets:
-        rows.append([Paragraph(f'• {b}', st['b'])])
+        rows.append([Paragraph(f'• {linkify(b)}', st['b'])])
     t = Table(rows, colWidths=[6.75*inch])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#111827')),
