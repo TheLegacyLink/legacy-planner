@@ -7,9 +7,9 @@ const HIERARCHY_STORE = 'stores/team-hierarchy.json';
 const MESSAGE_STORE = 'stores/upline-support-messages.json';
 
 const DEFAULT_UPLINE = {
-  key: personKey('Kimora Link', 'investalinkinsurance@gmail.com'),
+  key: personKey('Kimora Link', 'kimora@thelegacylink.com'),
   name: 'Kimora Link',
-  email: 'investalinkinsurance@gmail.com',
+  email: 'kimora@thelegacylink.com',
   role: 'Agency Owner',
   source: 'fallback_default'
 };
@@ -134,6 +134,23 @@ function toThreadKey(agentKey = '', uplineKey = '') {
   return `agent:${clean(agentKey)}::upline:${clean(uplineKey)}`;
 }
 
+function normalizeUplineNode(node = {}) {
+  const name = clean(node?.name || '');
+  const email = clean(node?.email || '').toLowerCase();
+  if (norm(name) === 'kimora link') {
+    const preferred = 'kimora@thelegacylink.com';
+    return {
+      ...node,
+      email: preferred,
+      key: personKey(name || 'Kimora Link', preferred)
+    };
+  }
+  if (!clean(node?.key) && (name || email)) {
+    return { ...node, key: personKey(name, email) };
+  }
+  return node;
+}
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const mode = norm(searchParams.get('mode') || 'agent');
@@ -145,7 +162,7 @@ export async function GET(req) {
   const messageRows = await loadJsonStore(MESSAGE_STORE, []);
 
   const { rootKey, chain, highest } = resolveUpline(hierarchyRows, viewerName, viewerEmail, profileType);
-  const upline = highest || (profileType === 'unlicensed' ? UNLICENSED_DEFAULT_UPLINE : DEFAULT_UPLINE);
+  const upline = normalizeUplineNode(highest || (profileType === 'unlicensed' ? UNLICENSED_DEFAULT_UPLINE : DEFAULT_UPLINE));
   const threadKey = toThreadKey(rootKey, upline.key);
 
   if (mode === 'inbox') {
@@ -213,7 +230,7 @@ export async function POST(req) {
   const rows = await loadJsonStore(MESSAGE_STORE, []);
   const { highest } = resolveUpline(hierarchyRows, viewerName, viewerEmail, profileType);
 
-  const upline = highest || (profileType === 'unlicensed' ? UNLICENSED_DEFAULT_UPLINE : DEFAULT_UPLINE);
+  const upline = normalizeUplineNode(highest || (profileType === 'unlicensed' ? UNLICENSED_DEFAULT_UPLINE : DEFAULT_UPLINE));
 
   const threadKey = toThreadKey(viewerKey, upline.key);
 

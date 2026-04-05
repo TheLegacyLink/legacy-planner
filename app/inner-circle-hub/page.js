@@ -2120,7 +2120,7 @@ export default function InnerCircleHubPage() {
               target="_blank"
               rel="noreferrer"
               className="publicPrimaryBtn"
-              style={{ textDecoration: 'none', background: '#B91C1C', borderColor: '#FCA5A5' }}
+              style={{ textDecoration: 'none', background: '#6D28D9', borderColor: '#C4B5FD' }}
             >
               Upline Messages
             </a>
