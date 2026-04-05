@@ -2,6 +2,7 @@
 """Generate polished Licensed Agent onboarding playbook PDF."""
 
 from pathlib import Path
+import re
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -37,10 +38,20 @@ def page_bg(canvas, doc):
     canvas.restoreState()
 
 
+def linkify(text=''):
+    raw = str(text or '')
+
+    def repl(match):
+        url = match.group(0)
+        return f'<u><font color="#60A5FA">{url}</font></u>'
+
+    return re.sub(r'https?://\S+', repl, raw)
+
+
 def section(title, bullets, st):
     rows = [[Paragraph(f'<b>{title}</b>', st['h'])]]
     for b in bullets:
-        rows.append([Paragraph(f'• {b}', st['b'])])
+        rows.append([Paragraph(f'• {linkify(b)}', st['b'])])
     t = Table(rows, colWidths=[6.75*inch])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#111827')),
@@ -81,8 +92,9 @@ def build():
     story.append(Spacer(1, 8))
 
     story.append(section('Step 2 — Contracting', [
-        'Part A — Pinnacle Group flow (Mutual of Omaha, Transamerica, Foresters, American National): https://surelc.surancebay.com/producer/?gaId=190',
-        'Part B — F&G + National Life Group flow: https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance',
+        'Part A — Pinnacle Group (P.Group) / Business Partners (Mutual of Omaha, Transamerica, Foresters, American National): https://surelc.surancebay.com/producer/?gaId=190',
+        'Part B — InvestaLink (F&G + National Life Group): https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance',
+        'Part C — Video tutorial on the contracting process: https://www.loom.com/share/79354f8de2334697ba53cc5b0ff80c86?sid=b88fafc3-96a0-4d6a-9918-f396f0047603',
         'National Life Group only: after completing the SureLC step, look out for a follow-up email within 48 hours (1–2 business days) to complete an additional required form.'
     ], st))
     story.append(Spacer(1, 8))
