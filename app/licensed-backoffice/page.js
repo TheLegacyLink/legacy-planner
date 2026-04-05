@@ -1288,6 +1288,9 @@ export default function LicensedBackofficePage() {
                   </a>
                 </div>
               </div>
+              <button onClick={() => setTab('upline')} style={{ borderRadius: 10, border: '1px solid #FCA5A5', padding: '8px 12px', background: '#B91C1C', color: '#fff', cursor: 'pointer', fontWeight: 800, boxShadow: '0 6px 18px rgba(127,29,29,.35)' }}>
+                Help
+              </button>
               <button onClick={logout} style={{ borderRadius: 10, border: '1px solid #334155', padding: '8px 12px', background: '#111827', color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>Sign Out</button>
             </div>
           </div>
@@ -1311,7 +1314,7 @@ export default function LicensedBackofficePage() {
             ['incentives', 'Champions Circle'],
             ['community', 'Community Service']
           ].map(([k, label]) => (
-            <button key={k} onClick={() => { if (k === 'incentives') { if (typeof window !== 'undefined') window.open('/champions-circle/licensed?home=/licensed-backoffice', '_blank', 'noopener,noreferrer'); return; } if (k === 'community') { if (typeof window !== 'undefined') window.open('/community-service?home=/licensed-backoffice', '_blank', 'noopener,noreferrer'); return; } setTab(k); }} style={{ padding: '10px 14px', borderRadius: 999, border: '1px solid #334155', background: tab === k ? '#1D428A' : '#0B1220', color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>{label}</button>
+            <button key={k} onClick={() => { if (k === 'incentives') { if (typeof window !== 'undefined') window.open('/champions-circle/licensed?home=/licensed-backoffice', '_blank', 'noopener,noreferrer'); return; } if (k === 'community') { if (typeof window !== 'undefined') window.open('/community-service?home=/licensed-backoffice', '_blank', 'noopener,noreferrer'); return; } setTab(k); }} style={{ padding: '10px 14px', borderRadius: 999, border: k === 'upline' ? '1px solid #FCA5A5' : '1px solid #334155', background: tab === k ? (k === 'upline' ? '#B91C1C' : '#1D428A') : (k === 'upline' ? '#7F1D1D' : '#0B1220'), color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)', fontWeight: k === 'upline' ? 800 : 600 }}>{label}</button>
           ))}
         </div>
 
