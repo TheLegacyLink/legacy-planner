@@ -205,7 +205,7 @@ function buildWelcomeMessage(agent) {
     'National Life Group only: after completing SureLC, look out for a follow-up email within 48 hours (1–2 business days) to complete an additional required form.',
     '',
     'Part C — Contracting Tutorial (follow along):',
-    'https://youtu.be/QVg0rUti1hM',
+    'https://www.loom.com/share/79354f8de2334697ba53cc5b0ff80c86?sid=b88fafc3-96a0-4d6a-9918-f396f0047603',
     '',
     'If your FNG Agent ID shows as Unknown, reply to this email and we will update it for you immediately.',
     '',
@@ -246,7 +246,7 @@ function buildWelcomeHtml(agent) {
         <p style="margin:0 0 8px;">National Life Group only: after completing SureLC, look out for a follow-up email within 48 hours (1–2 business days) to complete an additional required form.</p>
 
         <p style="margin:0 0 12px;"><strong>Part C — Contracting Tutorial (follow along):</strong><br/>
-          <a href="https://youtu.be/QVg0rUti1hM" target="_blank" rel="noopener noreferrer">https://youtu.be/QVg0rUti1hM</a>
+          <a href="https://www.loom.com/share/79354f8de2334697ba53cc5b0ff80c86?sid=b88fafc3-96a0-4d6a-9918-f396f0047603" target="_blank" rel="noopener noreferrer">https://www.loom.com/share/79354f8de2334697ba53cc5b0ff80c86?sid=b88fafc3-96a0-4d6a-9918-f396f0047603</a>
         </p>
 
         <p style="margin:0 0 12px;">If your FNG Agent ID shows as <strong>Unknown</strong>, reply to this email and we will update it for you immediately.</p>
