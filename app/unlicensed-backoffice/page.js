@@ -41,6 +41,10 @@ export default function UnlicensedBackofficePage() {
   const [readySubmitting, setReadySubmitting] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [uplineSupport, setUplineSupport] = useState({ loading: false, error: '', upline: null, rows: [], unreadForViewer: 0 });
+  const [uplineDraft, setUplineDraft] = useState('');
+  const [uplineSending, setUplineSending] = useState(false);
+  const [uplineNotice, setUplineNotice] = useState('');
 
   useEffect(() => {
     const t = typeof window !== 'undefined' ? window.localStorage.getItem('unlicensed_backoffice_token') : '';
@@ -73,6 +77,74 @@ export default function UnlicensedBackofficePage() {
     return () => { mounted = false; };
   }, [token]);
 
+  useEffect(() => {
+    if (!profile?.email) return;
+    let mounted = true;
+    (async () => {
+      setUplineSupport((prev) => ({ ...prev, loading: true, error: '' }));
+      try {
+        const qs = new URLSearchParams({
+          name: clean(profile?.name || ''),
+          email: clean(profile?.email || '').toLowerCase(),
+          profileType: 'unlicensed'
+        });
+        const res = await fetch(`/api/upline-support?${qs.toString()}`, { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!mounted) return;
+        if (!res.ok || !data?.ok) {
+          setUplineSupport({ loading: false, error: 'Could not load support thread.', upline: null, rows: [], unreadForViewer: 0 });
+          return;
+        }
+        setUplineSupport({
+          loading: false,
+          error: '',
+          upline: data?.upline || null,
+          rows: Array.isArray(data?.rows) ? data.rows : [],
+          unreadForViewer: Number(data?.unreadForViewer || 0)
+        });
+      } catch {
+        if (mounted) setUplineSupport({ loading: false, error: 'Could not load support thread.', upline: null, rows: [], unreadForViewer: 0 });
+      }
+    })();
+    return () => { mounted = false; };
+  }, [profile?.email, profile?.name]);
+
+  async function sendUplineMessage() {
+    if (!profile?.email) return;
+    const message = clean(uplineDraft);
+    if (!message) {
+      setUplineNotice('Type a message first.');
+      return;
+    }
+    setUplineSending(true);
+    setUplineNotice('');
+    try {
+      const res = await fetch('/api/upline-support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send_message',
+          viewerName: clean(profile?.name || ''),
+          viewerEmail: clean(profile?.email || '').toLowerCase(),
+          profileType: 'unlicensed',
+          message
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setUplineNotice('Could not send message right now.');
+        return;
+      }
+      setUplineDraft('');
+      setUplineNotice('Message sent. Jamal will be notified.');
+      setUplineSupport((prev) => ({ ...prev, rows: [...(Array.isArray(prev?.rows) ? prev.rows : []), data?.row].filter(Boolean) }));
+    } catch {
+      setUplineNotice('Could not send message right now.');
+    } finally {
+      setUplineSending(false);
+    }
+  }
+
   async function requestCode() {
     setError('');
     try {
@@ -102,7 +174,7 @@ export default function UnlicensedBackofficePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok || !data?.token) {
-        setError(data?.error ? `Verify failed: ${data.error}` : 'Invalid code');
+        setError(data?.error ? `Verify failed: ${data.error}` : 'Invalid code/password');
         return;
       }
       if (typeof window !== 'undefined') window.localStorage.setItem('unlicensed_backoffice_token', data.token);
@@ -197,17 +269,20 @@ export default function UnlicensedBackofficePage() {
             <p style={{ margin: '8px 0 0', opacity: 0.95 }}>Unlicensed Back Office • License Sprint</p>
           </div>
           <div style={{ padding: 24, display: 'grid', gap: 10 }}>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email or login" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
             <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full name (must match your application)" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
             {!codeRequested ? (
-              <button onClick={requestCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>Send Login Code</button>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button onClick={requestCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>Send Login Code</button>
+                <button onClick={() => setCodeRequested(true)} style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #475569', background: '#0B1220', color: '#E2E8F0', fontWeight: 700 }}>Use Password Login</button>
+              </div>
             ) : (
               <>
-                <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="6-digit code" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
+                <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="6-digit code or password" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
                 <button onClick={verifyCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>Verify & Enter</button>
               </>
             )}
-            {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Sign-in requires exact match on full name + email from your unlicensed application.</small>}
+            {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Use your code flow or hardwired login/password backup.</small>}
           </div>
         </section>
       </main>
@@ -321,6 +396,56 @@ export default function UnlicensedBackofficePage() {
                 ) : null}
               </div>
             ))}
+          </div>
+        </div>
+
+        <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14, display: 'grid', gap: 10 }}>
+          <h3 style={{ margin: 0 }}>Upline Support</h3>
+          <p style={{ color: '#9CA3AF', margin: 0 }}>For now, all unlicensed support messages route to <strong style={{ color: '#E5E7EB' }}>Jamal Holmes</strong>.</p>
+          {uplineSupport?.upline ? (
+            <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#020617', padding: 10 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <strong>{clean(uplineSupport.upline.name || 'Jamal Holmes')}</strong>
+                <span style={{ border: '1px solid #334155', borderRadius: 999, padding: '2px 8px', fontSize: 12, color: '#CBD5E1' }}>{clean(uplineSupport.upline.role || 'Regional Director')}</span>
+                {uplineSupport.upline.email ? <span style={{ color: '#93C5FD', fontSize: 13 }}>{uplineSupport.upline.email}</span> : null}
+              </div>
+            </div>
+          ) : null}
+
+          {uplineSupport?.loading ? <div style={{ color: '#9CA3AF' }}>Loading thread…</div> : null}
+          {uplineSupport?.error ? <div style={{ color: '#FCA5A5' }}>{uplineSupport.error}</div> : null}
+
+          <div style={{ display: 'grid', gap: 8, maxHeight: 220, overflow: 'auto' }}>
+            {!uplineSupport?.rows?.length ? (
+              <div style={{ border: '1px dashed #334155', borderRadius: 10, padding: 10, color: '#9CA3AF' }}>No support messages yet.</div>
+            ) : (
+              uplineSupport.rows.slice(-20).map((msg, idx) => {
+                const mine = clean(msg?.fromRole) === 'agent';
+                return (
+                  <div key={msg?.id || `${idx}-${msg?.createdAt || 'na'}`} style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: mine ? '#13203A' : '#111827' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                      <strong>{mine ? 'You' : clean(msg?.fromName || 'Jamal')}</strong>
+                      <span style={{ color: '#9CA3AF', fontSize: 12 }}>{clean(msg?.createdAt) ? new Date(msg.createdAt).toLocaleString() : '—'}</span>
+                    </div>
+                    <div style={{ whiteSpace: 'pre-wrap' }}>{clean(msg?.body || '')}</div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <textarea
+            value={uplineDraft}
+            onChange={(e) => setUplineDraft(e.target.value)}
+            rows={3}
+            placeholder="Message Jamal..."
+            style={{ width: '100%', borderRadius: 10, border: '1px solid #374151', background: '#0B1220', color: '#fff', padding: '10px 12px' }}
+          />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button type="button" onClick={sendUplineMessage} disabled={uplineSending} style={{ padding: '10px 14px', borderRadius: 10, border: 0, background: '#1D4ED8', color: '#fff', fontWeight: 800 }}>
+              {uplineSending ? 'Sending…' : 'Send Support Message'}
+            </button>
+            {uplineNotice ? <span style={{ color: uplineNotice.toLowerCase().includes('could not') ? '#FCA5A5' : '#86EFAC' }}>{uplineNotice}</span> : null}
           </div>
         </div>
       </section>

@@ -6,6 +6,22 @@ import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 const HIERARCHY_STORE = 'stores/team-hierarchy.json';
 const MESSAGE_STORE = 'stores/upline-support-messages.json';
 
+const DEFAULT_UPLINE = {
+  key: personKey('Kimora Link', 'investalinkinsurance@gmail.com'),
+  name: 'Kimora Link',
+  email: 'investalinkinsurance@gmail.com',
+  role: 'Agency Owner',
+  source: 'fallback_default'
+};
+
+const UNLICENSED_DEFAULT_UPLINE = {
+  key: personKey('Jamal Holmes', 'support@jdholmesagencyllc.com'),
+  name: 'Jamal Holmes',
+  email: 'support@jdholmesagencyllc.com',
+  role: 'Regional Director',
+  source: 'fallback_unlicensed'
+};
+
 function clean(v = '') {
   return String(v || '').trim();
 }
@@ -55,7 +71,7 @@ function roleRank(label = '') {
   return ROLE_RANK[norm(label)] || 0;
 }
 
-function resolveUpline(rows = [], viewerName = '', viewerEmail = '') {
+function resolveUpline(rows = [], viewerName = '', viewerEmail = '', profileType = 'licensed') {
   const list = Array.isArray(rows) ? rows : [];
   const rootKey = personKey(viewerName, viewerEmail);
   if (!rootKey) return { rootKey: '', chain: [], highest: null };
@@ -95,7 +111,13 @@ function resolveUpline(rows = [], viewerName = '', viewerEmail = '') {
     cursor = node.key;
   }
 
-  if (!chain.length) return { rootKey, chain: [], highest: null };
+  if (!chain.length) {
+    return {
+      rootKey,
+      chain: [],
+      highest: profileType === 'unlicensed' ? UNLICENSED_DEFAULT_UPLINE : DEFAULT_UPLINE
+    };
+  }
 
   const highest = chain
     .slice()
@@ -105,7 +127,7 @@ function resolveUpline(rows = [], viewerName = '', viewerEmail = '') {
       return chain.indexOf(b) - chain.indexOf(a);
     })[0];
 
-  return { rootKey, chain, highest };
+  return { rootKey, chain, highest: highest || (profileType === 'unlicensed' ? UNLICENSED_DEFAULT_UPLINE : DEFAULT_UPLINE) };
 }
 
 function toThreadKey(agentKey = '', uplineKey = '') {
@@ -114,24 +136,43 @@ function toThreadKey(agentKey = '', uplineKey = '') {
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
+  const mode = norm(searchParams.get('mode') || 'agent');
+  const profileType = norm(searchParams.get('profileType') || 'licensed') === 'unlicensed' ? 'unlicensed' : 'licensed';
   const viewerName = clean(searchParams.get('name') || searchParams.get('viewerName') || '');
   const viewerEmail = clean(searchParams.get('email') || searchParams.get('viewerEmail') || '').toLowerCase();
 
   const hierarchyRows = await loadJsonStore(HIERARCHY_STORE, []);
   const messageRows = await loadJsonStore(MESSAGE_STORE, []);
 
-  const { rootKey, chain, highest } = resolveUpline(hierarchyRows, viewerName, viewerEmail);
-
-  const fallbackUpline = {
-    key: personKey('Kimora Link', 'investalinkinsurance@gmail.com'),
-    name: 'Kimora Link',
-    email: 'investalinkinsurance@gmail.com',
-    role: 'Agency Owner',
-    source: 'fallback_default'
-  };
-
-  const upline = highest || fallbackUpline;
+  const { rootKey, chain, highest } = resolveUpline(hierarchyRows, viewerName, viewerEmail, profileType);
+  const upline = highest || (profileType === 'unlicensed' ? UNLICENSED_DEFAULT_UPLINE : DEFAULT_UPLINE);
   const threadKey = toThreadKey(rootKey, upline.key);
+
+  if (mode === 'inbox') {
+    const inboxRows = (Array.isArray(messageRows) ? messageRows : [])
+      .filter((r) => clean(r?.toKey) === rootKey)
+      .sort((a, b) => new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime());
+
+    const byThread = new Map();
+    for (const r of inboxRows) {
+      const tk = clean(r?.threadKey);
+      if (!tk) continue;
+      if (!byThread.has(tk)) byThread.set(tk, []);
+      byThread.get(tk).push(r);
+    }
+
+    const threads = [...byThread.entries()].map(([tk, items]) => {
+      const sorted = items.sort((a, b) => new Date(a?.createdAt || 0).getTime() - new Date(b?.createdAt || 0).getTime());
+      const latest = sorted[sorted.length - 1] || null;
+      const unread = sorted.filter((r) => clean(r?.toKey) === rootKey && !clean(r?.readAt)).length;
+      const agentName = clean(latest?.fromRole) === 'agent'
+        ? clean(latest?.fromName)
+        : clean(sorted.find((r) => clean(r?.fromRole) === 'agent')?.fromName || 'Agent');
+      return { threadKey: tk, unread, latest, agentName, rows: sorted };
+    }).sort((a, b) => new Date(b?.latest?.createdAt || 0).getTime() - new Date(a?.latest?.createdAt || 0).getTime());
+
+    return Response.json({ ok: true, mode: 'inbox', rootKey, threads, unreadTotal: threads.reduce((sum, t) => sum + Number(t?.unread || 0), 0), responseSlaHours: 24 });
+  }
 
   const rows = (Array.isArray(messageRows) ? messageRows : [])
     .filter((r) => clean(r?.threadKey) === threadKey)
@@ -142,6 +183,7 @@ export async function GET(req) {
 
   return Response.json({
     ok: true,
+    mode: 'agent',
     rootKey,
     upline,
     chain,
@@ -157,6 +199,7 @@ export async function GET(req) {
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
   const action = norm(body?.action || 'send_message');
+  const profileType = norm(body?.profileType || 'licensed') === 'unlicensed' ? 'unlicensed' : 'licensed';
 
   const viewerName = clean(body?.viewerName || body?.name || '');
   const viewerEmail = clean(body?.viewerEmail || body?.email || '').toLowerCase();
@@ -168,15 +211,9 @@ export async function POST(req) {
 
   const hierarchyRows = await loadJsonStore(HIERARCHY_STORE, []);
   const rows = await loadJsonStore(MESSAGE_STORE, []);
-  const { highest } = resolveUpline(hierarchyRows, viewerName, viewerEmail);
+  const { highest } = resolveUpline(hierarchyRows, viewerName, viewerEmail, profileType);
 
-  const upline = highest || {
-    key: personKey('Kimora Link', 'investalinkinsurance@gmail.com'),
-    name: 'Kimora Link',
-    email: 'investalinkinsurance@gmail.com',
-    role: 'Agency Owner',
-    source: 'fallback_default'
-  };
+  const upline = highest || (profileType === 'unlicensed' ? UNLICENSED_DEFAULT_UPLINE : DEFAULT_UPLINE);
 
   const threadKey = toThreadKey(viewerKey, upline.key);
 
@@ -189,6 +226,51 @@ export async function POST(req) {
     });
     await saveJsonStore(MESSAGE_STORE, updated);
     return Response.json({ ok: true, action: 'mark_read', threadKey });
+  }
+
+  if (action === 'upline_reply') {
+    const message = clean(body?.message || body?.body || '');
+    const requestedThreadKey = clean(body?.threadKey || '');
+    if (!requestedThreadKey) return Response.json({ ok: false, error: 'missing_threadKey' }, { status: 400 });
+    if (!message) return Response.json({ ok: false, error: 'missing_message' }, { status: 400 });
+
+    const threadRows = rows.filter((r) => clean(r?.threadKey) === requestedThreadKey);
+    const latestAgentMessage = [...threadRows].reverse().find((r) => clean(r?.fromRole) === 'agent');
+    const agentKey = clean(latestAgentMessage?.fromKey || '').replace(/^\s+|\s+$/g, '');
+
+    if (!agentKey) return Response.json({ ok: false, error: 'missing_agent_thread_context' }, { status: 400 });
+
+    const createdAt = nowIso();
+    const row = {
+      id: `upl_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      threadKey: requestedThreadKey,
+      fromKey: viewerKey,
+      toKey: agentKey,
+      fromName: viewerName,
+      fromEmail: viewerEmail,
+      toName: clean(latestAgentMessage?.fromName || 'Agent'),
+      toEmail: clean(latestAgentMessage?.fromEmail || ''),
+      fromRole: 'upline',
+      toRole: 'agent',
+      body: message,
+      status: 'responded',
+      createdAt,
+      deadlineAt: '',
+      respondedAt: createdAt,
+      readAt: ''
+    };
+
+    for (let i = rows.length - 1; i >= 0; i -= 1) {
+      if (clean(rows[i]?.threadKey) !== requestedThreadKey) continue;
+      if (clean(rows[i]?.fromRole) !== 'agent') continue;
+      if (!clean(rows[i]?.respondedAt)) rows[i].respondedAt = createdAt;
+      if (!clean(rows[i]?.readAt)) rows[i].readAt = createdAt;
+      break;
+    }
+
+    rows.push(row);
+    await saveJsonStore(MESSAGE_STORE, rows);
+    return Response.json({ ok: true, row, threadKey: requestedThreadKey, action: 'upline_reply' });
   }
 
   if (action !== 'send_message') {

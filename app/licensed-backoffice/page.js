@@ -262,6 +262,11 @@ export default function LicensedBackofficePage() {
   const [uplineDraft, setUplineDraft] = useState('');
   const [uplineSendBusy, setUplineSendBusy] = useState(false);
   const [uplineSendMsg, setUplineSendMsg] = useState('');
+  const [uplineInbox, setUplineInbox] = useState({ loading: false, error: '', threads: [], unreadTotal: 0 });
+  const [uplineSelectedThread, setUplineSelectedThread] = useState('');
+  const [uplineReplyDraft, setUplineReplyDraft] = useState('');
+  const [uplineReplyBusy, setUplineReplyBusy] = useState(false);
+  const [uplineReplyMsg, setUplineReplyMsg] = useState('');
   const [contractLastCheckedAt, setContractLastCheckedAt] = useState('');
   const [financeRange, setFinanceRange] = useState('month');
   const [financeDrawer, setFinanceDrawer] = useState({ open: false, title: '', items: [] });
@@ -487,6 +492,40 @@ export default function LicensedBackofficePage() {
     }
 
     loadUplineSupport();
+    return () => { cancelled = true; };
+  }, [session?.email, session?.name]);
+
+  useEffect(() => {
+    if (!session?.email) return;
+    let cancelled = false;
+
+    async function loadUplineInbox() {
+      setUplineInbox((prev) => ({ ...prev, loading: true, error: '' }));
+      try {
+        const qs = new URLSearchParams({
+          mode: 'inbox',
+          name: clean(session?.name || ''),
+          email: clean(session?.email || '').toLowerCase(),
+          profileType: 'licensed'
+        });
+        const res = await fetch(`/api/upline-support?${qs.toString()}`, { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok || !data?.ok) {
+          setUplineInbox({ loading: false, error: 'Could not load upline inbox.', threads: [], unreadTotal: 0 });
+          return;
+        }
+        const threads = Array.isArray(data?.threads) ? data.threads : [];
+        setUplineInbox({ loading: false, error: '', threads, unreadTotal: Number(data?.unreadTotal || 0) });
+        if (!uplineSelectedThread && threads.length) {
+          setUplineSelectedThread(clean(threads[0]?.threadKey || ''));
+        }
+      } catch {
+        if (!cancelled) setUplineInbox({ loading: false, error: 'Could not load upline inbox.', threads: [], unreadTotal: 0 });
+      }
+    }
+
+    loadUplineInbox();
     return () => { cancelled = true; };
   }, [session?.email, session?.name]);
 
@@ -1118,6 +1157,57 @@ export default function LicensedBackofficePage() {
     }
   }
 
+  async function sendUplineReply() {
+    if (!session?.email) return;
+    const threadKey = clean(uplineSelectedThread);
+    const message = clean(uplineReplyDraft);
+    if (!threadKey) {
+      setUplineReplyMsg('Select a thread first.');
+      return;
+    }
+    if (!message) {
+      setUplineReplyMsg('Type a reply first.');
+      return;
+    }
+
+    setUplineReplyBusy(true);
+    setUplineReplyMsg('');
+    try {
+      const res = await fetch('/api/upline-support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'upline_reply',
+          threadKey,
+          viewerName: clean(session?.name || ''),
+          viewerEmail: clean(session?.email || '').toLowerCase(),
+          profileType: 'licensed',
+          message
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setUplineReplyMsg('Could not send upline reply right now.');
+        return;
+      }
+
+      setUplineReplyDraft('');
+      setUplineReplyMsg('Reply sent.');
+      setUplineInbox((prev) => {
+        const nextThreads = (Array.isArray(prev?.threads) ? prev.threads : []).map((t) => {
+          if (clean(t?.threadKey) !== threadKey) return t;
+          const nextRows = [...(Array.isArray(t?.rows) ? t.rows : []), data?.row].filter(Boolean);
+          return { ...t, rows: nextRows, latest: data?.row || t?.latest, unread: 0 };
+        });
+        return { ...prev, threads: nextThreads, unreadTotal: Math.max(0, Number(prev?.unreadTotal || 0) - 1) };
+      });
+    } catch {
+      setUplineReplyMsg('Could not send upline reply right now.');
+    } finally {
+      setUplineReplyBusy(false);
+    }
+  }
+
   if (!session) {
     return (
       <main style={{ minHeight: '100vh', background: 'radial-gradient(circle at top, #15213f 0%, #070b14 55%)', color: '#E5E7EB', display: 'grid', placeItems: 'center', padding: 24 }}>
@@ -1646,6 +1736,76 @@ export default function LicensedBackofficePage() {
                         {uplineSendBusy ? 'Sending…' : 'Send Message'}
                       </button>
                       {uplineSendMsg ? <span style={{ color: uplineSendMsg.toLowerCase().includes('could not') ? '#FCA5A5' : '#86EFAC' }}>{uplineSendMsg}</span> : null}
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 16, borderTop: '1px solid #243046', paddingTop: 14, display: 'grid', gap: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <h4 style={{ margin: 0 }}>Upline Inbox (Leader View)</h4>
+                      <span className="pill neutral">Unread: {Number(uplineInbox?.unreadTotal || 0)}</span>
+                    </div>
+                    {uplineInbox?.loading ? <p style={{ color: '#9CA3AF', margin: 0 }}>Loading inbox…</p> : null}
+                    {uplineInbox?.error ? <p style={{ color: '#FCA5A5', margin: 0 }}>{uplineInbox.error}</p> : null}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 10 }}>
+                      <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#020617', maxHeight: 360, overflow: 'auto' }}>
+                        {!uplineInbox?.threads?.length ? (
+                          <div style={{ color: '#9CA3AF', padding: 12 }}>No inbound threads yet.</div>
+                        ) : (
+                          uplineInbox.threads.map((t, idx) => {
+                            const active = clean(t?.threadKey) === clean(uplineSelectedThread);
+                            return (
+                              <button
+                                key={t?.threadKey || `thread-${idx}`}
+                                type="button"
+                                onClick={() => setUplineSelectedThread(clean(t?.threadKey || ''))}
+                                style={{ width: '100%', textAlign: 'left', border: 0, borderBottom: '1px solid #1F2937', background: active ? '#13203A' : 'transparent', color: '#E5E7EB', padding: 10 }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                                  <strong>{clean(t?.agentName || 'Agent')}</strong>
+                                  {Number(t?.unread || 0) > 0 ? <span className="pill atrisk">{Number(t.unread)}</span> : null}
+                                </div>
+                                <div style={{ color: '#9CA3AF', fontSize: 12, marginTop: 4 }}>{clean(t?.latest?.createdAt) ? new Date(t.latest.createdAt).toLocaleString() : '—'}</div>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#020617', padding: 10, display: 'grid', gap: 8 }}>
+                        {(() => {
+                          const thread = (uplineInbox?.threads || []).find((t) => clean(t?.threadKey) === clean(uplineSelectedThread));
+                          if (!thread) return <div style={{ color: '#9CA3AF' }}>Select a thread to reply.</div>;
+                          return (
+                            <>
+                              <div style={{ maxHeight: 220, overflow: 'auto', display: 'grid', gap: 8 }}>
+                                {(thread.rows || []).slice(-20).map((msg, idx) => (
+                                  <div key={msg?.id || `${idx}-${msg?.createdAt || 'na'}`} style={{ border: '1px solid #334155', borderRadius: 8, padding: 8, background: normalize(msg?.fromRole || '') === 'upline' ? '#1F2937' : '#111827' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                                      <strong>{normalize(msg?.fromRole || '') === 'upline' ? 'You' : clean(msg?.fromName || 'Agent')}</strong>
+                                      <span style={{ color: '#9CA3AF', fontSize: 12 }}>{clean(msg?.createdAt) ? new Date(msg.createdAt).toLocaleString() : '—'}</span>
+                                    </div>
+                                    <div style={{ whiteSpace: 'pre-wrap' }}>{clean(msg?.body || '')}</div>
+                                  </div>
+                                ))}
+                              </div>
+                              <textarea
+                                value={uplineReplyDraft}
+                                onChange={(e) => setUplineReplyDraft(e.target.value)}
+                                rows={3}
+                                placeholder="Reply to this agent..."
+                                style={{ width: '100%', borderRadius: 8, border: '1px solid #334155', background: '#0B1220', color: '#fff', padding: '10px 12px' }}
+                              />
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <button type="button" onClick={sendUplineReply} disabled={uplineReplyBusy} style={{ padding: '10px 14px', borderRadius: 10, border: 0, background: '#2563EB', color: '#fff', fontWeight: 800 }}>
+                                  {uplineReplyBusy ? 'Sending…' : 'Send Reply'}
+                                </button>
+                                {uplineReplyMsg ? <span style={{ color: uplineReplyMsg.toLowerCase().includes('could not') ? '#FCA5A5' : '#86EFAC' }}>{uplineReplyMsg}</span> : null}
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </div>
                 </div>
