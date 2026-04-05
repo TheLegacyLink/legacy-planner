@@ -61,7 +61,7 @@ Complete each step in order, then execute daily standards with clean CRM updates
   - **60 fresh leads in total**
   - full JumpStart access and support
 - If you are consistently contacting and following up with leads but have not closed yet, the company may drip additional leads to support your success.
-- Alternate Path (policy declined):
+- Alternate Path (policy declined / not accepted / not suitable):
   - **20 older leads**
   - drip-based delivery
   - continued onboarding support
