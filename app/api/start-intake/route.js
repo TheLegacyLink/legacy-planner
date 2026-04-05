@@ -363,7 +363,8 @@ export async function POST(req) {
   };
 
   const contract = await resolveContractStatus({ email: next.email, firstName: next.firstName, lastName: next.lastName });
-  const contractRequired = data.trackType === 'licensed' ? false : !contract.signed;
+  // Initial onboarding emails should always use the track-specific “Execute Your Next Steps” template.
+  const contractRequired = false;
 
   const patched = {
     ...next,
