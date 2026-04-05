@@ -73,44 +73,24 @@ def build():
     story.append(Paragraph('Unlicensed Agent Onboarding Playbook', st['title']))
     story.append(Paragraph('Professional launch sequence for newly unlicensed agents. Follow in order and execute daily.', st['sub']))
 
-    story.append(section('Step 1 — Access SOP Instructions + Welcome Email', [
+    story.append(section('Step 1 — Back Office Access + Welcome Instructions', [
       'Open your Welcome Email and save your required links.',
-      'Open SOP instructions and complete checklist items in order.',
-      'Confirm your login access before moving to next steps.'
+      'Start here: https://innercirclelink.com/unlicensed-backoffice',
+      'Sign in and follow the guided onboarding steps shown in the system.',
+      'Confirm your back office access is active before moving to Step 2.'
     ], st)); story.append(Spacer(1,8))
 
-    story.append(section('Step 2 — Complete Contract + Required Profile Setup', [
-      'Complete onboarding agreement/profile setup first.',
-      'Complete all required profile fields accurately.',
-      'Upload/confirm required onboarding items before submitting.',
-      'If blocked, send support a screenshot and short issue summary.'
-    ], st)); story.append(Spacer(1,8))
-
-    story.append(section('Step 3 — Open Legacy Link Back Office', [
-      'Open back office: https://innercirclelink.com/licensed-backoffice',
-      'Complete first login setup and confirm profile/basic access.',
-      'Track all notes, follow-up, and activity inside your back office workflow.'
-    ], st)); story.append(Spacer(1,8))
-
-    story.append(section('Step 4 — Community + Skool Training', [
+    story.append(section('Step 2 — Community + Skool Training', [
       'Join Skool: https://www.skool.com/legacylink/about',
       'Complete required onboarding and training actions.',
       'Stay active and responsive while onboarding is in progress.'
     ], st)); story.append(Spacer(1,8))
 
-    story.append(section('Step 6 — Pre-Licensing Onboarding (Jamal Leads This)', [
+    story.append(section('Step 3 — Pre-Licensing Onboarding (Jamal Leads This)', [
       'Jamal leads pre-licensing onboarding for all unlicensed agents.',
       'This is true regardless of referral/upline.',
       'Expect outreach from Jamal within 1–3 business days to start pre-licensing.'
     ], st)); story.append(Spacer(1,8))
-
-    story.append(section('Step 7 — Daily Execution Standards', [
-      'Work new leads daily.',
-      'Follow up warm leads daily.',
-      'Book at least one conversation daily.',
-      'Use script framework and coach feedback daily.',
-      'Keep CRM notes clean and updated same day.'
-    ], st))
 
     story.append(Spacer(1,12))
     story.append(Paragraph('<b>Quality Standard</b>', st['h']))
