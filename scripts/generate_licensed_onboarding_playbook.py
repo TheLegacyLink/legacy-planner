@@ -81,8 +81,8 @@ def build():
     story.append(Spacer(1, 8))
 
     story.append(section('Step 2 — Contracting', [
-        'Part A — F&G + National Life Group: https://surelc.surancebay.com/producer/?gaId=190',
-        'Part B — Mutual of Omaha, Transamerica, Foresters, and American National: https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance',
+        'Part A — Pinnacle Group flow (Mutual of Omaha, Transamerica, Foresters, American National): https://surelc.surancebay.com/producer/?gaId=190',
+        'Part B — F&G + National Life Group flow: https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance',
         'National Life Group only: after completing the SureLC step, look out for a follow-up email within 48 hours (1–2 business days) to complete an additional required form.'
     ], st))
     story.append(Spacer(1, 8))

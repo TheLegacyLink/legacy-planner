@@ -196,10 +196,10 @@ function buildWelcomeMessage(agent) {
     'https://innercirclelink.com/licensed-backoffice#start',
     '',
     'Step 2 — Contracting',
-    'Part A (F&G + National Life Group):',
+    'Part A (Pinnacle Group flow — Mutual of Omaha, Transamerica, Foresters, American National):',
     'https://surelc.surancebay.com/producer/?gaId=190',
     '',
-    'Part B (Mutual of Omaha, Transamerica, Foresters, American National):',
+    'Part B (F&G + National Life Group flow):',
     'https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance',
     '',
     'National Life Group only: after completing SureLC, look out for a follow-up email within 48 hours (1–2 business days) to complete an additional required form.',
@@ -235,11 +235,11 @@ function buildWelcomeHtml(agent) {
         </p>
 
         <p style="margin:14px 0 8px;"><strong>Step 2 — Contracting</strong></p>
-        <p style="margin:0 0 8px;"><strong>Part A (F&G + National Life Group):</strong><br/>
+        <p style="margin:0 0 8px;"><strong>Part A (Pinnacle Group flow — Mutual of Omaha, Transamerica, Foresters, American National):</strong><br/>
           <a href="https://surelc.surancebay.com/producer/?gaId=190" target="_blank" rel="noopener noreferrer">https://surelc.surancebay.com/producer/?gaId=190</a>
         </p>
 
-        <p style="margin:0 0 8px;"><strong>Part B (Mutual of Omaha, Transamerica, Foresters, American National):</strong><br/>
+        <p style="margin:0 0 8px;"><strong>Part B (F&G + National Life Group flow):</strong><br/>
           <a href="https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance" target="_blank" rel="noopener noreferrer">SureLC Part B Link</a>
         </p>
 
