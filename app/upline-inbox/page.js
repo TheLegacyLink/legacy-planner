@@ -150,7 +150,7 @@ export default function UplineInboxPage() {
                   {(activeThread.rows || []).slice(-40).map((msg, idx) => {
                     const mine = clean(msg?.fromRole) === 'upline';
                     return (
-                      <div key={msg?.id || `${idx}-${msg?.createdAt || 'na'}`} style={{ border: '1px solid #334155', borderRadius: 8, padding: 8, background: mine ? '#1F2937' : '#111827' }}>
+                      <div key={msg?.id || `${idx}-${msg?.createdAt || 'na'}`} style={{ border: mine ? '1px solid #60A5FA' : '1px solid #334155', borderRadius: 8, padding: 8, background: mine ? '#1E3A8A' : '#111827' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
                           <strong>{mine ? 'You' : clean(msg?.fromName || 'Agent')}</strong>
                           <span style={{ color: '#9CA3AF', fontSize: 12 }}>{clean(msg?.createdAt) ? new Date(msg.createdAt).toLocaleString() : '—'}</span>
