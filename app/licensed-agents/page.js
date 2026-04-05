@@ -192,10 +192,12 @@ function buildWelcomeMessage(agent) {
     '',
     `FNG Agent ID: ${fngAgentId}`,
     '',
-    'Step 1 — Setup SOP Portal (Back Office):',
-    'https://innercirclelink.com/licensed-backoffice#start',
+    'Step 1 — Back Office Access (Start Here):',
+    'https://innercirclelink.com/start',
+    'Sign in and follow the guided onboarding steps in-system.',
+    'If prompted, complete contracting before continuing.',
     '',
-    'Step 2 — Contracting',
+    'Step 2 — Contracting (if prompted)',
     'Part A (Pinnacle Group / P.Group / Business Partners — Mutual of Omaha, Transamerica, Foresters, American National):',
     'https://surelc.surancebay.com/producer/?gaId=190',
     '',
@@ -230,11 +232,13 @@ function buildWelcomeHtml(agent) {
         <p style="margin:0 0 12px;">Congratulations — you are now licensed with <strong>The Legacy Link</strong>.</p>
         <p style="margin:0 0 16px;"><strong>FNG Agent ID:</strong> ${fngAgentId}</p>
 
-        <p style="margin:0 0 8px;"><strong>Step 1 — Setup SOP Portal (Back Office):</strong><br/>
-          <a href="https://innercirclelink.com/licensed-backoffice#start" target="_blank" rel="noopener noreferrer">https://innercirclelink.com/licensed-backoffice#start</a>
+        <p style="margin:0 0 8px;"><strong>Step 1 — Back Office Access (Start Here):</strong><br/>
+          <a href="https://innercirclelink.com/start" target="_blank" rel="noopener noreferrer">https://innercirclelink.com/start</a><br/>
+          Sign in and follow the guided onboarding steps in-system.<br/>
+          If prompted, complete contracting before continuing.
         </p>
 
-        <p style="margin:14px 0 8px;"><strong>Step 2 — Contracting</strong></p>
+        <p style="margin:14px 0 8px;"><strong>Step 2 — Contracting (if prompted)</strong></p>
         <p style="margin:0 0 8px;"><strong>Part A (Pinnacle Group / P.Group / Business Partners — Mutual of Omaha, Transamerica, Foresters, American National):</strong><br/>
           <a href="https://surelc.surancebay.com/producer/?gaId=190" target="_blank" rel="noopener noreferrer">https://surelc.surancebay.com/producer/?gaId=190</a>
         </p>

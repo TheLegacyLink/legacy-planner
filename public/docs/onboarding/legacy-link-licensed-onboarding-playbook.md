@@ -6,10 +6,12 @@ Complete each step in order, then execute daily standards with clean CRM updates
 
 ---
 
-## Step 1 — Access SOP Instructions + Welcome Email
+## Step 1 — Back Office Access + Welcome Instructions
 - Open your Welcome Email and save your key links.
-- Open your SOP instructions portal and follow the checklist in order.
-- Confirm your login works before moving to the next step.
+- Start here: **https://innercirclelink.com/start**
+- Sign in and follow the guided onboarding steps shown in the system.
+- If prompted, complete contracting before continuing.
+- Confirm your back office access is active before moving to Step 2.
 
 ## Step 2 — Contracting
 - Part A (Pinnacle Group / P.Group / Business Partners — Mutual of Omaha, Transamerica, Foresters, American National): **https://surelc.surancebay.com/producer/?gaId=190**

@@ -84,10 +84,12 @@ def build():
     story.append(Paragraph('Licensed Agent Onboarding Playbook', st['title']))
     story.append(Paragraph('Professional launch sequence for newly licensed agents. Follow in order and execute daily.', st['sub']))
 
-    story.append(section('Step 1 — Access SOP Instructions + Welcome Email', [
+    story.append(section('Step 1 — Back Office Access + Welcome Instructions', [
         'Open your Welcome Email and save your required links.',
-        'Open SOP instructions and complete checklist items in order.',
-        'Confirm your login access before moving to next steps.'
+        'Start here: https://innercirclelink.com/start',
+        'Sign in and follow the guided onboarding steps shown in the system.',
+        'If prompted, complete contracting before continuing.',
+        'Confirm your back office access is active before moving to Step 2.'
     ], st))
     story.append(Spacer(1, 8))
 
