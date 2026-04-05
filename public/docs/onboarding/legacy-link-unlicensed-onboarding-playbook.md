@@ -34,8 +34,8 @@ Complete each step in order and maintain daily execution discipline.
 - No skipped follow-up without reason
 
 ## Upline Support (Use the Help Button)
-- Use the **Help / Messages** section in your back office to message your upline directly.
-- For unlicensed onboarding, your message route is managed through your upline flow.
-- Response expectation: **within 1 business day (Monday–Friday)**.
-- **Saturday and Sunday do not count** as business days.
-- If your upline has not responded within one business day, the issue is escalated internally to support.
+- Use **Help / Messages** in back office to contact your upline directly.
+- Unlicensed onboarding messages route through your assigned upline flow.
+- Response SLA: **1 business day (Monday–Friday)**.
+- **Weekends are excluded** from SLA timing.
+- If no upline response by end of next business day, the issue is escalated internally to support.
