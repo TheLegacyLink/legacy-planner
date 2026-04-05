@@ -80,39 +80,46 @@ def build():
     ], st))
     story.append(Spacer(1, 8))
 
-    story.append(section('Step 2 — E&O Activated', [
+    story.append(section('Step 2 — Contracting', [
+        'Part A — F&G + National Life Group: https://surelc.surancebay.com/producer/?gaId=190',
+        'Part B — Mutual of Omaha, Transamerica, Foresters, and American National: https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance',
+        'National Life Group only: after completing the SureLC step, look out for a follow-up email within 48 hours (1–2 business days) to complete an additional required form.'
+    ], st))
+    story.append(Spacer(1, 8))
+
+    story.append(section('Step 3 — E&O Activated', [
         'Purchase and activate E&O before production: https://buy.stripe.com/dRm6oH25qe7521Cg4b3ZK0m',
         'E&O includes a 90-day free period (as applicable) before paid billing starts.',
         'Confirm active coverage details are saved in your records.'
     ], st))
     story.append(Spacer(1, 8))
 
-    story.append(section('Step 3 — Core Product Training Completed', [
+    story.append(section('Step 4 — Core Product Training Completed', [
         'Complete your core product training sequence on each carrier platform.',
         'Training resources are available directly on carrier websites (for example: National Life Group, F&G, Mutual of Omaha).',
         'Be prepared to explain product basics clearly and confidently.'
     ], st))
     story.append(Spacer(1, 8))
 
-    story.append(section('Step 4 — CRM + Calendar + Dialer Setup', [
+    story.append(section('Step 5 — CRM + Calendar + Dialer Setup', [
         'Open setup video: https://youtu.be/u3_fIRH8c0w',
         'Complete CRM, calendar, and dialer setup before active production.',
         'Track all notes and follow-up actions in CRM the same day.'
     ], st))
     story.append(Spacer(1, 8))
 
-    story.append(section('Step 5 — Script Roleplay Certification', [
+    story.append(section('Step 6 — Script Roleplay Certification', [
         'Complete script roleplay certification with your trainer/upline.',
         'Apply coaching feedback until script delivery is consistent.'
     ], st))
     story.append(Spacer(1, 8))
 
-    story.append(section('Step 6 — Required YouTube Task', [
+    story.append(section('Step 7 — Required YouTube Task', [
       'Watch "Whatever It Takes": https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX',
       'Leave a comment on the video as part of onboarding completion.'
     ], st)); story.append(Spacer(1,8))
 
-    story.append(section('Step 7 — Automated Milestones (System Tracked)', [
+    story.append(section('Step 8 — Automated Milestones (System Tracked)', [
         'First Policy Submitted (auto-updates from policy submissions).',
         'First Policy Placed (auto-updates when first policy is approved).',
         'These milestones are automated and do not require manual marking.'

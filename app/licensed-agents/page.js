@@ -192,12 +192,19 @@ function buildWelcomeMessage(agent) {
     '',
     `FNG Agent ID: ${fngAgentId}`,
     '',
-    'Back Office Access (F&G):',
-    '1) Go to https://www.fglife.com/',
-    '2) Sign in with your email and verify your access code',
-    '3) Complete your profile and review your onboarding tasks',
+    'Step 1 — Setup SOP Portal (Back Office):',
+    'https://innercirclelink.com/licensed-backoffice#start',
     '',
-    'Video Walkthrough:',
+    'Step 2 — Contracting',
+    'Part A (F&G + National Life Group):',
+    'https://surelc.surancebay.com/producer/?gaId=190',
+    '',
+    'Part B (Mutual of Omaha, Transamerica, Foresters, American National):',
+    'https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance',
+    '',
+    'National Life Group only: after completing SureLC, look out for a follow-up email within 48 hours (1–2 business days) to complete an additional required form.',
+    '',
+    'Part C — Contracting Tutorial (follow along):',
     'https://youtu.be/QVg0rUti1hM',
     '',
     'If your FNG Agent ID shows as Unknown, reply to this email and we will update it for you immediately.',
@@ -223,14 +230,22 @@ function buildWelcomeHtml(agent) {
         <p style="margin:0 0 12px;">Congratulations — you are now licensed with <strong>The Legacy Link</strong>.</p>
         <p style="margin:0 0 16px;"><strong>FNG Agent ID:</strong> ${fngAgentId}</p>
 
-        <p style="margin:0 0 10px;"><strong>Back Office Access (F&G):</strong></p>
-        <ol style="margin:0 0 16px 20px;padding:0;">
-          <li>Go to <a href="https://www.fglife.com/" target="_blank" rel="noopener noreferrer">https://www.fglife.com/</a></li>
-          <li>Sign in with your email and verify your access code</li>
-          <li>Complete your profile and review your onboarding tasks</li>
-        </ol>
+        <p style="margin:0 0 8px;"><strong>Step 1 — Setup SOP Portal (Back Office):</strong><br/>
+          <a href="https://innercirclelink.com/licensed-backoffice#start" target="_blank" rel="noopener noreferrer">https://innercirclelink.com/licensed-backoffice#start</a>
+        </p>
 
-        <p style="margin:0 0 12px;"><strong>Video Walkthrough:</strong><br/>
+        <p style="margin:14px 0 8px;"><strong>Step 2 — Contracting</strong></p>
+        <p style="margin:0 0 8px;"><strong>Part A (F&G + National Life Group):</strong><br/>
+          <a href="https://surelc.surancebay.com/producer/?gaId=190" target="_blank" rel="noopener noreferrer">https://surelc.surancebay.com/producer/?gaId=190</a>
+        </p>
+
+        <p style="margin:0 0 8px;"><strong>Part B (Mutual of Omaha, Transamerica, Foresters, American National):</strong><br/>
+          <a href="https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance" target="_blank" rel="noopener noreferrer">SureLC Part B Link</a>
+        </p>
+
+        <p style="margin:0 0 8px;">National Life Group only: after completing SureLC, look out for a follow-up email within 48 hours (1–2 business days) to complete an additional required form.</p>
+
+        <p style="margin:0 0 12px;"><strong>Part C — Contracting Tutorial (follow along):</strong><br/>
           <a href="https://youtu.be/QVg0rUti1hM" target="_blank" rel="noopener noreferrer">https://youtu.be/QVg0rUti1hM</a>
         </p>
 

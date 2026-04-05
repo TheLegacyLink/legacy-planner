@@ -11,30 +11,35 @@ Complete each step in order, then execute daily standards with clean CRM updates
 - Open your SOP instructions portal and follow the checklist in order.
 - Confirm your login works before moving to the next step.
 
-## Step 2 — E&O Activated
+## Step 2 — Contracting
+- Part A (F&G + National Life Group): **https://surelc.surancebay.com/producer/?gaId=190**
+- Part B (Mutual of Omaha, Transamerica, Foresters, American National): **https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance**
+- National Life Group only: after completing the SureLC step, look out for a follow-up email within 48 hours (1–2 business days) to complete an additional required form.
+
+## Step 3 — E&O Activated
 - Purchase and activate E&O before production: **https://buy.stripe.com/dRm6oH25qe7521Cg4b3ZK0m**
 - E&O includes a 90-day free period (as applicable) before paid billing starts.
 - Confirm active coverage details are saved.
 
-## Step 3 — Core Product Training Completed
+## Step 4 — Core Product Training Completed
 - Complete your core product training sequence on each carrier platform.
 - Training resources are available directly on carrier websites (for example: National Life Group, F&G, Mutual of Omaha).
 - Be ready to explain core product basics confidently.
 
-## Step 4 — CRM + Calendar + Dialer Setup
+## Step 5 — CRM + Calendar + Dialer Setup
 - Complete CRM/calendar/dialer setup.
 - Use setup video: **https://youtu.be/u3_fIRH8c0w**
 - Keep CRM notes clean and same-day.
 
-## Step 5 — Script Roleplay Certification
+## Step 6 — Script Roleplay Certification
 - Complete script roleplay certification with trainer/upline.
 - Apply feedback until delivery is consistent.
 
-## Step 6 — Required YouTube Task
+## Step 7 — Required YouTube Task
 - Watch **Whatever It Takes**: **https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX**
 - Leave a comment on the video.
 
-## Step 7 — Automated Milestones (System Tracked)
+## Step 8 — Automated Milestones (System Tracked)
 - First Policy Submitted (auto-updates from policy submissions)
 - First Policy Placed (auto-updates when first policy is approved)
 - These milestones do not require manual marking
