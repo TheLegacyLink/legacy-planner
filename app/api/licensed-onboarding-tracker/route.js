@@ -1,10 +1,11 @@
 import nodemailer from 'nodemailer';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
-import * as sponsorshipApps from '../sponsorship-applications/route';
 import licensedAgents from '../../../data/licensedAgents.json';
 import innerCircleUsers from '../../../data/innerCircleUsers.json';
 
 const STORE_PATH = 'stores/licensed-onboarding-tracker.json';
+const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
+const SPONSORSHIP_APPS_PATH = 'stores/sponsorship-applications.json';
 
 function clean(v = '') { return String(v || '').trim(); }
 function normalize(v = '') { return clean(v).toLowerCase().replace(/\s+/g, ' '); }
@@ -60,17 +61,35 @@ function mapRole(role = '') {
   return r === 'admin' ? 'admin' : 'agent';
 }
 
-async function loadReferralRows() {
-  const req = new Request('http://local/api/sponsorship-applications', { method: 'GET' });
-  const res = await sponsorshipApps.GET(req);
-  const data = await res.json().catch(() => ({}));
-  return Array.isArray(data?.rows) ? data.rows : [];
+async function loadPolicySubmissionRows() {
+  const data = await loadJsonStore(POLICY_SUBMISSIONS_PATH, []);
+  return Array.isArray(data) ? data : [];
 }
 
-function buildGraph(referralRows = []) {
+async function loadSponsorshipRows() {
+  const data = await loadJsonStore(SPONSORSHIP_APPS_PATH, []);
+  return Array.isArray(data) ? data : [];
+}
+
+function isFgNlgSubmission(row = {}) {
+  const carrier = normalize(row?.carrier || '');
+  const product = normalize(row?.productName || '');
+  const policyType = normalize(row?.policyType || row?.appType || '');
+  return carrier.includes('f&g')
+    || carrier.includes('f and g')
+    || carrier.includes('fidelity')
+    || carrier.includes('national life')
+    || carrier.includes('nlg')
+    || product.includes('f&g')
+    || product.includes('f and g')
+    || product.includes('national life')
+    || product.includes('nlg')
+    || policyType.includes('inner circle');
+}
+
+function buildGraph(policyRows = []) {
   const emailByName = buildNameEmailIndex();
   const childrenBySponsor = new Map();
-  const parentsByNode = new Map();
   const nodes = new Map();
 
   const addChild = (sponsorName, recruitNode) => {
@@ -78,20 +97,19 @@ function buildGraph(referralRows = []) {
     if (!sponsorKey) return;
     if (!childrenBySponsor.has(sponsorKey)) childrenBySponsor.set(sponsorKey, new Set());
     childrenBySponsor.get(sponsorKey).add(recruitNode.nodeKey);
-
-    if (!parentsByNode.has(recruitNode.nodeKey)) parentsByNode.set(recruitNode.nodeKey, new Set());
-    parentsByNode.get(recruitNode.nodeKey).add(sponsorKey);
   };
 
-  for (const row of referralRows) {
-    const licensed = bool(row?.isLicensed || row?.licensed || row?.licensedStatus);
+  for (const row of policyRows) {
+    if (!isFgNlgSubmission(row)) continue;
+
+    const licensed = bool(row?.applicantLicensedStatus || row?.agentLicensedStatus || row?.licensedStatus || row?.isLicensed);
     if (!licensed) continue;
 
-    const recruitName = displayNameFromApp(row);
-    const recruitEmail = clean(row?.email || row?.applicantEmail || '').toLowerCase() || clean(emailByName.get(normalize(recruitName)) || '').toLowerCase();
-    const sponsorName = sponsorFromApp(row);
-
+    const recruitName = clean(row?.applicantName || row?.name || '');
     if (!recruitName) continue;
+
+    const recruitEmail = clean(row?.applicantEmail || row?.email || '').toLowerCase() || clean(emailByName.get(normalize(recruitName)) || '').toLowerCase();
+    const sponsorName = clean(row?.referredByName || row?.referrer || '');
 
     const nodeKey = personKey({ email: recruitEmail, name: recruitName });
     const existing = nodes.get(nodeKey) || {};
@@ -101,13 +119,132 @@ function buildGraph(referralRows = []) {
       agentName: recruitName,
       agentEmail: recruitEmail,
       sponsorName: sponsorName || existing.sponsorName || '',
-      joinedAt: clean(existing.joinedAt || row?.submitted_at || row?.createdAt || nowIso())
+      joinedAt: clean(existing.joinedAt || row?.submittedAt || row?.createdAt || nowIso())
     });
 
     if (sponsorName) addChild(sponsorName, { nodeKey });
   }
 
-  return { nodes, childrenBySponsor, parentsByNode, emailByName };
+  return { nodes, childrenBySponsor, emailByName };
+}
+
+function normalizeNameLoose(v = '') {
+  return clean(v).toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function samePerson({ rowName = '', rowEmail = '', targetName = '', targetEmail = '' } = {}) {
+  const re = normalize(rowEmail);
+  const te = normalize(targetEmail);
+  if (re && te && re === te) return true;
+
+  const rn = normalizeNameLoose(rowName);
+  const tn = normalizeNameLoose(targetName);
+  if (!rn || !tn) return false;
+  if (rn === tn) return true;
+
+  // Soft fallback for minor formatting differences (middle initials, punctuation, etc.)
+  return rn.includes(tn) || tn.includes(rn);
+}
+
+function rowAgentIdentity(row = {}) {
+  return {
+    rowName:
+      row?.agentName
+      || row?.submittedByName
+      || row?.submittedBy
+      || row?.writerName
+      || row?.ownerName
+      || row?.producerName
+      || row?.applicantName
+      || '',
+    rowEmail:
+      row?.agentEmail
+      || row?.submittedByEmail
+      || row?.writerEmail
+      || row?.ownerEmail
+      || row?.producerEmail
+      || row?.applicantEmail
+      || row?.email
+      || ''
+  };
+}
+
+function isPolicyApprovedOrPlaced(row = {}) {
+  const candidates = [
+    row?.status,
+    row?.approvalStatus,
+    row?.placementStatus,
+    row?.policyStatus,
+    row?.underwritingStatus,
+    row?.decision,
+    row?.result
+  ].map((v) => normalize(v || ''));
+  const merged = candidates.join(' ');
+  if (merged.includes('approved') || merged.includes('placed') || merged.includes('issued') || merged.includes('in force')) return true;
+  if (row?.approved === true || row?.isApproved === true || row?.placed === true || row?.isPlaced === true) return true;
+  return false;
+}
+
+function hasPolicySubmittedForAgent(agent = {}, policyRows = []) {
+  return (policyRows || []).some((r) => {
+    if (!isFgNlgSubmission(r)) return false;
+    const identity = rowAgentIdentity(r);
+    return samePerson({
+      rowName: identity.rowName,
+      rowEmail: identity.rowEmail,
+      targetName: agent?.agentName || '',
+      targetEmail: agent?.agentEmail || ''
+    });
+  });
+}
+
+function hasPolicyPlacedForAgent(agent = {}, policyRows = []) {
+  return (policyRows || []).some((r) => {
+    if (!isFgNlgSubmission(r)) return false;
+    if (!isPolicyApprovedOrPlaced(r)) return false;
+    const identity = rowAgentIdentity(r);
+    return samePerson({
+      rowName: identity.rowName,
+      rowEmail: identity.rowEmail,
+      targetName: agent?.agentName || '',
+      targetEmail: agent?.agentEmail || ''
+    });
+  });
+}
+
+function hasFirstSponsorshipAppForAgent(agent = {}, sponsorshipRows = []) {
+  return (sponsorshipRows || []).some((r) => samePerson({
+    rowName: r?.referralName || r?.sponsorDisplayName || r?.referred_by || r?.referredByName || '',
+    rowEmail: r?.referrerEmail || r?.sponsorEmail || '',
+    targetName: agent?.agentName || '',
+    targetEmail: agent?.agentEmail || ''
+  }));
+}
+
+function markAutoStep(step = {}, completed = false) {
+  if (!completed) return step;
+  const at = clean(step?.agentDoneAt || step?.verifiedAt || nowIso());
+  return {
+    ...step,
+    agentDone: true,
+    agentDoneAt: at,
+    verified: true,
+    verifiedAt: at,
+    verifiedBy: clean(step?.verifiedBy || 'system')
+  };
+}
+
+function applyAutoSteps(row = {}, { autoStepKeys = [], policyRows = [], sponsorshipRows = [] } = {}) {
+  const next = { ...row, steps: { ...(row?.steps || {}) } };
+  for (const key of autoStepKeys) {
+    const existing = next.steps[key] || {};
+    let done = false;
+    if (key === 'first_policy_submitted') done = hasPolicySubmittedForAgent(next, policyRows);
+    if (key === 'first_policy_placed') done = hasPolicyPlacedForAgent(next, policyRows);
+    if (key === 'first_sponsorship_submitted') done = hasFirstSponsorshipAppForAgent(next, sponsorshipRows);
+    next.steps[key] = markAutoStep(existing, done);
+  }
+  return next;
 }
 
 function descendantsForViewer(viewerName = '', graph) {
@@ -131,19 +268,6 @@ function descendantsForViewer(viewerName = '', graph) {
   }
 
   return out;
-}
-
-function canVerify({ actorRole = '', actorName = '', recruitNodeKey = '', graph }) {
-  if (mapRole(actorRole) === 'admin') return true;
-  const normalizedActor = normalize(actorName);
-  if (!normalizedActor || !recruitNodeKey) return false;
-
-  const recruit = graph.nodes.get(recruitNodeKey);
-  const recruitName = normalize(recruit?.agentName || '');
-  if (recruitName && recruitName === normalizedActor) return false;
-
-  const descendants = descendantsForViewer(normalizedActor, graph);
-  return descendants.has(recruitNodeKey);
 }
 
 function buildDefaults(agent = {}, stepOrder = []) {
@@ -196,15 +320,14 @@ function mergeStepShape(row = {}, stepOrder = []) {
 
 function progressForRow(row = {}, stepOrder = []) {
   const total = stepOrder.length;
-  let verified = 0;
-  let agentDone = 0;
+  let completed = 0;
   let currentStepKey = '';
 
   for (const key of stepOrder) {
     const s = row?.steps?.[key] || {};
-    if (s?.agentDone) agentDone += 1;
-    if (s?.verified) verified += 1;
-    if (!currentStepKey && !s?.verified) currentStepKey = key;
+    const done = Boolean(s?.agentDone || s?.verified);
+    if (done) completed += 1;
+    if (!currentStepKey && !done) currentStepKey = key;
   }
 
   if (!currentStepKey) currentStepKey = stepOrder[stepOrder.length - 1] || '';
@@ -216,13 +339,13 @@ function progressForRow(row = {}, stepOrder = []) {
     : 0;
 
   const color = stuckDays <= 3 ? 'green' : stuckDays <= 7 ? 'yellow' : 'red';
-  const isComplete = total > 0 && verified >= total;
+  const isComplete = total > 0 && completed >= total;
 
   return {
     totalSteps: total,
-    verifiedSteps: verified,
-    agentDoneSteps: agentDone,
-    progressPct: total > 0 ? Math.round((verified / total) * 100) : 0,
+    verifiedSteps: completed,
+    agentDoneSteps: completed,
+    progressPct: total > 0 ? Math.round((completed / total) * 100) : 0,
     currentStepKey,
     stuckDays,
     color,
@@ -246,8 +369,51 @@ async function maybeSendNudgeEmail({ to = '', cc = '', subject = '', text = '' }
   }
 }
 
+async function maybeSendStepNoteToUpline({ sponsorName = '', sponsorEmail = '', agentName = '', stepLabel = '', note = '' } = {}) {
+  const to = clean(sponsorEmail);
+  if (!to || !clean(note)) return { ok: false, skipped: true, reason: 'missing_sponsor_or_note' };
+  const subject = `Onboarding Note: ${clean(agentName)} — ${clean(stepLabel)}`;
+  const text = [
+    `Hi ${clean(sponsorName || 'Upline')},`,
+    '',
+    `${clean(agentName)} added a note in Onboarding Tracker.`,
+    `Step: ${clean(stepLabel)}`,
+    '',
+    `Note: ${clean(note)}`,
+    '',
+    '— Legacy Link Support Team'
+  ].join('\n');
+  return maybeSendNudgeEmail({ to, subject, text });
+}
+
 function nextStepLabel(stepKey = '', stepLabels = {}) {
   return clean(stepLabels?.[stepKey] || stepKey || 'Current step');
+}
+
+function findRowForViewer(rows = [], { viewerName = '', viewerEmail = '' } = {}) {
+  const keyByEmail = personKey({ email: viewerEmail, name: '' });
+  const byKey = new Map((rows || []).map((r) => [clean(r?.agentKey), r]));
+  const direct = byKey.get(keyByEmail);
+  if (direct) return direct;
+
+  const nameNorm = normalize(viewerName);
+  if (!nameNorm) return null;
+
+  const byName = (rows || []).filter((r) => normalize(r?.agentName || '') === nameNorm);
+  if (!byName.length) return null;
+
+  // If duplicate names ever appear, prefer the one tied to the viewer email,
+  // then the most recently updated record.
+  byName.sort((a, b) => {
+    const ae = normalize(a?.agentEmail || '');
+    const be = normalize(b?.agentEmail || '');
+    const ve = normalize(viewerEmail || '');
+    if (ve && ae === ve && be !== ve) return -1;
+    if (ve && be === ve && ae !== ve) return 1;
+    return new Date(b?.updatedAt || 0).getTime() - new Date(a?.updatedAt || 0).getTime();
+  });
+
+  return byName[0] || null;
 }
 
 export async function GET(req) {
@@ -258,32 +424,30 @@ export async function GET(req) {
 
   const stepOrder = safeJson(JSON.parse(searchParams.get('stepOrder') || '[]'), []);
   const stepLabels = safeJson(JSON.parse(searchParams.get('stepLabels') || '{}'), {});
+  const autoStepKeys = safeJson(JSON.parse(searchParams.get('autoStepKeys') || '[]'), []);
 
-  const [rowsRaw, referralRows] = await Promise.all([
+  const [rowsRaw, policyRows, sponsorshipRows] = await Promise.all([
     loadJsonStore(STORE_PATH, []),
-    loadReferralRows()
+    loadPolicySubmissionRows(),
+    loadSponsorshipRows()
   ]);
 
-  const graph = buildGraph(referralRows);
-  const rows = Array.isArray(rowsRaw) ? rowsRaw.map((r) => mergeStepShape(r, stepOrder)) : [];
+  const graph = buildGraph(policyRows);
+  const rows = Array.isArray(rowsRaw)
+    ? rowsRaw.map((r) => applyAutoSteps(mergeStepShape(r, stepOrder), { autoStepKeys, policyRows, sponsorshipRows }))
+    : [];
   const byKey = new Map(rows.map((r) => [clean(r.agentKey), r]));
 
   for (const discovered of graph.nodes.values()) {
     const k = personKey({ email: discovered.agentEmail, name: discovered.agentName });
     if (!byKey.has(k)) {
-      const seed = buildDefaults(discovered, stepOrder);
+      const seed = applyAutoSteps(buildDefaults(discovered, stepOrder), { autoStepKeys, policyRows, sponsorshipRows });
       rows.push(seed);
       byKey.set(k, seed);
     }
   }
 
-  const myKey = personKey({ email: viewerEmail, name: viewerName });
-  let myRow = byKey.get(myKey);
-  if (!myRow && viewerName) {
-    myRow = buildDefaults({ agentName: viewerName, agentEmail: viewerEmail, joinedAt: nowIso() }, stepOrder);
-    rows.push(myRow);
-    byKey.set(myKey, myRow);
-  }
+  const myRow = findRowForViewer(rows, { viewerName, viewerEmail });
 
   const visibleNodeKeys = viewerRole === 'admin'
     ? new Set(rows.map((r) => r.agentKey))
@@ -329,23 +493,28 @@ export async function POST(req) {
 
   const stepOrder = Array.isArray(body?.stepOrder) ? body.stepOrder.map((s) => clean(s)).filter(Boolean) : [];
   const stepLabels = body?.stepLabels || {};
+  const autoStepKeys = Array.isArray(body?.autoStepKeys) ? body.autoStepKeys.map((s) => clean(s)).filter(Boolean) : [];
 
   const actorName = clean(body?.actorName || '');
   const actorEmail = clean(body?.actorEmail || '').toLowerCase();
   const actorRole = mapRole(body?.actorRole || 'agent');
 
-  const [rowsRaw, referralRows] = await Promise.all([
+  const [rowsRaw, policyRows, sponsorshipRows] = await Promise.all([
     loadJsonStore(STORE_PATH, []),
-    loadReferralRows()
+    loadPolicySubmissionRows(),
+    loadSponsorshipRows()
   ]);
-  const graph = buildGraph(referralRows);
+  const graph = buildGraph(policyRows);
 
-  const rows = Array.isArray(rowsRaw) ? rowsRaw.map((r) => mergeStepShape(r, stepOrder)) : [];
+  const rows = Array.isArray(rowsRaw)
+    ? rowsRaw.map((r) => applyAutoSteps(mergeStepShape(r, stepOrder), { autoStepKeys, policyRows, sponsorshipRows }))
+    : [];
   const byKey = new Map(rows.map((r, i) => [clean(r.agentKey), i]));
 
   if (mode === 'step_update') {
     const agentName = clean(body?.agentName || '');
     const agentEmail = clean(body?.agentEmail || '').toLowerCase();
+    const agentKeyFromBody = clean(body?.agentKey || '');
     const stepKey = clean(body?.stepKey || '');
     const action = normalize(body?.action || '');
     const note = clean(body?.note || '');
@@ -355,11 +524,15 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'missing_fields' }, { status: 400 });
     }
 
-    const key = personKey({ email: agentEmail, name: agentName });
+    if (autoStepKeys.includes(stepKey)) {
+      return Response.json({ ok: false, error: 'auto_step_readonly' }, { status: 400 });
+    }
+
+    const key = agentKeyFromBody || personKey({ email: agentEmail, name: agentName });
     let idx = byKey.get(key);
     if (idx == null) {
       const discovered = graph.nodes.get(key) || { agentName, agentEmail, joinedAt: nowIso() };
-      const seed = buildDefaults(discovered, stepOrder);
+      const seed = applyAutoSteps(buildDefaults(discovered, stepOrder), { autoStepKeys, policyRows, sponsorshipRows });
       rows.push(seed);
       idx = rows.length - 1;
       byKey.set(key, idx);
@@ -381,7 +554,6 @@ export async function POST(req) {
     const step = { ...(row.steps[stepKey] || {}) };
 
     const actorIsSelf = normalize(row.agentName) === normalize(actorName) || (actorEmail && normalize(row.agentEmail) === normalize(actorEmail));
-    const actorCanVerify = canVerify({ actorRole, actorName, recruitNodeKey: row.agentKey, graph });
 
     if (action === 'agent_mark_done') {
       if (!actorIsSelf && actorRole !== 'admin') {
@@ -389,9 +561,12 @@ export async function POST(req) {
       }
       step.agentDone = true;
       step.agentDoneAt = nowIso();
+      step.verified = true;
+      step.verifiedAt = step.agentDoneAt;
+      step.verifiedBy = 'self';
       if (note) step.agentNote = note;
       if (proofUrl) step.proofUrl = proofUrl;
-      if (!step.verified) row.currentStepStartedAt = nowIso();
+      row.currentStepStartedAt = nowIso();
     } else if (action === 'agent_mark_not_done') {
       if (!actorIsSelf && actorRole !== 'admin') {
         return Response.json({ ok: false, error: 'forbidden_agent_update' }, { status: 403 });
@@ -403,37 +578,29 @@ export async function POST(req) {
       step.verifiedBy = '';
       if (note) step.agentNote = note;
       row.currentStepStartedAt = nowIso();
-    } else if (action === 'upline_verify') {
-      if (!actorCanVerify) {
-        return Response.json({ ok: false, error: 'forbidden_verify' }, { status: 403 });
-      }
-      step.verified = true;
-      step.verifiedAt = nowIso();
-      step.verifiedBy = actorName || actorEmail;
-      if (!step.agentDone) {
-        step.agentDone = true;
-        step.agentDoneAt = nowIso();
-      }
-      const progress = progressForRow({ ...row, steps: { ...row.steps, [stepKey]: step } }, stepOrder);
-      if (progress.currentStepKey && progress.currentStepKey !== stepKey) row.currentStepStartedAt = nowIso();
-    } else if (action === 'upline_unverify') {
-      if (!actorCanVerify) {
-        return Response.json({ ok: false, error: 'forbidden_verify' }, { status: 403 });
-      }
-      step.verified = false;
-      step.verifiedAt = '';
-      step.verifiedBy = '';
-      row.currentStepStartedAt = nowIso();
     } else {
       return Response.json({ ok: false, error: 'unsupported_action' }, { status: 400 });
     }
 
     row.steps[stepKey] = step;
     row.updatedAt = nowIso();
-    rows[idx] = row;
+    rows[idx] = applyAutoSteps(row, { autoStepKeys, policyRows, sponsorshipRows });
+
+    let noteNotification = { ok: false, skipped: true, reason: 'no_note' };
+    if (action === 'agent_mark_done' && note) {
+      const sponsorName = clean(rows[idx]?.sponsorName || '');
+      const sponsorEmail = clean(buildNameEmailIndex().get(normalize(sponsorName)) || '').toLowerCase();
+      noteNotification = await maybeSendStepNoteToUpline({
+        sponsorName,
+        sponsorEmail,
+        agentName: clean(rows[idx]?.agentName || agentName),
+        stepLabel: nextStepLabel(stepKey, stepLabels),
+        note
+      });
+    }
 
     await saveJsonStore(STORE_PATH, rows);
-    return Response.json({ ok: true, row: { ...row, progress: progressForRow(row, stepOrder) } });
+    return Response.json({ ok: true, row: { ...rows[idx], progress: progressForRow(rows[idx], stepOrder) }, noteNotification });
   }
 
   if (mode === 'run_nudges') {
@@ -478,7 +645,7 @@ export async function POST(req) {
         `Hi ${sponsorName},`,
         '',
         `${clean(row.agentName)} is currently stuck on onboarding step "${stepLabel}" for ${progress.stuckDays} day(s).`,
-        'Please review and verify as soon as they complete it.',
+        'Please follow up and help them complete the step as soon as possible.',
         '',
         '— Legacy Link Support Team'
       ].join('\n') : '';

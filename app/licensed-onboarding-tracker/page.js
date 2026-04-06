@@ -54,7 +54,6 @@ export default function LicensedOnboardingTrackerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [savingStep, setSavingStep] = useState('');
-  const [noteByStep, setNoteByStep] = useState({});
   const [msg, setMsg] = useState('');
   const [nudgeState, setNudgeState] = useState({ running: false, sent: null, detail: '' });
 
@@ -122,7 +121,7 @@ export default function LicensedOnboardingTrackerPage() {
           agentKey: targetRow.agentKey,
           stepKey,
           action,
-          note: clean(noteByStep[`${targetRow.agentKey}:${stepKey}`] || ''),
+          note: '',
           stepOrder: STEP_ORDER,
           stepLabels: STEP_LABELS,
           autoStepKeys: AUTO_STEP_KEYS
@@ -268,14 +267,7 @@ export default function LicensedOnboardingTrackerPage() {
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: automated ? '1fr' : (step?.resourceUrl ? '1fr auto auto' : '1fr auto'), gap: 8, marginTop: 10, alignItems: 'center' }}>
-                      <input
-                        placeholder={automated ? 'Auto-completed based on system activity' : 'Optional note (sent to upline on Mark Done)'}
-                        value={noteByStep[`${myRow.agentKey}:${step.key}`] || ''}
-                        onChange={(e) => setNoteByStep((m) => ({ ...m, [`${myRow.agentKey}:${step.key}`]: e.target.value }))}
-                        disabled={automated}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff', opacity: automated ? 0.6 : 1 }}
-                      />
+                    <div style={{ display: 'grid', gridTemplateColumns: automated ? '1fr' : (step?.resourceUrl ? 'auto auto' : 'auto'), gap: 8, marginTop: 10, alignItems: 'center', justifyContent: 'start' }}>
                       {!automated ? (
                         <>
                           {step?.resourceUrl ? (
