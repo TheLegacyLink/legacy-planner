@@ -139,6 +139,52 @@ function mapReferrerToUser(raw = '', users = [], refCode = '') {
   return '';
 }
 
+function normalizeName(v = '') {
+  return String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function carrierToken(v = '') {
+  const n = normalizeName(v);
+  return {
+    isFg: n.includes('f&g') || n.includes('f and g') || n.includes('fidelity') || n.includes('fg'),
+    isNlg: n.includes('national life') || n.includes('nlg')
+  };
+}
+
+function isCarrierMatch(user = {}, carrier = '') {
+  const { isFg, isNlg } = carrierToken(carrier);
+  if (!isFg && !isNlg) return true;
+
+  const pool = [
+    ...(Array.isArray(user?.carriersActive) ? user.carriersActive : []),
+    ...(Array.isArray(user?.carriers) ? user.carriers : []),
+    user?.primaryCarrier,
+    user?.contractedCarrier,
+    user?.carrier
+  ].filter(Boolean);
+
+  const hasFg = pool.some((x) => carrierToken(x).isFg);
+  const hasNlg = pool.some((x) => carrierToken(x).isNlg);
+  if (isFg) return hasFg;
+  if (isNlg) return hasNlg;
+  return true;
+}
+
+function sortedAgentNames(users = [], carrier = '') {
+  const all = (Array.isArray(users) ? users : [])
+    .filter((u) => isCarrierMatch(u, carrier))
+    .map((u) => String(u?.name || '').trim())
+    .filter(Boolean);
+
+  const unique = [...new Set(all.map((n) => n.replace(/\s+/g, ' ').trim()))];
+  const kimora = unique.find((n) => normalizeName(n) === 'kimora link') || 'Kimora Link';
+  const rest = unique
+    .filter((n) => normalizeName(n) !== 'kimora link')
+    .sort((a, b) => normalizeName(a).localeCompare(normalizeName(b)));
+
+  return [kimora, ...rest];
+}
+
 export default function InnerCircleAppSubmitPage() {
   const [ref, setRef] = useState('');
   const [saved, setSaved] = useState('');
@@ -391,6 +437,7 @@ export default function InnerCircleAppSubmitPage() {
   const payoutPreview = useMemo(() => {
     return calcPreview(form.appType, form.monthlyPremium, form.annualPremium, form.applicantLicensedStatus, form.carrier, form.productName);
   }, [form.appType, form.monthlyPremium, form.annualPremium, form.applicantLicensedStatus, form.carrier, form.productName]);
+  const agentOptions = useMemo(() => sortedAgentNames(users, form.carrier || ''), [users, form.carrier]);
 
   const [animatedPreview, setAnimatedPreview] = useState({
     annualPremium: 0,
@@ -933,24 +980,30 @@ export default function InnerCircleAppSubmitPage() {
 
           <label>
             Referred By *
-            <select value={form.referredByName} onChange={(e) => update('referredByName', e.target.value)}>
-              <option value="">Select inner circle agent</option>
-              {users.map((u) => (
-                <option key={`ref-${u.name}`} value={u.name}>{u.name}</option>
-              ))}
-            </select>
+            <input
+              list="inner-circle-agent-options"
+              value={form.referredByName}
+              onChange={(e) => update('referredByName', e.target.value)}
+              placeholder="Type name (Kimora first, then A-Z)"
+            />
           </label>
 
           <label>
             Policy Written By *
-            <select value={form.policyWriterName} onChange={(e) => update('policyWriterName', e.target.value)}>
-              <option value="">Select policy writer</option>
-              {users.map((u) => (
-                <option key={`writer-${u.name}`} value={u.name}>{u.name}</option>
-              ))}
-              <option value="Other">Other</option>
-            </select>
+            <input
+              list="inner-circle-agent-options"
+              value={form.policyWriterName}
+              onChange={(e) => update('policyWriterName', e.target.value)}
+              placeholder="Type name (Kimora first, then A-Z)"
+            />
           </label>
+
+          <datalist id="inner-circle-agent-options">
+            {agentOptions.map((name) => (
+              <option key={`ic-agent-${name}`} value={name} />
+            ))}
+            <option value="Other" />
+          </datalist>
 
           {form.policyWriterName === 'Other' ? (
             <label>
