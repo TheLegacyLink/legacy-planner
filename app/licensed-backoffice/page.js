@@ -271,6 +271,7 @@ export default function LicensedBackofficePage() {
   const [financeRange, setFinanceRange] = useState('month');
   const [financeDrawer, setFinanceDrawer] = useState({ open: false, title: '', items: [] });
   const [sponsorshipMonthFilter, setSponsorshipMonthFilter] = useState('current');
+  const [showMoreNav, setShowMoreNav] = useState(false);
   const [copiedSponsor, setCopiedSponsor] = useState(false);
   const [appForm, setAppForm] = useState({
     appType: '',
@@ -1333,25 +1334,62 @@ export default function LicensedBackofficePage() {
           </div>
         </header>
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {[
-            ['overview', 'Overview'],
-            ['tracker', 'Onboarding Tracker'],
-            ['financials', 'Financials'],
-            ['sponsorships', 'Sponsorships'],
-            ['policies', 'Policies'],
-            ['submit', 'Submit App'],
-            ['academy', 'IUL Academy'],
-            ['awards', 'Achievement Center'],
-            ['growth', 'Growth Hub'],
-            ['resources', 'Resources'],
-            ['scriptvault', 'Script Vault 2.0'],
-            ['linkleads', 'VIP Links'],
-            ['incentives', 'Champions Circle'],
-            ['community', 'Community Service']
-          ].map(([k, label]) => (
-            <button key={k} onClick={() => { if (k === 'incentives') { if (typeof window !== 'undefined') window.open('/champions-circle/licensed?home=/licensed-backoffice', '_blank', 'noopener,noreferrer'); return; } if (k === 'community') { if (typeof window !== 'undefined') window.open('/community-service?home=/licensed-backoffice', '_blank', 'noopener,noreferrer'); return; } setTab(k); }} style={{ padding: '10px 14px', borderRadius: 999, border: k === 'upline' ? '1px solid #FCA5A5' : '1px solid #334155', background: tab === k ? (k === 'upline' ? '#B91C1C' : '#1D428A') : (k === 'upline' ? '#7F1D1D' : '#0B1220'), color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)', fontWeight: k === 'upline' ? 800 : 600 }}>{label}</button>
-          ))}
+        <div style={{ display: 'grid', gap: 8 }}>
+          {(() => {
+            const primaryTabs = [
+              ['overview', 'Overview'],
+              ['tracker', 'Onboarding Tracker'],
+              ['financials', 'Financials'],
+              ['sponsorships', 'Sponsorships'],
+              ['submit', 'Submit App'],
+              ['academy', 'IUL Academy'],
+              ['awards', 'Achievement Center'],
+              ['growth', 'Growth Hub']
+            ];
+
+            const moreTabs = [
+              ['resources', 'Resources'],
+              ['scriptvault', 'Script Vault 2.0'],
+              ['linkleads', 'VIP Links'],
+              ['incentives', 'Champions Circle'],
+              ['community', 'Community Service'],
+              ['policies', 'Policies']
+            ];
+
+            const openOrSelect = (k) => {
+              if (k === 'incentives') {
+                if (typeof window !== 'undefined') window.open('/champions-circle/licensed?home=/licensed-backoffice', '_blank', 'noopener,noreferrer');
+                return;
+              }
+              if (k === 'community') {
+                if (typeof window !== 'undefined') window.open('/community-service?home=/licensed-backoffice', '_blank', 'noopener,noreferrer');
+                return;
+              }
+              setTab(k);
+              setShowMoreNav(false);
+            };
+
+            return (
+              <>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {primaryTabs.map(([k, label]) => (
+                    <button key={k} onClick={() => openOrSelect(k)} style={{ padding: '10px 14px', borderRadius: 999, border: '1px solid #334155', background: tab === k ? '#1D428A' : '#0B1220', color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)', fontWeight: 700 }}>{label}</button>
+                  ))}
+                  <button onClick={() => setShowMoreNav((v) => !v)} style={{ padding: '10px 14px', borderRadius: 999, border: '1px solid #334155', background: showMoreNav ? '#1D428A' : '#0B1220', color: '#E5E7EB', cursor: 'pointer', fontWeight: 700 }}>
+                    More {showMoreNav ? '▲' : '▼'}
+                  </button>
+                </div>
+
+                {showMoreNav ? (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: 8, border: '1px solid #243046', borderRadius: 12, background: '#0B1220' }}>
+                    {moreTabs.map(([k, label]) => (
+                      <button key={k} onClick={() => openOrSelect(k)} style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid #334155', background: tab === k ? '#1D428A' : '#111827', color: '#E5E7EB', cursor: 'pointer', fontWeight: 600 }}>{label}</button>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            );
+          })()}
         </div>
 
         {loading ? <div style={{ border: '1px solid #2A3142', borderRadius: 12, padding: 14, background: '#0F172A' }}>Loading dashboard…</div> : null}
