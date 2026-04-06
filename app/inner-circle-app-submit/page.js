@@ -173,10 +173,10 @@ function isCarrierMatch(user = {}, carrier = '') {
 function sortedAgentNames(users = [], carrier = '') {
   const all = (Array.isArray(users) ? users : [])
     .filter((u) => isCarrierMatch(u, carrier))
-    .map((u) => String(u?.name || '').trim())
+    .map((u) => String(u?.name || '').replace(/\s+/g, ' ').trim())
     .filter(Boolean);
 
-  const unique = [...new Set(all.map((n) => n.replace(/\s+/g, ' ').trim()))];
+  const unique = [...new Set(all)];
   const hasKimora = unique.some((n) => normalizeName(n) === 'kimora link');
   const kimora = hasKimora ? ['Kimora Link'] : [];
   const rest = unique

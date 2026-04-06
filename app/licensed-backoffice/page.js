@@ -162,7 +162,7 @@ function buildAgentOptionPool(carrier = '') {
   const out = [];
 
   const pushName = (name = '') => {
-    const display = toDisplayName(name);
+    const display = toDisplayName(String(name || '').replace(/\s+/g, ' ').trim());
     const key = normalize(display);
     if (!key || seen.has(key)) return;
     seen.add(key);
