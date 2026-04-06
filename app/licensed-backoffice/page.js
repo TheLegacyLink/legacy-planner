@@ -270,6 +270,7 @@ export default function LicensedBackofficePage() {
   const [contractLastCheckedAt, setContractLastCheckedAt] = useState('');
   const [financeRange, setFinanceRange] = useState('month');
   const [financeDrawer, setFinanceDrawer] = useState({ open: false, title: '', items: [] });
+  const [sponsorshipMonthFilter, setSponsorshipMonthFilter] = useState('current');
   const [copiedSponsor, setCopiedSponsor] = useState(false);
   const [appForm, setAppForm] = useState({
     appType: '',
@@ -920,6 +921,42 @@ export default function LicensedBackofficePage() {
       return Boolean(nameNorm && (ref === nameNorm || writer === nameNorm));
     });
   }, [session, onboardingDecisionRows]);
+
+  const sponsorshipPipelineView = useMemo(() => {
+    const entries = Array.isArray(metrics?.sponsorshipEntries) ? metrics.sponsorshipEntries : [];
+    if (!entries.length) {
+      return {
+        monthOptions: [],
+        selectedMonth: '',
+        entries: [],
+        counts: { total: 0, approved: 0, pending: 0, booked: 0, declined: 0 }
+      };
+    }
+
+    const monthByEntry = (r) => {
+      const d = new Date(Number(r?.ts || 0));
+      if (!Number.isFinite(d.getTime())) return '';
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    };
+
+    const currentKey = monthKey(new Date().toISOString());
+    const uniqueMonths = [...new Set(entries.map(monthByEntry).filter(Boolean))].sort((a, b) => (a < b ? 1 : -1));
+    const monthOptions = uniqueMonths.slice(0, 3);
+    const selectedMonth = sponsorshipMonthFilter === 'current'
+      ? (monthOptions.includes(currentKey) ? currentKey : monthOptions[0] || currentKey)
+      : (monthOptions.includes(sponsorshipMonthFilter) ? sponsorshipMonthFilter : monthOptions[0] || currentKey);
+
+    const filtered = entries.filter((r) => monthByEntry(r) === selectedMonth);
+    const counts = {
+      total: filtered.length,
+      approved: filtered.filter((r) => normalize(r?.status || '').includes('approved')).length,
+      pending: filtered.filter((r) => normalize(r?.status || '').includes('pending')).length,
+      booked: filtered.filter((r) => normalize(r?.status || '').includes('booked')).length,
+      declined: filtered.filter((r) => normalize(r?.status || '').includes('declin')).length
+    };
+
+    return { monthOptions, selectedMonth, entries: filtered, counts };
+  }, [metrics?.sponsorshipEntries, sponsorshipMonthFilter]);
 
   const financials = useMemo(() => {
     if (!session) return null;
@@ -1667,9 +1704,27 @@ export default function LicensedBackofficePage() {
                 <h3 style={{ marginTop: 0 }}>My Sponsorship Pipeline</h3>
                 {!metrics.sponsorshipEntries.length ? <p style={{ color: '#9CA3AF' }}>No sponsorship records tied to your referral name yet.</p> : (
                   <>
-                    <p style={{ color: '#9CA3AF', marginTop: 0 }}>Pipeline entries: <strong style={{ color: '#E5E7EB' }}>{metrics.sponsorshipEntries.length}</strong> • Approved: <strong style={{ color: '#E5E7EB' }}>{metrics.approvedSponsors.length}</strong></p>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+                      {sponsorshipPipelineView.monthOptions.map((m) => (
+                        <button
+                          key={`sp-month-${m}`}
+                          type="button"
+                          onClick={() => setSponsorshipMonthFilter(m)}
+                          style={{ padding: '7px 11px', borderRadius: 999, border: '1px solid #334155', background: sponsorshipPipelineView.selectedMonth === m ? '#1D428A' : '#0B1220', color: '#E5E7EB' }}
+                        >
+                          {monthLabelFromKey(m)} {m.slice(0, 4)}
+                        </button>
+                      ))}
+                    </div>
+                    <p style={{ color: '#9CA3AF', marginTop: 0 }}>
+                      Showing: <strong style={{ color: '#E5E7EB' }}>{monthLabelFromKey(sponsorshipPipelineView.selectedMonth)} {sponsorshipPipelineView.selectedMonth.slice(0, 4)}</strong>
+                      {' '}• Total: <strong style={{ color: '#E5E7EB' }}>{sponsorshipPipelineView.counts.total}</strong>
+                      {' '}• Approved: <strong style={{ color: '#86EFAC' }}>{sponsorshipPipelineView.counts.approved}</strong>
+                      {' '}• Pending: <strong style={{ color: '#FDE68A' }}>{sponsorshipPipelineView.counts.pending}</strong>
+                      {' '}• Booked: <strong style={{ color: '#93C5FD' }}>{sponsorshipPipelineView.counts.booked}</strong>
+                    </p>
                     <div style={{ display: 'grid', gap: 8 }}>
-                      {metrics.sponsorshipEntries.slice(0, 20).map((r, idx) => (
+                      {sponsorshipPipelineView.entries.slice(0, 30).map((r, idx) => (
                         <div key={r.id} style={{ border: '1px solid #2A3142', borderRadius: 10, padding: 10, background: '#020617' }}>
                           <strong>{r.name}</strong>
                           <div style={{ color: '#9CA3AF' }}>{r.state || '—'} • {r.status} • {r.submittedAt || '—'}</div>
@@ -1962,7 +2017,18 @@ export default function LicensedBackofficePage() {
 
             {tab === 'academy' ? (
               <div style={{ border: '1px solid #2A3142', borderRadius: 12, overflow: 'hidden', background: '#0F172A' }}>
-                <iframe title="IUL Academy" src={`/iul-learning-academy?name=${encodeURIComponent(session?.name || '')}&email=${encodeURIComponent(session?.email || '')}&licensed=1&v=20260315-3`} style={{ width: '100%', minHeight: 1400, border: 0, background: '#020617' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center', padding: 10, borderBottom: '1px solid #243046', background: '#0B1220' }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 13 }}>If reading feels tight inside this frame, open full page view.</div>
+                  <a
+                    href={`/iul-learning-academy?name=${encodeURIComponent(session?.name || '')}&email=${encodeURIComponent(session?.email || '')}&licensed=1&v=20260315-3`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: '#93C5FD', fontWeight: 700 }}
+                  >
+                    Open IUL Academy Full Page
+                  </a>
+                </div>
+                <iframe title="IUL Academy" src={`/iul-learning-academy?name=${encodeURIComponent(session?.name || '')}&email=${encodeURIComponent(session?.email || '')}&licensed=1&v=20260315-3`} style={{ width: '100%', minHeight: 1650, border: 0, background: '#020617' }} />
               </div>
             ) : null}
 
