@@ -19,7 +19,7 @@ const CONTRACTING_VIDEO_URL = 'https://www.loom.com/share/79354f8de2334697ba53cc
 
 const STEP_DEFS_LICENSED = [
   { key: 'backoffice_access', label: 'Step 1 — Back Office Access + Welcome Instructions', why: 'Open your welcome email, save your links, and confirm access to start onboarding.' },
-  { key: 'pinnacle_contracting', label: 'Step 2A — Pinnacle Group Contracting Submitted', why: 'Complete the Pinnacle Group contracting packet.', resourceUrl: PINNACLE_CONTRACTING_URL },
+  { key: 'pinnacle_contracting', label: 'Step 2A — InVestaLink Partner Contracting Submitted', why: 'Complete the contracting package (Foresters, Transamerica, American National, Mutual of Omaha).', resourceUrl: PINNACLE_CONTRACTING_URL },
   { key: 'investalink_contracting', label: 'Step 2B — InVestaLink Contracting Submitted', why: 'Complete the InVestaLink contracting packet (F&G + National Life Group).', resourceUrl: INVESTALINK_CONTRACTING_URL },
   { key: 'contracting_tutorial_reviewed', label: 'Step 2C — Contracting Tutorial Reviewed', why: 'Use the contracting video guide to complete the process correctly.', resourceUrl: CONTRACTING_VIDEO_URL },
   { key: 'eo_uploaded', label: 'Step 3 — E&O Activated', why: 'Required protection before production (activate and confirm E&O).' },
