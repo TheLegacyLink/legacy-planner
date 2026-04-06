@@ -24,9 +24,95 @@ const PlaybookIcon = () => (
 
 export default function GrowthHubPage() {
   const [unlocked, setUnlocked] = useState(false);
+  const [completedSteps, setCompletedSteps] = useState(0);
+  const [loadingGate, setLoadingGate] = useState(true);
+  const requiredSteps = 8;
+
+  const trackerStepOrder = [
+    'backoffice_access',
+    'pinnacle_contracting',
+    'investalink_contracting',
+    'contracting_tutorial_reviewed',
+    'eo_uploaded',
+    'product_training',
+    'crm_setup',
+    'script_cert',
+    'youtube_review',
+    'first_policy_submitted',
+    'first_policy_placed'
+  ];
 
   useEffect(() => {
-    try { setUnlocked(window.localStorage.getItem(UNLOCK_KEY) === '1'); } catch {}
+    let cancelled = false;
+
+    async function loadUnlockState() {
+      setLoadingGate(true);
+      try {
+        let name = '';
+        let email = '';
+
+        try {
+          const raw = window.localStorage.getItem('inner_hub_member_v1');
+          const member = raw ? JSON.parse(raw) : null;
+          name = String(member?.applicantName || member?.name || '').trim();
+          email = String(member?.email || '').trim().toLowerCase();
+        } catch {}
+
+        if (!email) {
+          try {
+            const token = window.localStorage.getItem('licensed_backoffice_token') || '';
+            if (token) {
+              const meRes = await fetch('/api/licensed-backoffice/auth/me', {
+                headers: { Authorization: `Bearer ${token}` },
+                cache: 'no-store'
+              });
+              const me = await meRes.json().catch(() => ({}));
+              if (meRes.ok && me?.ok && me?.profile) {
+                name = String(me.profile?.name || name || '').trim();
+                email = String(me.profile?.email || email || '').trim().toLowerCase();
+              }
+            }
+          } catch {}
+        }
+
+        if (!name && !email) {
+          const local = window.localStorage.getItem(UNLOCK_KEY) === '1';
+          if (!cancelled) {
+            setUnlocked(local);
+            setCompletedSteps(local ? requiredSteps : 0);
+          }
+          return;
+        }
+
+        const stepLabels = Object.fromEntries(trackerStepOrder.map((k, i) => [k, `Step ${i + 1}`]));
+        const qs = new URLSearchParams({
+          viewerName: name,
+          viewerEmail: email,
+          viewerRole: 'agent',
+          stepOrder: JSON.stringify(trackerStepOrder),
+          stepLabels: JSON.stringify(stepLabels)
+        });
+
+        const res = await fetch(`/api/licensed-onboarding-tracker?${qs.toString()}`, { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        const doneCount = Number(data?.myRow?.progress?.agentDoneSteps || 0);
+        const canUnlock = doneCount >= requiredSteps;
+
+        if (!cancelled) {
+          setCompletedSteps(doneCount);
+          setUnlocked(canUnlock);
+          try {
+            if (canUnlock) window.localStorage.setItem(UNLOCK_KEY, '1');
+            else window.localStorage.removeItem(UNLOCK_KEY);
+          } catch {}
+        }
+      } finally {
+        if (!cancelled) setLoadingGate(false);
+      }
+    }
+
+    loadUnlockState();
+    return () => { cancelled = true; };
   }, []);
 
   const openPlaybook = () => {
@@ -67,6 +153,9 @@ export default function GrowthHubPage() {
                   <h3 style={{ fontSize: 17, fontWeight: 700, color: '#F8FAFC', margin: '0 0 6px' }}>Peak Performance Playbook {unlocked ? '✅' : '🔒'}</h3>
                   <p style={{ fontSize: 14, color: '#CBD5E1', margin: 0, lineHeight: 1.55 }}>
                     Complete your interactive checklist to build discipline, track progress, and unlock your potential.
+                  </p>
+                  <p style={{ fontSize: 12, color: '#93C5FD', margin: '8px 0 0' }}>
+                    Onboarding Unlock: {loadingGate ? 'Checking…' : `${completedSteps}/${requiredSteps}`}
                   </p>
                 </div>
               </div>
