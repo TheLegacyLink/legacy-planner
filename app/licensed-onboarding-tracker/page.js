@@ -245,7 +245,6 @@ export default function LicensedOnboardingTrackerPage() {
               {STEP_DEFS.map((step) => {
                 const s = myRow?.steps?.[step.key] || {};
                 const busyMark = savingStep === `${myRow.agentKey}:${step.key}:agent_mark_done`;
-                const busyUndo = savingStep === `${myRow.agentKey}:${step.key}:agent_mark_not_done`;
                 const automated = Boolean(step?.automated);
                 const isDone = Boolean(s?.agentDone || s?.verified);
 
@@ -269,7 +268,7 @@ export default function LicensedOnboardingTrackerPage() {
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: automated ? '1fr' : '1fr auto auto', gap: 8, marginTop: 10, alignItems: 'center' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: automated ? '1fr' : (step?.resourceUrl ? '1fr auto auto' : '1fr auto'), gap: 8, marginTop: 10, alignItems: 'center' }}>
                       <input
                         placeholder={automated ? 'Auto-completed based on system activity' : 'Optional note (sent to upline on Mark Done)'}
                         value={noteByStep[`${myRow.agentKey}:${step.key}`] || ''}
@@ -279,11 +278,13 @@ export default function LicensedOnboardingTrackerPage() {
                       />
                       {!automated ? (
                         <>
+                          {step?.resourceUrl ? (
+                            <a href={step.resourceUrl} target="_blank" rel="noreferrer" style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #334155', background: '#0B1220', color: '#E2E8F0', textDecoration: 'none', textAlign: 'center', fontWeight: 700 }}>
+                              Open Link
+                            </a>
+                          ) : null}
                           <button onClick={() => updateStep('agent_mark_done', step.key, myRow)} disabled={busyMark || isDone} style={{ padding: '8px 10px', borderRadius: 10, border: 0, background: (busyMark || isDone) ? '#166534' : '#16a34a', color: '#fff', fontWeight: 700, opacity: (busyMark || isDone) ? 0.75 : 1, cursor: (busyMark || isDone) ? 'not-allowed' : 'pointer' }}>
                             {busyMark ? 'Saving…' : isDone ? 'Completed' : 'Mark Done'}
-                          </button>
-                          <button onClick={() => updateStep('agent_mark_not_done', step.key, myRow)} disabled={busyUndo} style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #334155', background: '#0B1220', color: '#E2E8F0' }}>
-                            {busyUndo ? 'Saving…' : 'Undo'}
                           </button>
                         </>
                       ) : null}
