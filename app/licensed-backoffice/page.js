@@ -123,6 +123,62 @@ const PRODUCT_OPTIONS = [
 ];
 const DEFAULT_PRODUCT = PRODUCT_OPTIONS[0];
 
+function carrierTokens(v = '') {
+  const n = normalize(v);
+  return {
+    isFg: n.includes('f&g') || n.includes('f and g') || n.includes('fidelity') || n.includes('fg'),
+    isNlg: n.includes('national life') || n.includes('nlg')
+  };
+}
+
+function carrierMatch(agent = {}, carrier = '') {
+  const { isFg, isNlg } = carrierTokens(carrier);
+  if (!isFg && !isNlg) return true;
+
+  const pool = [
+    ...(Array.isArray(agent?.carriersActive) ? agent.carriersActive : []),
+    ...(Array.isArray(agent?.carriers) ? agent.carriers : []),
+    agent?.primaryCarrier,
+    agent?.contractedCarrier,
+    agent?.carrier
+  ].filter(Boolean);
+
+  const hasFg = pool.some((x) => carrierTokens(x).isFg);
+  const hasNlg = pool.some((x) => carrierTokens(x).isNlg);
+  if (isFg) return hasFg;
+  if (isNlg) return hasNlg;
+  return true;
+}
+
+function agentNameSortKey(name = '') {
+  const d = toDisplayName(name);
+  const n = normalize(d);
+  if (!n) return '';
+  return n;
+}
+
+function buildAgentOptionPool(carrier = '') {
+  const seen = new Set();
+  const out = [];
+
+  const pushName = (name = '') => {
+    const display = toDisplayName(name);
+    const key = normalize(display);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(display);
+  };
+
+  for (const a of Array.isArray(licensedAgents) ? licensedAgents : []) {
+    if (!carrierMatch(a, carrier)) continue;
+    pushName(a?.full_name || a?.fullName || a?.name || '');
+  }
+
+  const kimora = out.find((n) => normalize(n) === 'kimora link') || 'Kimora Link';
+  const rest = out.filter((n) => normalize(n) !== 'kimora link').sort((a, b) => agentNameSortKey(a).localeCompare(agentNameSortKey(b)));
+  return [kimora, ...rest];
+}
+
 function productByKey(key = '') {
   return PRODUCT_OPTIONS.find((p) => p.key === key) || DEFAULT_PRODUCT;
 }
@@ -302,6 +358,7 @@ export default function LicensedBackofficePage() {
     agentId: session?.agentId,
     states: session?.states || (session?.homeState ? [session.homeState] : [])
   }), [session]);
+  const filteredAgentOptions = useMemo(() => buildAgentOptionPool(appForm.carrier || ''), [appForm.carrier]);
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') : '';
@@ -1693,8 +1750,25 @@ export default function LicensedBackofficePage() {
                     <option value="Unlicensed">Unlicensed</option>
                   </select>
                   <input value={appForm.state} onChange={(e) => setAppForm((p) => ({ ...p, state: e.target.value.toUpperCase() }))} placeholder="State *" maxLength={2} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
-                  <input value={appForm.referredByName} onChange={(e) => setAppForm((p) => ({ ...p, referredByName: e.target.value }))} placeholder="Referred by *" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
-                  <input value={appForm.policyWriterName} onChange={(e) => setAppForm((p) => ({ ...p, policyWriterName: e.target.value }))} placeholder="Policy written by *" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
+                  <input
+                    list="licensed-agent-options"
+                    value={appForm.referredByName}
+                    onChange={(e) => setAppForm((p) => ({ ...p, referredByName: e.target.value }))}
+                    placeholder="Referred by *"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}
+                  />
+                  <input
+                    list="licensed-agent-options"
+                    value={appForm.policyWriterName}
+                    onChange={(e) => setAppForm((p) => ({ ...p, policyWriterName: e.target.value }))}
+                    placeholder="Policy written by *"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}
+                  />
+                  <datalist id="licensed-agent-options">
+                    {filteredAgentOptions.map((name) => (
+                      <option key={`agent-opt-${name}`} value={name} />
+                    ))}
+                  </datalist>
                   <input value={appForm.policyNumber} onChange={(e) => setAppForm((p) => ({ ...p, policyNumber: e.target.value }))} placeholder="Policy number (optional)" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
                   <select value={appForm.productKey || DEFAULT_PRODUCT.key} onChange={(e) => {
                     const next = productByKey(e.target.value);
