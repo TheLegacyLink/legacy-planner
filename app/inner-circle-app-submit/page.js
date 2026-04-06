@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'legacy-inner-circle-policy-apps-v1';
 const SESSION_KEY = 'legacy-inner-circle-submit-session-v1';
+const HUB_SESSION_KEY = 'inner_circle_hub_member_v1';
 
 const PRODUCT_OPTIONS = [
   { key: 'fg_pathsetter', label: 'IUL Pathsetter (F&G)', carrier: 'F&G', productName: 'IUL Pathsetter' },
@@ -36,6 +37,14 @@ function normalizePremiumInput(v = '') {
   // Hard cap requested by Kimora.
   if (n > 5000) return '5000';
   return rebuilt;
+}
+
+function formatPhoneInput(v = '') {
+  const digits = String(v || '').replace(/\D/g, '').slice(0, 10);
+  if (!digits) return '';
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
 function roundMoney(v = 0) {
@@ -98,20 +107,40 @@ function calcPreview(appType = '', monthlyPremium = 0, annualPremiumInput = 0, l
   };
 }
 
+function csvNameToDisplay(raw = '') {
+  const v = String(raw || '').trim();
+  if (!v) return '';
+  if (!v.includes(',')) return v;
+  const parts = v.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return v;
+  const last = parts[0];
+  const first = parts.slice(1).join(' ').trim();
+  return `${first} ${last}`.trim();
+}
+
 function prefillFromSearch() {
   if (typeof window === 'undefined') return null;
   const sp = new URLSearchParams(window.location.search);
   const refCode = normalizeRef(sp.get('ref') || sp.get('refCode') || '');
   const firstName = String(sp.get('firstName') || '').trim();
   const lastName = String(sp.get('lastName') || '').trim();
-  const name = String(sp.get('name') || `${firstName} ${lastName}` || '').trim();
+  const nameRaw = String(sp.get('name') || `${firstName} ${lastName}` || '').trim();
+  const name = csvNameToDisplay(nameRaw);
   const email = String(sp.get('email') || '').trim();
   const phone = String(sp.get('phone') || '').trim();
   const state = String(sp.get('state') || '').trim().toUpperCase().slice(0, 2);
   const licensed = String(sp.get('licensed') || '').trim();
-  const referredBy = String(sp.get('referredBy') || '').trim();
+  const referredBy = csvNameToDisplay(String(sp.get('referredBy') || '').trim());
+  const policyWriter = csvNameToDisplay(String(sp.get('policyWriter') || '').trim());
+  const appType = String(sp.get('appType') || '').trim();
+  const policyNumber = String(sp.get('policyNumber') || '').trim();
+  const monthlyPremium = String(sp.get('monthlyPremium') || '').trim();
+  const carrier = String(sp.get('carrier') || '').trim();
+  const productName = String(sp.get('productName') || '').trim();
+  const source = String(sp.get('source') || '').trim();
+  const existingSubmissionId = String(sp.get('existingId') || '').trim();
 
-  const hasAny = Boolean(name || email || phone || state || licensed || referredBy || refCode);
+  const hasAny = Boolean(name || email || phone || state || licensed || referredBy || refCode || policyWriter || appType || policyNumber || monthlyPremium || carrier || productName || source || existingSubmissionId);
   if (!hasAny) return null;
 
   return {
@@ -121,7 +150,15 @@ function prefillFromSearch() {
     applicantPhone: phone,
     applicantLicensedStatus: licensed,
     state,
-    referredByNameRaw: referredBy
+    referredByNameRaw: referredBy,
+    policyWriterNameRaw: policyWriter,
+    appType,
+    policyNumber,
+    monthlyPremium,
+    carrier,
+    productName,
+    source,
+    existingSubmissionId
   };
 }
 
@@ -170,6 +207,7 @@ export default function InnerCircleAppSubmitPage() {
     applicantPhone: '',
     applicantLicensedStatus: '',
     referredByName: '',
+    referredByOtherName: '',
     policyWriterName: '',
     policyWriterOtherName: '',
     state: '',
@@ -193,6 +231,20 @@ export default function InnerCircleAppSubmitPage() {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed?.name) setSession(parsed);
+      }
+
+      // Seamless access for Inner Circle members coming from the Hub.
+      if (!raw) {
+        const hubRaw = localStorage.getItem(HUB_SESSION_KEY);
+        if (hubRaw) {
+          const hubMember = JSON.parse(hubRaw);
+          const hubName = String(hubMember?.applicantName || hubMember?.name || '').trim();
+          if (hubName) {
+            const derived = { name: hubName, role: 'submitter', source: 'inner_circle_hub' };
+            setSession(derived);
+            localStorage.setItem(SESSION_KEY, JSON.stringify(derived));
+          }
+        }
       }
     } catch {
       // ignore
@@ -281,18 +333,53 @@ export default function InnerCircleAppSubmitPage() {
   useEffect(() => {
     if (!prefill || prefillApplied) return;
     const mappedReferrer = mapReferrerToUser(prefill.referredByNameRaw, users, prefill.refCode);
+    const mappedWriter = mapReferrerToUser(prefill.policyWriterNameRaw, users, prefill.refCode);
 
     setForm((prev) => ({
       ...prev,
+      appType: prefill.appType || prev.appType,
       applicantName: prefill.applicantName || prev.applicantName,
       applicantEmail: prefill.applicantEmail || prev.applicantEmail,
-      applicantPhone: prefill.applicantPhone || prev.applicantPhone,
+      applicantPhone: formatPhoneInput(prefill.applicantPhone) || prev.applicantPhone,
       applicantLicensedStatus: prefill.applicantLicensedStatus || prev.applicantLicensedStatus,
       state: prefill.state || prev.state,
-      referredByName: mappedReferrer || prev.referredByName
+      referredByName: mappedReferrer
+        ? mappedReferrer
+        : (prefill.referredByNameRaw ? 'Other' : prev.referredByName),
+      referredByOtherName: mappedReferrer
+        ? ''
+        : (prefill.referredByNameRaw || prev.referredByOtherName),
+      policyWriterName: mappedWriter || prefill.policyWriterNameRaw || prev.policyWriterName,
+      policyNumber: prefill.policyNumber || prev.policyNumber,
+      monthlyPremium: prefill.monthlyPremium || prev.monthlyPremium,
+      carrier: prefill.carrier || prev.carrier,
+      productName: prefill.productName || prev.productName
     }));
     setPrefillApplied(true);
   }, [prefill, prefillApplied, users]);
+
+  // Default writer/referrer to signed-in submitter when opening from own back office.
+  useEffect(() => {
+    const me = String(session?.name || '').trim();
+    if (!me) return;
+
+    setForm((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      if (!String(prev.referredByName || '').trim()) {
+        next.referredByName = me;
+        changed = true;
+      }
+
+      if (!String(prev.policyWriterName || '').trim()) {
+        next.policyWriterName = me;
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [session?.name]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -349,6 +436,10 @@ export default function InnerCircleAppSubmitPage() {
   }, [isAdmin, isInnerCircleType]);
 
   const canSubmit = useMemo(() => {
+    const referredByOk = form.referredByName === 'Other'
+      ? form.referredByOtherName.trim()
+      : form.referredByName.trim();
+
     const writerOk = form.policyWriterName === 'Other'
       ? form.policyWriterOtherName.trim()
       : form.policyWriterName.trim();
@@ -364,7 +455,7 @@ export default function InnerCircleAppSubmitPage() {
       form.applicantEmail.trim() &&
       (isInnerCircleType || form.applicantPhone.trim()) &&
       form.applicantLicensedStatus.trim() &&
-      form.referredByName.trim() &&
+      referredByOk &&
       writerOk &&
       form.state.trim() &&
       premiumOk &&
@@ -373,6 +464,10 @@ export default function InnerCircleAppSubmitPage() {
   }, [form, requiresContract, contractStatus.signed, isAdmin, adminBypassContractGate, adminMarkedAppReceived, usesAnnualizedPremium, isInnerCircleType]);
 
   const canMarkSkipped = useMemo(() => {
+    const referredByOk = form.referredByName === 'Other'
+      ? form.referredByOtherName.trim()
+      : form.referredByName.trim();
+
     const writerOk = form.policyWriterName === 'Other'
       ? form.policyWriterOtherName.trim()
       : form.policyWriterName.trim();
@@ -382,7 +477,7 @@ export default function InnerCircleAppSubmitPage() {
       form.applicantName.trim() &&
       form.applicantEmail.trim() &&
       form.applicantLicensedStatus.trim() &&
-      form.referredByName.trim() &&
+      referredByOk &&
       writerOk &&
       form.state.trim()
     );
@@ -518,6 +613,10 @@ export default function InnerCircleAppSubmitPage() {
   async function markSkippedApp() {
     if (!canMarkSkipped || !session?.name || skipBusy) return;
 
+    const effectiveReferredBy = form.referredByName === 'Other'
+      ? form.referredByOtherName.trim()
+      : form.referredByName;
+
     const effectivePolicyWriter = form.policyWriterName === 'Other'
       ? form.policyWriterOtherName.trim()
       : form.policyWriterName;
@@ -532,7 +631,7 @@ export default function InnerCircleAppSubmitPage() {
           applicantEmail: form.applicantEmail,
           applicantPhone: form.applicantPhone,
           applicantLicensedStatus: form.applicantLicensedStatus,
-          referredByName: form.referredByName,
+          referredByName: effectiveReferredBy,
           policyWriterName: effectivePolicyWriter,
           state: form.state,
           submittedBy: session.name,
@@ -598,17 +697,38 @@ export default function InnerCircleAppSubmitPage() {
     if (typeof window !== 'undefined') localStorage.removeItem(SESSION_KEY);
   }
 
+  function continueWithoutPassword() {
+    const chosen = (users || []).find((u) => String(u?.name || '') === String(loginName || ''));
+    const fallbackName = String(loginName || '').trim();
+    const derived = {
+      name: String(chosen?.name || fallbackName || 'Inner Circle Member').trim(),
+      role: String(chosen?.role || 'submitter').trim() || 'submitter',
+      source: 'no_password_access'
+    };
+    setSession(derived);
+    if (typeof window !== 'undefined') {
+      try { localStorage.setItem(SESSION_KEY, JSON.stringify(derived)); } catch {}
+    }
+  }
+
   const submit = async (e) => {
     e.preventDefault();
     if (!canSubmit || !session?.name) return;
+
+    const effectiveReferredBy = form.referredByName === 'Other'
+      ? form.referredByOtherName.trim()
+      : form.referredByName;
 
     const effectivePolicyWriter = form.policyWriterName === 'Other'
       ? form.policyWriterOtherName.trim()
       : form.policyWriterName;
 
+    const autoApproveFromFng = String(prefill?.source || '').toLowerCase().startsWith('fng-');
     const record = {
-      id: `app_${Date.now()}`,
+      id: prefill?.existingSubmissionId || `app_${Date.now()}`,
       ...form,
+      status: autoApproveFromFng ? 'Approved' : (form.status || 'Submitted'),
+      referredByName: effectiveReferredBy,
       policyWriterName: effectivePolicyWriter,
       carrier: form.carrier,
       productName: form.productName,
@@ -624,7 +744,8 @@ export default function InnerCircleAppSubmitPage() {
       contractGateBypassedByAdmin: requiresContract ? Boolean(isAdmin && adminBypassContractGate && !contractStatus.signed) : false,
       applicationReceivedByAdmin: Boolean(isAdmin && adminMarkedAppReceived),
       applicationReceivedMarkedBy: Boolean(isAdmin && adminMarkedAppReceived) ? String(session?.name || '') : '',
-      applicationReceivedMarkedAt: Boolean(isAdmin && adminMarkedAppReceived) ? new Date().toISOString() : ''
+      applicationReceivedMarkedAt: Boolean(isAdmin && adminMarkedAppReceived) ? new Date().toISOString() : '',
+      approvedAt: autoApproveFromFng ? new Date().toISOString() : ''
     };
 
     if (typeof window !== 'undefined') {
@@ -647,7 +768,7 @@ export default function InnerCircleAppSubmitPage() {
       // non-blocking: keep local backup
     }
 
-    setSaved('Application submitted successfully.');
+    setSaved(autoApproveFromFng ? 'Application submitted and auto-approved from F&G Book of Business.' : 'Application submitted successfully.');
     setForm({
       appType: '',
       applicantName: '',
@@ -655,6 +776,7 @@ export default function InnerCircleAppSubmitPage() {
       applicantPhone: '',
       applicantLicensedStatus: '',
       referredByName: '',
+      referredByOtherName: '',
       policyWriterName: '',
       policyWriterOtherName: '',
       state: '',
@@ -700,9 +822,11 @@ export default function InnerCircleAppSubmitPage() {
               Password
               <input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
             </label>
-            <div className="rowActions" style={{ gridColumn: '1 / -1' }}>
+            <div className="rowActions" style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button type="submit" disabled={loginBusy}>{loginBusy ? 'Signing in...' : 'Sign In'}</button>
+              <button type="button" className="ghost" onClick={continueWithoutPassword}>Continue (No Password)</button>
             </div>
+            <p className="muted" style={{ gridColumn: '1 / -1', marginTop: -4 }}>Inner Circle can continue without password if needed. Use Sign In when password access is working.</p>
             {loginError ? <p className="red">{loginError}</p> : null}
           </form>
         </div>
@@ -917,7 +1041,7 @@ export default function InnerCircleAppSubmitPage() {
             Applicant Phone {isInnerCircleType ? '(optional)' : '*'}
             <input
               value={form.applicantPhone}
-              onChange={(e) => update('applicantPhone', e.target.value)}
+              onChange={(e) => update('applicantPhone', formatPhoneInput(e.target.value))}
               placeholder="(555) 555-5555"
             />
           </label>
@@ -933,13 +1057,32 @@ export default function InnerCircleAppSubmitPage() {
 
           <label>
             Referred By *
-            <select value={form.referredByName} onChange={(e) => update('referredByName', e.target.value)}>
+            <select value={form.referredByName} onChange={(e) => {
+              const value = e.target.value;
+              setForm((prev) => ({
+                ...prev,
+                referredByName: value,
+                referredByOtherName: value === 'Other' ? prev.referredByOtherName : ''
+              }));
+            }}>
               <option value="">Select inner circle agent</option>
               {users.map((u) => (
                 <option key={`ref-${u.name}`} value={u.name}>{u.name}</option>
               ))}
+              <option value="Other">Other</option>
             </select>
           </label>
+
+          {form.referredByName === 'Other' ? (
+            <label>
+              Referred By Full Name *
+              <input
+                value={form.referredByOtherName}
+                onChange={(e) => update('referredByOtherName', e.target.value)}
+                placeholder="Enter full name"
+              />
+            </label>
+          ) : null}
 
           <label>
             Policy Written By *
@@ -1058,7 +1201,7 @@ export default function InnerCircleAppSubmitPage() {
               <div><small className="muted">Policy Writer</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.policyWriterName === 'Other' ? (form.policyWriterOtherName || '—') : (form.policyWriterName || '—')}</div></div>
               <div><small className="muted">Product</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.productName || '—'}</div></div>
               <div><small className="muted">Carrier</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.carrier || '—'}</div></div>
-              <div><small className="muted">Referred By</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.referredByName || '—'}</div></div>
+              <div><small className="muted">Referred By</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.referredByName === 'Other' ? (form.referredByOtherName || '—') : (form.referredByName || '—')}</div></div>
               <div><small className="muted">Monthly Premium</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>${Number(form.monthlyPremium || 0).toFixed(2)}</div></div>
               {usesAnnualizedPremium ? <div><small className="muted">Annualized Premium (AP)</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>${Number(form.annualPremium || 0).toFixed(2)}</div></div> : null}
               <div><small className="muted">Points Earned</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{animatedPreview.pointsEarned.toFixed(2)}</div></div>
