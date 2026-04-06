@@ -279,11 +279,11 @@ export default function LicensedOnboardingTrackerPage() {
                       {!automated ? (
                         <>
                           {step?.resourceUrl ? (
-                            <a href={step.resourceUrl} target="_blank" rel="noreferrer" style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #334155', background: '#0B1220', color: '#E2E8F0', textDecoration: 'none', textAlign: 'center', fontWeight: 700 }}>
+                            <a href={step.resourceUrl} target="_blank" rel="noreferrer" style={{ minWidth: 104, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px', borderRadius: 10, border: '1px solid #334155', background: '#0B1220', color: '#E2E8F0', textDecoration: 'none', textAlign: 'center', fontWeight: 700, whiteSpace: 'nowrap' }}>
                               Open Link
                             </a>
                           ) : null}
-                          <button onClick={() => updateStep('agent_mark_done', step.key, myRow)} disabled={busyMark || isDone} style={{ padding: '8px 10px', borderRadius: 10, border: 0, background: (busyMark || isDone) ? '#166534' : '#16a34a', color: '#fff', fontWeight: 700, opacity: (busyMark || isDone) ? 0.75 : 1, cursor: (busyMark || isDone) ? 'not-allowed' : 'pointer' }}>
+                          <button onClick={() => updateStep('agent_mark_done', step.key, myRow)} disabled={busyMark || isDone} style={{ minWidth: 104, height: 36, padding: '0 12px', borderRadius: 10, border: 0, background: (busyMark || isDone) ? '#166534' : '#16a34a', color: '#fff', fontWeight: 700, opacity: (busyMark || isDone) ? 0.75 : 1, cursor: (busyMark || isDone) ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
                             {busyMark ? 'Saving…' : isDone ? 'Completed' : 'Mark Done'}
                           </button>
                         </>
