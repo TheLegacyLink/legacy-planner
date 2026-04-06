@@ -20,12 +20,10 @@ const US_STATE_OPTIONS = [
 ];
 
 const STEP_META = [
-  { key: 'prelicensingStarted', title: 'Start Pre-Licensing', note: 'Enroll and begin your pre-licensing course.' },
-  { key: 'watchedWhateverItTakes', title: 'Watch “Whatever It Takes” + Comment', note: 'Watch https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX and leave a comment to confirm completion.' },
-  { key: 'examPassed', title: 'Pass State Exam', note: 'Mark complete after passing your resident state exam.' },
-  { key: 'residentLicenseObtained', title: 'Obtain Resident License', note: 'Resident state + license number required before complete.' },
-  { key: 'licenseDetailsSubmitted', title: 'Submit License Details + NPN', note: 'Submit NPN and licensing details.' },
-  { key: 'readyForContracting', title: 'Ready for Contracting', note: 'Final checkpoint before contracting + onboarding.' },
+  { key: 'backOfficeAccess', title: 'Step 1 — Back Office Access + Welcome Instructions', note: 'Open your welcome email, save your links, and confirm your back office access is active.' },
+  { key: 'communitySkool', title: 'Step 2 — Community + Skool (Training)', note: 'Join Skool and complete assigned onboarding/training tasks.' },
+  { key: 'prelicensingStarted', title: 'Step 3 — Pre-Licensing Onboarding (Jamal Leads This)', note: 'Jamal leads this process for all unlicensed agents. Tap “I’m Ready” so Jamal is notified.' },
+  { key: 'watchedWhateverItTakes', title: 'Step 4 — Required YouTube Task', note: 'Watch https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX and leave a comment to confirm completion.' },
 ];
 
 export default function UnlicensedBackofficePage() {

@@ -1,30 +1,40 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 function clean(v = '') { return String(v || '').trim(); }
 function normalize(v = '') { return clean(v).toLowerCase().replace(/\s+/g, ' '); }
 function fmtDateTime(iso = '') {
-  const d = new Date(iso || 0);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (!clean(iso)) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime()) || d.getTime() <= 0) return '—';
   return d.toLocaleString();
 }
 
-const STEP_DEFS = [
-  { key: 'profile_setup', label: 'Profile + Contact Setup', why: 'Ensures your profile is complete for routing and support.' },
-  { key: 'carrier_contracting', label: 'Carrier Contracting Packet Submitted', why: 'Required before active writing with carriers.' },
-  { key: 'eo_uploaded', label: 'E&O Uploaded', why: 'Compliance requirement before production.' },
-  { key: 'aml_complete', label: 'AML Training Completed', why: 'Regulatory requirement to write business.' },
-  { key: 'product_training', label: 'Core Product Training Completed', why: 'Build confidence and product accuracy.' },
-  { key: 'crm_setup', label: 'CRM + Calendar + Dialer Setup', why: 'Enables speed-to-lead and daily execution.' },
-  { key: 'script_cert', label: 'Script Roleplay Certification', why: 'Improves close rate and consistency.' },
-  { key: 'first_appt', label: 'First Appointment Booked', why: 'Moves onboarding into production behavior.' },
-  { key: 'first_app', label: 'First App Submitted', why: 'Confirms end-to-end execution.' },
-  { key: 'first_policy', label: 'First Policy Placed', why: 'Marks complete onboarding readiness.' }
+const CRM_SETUP_VIDEO_URL = 'https://innercirclelink.com/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf';
+const YOUTUBE_REVIEW_URL = 'https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX';
+
+const STEP_DEFS_LICENSED = [
+  { key: 'backoffice_access', label: 'Step 1 — Back Office Access + Welcome Instructions', why: 'Open your welcome email, save your links, and confirm access to start onboarding.' },
+  { key: 'carrier_contracting', label: 'Step 2 — Contracting', why: 'Complete contracting steps before moving forward.' },
+  { key: 'eo_uploaded', label: 'Step 3 — E&O Activated', why: 'Required protection before production (activate and confirm E&O).' },
+  { key: 'product_training', label: 'Step 4 — Core Product Training Completed', why: 'Complete core carrier product training sequence.' },
+  { key: 'crm_setup', label: 'Step 5 — CRM + Calendar + Dialer Setup', why: 'Complete CRM workflow setup using the onboarding guide/video.', resourceUrl: CRM_SETUP_VIDEO_URL },
+  { key: 'script_cert', label: 'Step 6 — Script Roleplay Certification', why: 'Complete roleplay certification with trainer/upline.' },
+  { key: 'youtube_review', label: 'Step 7 — Required YouTube Task', why: 'Watch the required video and leave a comment.', resourceUrl: YOUTUBE_REVIEW_URL },
+  { key: 'first_policy_submitted', label: 'Step 8A — First Policy Submitted', why: 'Automated milestone from policy submissions.', automated: true },
+  { key: 'first_policy_placed', label: 'Step 8B — First Policy Placed', why: 'Automated milestone when first policy is approved.', automated: true }
 ];
 
-const STEP_ORDER = STEP_DEFS.map((s) => s.key);
-const STEP_LABELS = STEP_DEFS.reduce((acc, s) => ({ ...acc, [s.key]: s.label }), {});
+const STEP_DEFS_INNER_CIRCLE = [
+  { key: 'product_training', label: 'Core Product Training Completed', why: 'Build confidence and product accuracy.' },
+  { key: 'crm_setup', label: 'CRM + Calendar + Dialer Setup', why: 'Use the setup guide/video to complete your CRM workflow.', resourceUrl: CRM_SETUP_VIDEO_URL },
+  { key: 'script_cert', label: 'Script Roleplay Certification', why: 'Improves close rate and consistency.' },
+  { key: 'youtube_review', label: 'YouTube Training + Comment Completed', why: 'Watch the required video and leave a comment.', resourceUrl: YOUTUBE_REVIEW_URL },
+  { key: 'first_sponsorship_submitted', label: 'First Sponsorship App Submitted', why: 'Auto-completed from sponsorship submissions.', automated: true },
+  { key: 'first_policy_submitted', label: 'First Policy Submitted', why: 'Auto-completed from policy submissions.', automated: true },
+  { key: 'first_policy_placed', label: 'First Policy Placed', why: 'Auto-completed when first policy is approved.', automated: true }
+];
 
 function colorBadge(color = '') {
   if (color === 'red') return { bg: '#7f1d1d', border: '#dc2626', text: '#fecaca', label: 'Stalled' };
@@ -34,6 +44,7 @@ function colorBadge(color = '') {
 
 export default function LicensedOnboardingTrackerPage() {
   const [viewer, setViewer] = useState({ name: '', email: '', role: 'agent' });
+  const [track, setTrack] = useState('licensed');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -49,8 +60,15 @@ export default function LicensedOnboardingTrackerPage() {
       email: clean(sp.get('viewerEmail') || '').toLowerCase(),
       role: clean(sp.get('viewerRole') || 'agent') || 'agent'
     };
+    const rawTrack = clean(sp.get('track') || 'licensed').toLowerCase();
+    setTrack(rawTrack === 'inner-circle' ? 'inner-circle' : 'licensed');
     setViewer(fromParent);
   }, []);
+
+  const STEP_DEFS = track === 'inner-circle' ? STEP_DEFS_INNER_CIRCLE : STEP_DEFS_LICENSED;
+  const STEP_ORDER = STEP_DEFS.map((s) => s.key);
+  const STEP_LABELS = STEP_DEFS.reduce((acc, s) => ({ ...acc, [s.key]: s.label }), {});
+  const AUTO_STEP_KEYS = STEP_DEFS.filter((s) => s.automated).map((s) => s.key);
 
   async function loadTracker() {
     if (!viewer.name && !viewer.email) return;
@@ -62,7 +80,8 @@ export default function LicensedOnboardingTrackerPage() {
         viewerEmail: viewer.email,
         viewerRole: viewer.role,
         stepOrder: JSON.stringify(STEP_ORDER),
-        stepLabels: JSON.stringify(STEP_LABELS)
+        stepLabels: JSON.stringify(STEP_LABELS),
+        autoStepKeys: JSON.stringify(AUTO_STEP_KEYS)
       });
       const res = await fetch(`/api/licensed-onboarding-tracker?${qs.toString()}`, { cache: 'no-store' });
       const body = await res.json().catch(() => ({}));
@@ -78,7 +97,7 @@ export default function LicensedOnboardingTrackerPage() {
   useEffect(() => {
     if (!viewer.name && !viewer.email) return;
     loadTracker();
-  }, [viewer.name, viewer.email, viewer.role]);
+  }, [viewer.name, viewer.email, viewer.role, track]);
 
   async function updateStep(action, stepKey, targetRow) {
     if (!targetRow?.agentName || !stepKey) return;
@@ -90,21 +109,24 @@ export default function LicensedOnboardingTrackerPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: 'step_update',
-          actorName: viewer.name,
-          actorEmail: viewer.email,
-          actorRole: viewer.role,
+          actorName: viewer.name || targetRow.agentName,
+          actorEmail: viewer.email || targetRow.agentEmail,
+          actorRole: viewer.role || 'agent',
           agentName: targetRow.agentName,
           agentEmail: targetRow.agentEmail,
+          agentKey: targetRow.agentKey,
           stepKey,
           action,
           note: clean(noteByStep[`${targetRow.agentKey}:${stepKey}`] || ''),
           stepOrder: STEP_ORDER,
-          stepLabels: STEP_LABELS
+          stepLabels: STEP_LABELS,
+          autoStepKeys: AUTO_STEP_KEYS
         })
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok || !body?.ok) throw new Error(body?.error || 'update_failed');
-      setMsg('Saved.');
+      const notified = Boolean(body?.noteNotification?.ok);
+      setMsg(notified ? 'Saved. Note sent to upline.' : 'Saved.');
       await loadTracker();
     } catch (e) {
       setMsg(`Update failed: ${e?.message || 'unknown_error'}`);
@@ -127,7 +149,8 @@ export default function LicensedOnboardingTrackerPage() {
           minDays: 4,
           maxPerRun: 50,
           stepOrder: STEP_ORDER,
-          stepLabels: STEP_LABELS
+          stepLabels: STEP_LABELS,
+          autoStepKeys: AUTO_STEP_KEYS
         })
       });
       const body = await res.json().catch(() => ({}));
@@ -151,21 +174,13 @@ export default function LicensedOnboardingTrackerPage() {
   const downlineRows = Array.isArray(data?.downlineRows) ? data.downlineRows : [];
   const metrics = data?.metrics || { totalDownline: 0, red: 0, yellow: 0, green: 0, completed: 0 };
 
-  const canVerifyByRow = useMemo(() => {
-    const m = new Map();
-    for (const row of downlineRows) {
-      m.set(row.agentKey, true);
-    }
-    return m;
-  }, [downlineRows]);
-
   return (
-    <main style={{ minHeight: '100vh', background: '#070b14', color: '#E5E7EB', padding: 16 }}>
+    <main style={{ minHeight: '100vh', background: 'radial-gradient(circle at top, #15213f 0%, #070b14 55%)', color: '#E5E7EB', padding: 16 }}>
       <section style={{ maxWidth: 1250, margin: '0 auto', display: 'grid', gap: 12 }}>
-        <header style={{ border: '1px solid #243046', borderRadius: 14, background: '#0F172A', padding: 16 }}>
-          <h2 style={{ margin: 0 }}>Onboarding Tracker</h2>
+        <header style={{ border: '1px solid #334155', borderRadius: 16, background: 'linear-gradient(120deg, #0F172A 0%, #111C35 60%, #1D4ED8 160%)', padding: 16, boxShadow: '0 18px 40px rgba(2,6,23,.35)' }}>
+          <h2 style={{ margin: 0, letterSpacing: '.02em' }}>Onboarding Tracker</h2>
           <p style={{ margin: '6px 0 0', color: '#9CA3AF' }}>
-            Licensed Agent Flow • Monday Onboarding: <strong style={{ color: '#E2E8F0' }}>7:00 PM CST</strong>
+            {track === 'inner-circle' ? 'Inner Circle Flow' : 'Licensed Agent Flow'} • Monday Onboarding: <strong style={{ color: '#E2E8F0' }}>7:00 PM CST</strong>
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
             <span style={{ border: '1px solid #334155', borderRadius: 999, padding: '4px 10px', background: '#0B1220', color: '#CBD5E1', fontSize: 12 }}>
@@ -189,12 +204,31 @@ export default function LicensedOnboardingTrackerPage() {
         {error ? <div style={{ border: '1px solid #7f1d1d', borderRadius: 12, background: '#1f0a0a', color: '#fecaca', padding: 12 }}>{error}</div> : null}
         {msg ? <div style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', color: '#cbd5e1', padding: 12 }}>{msg}</div> : null}
 
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 }}>
+          <div style={{ border: '1px solid #334155', borderRadius: 14, background: 'rgba(30,64,175,.22)', padding: 14 }}>
+            <div style={{ color: '#93C5FD', fontSize: 12, textTransform: 'uppercase', letterSpacing: '.06em' }}>Downline Total</div>
+            <div style={{ fontSize: 28, fontWeight: 800 }}>{metrics.totalDownline || 0}</div>
+          </div>
+          <div style={{ border: '1px solid #334155', borderRadius: 14, background: 'rgba(22,163,74,.16)', padding: 14 }}>
+            <div style={{ color: '#86EFAC', fontSize: 12, textTransform: 'uppercase', letterSpacing: '.06em' }}>On Track</div>
+            <div style={{ fontSize: 28, fontWeight: 800 }}>{metrics.green || 0}</div>
+          </div>
+          <div style={{ border: '1px solid #334155', borderRadius: 14, background: 'rgba(217,119,6,.16)', padding: 14 }}>
+            <div style={{ color: '#FDE68A', fontSize: 12, textTransform: 'uppercase', letterSpacing: '.06em' }}>At Risk</div>
+            <div style={{ fontSize: 28, fontWeight: 800 }}>{metrics.yellow || 0}</div>
+          </div>
+          <div style={{ border: '1px solid #334155', borderRadius: 14, background: 'rgba(220,38,38,.16)', padding: 14 }}>
+            <div style={{ color: '#FCA5A5', fontSize: 12, textTransform: 'uppercase', letterSpacing: '.06em' }}>Stalled</div>
+            <div style={{ fontSize: 28, fontWeight: 800 }}>{metrics.red || 0}</div>
+          </div>
+        </section>
+
         {myRow ? (
-          <section style={{ border: '1px solid #243046', borderRadius: 14, background: '#0F172A', padding: 14 }}>
+          <section style={{ border: '1px solid #334155', borderRadius: 16, background: 'rgba(15,23,42,.86)', padding: 14, boxShadow: '0 12px 26px rgba(2,6,23,.28)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
               <h3 style={{ margin: 0 }}>My SOP Progress</h3>
               <div style={{ color: '#9CA3AF', fontSize: 13 }}>
-                Verified: <strong style={{ color: '#E2E8F0' }}>{myRow?.progress?.verifiedSteps || 0}/{myRow?.progress?.totalSteps || STEP_ORDER.length}</strong>
+                Completed: <strong style={{ color: '#E2E8F0' }}>{myRow?.progress?.agentDoneSteps || 0}/{myRow?.progress?.totalSteps || STEP_ORDER.length}</strong>
               </div>
             </div>
 
@@ -207,64 +241,67 @@ export default function LicensedOnboardingTrackerPage() {
                 const s = myRow?.steps?.[step.key] || {};
                 const busyMark = savingStep === `${myRow.agentKey}:${step.key}:agent_mark_done`;
                 const busyUndo = savingStep === `${myRow.agentKey}:${step.key}:agent_mark_not_done`;
-                const busyVerify = savingStep === `${myRow.agentKey}:${step.key}:upline_verify`;
-                const busyUnverify = savingStep === `${myRow.agentKey}:${step.key}:upline_unverify`;
+                const automated = Boolean(step?.automated);
+                const isDone = Boolean(s?.agentDone || s?.verified);
 
                 return (
-                  <article key={step.key} style={{ border: '1px solid #334155', borderRadius: 12, background: '#0B1220', padding: 12 }}>
+                  <article key={step.key} style={{ border: '1px solid #334155', borderRadius: 12, background: 'linear-gradient(180deg,#0B1220 0%,#0a1326 100%)', padding: 12, boxShadow: '0 8px 20px rgba(2,6,23,.22)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <div>
                         <strong>{step.label}</strong>
                         <div style={{ color: '#94A3B8', fontSize: 12, marginTop: 2 }}>{step.why}</div>
                       </div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                        <span style={{ border: '1px solid #334155', borderRadius: 999, padding: '2px 8px', fontSize: 11, color: s?.agentDone ? '#86EFAC' : '#CBD5E1', background: s?.agentDone ? '#052e16' : '#111827' }}>
-                          {s?.agentDone ? 'Agent: Done' : 'Agent: Not Done'}
+                        <span style={{ border: '1px solid #334155', borderRadius: 999, padding: '2px 8px', fontSize: 11, color: isDone ? '#86EFAC' : '#CBD5E1', background: isDone ? '#052e16' : '#111827' }}>
+                          {isDone ? 'Completed' : 'Not Completed'}
                         </span>
-                        <span style={{ border: '1px solid #334155', borderRadius: 999, padding: '2px 8px', fontSize: 11, color: s?.verified ? '#93C5FD' : '#CBD5E1', background: s?.verified ? '#0c1e4a' : '#111827' }}>
-                          {s?.verified ? `Verified by ${s?.verifiedBy || 'Upline'}` : 'Awaiting Upline Verify'}
-                        </span>
+                        {automated ? <span style={{ border: '1px solid #1d4ed8', borderRadius: 999, padding: '2px 8px', fontSize: 11, color: '#bfdbfe', background: '#0c1e4a' }}>Automated</span> : null}
+                        {step?.resourceUrl ? (
+                          <a href={step.resourceUrl} target="_blank" rel="noreferrer" style={{ border: '1px solid #334155', borderRadius: 999, padding: '2px 8px', fontSize: 11, color: '#cbd5e1', textDecoration: 'none' }}>
+                            Open Resource
+                          </a>
+                        ) : null}
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: 8, marginTop: 10, alignItems: 'center' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: automated ? '1fr' : '1fr auto auto', gap: 8, marginTop: 10, alignItems: 'center' }}>
                       <input
-                        placeholder="Optional note for upline"
+                        placeholder={automated ? 'Auto-completed based on system activity' : 'Optional note (sent to upline on Mark Done)'}
                         value={noteByStep[`${myRow.agentKey}:${step.key}`] || ''}
                         onChange={(e) => setNoteByStep((m) => ({ ...m, [`${myRow.agentKey}:${step.key}`]: e.target.value }))}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}
+                        disabled={automated}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff', opacity: automated ? 0.6 : 1 }}
                       />
-                      <button onClick={() => updateStep('agent_mark_done', step.key, myRow)} disabled={busyMark} style={{ padding: '8px 10px', borderRadius: 10, border: 0, background: '#16a34a', color: '#fff', fontWeight: 700 }}>
-                        {busyMark ? 'Saving…' : 'Mark Done'}
-                      </button>
-                      <button onClick={() => updateStep('agent_mark_not_done', step.key, myRow)} disabled={busyUndo} style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #334155', background: '#0B1220', color: '#E2E8F0' }}>
-                        {busyUndo ? 'Saving…' : 'Undo'}
-                      </button>
-                      {canVerifyByRow.get(myRow.agentKey) || normalize(viewer.role) === 'admin' ? (
+                      {!automated ? (
                         <>
-                          <button onClick={() => updateStep('upline_verify', step.key, myRow)} disabled={busyVerify} style={{ padding: '8px 10px', borderRadius: 10, border: 0, background: '#1d4ed8', color: '#fff', fontWeight: 700 }}>
-                            {busyVerify ? 'Saving…' : 'Verify'}
+                          <button onClick={() => updateStep('agent_mark_done', step.key, myRow)} disabled={busyMark || isDone} style={{ padding: '8px 10px', borderRadius: 10, border: 0, background: (busyMark || isDone) ? '#166534' : '#16a34a', color: '#fff', fontWeight: 700, opacity: (busyMark || isDone) ? 0.75 : 1, cursor: (busyMark || isDone) ? 'not-allowed' : 'pointer' }}>
+                            {busyMark ? 'Saving…' : isDone ? 'Completed' : 'Mark Done'}
                           </button>
-                          <button onClick={() => updateStep('upline_unverify', step.key, myRow)} disabled={busyUnverify} style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #334155', background: '#0B1220', color: '#E2E8F0' }}>
-                            {busyUnverify ? 'Saving…' : 'Unverify'}
+                          <button onClick={() => updateStep('agent_mark_not_done', step.key, myRow)} disabled={busyUndo} style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #334155', background: '#0B1220', color: '#E2E8F0' }}>
+                            {busyUndo ? 'Saving…' : 'Undo'}
                           </button>
                         </>
-                      ) : (
-                        <span style={{ fontSize: 12, color: '#94A3B8' }}>Upline verification required</span>
-                      )}
+                      ) : null}
                     </div>
 
                     <div style={{ marginTop: 6, color: '#94A3B8', fontSize: 12 }}>
-                      Agent done: {fmtDateTime(s?.agentDoneAt)} • Verified: {fmtDateTime(s?.verifiedAt)}
+                      Completed at: {fmtDateTime(s?.agentDoneAt || s?.verifiedAt)}
                     </div>
                   </article>
                 );
               })}
             </div>
           </section>
-        ) : null}
+        ) : (
+          <section style={{ border: '1px solid #334155', borderRadius: 16, background: 'rgba(15,23,42,.86)', padding: 14, boxShadow: '0 12px 26px rgba(2,6,23,.28)' }}>
+            <h3 style={{ margin: 0 }}>My SOP Progress</h3>
+            <p style={{ marginTop: 8, color: '#94A3B8' }}>
+              Your tracking appears after your application is submitted.
+            </p>
+          </section>
+        )}
 
-        <section style={{ border: '1px solid #243046', borderRadius: 14, background: '#0F172A', padding: 14 }}>
+        <section style={{ border: '1px solid #334155', borderRadius: 16, background: 'rgba(15,23,42,.86)', padding: 14, boxShadow: '0 12px 26px rgba(2,6,23,.28)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <h3 style={{ margin: 0 }}>Downline Tracker</h3>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -282,7 +319,7 @@ export default function LicensedOnboardingTrackerPage() {
               {downlineRows.map((row) => {
                 const badge = colorBadge(row?.progress?.color || 'green');
                 return (
-                  <article key={row.agentKey} style={{ border: `1px solid ${badge.border}`, borderRadius: 12, background: '#0B1220', padding: 12 }}>
+                  <article key={row.agentKey} style={{ border: `1px solid ${badge.border}`, borderRadius: 12, background: 'linear-gradient(180deg,#0B1220 0%,#0a1326 100%)', padding: 12, boxShadow: '0 8px 20px rgba(2,6,23,.22)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'start' }}>
                       <div>
                         <strong>{row.agentName}</strong>
@@ -293,7 +330,7 @@ export default function LicensedOnboardingTrackerPage() {
                     </div>
 
                     <div style={{ marginTop: 8, color: '#CBD5E1', fontSize: 13 }}>
-                      Verified: <strong>{row?.progress?.verifiedSteps || 0}/{row?.progress?.totalSteps || STEP_ORDER.length}</strong> ({row?.progress?.progressPct || 0}%)
+                      Completed: <strong>{row?.progress?.agentDoneSteps || 0}/{row?.progress?.totalSteps || STEP_ORDER.length}</strong> ({row?.progress?.progressPct || 0}%)
                     </div>
                     <div style={{ marginTop: 4, color: '#94A3B8', fontSize: 12 }}>
                       Current step: {STEP_LABELS[row?.progress?.currentStepKey] || row?.progress?.currentStepKey || '—'}
