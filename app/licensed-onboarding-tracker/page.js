@@ -10,19 +10,25 @@ function fmtDateTime(iso = '') {
   return d.toLocaleString();
 }
 
+const CRM_SETUP_VIDEO_URL = 'https://innercirclelink.com/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf';
+const YOUTUBE_REVIEW_URL = 'https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX';
+const PINNACLE_CONTRACTING_URL = 'https://surelc.surancebay.com/producer/?gaId=190';
+const INVESTALINK_CONTRACTING_URL = 'https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance';
+const CONTRACTING_VIDEO_URL = 'https://www.loom.com/share/79354f8de2334697ba53cc5b0ff80c86?sid=b88fafc3-96a0-4d6a-9918-f396f0047603';
 const EO_PURCHASE_URL = 'https://buy.stripe.com/dRm6oH25qe7521Cg4b3ZK0m';
 
 const STEP_DEFS = [
-  { key: 'profile_setup', label: 'Profile + Contact Setup', why: 'Ensures your profile is complete for routing and support.' },
-  { key: 'carrier_contracting', label: 'Carrier Contracting Packet Submitted', why: 'Required before active writing with carriers.' },
-  { key: 'eo_uploaded', label: 'E&O Uploaded', why: 'Compliance requirement before production.', resourceUrl: EO_PURCHASE_URL },
-  { key: 'aml_complete', label: 'AML Training Completed', why: 'Regulatory requirement to write business.' },
-  { key: 'product_training', label: 'Core Product Training Completed', why: 'Build confidence and product accuracy.' },
-  { key: 'crm_setup', label: 'CRM + Calendar + Dialer Setup', why: 'Enables speed-to-lead and daily execution.' },
-  { key: 'script_cert', label: 'Script Roleplay Certification', why: 'Improves close rate and consistency.' },
-  { key: 'first_appt', label: 'First Appointment Booked', why: 'Moves onboarding into production behavior.' },
-  { key: 'first_app', label: 'First App Submitted', why: 'Confirms end-to-end execution.' },
-  { key: 'first_policy', label: 'First Policy Placed', why: 'Marks complete onboarding readiness.' }
+  { key: 'backoffice_access', label: 'Step 1 — Back Office Access + Welcome Instructions', why: 'Open your welcome email, save your links, and confirm access to start onboarding.' },
+  { key: 'pinnacle_contracting', label: 'Step 2A — InVestaLink Partner Contracting Submitted', why: 'Complete the contracting package (Foresters, Transamerica, American National, Mutual of Omaha).', resourceUrl: PINNACLE_CONTRACTING_URL },
+  { key: 'investalink_contracting', label: 'Step 2B — InVestaLink Contracting Submitted', why: 'Complete the InVestaLink contracting packet (F&G + National Life Group).', resourceUrl: INVESTALINK_CONTRACTING_URL },
+  { key: 'contracting_tutorial_reviewed', label: 'Step 2C — Contracting Tutorial Reviewed', why: 'Use the contracting video guide to complete the process correctly.', resourceUrl: CONTRACTING_VIDEO_URL },
+  { key: 'eo_uploaded', label: 'Step 3 — E&O Activated', why: 'Required protection before production (activate and confirm E&O).', resourceUrl: EO_PURCHASE_URL },
+  { key: 'product_training', label: 'Step 4 — Core Product Training Completed', why: 'Complete core carrier product training sequence.' },
+  { key: 'crm_setup', label: 'Step 5 — CRM + Calendar + Dialer Setup', why: 'Complete CRM workflow setup using the onboarding guide/video.', resourceUrl: CRM_SETUP_VIDEO_URL },
+  { key: 'script_cert', label: 'Step 6 — Script Roleplay Certification', why: 'Complete roleplay certification with trainer/upline.' },
+  { key: 'youtube_review', label: 'Step 7 — Required YouTube Task', why: 'Watch the required video and leave a comment.', resourceUrl: YOUTUBE_REVIEW_URL },
+  { key: 'first_policy_submitted', label: 'Step 8A — First Policy Submitted', why: 'Milestone from application submission.' },
+  { key: 'first_policy_placed', label: 'Step 8B — First Policy Placed', why: 'Milestone when first policy is approved.' }
 ];
 
 const STEP_ORDER = STEP_DEFS.map((s) => s.key);
@@ -40,7 +46,6 @@ export default function LicensedOnboardingTrackerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [savingStep, setSavingStep] = useState('');
-  const [noteByStep, setNoteByStep] = useState({});
   const [msg, setMsg] = useState('');
   const [nudgeState, setNudgeState] = useState({ running: false, sent: null, detail: '' });
 
@@ -229,13 +234,7 @@ export default function LicensedOnboardingTrackerPage() {
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: 8, marginTop: 10, alignItems: 'center' }}>
-                      <input
-                        placeholder="Optional note for upline"
-                        value={noteByStep[`${myRow.agentKey}:${step.key}`] || ''}
-                        onChange={(e) => setNoteByStep((m) => ({ ...m, [`${myRow.agentKey}:${step.key}`]: e.target.value }))}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}
-                      />
+                    <div style={{ display: 'grid', gridTemplateColumns: 'auto auto auto auto', gap: 8, marginTop: 10, alignItems: 'center', justifyContent: 'start' }}>
                       {step?.resourceUrl ? (
                         <a href={step.resourceUrl} target="_blank" rel="noreferrer" style={{ minWidth: 160, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px', borderRadius: 10, border: '1px solid #334155', background: '#0B1220', color: '#E2E8F0', textDecoration: 'none', textAlign: 'center', fontWeight: 700, whiteSpace: 'nowrap' }}>
                           {step.key === 'eo_uploaded' ? 'Purchase E&O Insurance' : 'Open Link'}

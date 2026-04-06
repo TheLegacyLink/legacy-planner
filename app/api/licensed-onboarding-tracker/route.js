@@ -292,6 +292,7 @@ export async function GET(req) {
   const downlineRows = rows
     .filter((r) => visibleNodeKeys.has(r.agentKey))
     .filter((r) => normalize(r.agentName) !== normalize(viewerName))
+    .filter((r) => hasPolicySubmittedForAgent(r, policyRows))
     .map((r) => ({ ...r, progress: progressForRow(r, stepOrder) }))
     .sort((a, b) => {
       const ac = a?.progress?.color;
