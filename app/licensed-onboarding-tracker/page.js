@@ -10,10 +10,12 @@ function fmtDateTime(iso = '') {
   return d.toLocaleString();
 }
 
+const EO_PURCHASE_URL = 'https://buy.stripe.com/dRm6oH25qe7521Cg4b3ZK0m';
+
 const STEP_DEFS = [
   { key: 'profile_setup', label: 'Profile + Contact Setup', why: 'Ensures your profile is complete for routing and support.' },
   { key: 'carrier_contracting', label: 'Carrier Contracting Packet Submitted', why: 'Required before active writing with carriers.' },
-  { key: 'eo_uploaded', label: 'E&O Uploaded', why: 'Compliance requirement before production.' },
+  { key: 'eo_uploaded', label: 'E&O Uploaded', why: 'Compliance requirement before production.', resourceUrl: EO_PURCHASE_URL },
   { key: 'aml_complete', label: 'AML Training Completed', why: 'Regulatory requirement to write business.' },
   { key: 'product_training', label: 'Core Product Training Completed', why: 'Build confidence and product accuracy.' },
   { key: 'crm_setup', label: 'CRM + Calendar + Dialer Setup', why: 'Enables speed-to-lead and daily execution.' },
@@ -234,6 +236,11 @@ export default function LicensedOnboardingTrackerPage() {
                         onChange={(e) => setNoteByStep((m) => ({ ...m, [`${myRow.agentKey}:${step.key}`]: e.target.value }))}
                         style={{ width: '100%', padding: '8px 10px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}
                       />
+                      {step?.resourceUrl ? (
+                        <a href={step.resourceUrl} target="_blank" rel="noreferrer" style={{ minWidth: 160, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px', borderRadius: 10, border: '1px solid #334155', background: '#0B1220', color: '#E2E8F0', textDecoration: 'none', textAlign: 'center', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                          {step.key === 'eo_uploaded' ? 'Purchase E&O Insurance' : 'Open Link'}
+                        </a>
+                      ) : null}
                       <button onClick={() => updateStep('agent_mark_done', step.key, myRow)} disabled={busyMark} style={{ padding: '8px 10px', borderRadius: 10, border: 0, background: '#16a34a', color: '#fff', fontWeight: 700 }}>
                         {busyMark ? 'Saving…' : 'Mark Done'}
                       </button>
