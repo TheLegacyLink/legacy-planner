@@ -292,7 +292,6 @@ export async function GET(req) {
   const downlineRows = rows
     .filter((r) => visibleNodeKeys.has(r.agentKey))
     .filter((r) => normalize(r.agentName) !== normalize(viewerName))
-    .filter((r) => hasPolicySubmittedForAgent(r, policyRows))
     .map((r) => ({ ...r, progress: progressForRow(r, stepOrder) }))
     .sort((a, b) => {
       const ac = a?.progress?.color;
@@ -347,6 +346,7 @@ export async function POST(req) {
   if (mode === 'step_update') {
     const agentName = clean(body?.agentName || '');
     const agentEmail = clean(body?.agentEmail || '').toLowerCase();
+    const agentKeyFromBody = clean(body?.agentKey || '');
     const stepKey = clean(body?.stepKey || '');
     const action = normalize(body?.action || '');
     const note = clean(body?.note || '');
@@ -356,7 +356,7 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'missing_fields' }, { status: 400 });
     }
 
-    const key = personKey({ email: agentEmail, name: agentName });
+    const key = agentKeyFromBody || personKey({ email: agentEmail, name: agentName });
     let idx = byKey.get(key);
     if (idx == null) {
       const discovered = graph.nodes.get(key) || { agentName, agentEmail, joinedAt: nowIso() };

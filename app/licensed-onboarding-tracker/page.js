@@ -102,9 +102,10 @@ export default function LicensedOnboardingTrackerPage() {
           actorRole: viewer.role,
           agentName: targetRow.agentName,
           agentEmail: targetRow.agentEmail,
+          agentKey: targetRow.agentKey,
           stepKey,
           action,
-          note: clean(noteByStep[`${targetRow.agentKey}:${stepKey}`] || ''),
+          note: '',
           stepOrder: STEP_ORDER,
           stepLabels: STEP_LABELS
         })
@@ -235,9 +236,9 @@ export default function LicensedOnboardingTrackerPage() {
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'auto auto auto auto', gap: 8, marginTop: 10, alignItems: 'center', justifyContent: 'start' }}>
-                      {step?.resourceUrl ? (
-                        <a href={step.resourceUrl} target="_blank" rel="noreferrer" style={{ minWidth: 160, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px', borderRadius: 10, border: '1px solid #334155', background: '#0B1220', color: '#E2E8F0', textDecoration: 'none', textAlign: 'center', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                          {step.key === 'eo_uploaded' ? 'Purchase E&O Insurance' : 'Open Link'}
+                      {step.key === 'eo_uploaded' ? (
+                        <a href={EO_PURCHASE_URL} target="_blank" rel="noreferrer" style={{ minWidth: 160, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px', borderRadius: 10, border: '1px solid #334155', background: '#0B1220', color: '#E2E8F0', textDecoration: 'none', textAlign: 'center', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                          Purchase E&O Insurance
                         </a>
                       ) : null}
                       <button onClick={() => updateStep('agent_mark_done', step.key, myRow)} disabled={busyMark} style={{ padding: '8px 10px', borderRadius: 10, border: 0, background: '#16a34a', color: '#fff', fontWeight: 700 }}>
