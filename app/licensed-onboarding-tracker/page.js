@@ -13,10 +13,15 @@ function fmtDateTime(iso = '') {
 
 const CRM_SETUP_VIDEO_URL = 'https://innercirclelink.com/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf';
 const YOUTUBE_REVIEW_URL = 'https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX';
+const PINNACLE_CONTRACTING_URL = 'https://surelc.surancebay.com/producer/?gaId=190';
+const INVESTALINK_CONTRACTING_URL = 'https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance';
+const CONTRACTING_VIDEO_URL = 'https://www.loom.com/share/79354f8de2334697ba53cc5b0ff80c86?sid=b88fafc3-96a0-4d6a-9918-f396f0047603';
 
 const STEP_DEFS_LICENSED = [
   { key: 'backoffice_access', label: 'Step 1 — Back Office Access + Welcome Instructions', why: 'Open your welcome email, save your links, and confirm access to start onboarding.' },
-  { key: 'carrier_contracting', label: 'Step 2 — Contracting', why: 'Complete contracting steps before moving forward.' },
+  { key: 'pinnacle_contracting', label: 'Step 2A — Pinnacle Group Contracting Submitted', why: 'Complete the Pinnacle Group contracting packet.', resourceUrl: PINNACLE_CONTRACTING_URL },
+  { key: 'investalink_contracting', label: 'Step 2B — InVestaLink Contracting Submitted', why: 'Complete the InVestaLink contracting packet (F&G + National Life Group).', resourceUrl: INVESTALINK_CONTRACTING_URL },
+  { key: 'contracting_tutorial_reviewed', label: 'Step 2C — Contracting Tutorial Reviewed', why: 'Use the contracting video guide to complete the process correctly.', resourceUrl: CONTRACTING_VIDEO_URL },
   { key: 'eo_uploaded', label: 'Step 3 — E&O Activated', why: 'Required protection before production (activate and confirm E&O).' },
   { key: 'product_training', label: 'Step 4 — Core Product Training Completed', why: 'Complete core carrier product training sequence.' },
   { key: 'crm_setup', label: 'Step 5 — CRM + Calendar + Dialer Setup', why: 'Complete CRM workflow setup using the onboarding guide/video.', resourceUrl: CRM_SETUP_VIDEO_URL },
