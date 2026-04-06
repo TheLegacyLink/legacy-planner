@@ -174,9 +174,10 @@ function buildAgentOptionPool(carrier = '') {
     pushName(a?.full_name || a?.fullName || a?.name || '');
   }
 
-  const kimora = out.find((n) => normalize(n) === 'kimora link') || 'Kimora Link';
+  const hasKimora = out.some((n) => normalize(n) === 'kimora link');
+  const kimora = hasKimora ? ['Kimora Link'] : [];
   const rest = out.filter((n) => normalize(n) !== 'kimora link').sort((a, b) => agentNameSortKey(a).localeCompare(agentNameSortKey(b)));
-  return [kimora, ...rest];
+  return [...kimora, ...rest];
 }
 
 function productByKey(key = '') {

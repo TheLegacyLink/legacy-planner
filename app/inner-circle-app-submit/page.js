@@ -177,12 +177,13 @@ function sortedAgentNames(users = [], carrier = '') {
     .filter(Boolean);
 
   const unique = [...new Set(all.map((n) => n.replace(/\s+/g, ' ').trim()))];
-  const kimora = unique.find((n) => normalizeName(n) === 'kimora link') || 'Kimora Link';
+  const hasKimora = unique.some((n) => normalizeName(n) === 'kimora link');
+  const kimora = hasKimora ? ['Kimora Link'] : [];
   const rest = unique
     .filter((n) => normalizeName(n) !== 'kimora link')
     .sort((a, b) => normalizeName(a).localeCompare(normalizeName(b)));
 
-  return [kimora, ...rest];
+  return [...kimora, ...rest];
 }
 
 export default function InnerCircleAppSubmitPage() {
