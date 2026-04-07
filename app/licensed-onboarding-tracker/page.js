@@ -268,7 +268,6 @@ export default function LicensedOnboardingTrackerPage() {
                       </div>
                     </div>
 
-<<<<<<< HEAD
                     <div style={{ display: 'grid', gridTemplateColumns: automated ? '1fr' : (step?.resourceUrl ? 'auto auto' : 'auto'), gap: 8, marginTop: 10, alignItems: 'center', justifyContent: 'start' }}>
                       {!automated ? (
                         <>
