@@ -1255,7 +1255,7 @@ export default function MissionControl() {
               <p className="muted" style={{ marginTop: 10 }}>
                 Totals — Sponsorship Policies: {payoutRows.totals.sponsorshipPolicies} • Estimated Payout: ${Number(payoutRows.totals.payout || 0).toLocaleString()} • Paid: ${Number(payoutRows.rows.filter((r) => payoutStatusMap[cleanName(r.agent)]?.paid).reduce((a, r) => a + Number(r.estimatedPayout || 0), 0)).toLocaleString()} • Pending: ${Number(payoutRows.rows.filter((r) => !payoutStatusMap[cleanName(r.agent)]?.paid).reduce((a, r) => a + Number(r.estimatedPayout || 0), 0)).toLocaleString()}
               </p>
-              <p className="muted">Rule logic: Sponsorship Policy payout is flat-rate only — $400 for licensed agents, $500 for inner circle. Counted only when policy status is Approved. No AP, no month 10/11/12 split.</p>
+              <p className="muted">Rule logic: Sponsorship Policy payout is flat-rate: Inner Circle = $500 (writer +$50) | Non-IC + policy placed = $400 (writer +$100) | Non-IC + no policy = $300 (writer +$100).</p>
             </>
           )}
         </div>

@@ -28,22 +28,46 @@ function normalize(v = '') {
   return String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-function bonusSplit(row) {
-  const monthly = Number(row?.monthlyPremium || 0) || 0;
-  const maxBonus = Math.min(monthly, 700);
+// Inner circle user names (populated from users list at render time via bonusSplitWithUsers)
+function bonusSplit(row, innerCircleNames = []) {
   const referred = normalize(row?.referredByName || '');
   const writer = normalize(row?.policyWriterName || '');
   const writerEligible = !!writer && !!referred && writer !== referred;
-  const writerBonus = writerEligible ? Math.min(100, maxBonus) : 0;
-  const referralBonus = Math.max(maxBonus - writerBonus, 0);
-  return { referralBonus, writerBonus, totalRecommended: maxBonus };
+
+  // Determine if referring agent is Inner Circle
+  const isInnerCircle = innerCircleNames.some((n) => normalize(n) === referred);
+
+  // Determine if policy was placed (status = approved)
+  const statusRaw = String(row?.status || '').trim().toLowerCase();
+  const policyPlaced = statusRaw.startsWith('approved');
+
+  // Flat-rate payout logic (sponsorship policies only)
+  let referralBonus = 0;
+  let writerBonus = 0;
+
+  if (isInnerCircle) {
+    // Inner Circle: $500 flat regardless of policy, writer gets $50
+    referralBonus = 500;
+    writerBonus = writerEligible ? 50 : 0;
+  } else if (policyPlaced) {
+    // Not IC, policy placed: $400 referral, $100 writer
+    referralBonus = 400;
+    writerBonus = writerEligible ? 100 : 0;
+  } else {
+    // Not IC, no policy: $300 referral, $100 writer
+    referralBonus = 300;
+    writerBonus = writerEligible ? 100 : 0;
+  }
+
+  const totalRecommended = referralBonus + writerBonus;
+  return { referralBonus, writerBonus, totalRecommended, isInnerCircle, policyPlaced };
 }
 
 
-function effectivePayoutAmount(row) {
+function effectivePayoutAmount(row, innerCircleNames = []) {
   const explicit = Number(row?.payoutAmount || 0) || 0;
   if (explicit > 0) return explicit;
-  return bonusSplit(row).totalRecommended;
+  return bonusSplit(row, innerCircleNames).totalRecommended;
 }
 
 function rowVisualState(row = {}) {
@@ -110,11 +134,13 @@ export default function PolicyPayoutsPage() {
     });
   }, [rows, q, status]);
 
+  const icNames = useMemo(() => (users || []).map((u) => String(u?.name || '')), [users]);
+
   const totals = useMemo(() => {
     let unpaid = 0;
     let paid = 0;
     for (const r of filtered) {
-      const amt = effectivePayoutAmount(r);
+      const amt = effectivePayoutAmount(r, icNames);
       if (String(r.payoutStatus || 'Unpaid').toLowerCase() === 'paid') paid += amt;
       else unpaid += amt;
     }
@@ -133,7 +159,7 @@ export default function PolicyPayoutsPage() {
           id: r.id,
           client: r.applicantName || 'Unknown',
           writer: r.policyWriterName || '—',
-          amount: effectivePayoutAmount(r)
+          amount: effectivePayoutAmount(r, icNames)
         };
         if (!map.has(owner)) map.set(owner, { owner, total: 0, items: [] });
         const bucket = map.get(owner);
@@ -142,7 +168,7 @@ export default function PolicyPayoutsPage() {
       });
 
     return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [rows]);
+  }, [rows, icNames]);
 
   const monthlyEarnings = useMemo(() => {
     const now = new Date();
@@ -163,7 +189,7 @@ export default function PolicyPayoutsPage() {
       if (!paidAt || Number.isNaN(paidAt.getTime())) return;
       if (paidAt.getMonth() !== month || paidAt.getFullYear() !== year) return;
 
-      const split = bonusSplit(r);
+      const split = bonusSplit(r, icNames);
       add(r.referredByName, split.referralBonus);
       if (split.writerBonus > 0) add(r.policyWriterName, split.writerBonus);
       if (split.writerBonus === 0 && split.referralBonus === 0) {
@@ -352,7 +378,7 @@ export default function PolicyPayoutsPage() {
 
     setSyncMsg(`Applying recommended payouts to ${targets.length} unpaid rows...`);
     for (const r of targets) {
-      const split = bonusSplit(r);
+      const split = bonusSplit(r, icNames);
       await fetch('/api/policy-submissions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -375,7 +401,7 @@ export default function PolicyPayoutsPage() {
         </div>
         {syncMsg ? <p className="muted">{syncMsg}</p> : null}
         <p className="muted" style={{ marginTop: 6 }}>
-          Bonus logic: payout max is monthly premium capped at $700. If writing agent differs from referred owner, writer gets $100 and referral owner gets remaining amount.
+          Payout logic (sponsorship policies, flat-rate): Inner Circle referral = $500 (writer +$50) • Non-IC + policy placed = $400 (writer +$100) • Non-IC + no policy = $300 (writer +$100).
         </p>
 
         <div className="settingsGrid" style={{ marginTop: 8 }}>
@@ -480,7 +506,7 @@ export default function PolicyPayoutsPage() {
             </thead>
             <tbody>
               {filtered.map((r) => {
-                const split = bonusSplit(r);
+                const split = bonusSplit(r, icNames);
                 const visual = rowVisualState(r);
                 const approvalLocked = visual.terminal;
                 const statusLower = String(r.status || '').trim().toLowerCase();
@@ -611,7 +637,7 @@ export default function PolicyPayoutsPage() {
                       <div style={{ display: 'grid', gap: 4 }}>
                         <input
                           style={{ width: 92 }}
-                          defaultValue={effectivePayoutAmount(r)}
+                          defaultValue={effectivePayoutAmount(r, icNames)}
                           onBlur={(e) => patchRow(r.id, { payoutAmount: Number(e.target.value || 0) || 0 })}
                         />
                         <button type="button" className="ghost" onClick={() => patchRow(r.id, { payoutAmount: split.totalRecommended })}>
