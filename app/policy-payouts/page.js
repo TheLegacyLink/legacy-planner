@@ -404,6 +404,20 @@ export default function PolicyPayoutsPage() {
           Payout logic (sponsorship policies, flat-rate): Inner Circle referral = $500 (writer +$50) • Non-IC + policy placed = $400 (writer +$100) • Non-IC + no policy = $300 (writer +$100).
         </p>
 
+        <div style={{ marginTop: 8, marginBottom: 12, padding: '12px 16px', background: '#0d1b3e', border: '1px solid #1e3a8a', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ fontWeight: 800, color: '#f1f5f9', fontSize: 15 }}>Recalculate Unpaid Payouts</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Applies new flat-rate logic to all unpaid records: IC $500 • Non-IC + policy $400 • Non-IC no policy $300</div>
+          </div>
+          <button
+            type="button"
+            onClick={applyRecommendedToAllUnpaid}
+            style={{ padding: '10px 18px', borderRadius: 10, border: 0, background: 'linear-gradient(135deg,#d4a12a,#b8841e)', color: '#0a0f1e', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}
+          >
+            Apply New Rates to All Unpaid
+          </button>
+        </div>
+
         <div className="settingsGrid" style={{ marginTop: 8 }}>
           <label>
             Search
