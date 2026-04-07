@@ -15,10 +15,7 @@ function toDisplayName(raw = '') {
   return `${first} ${last}`.trim();
 }
 
-function isEligibleAgent(row = {}) {
-  const licenseStatus = clean(row?.license_status).toLowerCase();
-  if (licenseStatus === 'active') return true;
-
+function isContracted(row = {}) {
   const activeCarriers = Array.isArray(row?.carriers_active) ? row.carriers_active.filter(Boolean) : [];
   if (activeCarriers.length) return true;
 
@@ -32,7 +29,7 @@ export async function GET() {
 
   for (const row of Array.isArray(licensedAgents) ? licensedAgents : []) {
     const baseName = toDisplayName(row?.full_name || row?.name || '');
-    if (!baseName || !isEligibleAgent(row)) continue;
+    if (!baseName || !isContracted(row)) continue;
     const key = baseName.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);

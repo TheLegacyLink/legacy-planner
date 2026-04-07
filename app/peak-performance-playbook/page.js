@@ -2,24 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 
-const SOP_STORAGE_KEY = 'peak_performance_playbook_progress';
 const UNLOCK_KEY = 'peak_performance_playbook_unlocked';
-
-const sopChecklist = [
-  { id: 'step_1', order_index: 1, title: 'Review & Sign Your Agent Contract', description: 'Complete the independent contractor agreement to gain full access to the agent portal.' },
-  { id: 'step_2', order_index: 2, title: 'Write Your First Policy', description: 'Get your first policy on the books — on yourself, or a friend/family member.' },
-  { id: 'step_3', order_index: 3, title: 'Watch "Whatever It Takes"', description: 'Essential mindset training video to set the foundation for your success.', video_links: [{ title: 'Whatever It Takes', url: 'https://youtu.be/SVvU9SvCH9o?si=8cgj3ehub8j9OQt' }] },
-  { id: 'step_4', order_index: 4, title: 'Watch "My Lowest Point"', description: 'Inspirational story that will help you understand the resilience needed to succeed.', video_links: [{ title: 'My Lowest Point', url: 'https://youtu.be/Crs-2RLpog?si=1SYwQUO8U-DAAb8J' }] },
-  { id: 'step_5', order_index: 5, title: 'Join the Skool Community', description: 'Connect with other agents, access training materials, and stay updated.', resource_link: 'https://www.skool.com/legacylink/about?ref__=660035f641d94e3a919e081e220ed6fe' },
-  { id: 'step_6', order_index: 6, title: 'Start Carrier Contracting', description: 'Begin contracting with carriers. Find resources in Skool\'s first classroom: "Legacy & Contracting".', resource_link: 'https://www.skool.com/legacylink/about?ref__=660035f641d94e3a919e081e220ed6fe' },
-  { id: 'step_7', order_index: 7, title: 'Schedule & Complete Your Onboarding Session', description: 'Book your one-on-one onboarding session for personalized guidance and questions.' },
-  { id: 'step_8', order_index: 8, title: 'Learn the CRM', description: 'Get comfortable tracking leads & clients in the customer relationship management system.' },
-  { id: 'step_9', order_index: 9, title: 'Study the Scripts', description: 'Master both the sales scripts and recruiting scripts until they feel natural.' },
-  { id: 'step_10', order_index: 10, title: 'Start Calling Leads', description: 'Begin making calls to your leads. Remember: speed to contact is key!' },
-  { id: 'step_11', order_index: 11, title: 'Invite Prospects to the Webinar', description: 'Learn how to invite prospects to webinars. Add your current registration link to invitations.' },
-  { id: 'step_12', order_index: 12, title: 'Connect with Your Upline & Mentor', description: 'Establish regular check-ins with your upline and mentor for guidance and support.' },
-  { id: 'step_13', order_index: 13, title: 'Stay Plugged In', description: 'Attend all trainings, calls, and webinars consistently. Success comes from staying connected.' }
-];
 
 const Icon = ({ d, size = 24, color = 'currentColor' }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -359,47 +342,114 @@ function AdvancedPlaybook() {
 }
 
 export default function PeakPerformancePlaybookPage() {
-  const [completions, setCompletions] = useState(() => {
-    try {
-      const saved = localStorage.getItem(SOP_STORAGE_KEY);
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-    } catch { return new Set(); }
-  });
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const [completedSteps, setCompletedSteps] = useState(0);
+  const [loadingGate, setLoadingGate] = useState(true);
+  const [identity, setIdentity] = useState({ name: '', email: '' });
   const didSyncRef = useRef(false);
 
-  const completedCount = completions.size;
-  const totalCount = sopChecklist.length;
+  const requiredSteps = 8;
+  const trackerStepOrder = [
+    'backoffice_access',
+    'pinnacle_contracting',
+    'investalink_contracting',
+    'contracting_tutorial_reviewed',
+    'eo_uploaded',
+    'product_training',
+    'crm_setup',
+    'script_cert',
+    'youtube_review',
+    'first_policy_submitted',
+    'first_policy_placed'
+  ];
 
   useEffect(() => {
-    const done = totalCount > 0 && completedCount >= totalCount;
-    setIsUnlocked(done);
-    try {
-      if (done) localStorage.setItem(UNLOCK_KEY, '1');
-      else localStorage.removeItem(UNLOCK_KEY);
-    } catch {}
+    let cancelled = false;
 
-    if (!done || didSyncRef.current) return;
+    async function loadGate() {
+      setLoadingGate(true);
+      try {
+        let name = '';
+        let email = '';
+
+        try {
+          const raw = window.localStorage.getItem('inner_hub_member_v1');
+          const member = raw ? JSON.parse(raw) : null;
+          name = String(member?.applicantName || member?.name || '').trim();
+          email = String(member?.email || '').trim().toLowerCase();
+        } catch {}
+
+        if (!email) {
+          try {
+            const token = window.localStorage.getItem('licensed_backoffice_token') || '';
+            if (token) {
+              const meRes = await fetch('/api/licensed-backoffice/auth/me', {
+                headers: { Authorization: `Bearer ${token}` },
+                cache: 'no-store'
+              });
+              const me = await meRes.json().catch(() => ({}));
+              if (meRes.ok && me?.ok && me?.profile) {
+                name = String(me.profile?.name || name || '').trim();
+                email = String(me.profile?.email || email || '').trim().toLowerCase();
+              }
+            }
+          } catch {}
+        }
+
+        if (!name && !email) {
+          if (!cancelled) {
+            setIdentity({ name: '', email: '' });
+            setCompletedSteps(0);
+            setIsUnlocked(false);
+          }
+          return;
+        }
+
+        const stepLabels = Object.fromEntries(trackerStepOrder.map((k, i) => [k, `Step ${i + 1}`]));
+        const qs = new URLSearchParams({
+          viewerName: name,
+          viewerEmail: email,
+          viewerRole: 'agent',
+          stepOrder: JSON.stringify(trackerStepOrder),
+          stepLabels: JSON.stringify(stepLabels)
+        });
+
+        const res = await fetch(`/api/licensed-onboarding-tracker?${qs.toString()}`, { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        const doneCount = Number(data?.myRow?.progress?.agentDoneSteps || 0);
+        const unlocked = doneCount >= requiredSteps;
+
+        if (!cancelled) {
+          setIdentity({ name, email });
+          setCompletedSteps(doneCount);
+          setIsUnlocked(unlocked);
+          try {
+            if (unlocked) window.localStorage.setItem(UNLOCK_KEY, '1');
+            else window.localStorage.removeItem(UNLOCK_KEY);
+          } catch {}
+        }
+      } finally {
+        if (!cancelled) setLoadingGate(false);
+      }
+    }
+
+    loadGate();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!isUnlocked || didSyncRef.current) return;
     didSyncRef.current = true;
 
-    const raw = typeof window !== 'undefined' ? window.localStorage.getItem('inner_hub_member_v1') : '';
-    const localMember = raw ? JSON.parse(raw) : null;
-    const name = String(localMember?.applicantName || localMember?.name || '').trim();
-    const email = String(localMember?.email || '').trim().toLowerCase();
+    const name = String(identity?.name || '').trim();
+    const email = String(identity?.email || '').trim().toLowerCase();
     if (!name && !email) return;
 
     fetch('/api/achievement-center', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'merge_unlocks', name, email, unlockedKeys: ['performance.official_link'], source: 'peak_playbook_complete' })
+      body: JSON.stringify({ action: 'merge_unlocks', name, email, unlockedKeys: ['performance.official_link'], source: 'onboarding_tracker_unlock' })
     }).catch(() => {});
-  }, [completedCount, totalCount]);
-
-  const toggle = (id) => {
-    const next = new Set(completions);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    setCompletions(next);
-    try { localStorage.setItem(SOP_STORAGE_KEY, JSON.stringify(Array.from(next))); } catch {}
-  };
+  }, [isUnlocked, identity?.name, identity?.email]);
 
   if (isUnlocked) return <AdvancedPlaybook />;
 
@@ -407,23 +457,17 @@ export default function PeakPerformancePlaybookPage() {
     <div style={{ padding: '32px 16px', background: 'radial-gradient(circle at top, #15213f 0%, #070b14 55%)', minHeight: '100vh' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
         <h1 style={{ color: '#fff', marginTop: 0 }}>Peak Performance Unlock</h1>
-        <p style={{ color: '#9CA3AF' }}>Complete all 13 SOP steps to unlock the full Peak Performance Playbook experience.</p>
+        <p style={{ color: '#9CA3AF' }}>Unlocks automatically when onboarding tracker progress reaches at least 8 completed steps.</p>
         <div style={{ background: '#0F172A', border: '1px solid #334155', borderRadius: 12, padding: 14, marginBottom: 12, color: '#E2E8F0', fontWeight: 700 }}>
-          Progress: {completedCount}/{totalCount}
+          Progress: {loadingGate ? 'Checking…' : `${completedSteps}/${requiredSteps} required`}
         </div>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {sopChecklist.map((item) => {
-            const done = completions.has(item.id);
-            return (
-              <div key={item.id} style={{ background: '#0F172A', border: `1px solid ${done ? '#16a34a' : '#334155'}`, borderRadius: 10, padding: 12 }}>
-                <label style={{ color: done ? '#86efac' : '#fff', display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={done} onChange={() => toggle(item.id)} />
-                  <span><strong>{item.order_index}. {item.title}</strong><br /><small style={{ color: '#94A3B8' }}>{item.description}</small></span>
-                </label>
-              </div>
-            );
-          })}
-        </div>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #334155', background: '#111827', color: '#E5E7EB', fontWeight: 700, cursor: 'pointer' }}
+        >
+          Refresh Unlock Status
+        </button>
       </div>
     </div>
   );

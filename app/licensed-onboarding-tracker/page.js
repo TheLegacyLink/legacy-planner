@@ -28,8 +28,8 @@ const STEP_DEFS_LICENSED = [
   { key: 'crm_setup', label: 'Step 5 — CRM + Calendar + Dialer Setup', why: 'Complete CRM workflow setup using the onboarding guide/video.', resourceUrl: CRM_SETUP_VIDEO_URL },
   { key: 'script_cert', label: 'Step 6 — Script Roleplay Certification', why: 'Complete roleplay certification with trainer/upline.' },
   { key: 'youtube_review', label: 'Step 7 — Required YouTube Task', why: 'Watch the required video and leave a comment.', resourceUrl: YOUTUBE_REVIEW_URL },
-  { key: 'first_policy_submitted', label: 'Step 8A — First Policy Submitted', why: 'Automated milestone from policy submissions.', automated: true },
-  { key: 'first_policy_placed', label: 'Step 8B — First Policy Placed', why: 'Automated milestone when first policy is approved.', automated: true }
+  { key: 'first_policy_submitted', label: 'Step 8A — First Policy Submitted', why: 'Milestone from application submission.' },
+  { key: 'first_policy_placed', label: 'Step 8B — First Policy Placed', why: 'Milestone when first policy is approved.' }
 ];
 
 const STEP_DEFS_INNER_CIRCLE = [
@@ -268,6 +268,7 @@ export default function LicensedOnboardingTrackerPage() {
                       </div>
                     </div>
 
+<<<<<<< HEAD
                     <div style={{ display: 'grid', gridTemplateColumns: automated ? '1fr' : (step?.resourceUrl ? 'auto auto' : 'auto'), gap: 8, marginTop: 10, alignItems: 'center', justifyContent: 'start' }}>
                       {!automated ? (
                         <>

@@ -524,10 +524,6 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'missing_fields' }, { status: 400 });
     }
 
-    if (autoStepKeys.includes(stepKey)) {
-      return Response.json({ ok: false, error: 'auto_step_readonly' }, { status: 400 });
-    }
-
     const key = agentKeyFromBody || personKey({ email: agentEmail, name: agentName });
     let idx = byKey.get(key);
     if (idx == null) {

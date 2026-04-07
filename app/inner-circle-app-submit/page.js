@@ -168,10 +168,10 @@ function mapReferrerToUser(raw = '', users = [], refCode = '') {
   if (!input && !byCode) return '';
 
   for (const u of users || []) {
-    const n = String(u?.name || '').trim().toLowerCase();
+    const n = String(typeof u === 'string' ? u : (u?.name || '')).trim().toLowerCase();
     if (!n) continue;
-    if (input && (n === input || n.includes(input) || input.includes(n))) return u.name;
-    if (byCode && (n.includes(byCode) || byCode.includes(n.split(' ')[0] || ''))) return u.name;
+    if (input && (n === input || n.includes(input) || input.includes(n))) return String(typeof u === 'string' ? u : (u?.name || '')).trim();
+    if (byCode && (n.includes(byCode) || byCode.includes(n.split(' ')[0] || ''))) return String(typeof u === 'string' ? u : (u?.name || '')).trim();
   }
   return '';
 }
@@ -195,6 +195,9 @@ export default function InnerCircleAppSubmitPage() {
   const [authLoading, setAuthLoading] = useState(true);
   const [session, setSession] = useState(null);
   const [users, setUsers] = useState([]);
+  const [contractedAgentNames, setContractedAgentNames] = useState([]);
+  const [referredBySearch, setReferredBySearch] = useState('');
+  const [policyWriterSearch, setPolicyWriterSearch] = useState('');
   const [loginName, setLoginName] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -209,7 +212,6 @@ export default function InnerCircleAppSubmitPage() {
     referredByName: '',
     referredByOtherName: '',
     policyWriterName: '',
-    policyWriterOtherName: '',
     state: '',
     policyNumber: '',
     monthlyPremium: '',
@@ -252,11 +254,20 @@ export default function InnerCircleAppSubmitPage() {
 
     async function loadUsers() {
       try {
-        const res = await fetch('/api/inner-circle-auth', { cache: 'no-store' });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data?.ok && Array.isArray(data.users)) {
-          setUsers(data.users);
-          if (!loginName && data.users[0]?.name) setLoginName(data.users[0].name);
+        const [usersRes, contractedRes] = await Promise.all([
+          fetch('/api/inner-circle-auth', { cache: 'no-store' }),
+          fetch('/api/contracted-agent-names', { cache: 'no-store' })
+        ]);
+
+        const usersData = await usersRes.json().catch(() => ({}));
+        if (usersRes.ok && usersData?.ok && Array.isArray(usersData.users)) {
+          setUsers(usersData.users);
+          if (!loginName && usersData.users[0]?.name) setLoginName(usersData.users[0].name);
+        }
+
+        const contractedData = await contractedRes.json().catch(() => ({}));
+        if (contractedRes.ok && contractedData?.ok && Array.isArray(contractedData.names)) {
+          setContractedAgentNames(contractedData.names);
         }
       } finally {
         setAuthLoading(false);
@@ -267,6 +278,43 @@ export default function InnerCircleAppSubmitPage() {
   }, []);
 
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const agentDirectory = useMemo(() => {
+    const seen = new Set();
+    const merged = [];
+
+    for (const u of users || []) {
+      const name = String(u?.name || '').trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(name);
+    }
+
+    for (const nameRaw of contractedAgentNames || []) {
+      const name = String(nameRaw || '').trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(name);
+    }
+
+    return merged.sort((a, b) => a.localeCompare(b));
+  }, [users, contractedAgentNames]);
+
+  const filteredReferredByOptions = useMemo(() => {
+    const q = String(referredBySearch || '').trim().toLowerCase();
+    if (!q) return agentDirectory;
+    return agentDirectory.filter((n) => n.toLowerCase().includes(q));
+  }, [agentDirectory, referredBySearch]);
+
+  const filteredPolicyWriterOptions = useMemo(() => {
+    const q = String(policyWriterSearch || '').trim().toLowerCase();
+    if (!q) return agentDirectory;
+    return agentDirectory.filter((n) => n.toLowerCase().includes(q));
+  }, [agentDirectory, policyWriterSearch]);
 
   const isAdmin = String(session?.role || '').toLowerCase() === 'admin';
   const isInnerCircleType = useMemo(() => String(form.appType || '').toLowerCase().includes('inner circle'), [form.appType]);
@@ -332,8 +380,8 @@ export default function InnerCircleAppSubmitPage() {
 
   useEffect(() => {
     if (!prefill || prefillApplied) return;
-    const mappedReferrer = mapReferrerToUser(prefill.referredByNameRaw, users, prefill.refCode);
-    const mappedWriter = mapReferrerToUser(prefill.policyWriterNameRaw, users, prefill.refCode);
+    const mappedReferrer = mapReferrerToUser(prefill.referredByNameRaw, agentDirectory, prefill.refCode);
+    const mappedWriter = mapReferrerToUser(prefill.policyWriterNameRaw, agentDirectory, prefill.refCode);
 
     setForm((prev) => ({
       ...prev,
@@ -343,12 +391,7 @@ export default function InnerCircleAppSubmitPage() {
       applicantPhone: formatPhoneInput(prefill.applicantPhone) || prev.applicantPhone,
       applicantLicensedStatus: prefill.applicantLicensedStatus || prev.applicantLicensedStatus,
       state: prefill.state || prev.state,
-      referredByName: mappedReferrer
-        ? mappedReferrer
-        : (prefill.referredByNameRaw ? 'Other' : prev.referredByName),
-      referredByOtherName: mappedReferrer
-        ? ''
-        : (prefill.referredByNameRaw || prev.referredByOtherName),
+      referredByName: mappedReferrer || prefill.referredByNameRaw || prev.referredByName,
       policyWriterName: mappedWriter || prefill.policyWriterNameRaw || prev.policyWriterName,
       policyNumber: prefill.policyNumber || prev.policyNumber,
       monthlyPremium: prefill.monthlyPremium || prev.monthlyPremium,
@@ -356,7 +399,30 @@ export default function InnerCircleAppSubmitPage() {
       productName: prefill.productName || prev.productName
     }));
     setPrefillApplied(true);
-  }, [prefill, prefillApplied, users]);
+  }, [prefill, prefillApplied, agentDirectory]);
+
+  // Default writer/referrer to signed-in submitter when opening from own back office.
+  useEffect(() => {
+    const me = String(session?.name || '').trim();
+    if (!me) return;
+
+    setForm((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      if (!String(prev.referredByName || '').trim()) {
+        next.referredByName = me;
+        changed = true;
+      }
+
+      if (!String(prev.policyWriterName || '').trim()) {
+        next.policyWriterName = me;
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [session?.name]);
 
   // Default writer/referrer to signed-in submitter when opening from own back office.
   useEffect(() => {
@@ -436,13 +502,8 @@ export default function InnerCircleAppSubmitPage() {
   }, [isAdmin, isInnerCircleType]);
 
   const canSubmit = useMemo(() => {
-    const referredByOk = form.referredByName === 'Other'
-      ? form.referredByOtherName.trim()
-      : form.referredByName.trim();
-
-    const writerOk = form.policyWriterName === 'Other'
-      ? form.policyWriterOtherName.trim()
-      : form.policyWriterName.trim();
+    const referredByOk = form.referredByName.trim();
+    const writerOk = form.policyWriterName.trim();
 
     const contractOk = !requiresContract || contractStatus.signed || (isAdmin && (adminBypassContractGate || adminMarkedAppReceived));
     const premiumOk = usesAnnualizedPremium
@@ -464,13 +525,8 @@ export default function InnerCircleAppSubmitPage() {
   }, [form, requiresContract, contractStatus.signed, isAdmin, adminBypassContractGate, adminMarkedAppReceived, usesAnnualizedPremium, isInnerCircleType]);
 
   const canMarkSkipped = useMemo(() => {
-    const referredByOk = form.referredByName === 'Other'
-      ? form.referredByOtherName.trim()
-      : form.referredByName.trim();
-
-    const writerOk = form.policyWriterName === 'Other'
-      ? form.policyWriterOtherName.trim()
-      : form.policyWriterName.trim();
+    const referredByOk = form.referredByName.trim();
+    const writerOk = form.policyWriterName.trim();
 
     return Boolean(
       session?.name &&
@@ -613,13 +669,8 @@ export default function InnerCircleAppSubmitPage() {
   async function markSkippedApp() {
     if (!canMarkSkipped || !session?.name || skipBusy) return;
 
-    const effectiveReferredBy = form.referredByName === 'Other'
-      ? form.referredByOtherName.trim()
-      : form.referredByName;
-
-    const effectivePolicyWriter = form.policyWriterName === 'Other'
-      ? form.policyWriterOtherName.trim()
-      : form.policyWriterName;
+    const effectiveReferredBy = form.referredByName.trim();
+    const effectivePolicyWriter = form.policyWriterName.trim();
 
     setSkipBusy(true);
     setSaved('');
@@ -715,13 +766,8 @@ export default function InnerCircleAppSubmitPage() {
     e.preventDefault();
     if (!canSubmit || !session?.name) return;
 
-    const effectiveReferredBy = form.referredByName === 'Other'
-      ? form.referredByOtherName.trim()
-      : form.referredByName;
-
-    const effectivePolicyWriter = form.policyWriterName === 'Other'
-      ? form.policyWriterOtherName.trim()
-      : form.policyWriterName;
+    const effectiveReferredBy = form.referredByName.trim();
+    const effectivePolicyWriter = form.policyWriterName.trim();
 
     const autoApproveFromFng = String(prefill?.source || '').toLowerCase().startsWith('fng-');
     const record = {
@@ -778,7 +824,6 @@ export default function InnerCircleAppSubmitPage() {
       referredByName: '',
       referredByOtherName: '',
       policyWriterName: '',
-      policyWriterOtherName: '',
       state: '',
       policyNumber: '',
       monthlyPremium: '',
@@ -1057,54 +1102,49 @@ export default function InnerCircleAppSubmitPage() {
 
           <label>
             Referred By *
-            <select value={form.referredByName} onChange={(e) => {
-              const value = e.target.value;
-              setForm((prev) => ({
-                ...prev,
-                referredByName: value,
-                referredByOtherName: value === 'Other' ? prev.referredByOtherName : ''
-              }));
-            }}>
-              <option value="">Select inner circle agent</option>
-              {users.map((u) => (
-                <option key={`ref-${u.name}`} value={u.name}>{u.name}</option>
-              ))}
-              <option value="Other">Other</option>
-            </select>
+            <input
+              type="search"
+              value={referredBySearch}
+              onChange={(e) => setReferredBySearch(e.target.value)}
+              placeholder="Search referred-by names"
+              style={{ marginBottom: 6 }}
+            />
+            <input
+              list="agentDirectoryReferred"
+              value={form.referredByName}
+              onChange={(e) => update('referredByName', e.target.value)}
+              placeholder="Type or select name"
+            />
           </label>
 
-          {form.referredByName === 'Other' ? (
-            <label>
-              Referred By Full Name *
-              <input
-                value={form.referredByOtherName}
-                onChange={(e) => update('referredByOtherName', e.target.value)}
-                placeholder="Enter full name"
-              />
-            </label>
-          ) : null}
+          <datalist id="agentDirectoryReferred">
+            {filteredReferredByOptions.map((name) => (
+              <option key={`ref-${name}`} value={name} />
+            ))}
+          </datalist>
 
           <label>
             Policy Written By *
-            <select value={form.policyWriterName} onChange={(e) => update('policyWriterName', e.target.value)}>
-              <option value="">Select policy writer</option>
-              {users.map((u) => (
-                <option key={`writer-${u.name}`} value={u.name}>{u.name}</option>
-              ))}
-              <option value="Other">Other</option>
-            </select>
+            <input
+              type="search"
+              value={policyWriterSearch}
+              onChange={(e) => setPolicyWriterSearch(e.target.value)}
+              placeholder="Search policy writer names"
+              style={{ marginBottom: 6 }}
+            />
+            <input
+              list="agentDirectoryWriter"
+              value={form.policyWriterName}
+              onChange={(e) => update('policyWriterName', e.target.value)}
+              placeholder="Type or select name"
+            />
           </label>
 
-          {form.policyWriterName === 'Other' ? (
-            <label>
-              Policy Writer Full Name *
-              <input
-                value={form.policyWriterOtherName}
-                onChange={(e) => update('policyWriterOtherName', e.target.value)}
-                placeholder="Enter full name"
-              />
-            </label>
-          ) : null}
+          <datalist id="agentDirectoryWriter">
+            {filteredPolicyWriterOptions.map((name) => (
+              <option key={`writer-${name}`} value={name} />
+            ))}
+          </datalist>
 
           <label>
             State *
@@ -1198,7 +1238,7 @@ export default function InnerCircleAppSubmitPage() {
             <strong style={{ color: '#fff', fontSize: 18 }}>Submission Summary</strong>
             <div className="policySidebarList">
               <div><small className="muted">Application Type</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.appType || '—'}</div></div>
-              <div><small className="muted">Policy Writer</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.policyWriterName === 'Other' ? (form.policyWriterOtherName || '—') : (form.policyWriterName || '—')}</div></div>
+              <div><small className="muted">Policy Writer</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.policyWriterName || '—'}</div></div>
               <div><small className="muted">Product</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.productName || '—'}</div></div>
               <div><small className="muted">Carrier</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.carrier || '—'}</div></div>
               <div><small className="muted">Referred By</small><div style={{ color: '#f8fafc', fontWeight: 700 }}>{form.referredByName === 'Other' ? (form.referredByOtherName || '—') : (form.referredByName || '—')}</div></div>
