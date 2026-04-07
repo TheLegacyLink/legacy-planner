@@ -1,86 +1,88 @@
-# The Legacy Link — Unlicensed Agent Onboarding Playbook
+# Welcome to The Legacy Link — Unlicensed Agent Onboarding
 
-## Purpose
-This playbook is your **unlicensed agent launch sequence**.
-Complete each step in order and maintain daily execution discipline.
+Hey, welcome. We're glad you're here.
 
----
-
-## Step 1 — Profile Setup + ICA Signing (Required First)
-
-### Part A — Submit Your Profile
-- Go here to get started: **https://innercirclelink.com/start/unlicensed**
-- Fill in your full name, email, phone, birthday, and home state.
-- Click **"Create Unlicensed Profile"** to submit.
-- After submitting, click **"Log In & Sign Your ICA"** to continue.
-
-### Part B — Log In with One-Time Passcode
-- At the login page, enter your email.
-- A one-time passcode will be sent to your email. Enter it to access the system.
-- Upon first login, you will be taken through a **mandatory one-time signing sequence** before accessing anything else.
-
-### Part C — ICA Signing Sequence (3 Steps, ~5 Minutes)
-
-**Step 1A — Independent Contractor Agreement (ICA V3)**
-- Read the full agreement. Scroll to the bottom.
-- Check the box confirming you have read and agree to all terms.
-- Click **"Continue to Compliance Addendum"** to proceed.
-
-**Step 1B — Compliance & Coverage Addendum**
-- Read the full addendum. It covers:
-  - Policies and disclosures
-  - Insurance compliance
-  - Optional company-supported coverage
-  - Premium advancement terms
-  - Persistency expectations
-- Check the box to acknowledge.
-- Click **"Continue to Suitability Assessment"** to proceed.
-
-**Step 1C — Suitability Assessment + Policy Election**
-- Answer all 5 questions honestly:
-  1. Do you currently have any life insurance coverage?
-  2. Do you have anyone who relies on you financially? (spouse, children, family, business partner, or none)
-  3. Do you have financial obligations that could create hardship if something happened to you? (mortgage, debt, family support, or none)
-  4. Would your family experience financial hardship if you passed away unexpectedly?
-  5. Do you understand the purpose of life insurance and how it can protect your family?
-- Based on your answers, the system will determine if you are suitable for a company-funded policy.
-- **If suitable:** You will see a checkbox to elect the company-funded policy. Check it if you choose to receive it, or opt out — your choice.
-- **If not suitable:** The policy checkbox will be grayed out automatically. You are still fully welcome in Legacy Link. The policy is optional.
-- Type your full legal name as your electronic signature.
-- Click **"Sign & Complete"** to finalize.
-
-> Your signed ICA is recorded internally. Kimora Link and your upline will be notified for countersignature review.
+This is your step-by-step guide to getting started. Read it once, then follow each step in order. Don't skip ahead — each step unlocks the next one.
 
 ---
 
-## Step 2 — Community + Skool (Training)
-- Join Skool community: **https://www.skool.com/legacylink/about**
-- Complete onboarding/training tasks assigned there.
-- Stay active and responsive while onboarding is in progress.
+## Step 1 — Sign Your Agreement (Do This First, Right Now)
+
+Before anything else, you need to sign your Independent Contractor Agreement. This is a one-time thing. It takes about 5 minutes.
+
+Here's exactly what happens:
+
+**1. Check your email.**
+You'll have a welcome email with your login link. Click it, or go directly to:
+**innercirclelink.com/start**
+
+**2. Enter your email address.**
+A 6-digit code will be sent to you. Enter it to get in.
+
+**3. You'll see a full-screen signing flow. It has 3 parts:**
+
+**Part 1 — The ICA (Independent Contractor Agreement)**
+This is your official agreement with The Legacy Link. Scroll through and read it. When you're done, check the box that says you've read and agree, then click Continue.
+
+**Part 2 — Compliance & Coverage Addendum**
+This is a shorter document about insurance coverage policies and your rights. Read it, check the box, then click Continue.
+
+**Part 3 — Suitability Questions + Policy Election**
+You'll answer 5 simple questions. They help us figure out if a company-funded life insurance policy makes sense for you. Be honest — there's no wrong answer.
+
+The questions are:
+- Do you have any life insurance right now?
+- Does anyone rely on you financially? (family, spouse, kids, business partner)
+- Do you have financial obligations that would hurt your family if something happened to you? (rent, debt, bills)
+- Would your family struggle financially if you passed away unexpectedly?
+- Do you understand what life insurance does and how it protects people?
+
+After you answer, one of two things will happen:
+
+✅ **If you're suitable** — you'll see a checkbox to elect a company-funded policy. Check it if you want it. It's optional. If you'd rather skip it, there's an opt-out box too.
+
+⚠️ **If you're not suitable right now** — the policy box will be grayed out. You'll check a box saying you understand and want to move forward anyway. You're still 100% part of Legacy Link — the policy is always optional.
+
+**4. Type your full legal name to sign and click "Sign & Complete."**
+
+That's it. You're signed. Kimora and your upline will get a notification to countersign.
 
 ---
 
-## Step 3 — Pre-Licensing Onboarding (Jamal Leads This)
-- Jamal leads pre-licensing onboarding for all unlicensed agents.
-- This is true regardless of referral/upline.
-- Expect Jamal to reach out within **1–3 business days** to get your pre-licensing process started.
+## Step 2 — Join the Skool Community
+
+Once you're in the system, join our training community:
+**https://www.skool.com/legacylink/about**
+
+Stay active. Complete the tasks. This is where your training lives.
 
 ---
 
-## Step 4 — Required YouTube Task
-- Watch **Whatever It Takes**: **https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX**
-- Leave a comment on the video to confirm completion.
+## Step 3 — Wait for Jamal to Reach Out
+
+Jamal runs pre-licensing onboarding for all unlicensed agents. You don't need to do anything here — he'll contact you within 1–3 business days to get your licensing process started.
+
+If you don't hear from him, use the Help button inside your back office to reach out.
 
 ---
 
-## Quality Standard
-- No lead without notes
-- No same-day activity left unlogged
-- No skipped follow-up without reason
+## Step 4 — Watch "Whatever It Takes"
 
-## Upline Support (Use the Help Button)
-- Use **Help / Messages** in back office to contact your upline directly.
-- Unlicensed onboarding messages route through your assigned upline flow.
-- Response SLA: **1 business day (Monday–Friday)**.
-- **Weekends are excluded** from SLA timing.
-- If no upline response by end of next business day, the issue is escalated internally to support.
+Watch this video and leave a comment:
+**https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX**
+
+This is required. It's part of our culture. Watch it with intention.
+
+---
+
+## A Few Things to Know
+
+- You don't need to be licensed to be part of this team. You just need to start.
+- Your back office is where everything lives — your progress, your upline, your tasks.
+- If you're stuck on anything, hit the Help button inside the back office.
+- Response time from your upline is 1 business day (Monday–Friday). Weekends don't count.
+
+---
+
+**Let's go. Execute.**
+— The Legacy Link Team
