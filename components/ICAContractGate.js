@@ -647,7 +647,7 @@ export default function ICAContractGate({ token, session, onSigned }) {
                           I am suitable for insurance and choose to receive a company-funded policy
                         </div>
                         <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-                          Subject to Agency approval and Kimora Link countersignature. Optional — you can still participate without this.
+                          Subject to Agency approval and back office review. Optional — you can still participate without this.
                         </div>
                       </div>
                     </div>
@@ -731,7 +731,7 @@ export default function ICAContractGate({ token, session, onSigned }) {
 
                 <p style={{ fontSize: 12, color: '#475569', textAlign: 'center', marginTop: 16 }}>
                   Your electronic signature is legally binding. By signing, you confirm the name above is your legal name.
-                  Your suitability responses and policy election will be reviewed by Kimora Link.
+                  Your electronic signature is legally binding. By signing, you confirm the name above is your legal name. Your suitability responses and policy election will be reviewed by The Legacy Link back office.
                 </p>
               </>
             )}
