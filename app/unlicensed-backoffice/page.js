@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import ICAContractGate from '../../components/ICAContractGate';
 
 function clean(v = '') { return String(v || '').trim(); }
 function pct(done = 0, total = 1) { return Math.round((done / Math.max(1, total)) * 100); }
@@ -33,6 +34,7 @@ export default function UnlicensedBackofficePage() {
   const [code, setCode] = useState('');
   const [codeRequested, setCodeRequested] = useState(false);
   const [token, setToken] = useState('');
+  const [icaSigned, setIcaSigned] = useState(false);
   const [profile, setProfile] = useState(null);
   const [progress, setProgress] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -291,6 +293,10 @@ export default function UnlicensedBackofficePage() {
   const fields = progress?.fields || {};
 
   return (
+    <>
+      {profile && token && !icaSigned && (
+        <ICAContractGate token={token} session={profile} onSigned={() => setIcaSigned(true)} />
+      )}
     <main style={{ minHeight: '100vh', background: '#070b14', color: '#E5E7EB', padding: 22 }}>
       <section style={{ maxWidth: 980, margin: '0 auto', display: 'grid', gap: 12 }}>
         <header style={{ border: '1px solid #2A3142', borderRadius: 14, background: '#0F172A', padding: 16 }}>
@@ -459,5 +465,6 @@ export default function UnlicensedBackofficePage() {
         </div>
       </section>
     </main>
+    </>
   );
 }

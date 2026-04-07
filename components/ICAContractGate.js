@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 // ── ICA V3 full text ──────────────────────────────────────────────────────────
 const ICA_TEXT = `INDEPENDENT CONTRACTOR AGREEMENT (V3)
 THE LEGACY LINK / INVESTALINK LLC
-[DOCUSIGN VERSION — COMPANY COUNTERSIGN REQUIRED]
 
 This Independent Contractor Agreement ("Agreement") is entered into by and between The Legacy Link, a division of Investalink LLC ("Agency" or "Company"), and the undersigned independent agent ("Agent").
 
