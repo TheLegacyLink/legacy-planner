@@ -1,6 +1,42 @@
 import { createHash, randomBytes } from 'crypto';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
-import { sessionFromToken } from '../start-auth/_lib';
+import { sessionFromToken as sessionFromStartAuth } from '../start-auth/_lib';
+
+const UNLICENSED_SESSIONS_PATH = 'stores/unlicensed-backoffice-sessions.json';
+const LICENSED_SESSIONS_PATH = 'stores/licensed-backoffice-sessions.json';
+
+async function sessionFromToken(token = '') {
+  // Try start-auth sessions first
+  const profile = await sessionFromStartAuth(token);
+  if (profile) return profile;
+
+  // Try unlicensed back office sessions
+  const t = String(token || '').trim();
+  if (!t) return null;
+  const hash = createHash('sha256').update(t).digest('hex');
+
+  for (const path of [UNLICENSED_SESSIONS_PATH, LICENSED_SESSIONS_PATH]) {
+    try {
+      const rows = await loadJsonStore(path, []);
+      const hit = (Array.isArray(rows) ? rows : []).find((r) => String(r?.tokenHash || '') === hash && r?.active !== false);
+      if (hit) {
+        const exp = new Date(hit?.expiresAt || 0).getTime();
+        if (Number.isFinite(exp) && exp > Date.now()) {
+          return {
+            email: String(hit?.email || '').toLowerCase().trim(),
+            name: String(hit?.name || '').trim(),
+            phone: String(hit?.phone || '').trim(),
+            state: String(hit?.state || '').trim(),
+            trackType: String(hit?.trackType || 'unlicensed').trim(),
+            applicationId: String(hit?.applicationId || '').trim(),
+            referrerName: String(hit?.referrerName || '').trim(),
+          };
+        }
+      }
+    } catch { /* skip */ }
+  }
+  return null;
+}
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
