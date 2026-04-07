@@ -10,33 +10,189 @@ function clean(v = '') { return String(v || '').trim(); }
 function isEmail(v = '') { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean(v)); }
 
 // ─── ICA Contract text ────────────────────────────────────────────────────
-// Replace this placeholder with the full ICA text.
-const CONTRACT_TEXT = `INDEPENDENT CONTRACTOR AGREEMENT
+const CONTRACT_TEXT = `INDEPENDENT CONTRACTOR AGREEMENT (V3)
+THE LEGACY LINK / INVESTALINK LLC
 
-This Independent Contractor Agreement ("Agreement") is entered into between The Legacy Link ("Company") and the undersigned individual ("Contractor").
+This Independent Contractor Agreement ("Agreement") is entered into by and between The Legacy Link, a division of Investalink LLC ("Agency" or "Company"), and the undersigned independent agent ("Agent").
 
-1. INDEPENDENT CONTRACTOR STATUS
-Contractor is an independent contractor and not an employee, agent, joint venturer, or partner of Company.
+Effective Date: The latest date signed below.
 
-2. SERVICES
-Contractor agrees to provide insurance sales and related services as directed by Company.
+0. DEFINITIONS
+"Agency/Company" means The Legacy Link / Investalink LLC.
+"Agent" means the independent contractor who signs this Agreement.
+"Active Agent" means Agent in good standing, compliant, and not suspended/terminated.
+"Issued Policy" means a policy accepted by carrier and in-force.
+"Chargeback" means reversal/reduction of paid commission due to lapse/cancel/rescission.
+"Compensation Schedule" means the current payout schedule in Exhibit A (as updated in writing by Agency).
+"JumpStart" means Agency business-advance/payout model; not guaranteed income.
+"Sponsorship Policy" means a policy initially funded under the Agency sponsorship structure.
 
-3. COMPENSATION
-Contractor will be compensated pursuant to the compensation schedule provided by Company, which may be updated from time to time.
+1. NATURE OF RELATIONSHIP
 
-4. CONFIDENTIALITY
-Contractor agrees to keep all client and business information confidential and not to disclose such information to any third party.
+1.1 Independent Contractor Status
+Agent is an independent contractor and not an employee. Nothing in this Agreement creates an employer-employee relationship, partnership, or joint venture.
 
-5. TERM AND TERMINATION
-This Agreement is at-will and may be terminated by either party at any time with or without cause.
+1.2 Non-Captive Status
+Agent may contract with other agencies/carriers, provided Agent does not misuse Agency confidential/proprietary information.
 
-6. COMPLIANCE
-Contractor agrees to comply with all applicable laws, regulations, and Company policies.
+1.3 Agent Responsibilities
+Agent is responsible for licensing, taxes, business expenses, and legal/regulatory compliance.
 
-7. ENTIRE AGREEMENT
-This Agreement constitutes the entire agreement between the parties with respect to its subject matter.
+2. LICENSING, COMPLIANCE, AND E&O
 
-By signing below, Contractor acknowledges reading, understanding, and agreeing to the terms of this Agreement.`;
+2.1 Licensing
+Agent must maintain all required state insurance licenses.
+
+2.2 Compliance
+Agent must follow all state/federal insurance laws, carrier rules, and ethical sales standards.
+
+2.3 E&O
+Agent must maintain active E&O coverage.
+
+2.4 E&O Limitations
+If Agency provides E&O, coverage applies only to policies written within Agency hierarchy and terminates upon resignation/termination.
+
+3. COMPENSATION, PAYMENTS, AND CHARGEBACKS
+
+3.1 Commission Flow
+Commissions are paid through Agency hierarchy.
+
+3.2 Overrides
+Overrides are paid under the active Compensation Schedule (Exhibit A).
+
+3.3 Transfer Economics
+Transfer/upline economics are governed by approved written transfer terms and the active Compensation Schedule.
+
+3.4 Chargebacks
+Chargebacks are Agent responsibility, with proportional recoupment as outlined in Exhibit A.
+
+3.5 Deduction Authorization
+Agent authorizes Agency to deduct owed balances from future commissions/bonuses.
+
+3.6 Variability
+Compensation may vary by carrier/product/regulatory requirements.
+
+3.7 No Earnings Guarantee
+Agency does not guarantee leads, sales, commissions, bonuses, or income.
+
+4. SPONSORSHIP PROGRAM TERMS
+
+4.1 Sponsorship Acknowledgment
+Agent acknowledges that sponsorship-program business may include split/holdback/release rules under Exhibit A.
+
+4.1A Sponsorship Policy Is Optional
+Agent is not required to accept a sponsorship policy to remain part of the Agency. Participation in a sponsorship policy track is optional and based on Agent election and Agency eligibility criteria.
+
+4.2 No Upfront Cost (Initial Sponsorship Window)
+For eligible sponsorship participants who elect the sponsorship policy track, Agency may cover initial premium obligations during the sponsorship window.
+
+4.2A Program Benefit Clarification
+Agency may use sponsorship-track participation to provide operational support benefits (including lead flow and CRM/system enablement) at no upfront cost during the applicable sponsorship window, subject to Agency rules and compliance status.
+
+4.3 Post-Sponsorship Responsibility (14-Month Transition)
+At month fourteen (14) from policy start, Agent is responsible for taking over policy premium payments unless a separate written arrangement is approved by Agency.
+
+4.4 If Agent Does Not Assume the Policy at 14 Months
+If Agent does not assume payment responsibility at month 14, Agent agrees one of the following outcomes applies:
+
+Option A: Ownership/beneficiary conversion by written consent. Agency may become/remain policy owner and designate beneficiary structure under Agency rules, and Agency may continue premium payments. Agent expressly acknowledges and agrees this option requires written consent and processing compliance.
+
+Option B: Policy termination. Policy may be canceled/terminated, which may result in loss of death benefit and potential loss/reduction of cash value subject to carrier terms.
+
+4.5 Community Service / Program Participation
+Agent acknowledges sponsorship participation includes performance expectations such as community service completion, training attendance, and program engagement requirements defined by Agency SOP and compliance policy.
+
+5. TAX RESPONSIBILITY AND EXECUTIVE BONUS TREATMENT
+
+5.1 Tax Responsibility
+Agent is solely responsible for all tax reporting and payment obligations related to commissions, bonuses, overrides, and any sponsored benefit treatment.
+
+5.2 Executive Bonus / Economic Benefit Acknowledgment
+Where sponsorship support or executive-bonus-style funding is provided, Agent acknowledges such amounts may create reportable income depending on tax rules and total annual earnings.
+
+5.3 No Tax Advice
+Agency does not provide legal or tax advice. Agent agrees to consult a qualified tax professional.
+
+5.4 Information Reporting Clarification
+Agent understands IRS and state reporting thresholds and rules can change and may apply at amounts lower than expected; reporting obligations may still exist even when no specific form threshold is triggered.
+
+6. LEAD OWNERSHIP AND USE
+
+6.1 Agency leads remain Agency property.
+6.2 Leads may not be sold, transferred, or used outside Agency authorization.
+6.3 Upon termination, Agent must cease contact/use of Agency leads unless required by law.
+
+7. TECHNOLOGY AND PROPERTY
+Agency CRM, numbers, emails, automations, scripts, and systems remain Agency property. Access may be revoked at any time.
+
+8. PROGRAM PARTICIPATION TERMS
+
+8.1 Agent may participate in lead/JumpStart programs under Exhibit A.
+8.2 Agency may adjust pricing/allocations due to operational costs.
+8.3 JumpStart tiers are business-model payouts, not guaranteed wages.
+8.4 Contract-Sign Gate: Sponsorship-track participants must execute this Agreement electronically before sponsored application submission/final processing.
+
+9. TERMINATION
+Either party may terminate with written notice. Agency may terminate immediately for misconduct, fraud, misrepresentation, or compliance violations.
+
+10. CONFIDENTIALITY / IP / NON-CIRCUMVENTION / BRAND PROTECTION
+Agent shall not disclose, copy, or commercialize Agency proprietary systems, methods, training, compensation logic, recruiting frameworks, automation, or operations. Confidentiality and proprietary protections survive termination.
+
+11. DISPUTE RESOLUTION
+11.1 Good-faith resolution first.
+11.2 Binding arbitration (AAA or similar), venue in North Carolina.
+11.3 Agency may seek injunctive relief in court for confidentiality/IP breaches.
+11.4 Prevailing party may recover legal fees/costs where permitted by law.
+
+12. RECORDING CONSENT
+Trainings/calls/meetings may be recorded for quality/compliance. Agent consents.
+
+13. GOVERNING LAW
+State of North Carolina.
+
+14. ELECTRONIC RECORDS AND NOTICES
+Electronic signatures and records are binding. Email/platform notices are valid notices unless proven undelivered.
+
+15. ENTIRE AGREEMENT / SEVERABILITY / ASSIGNMENT / AMENDMENTS
+This Agreement plus Exhibit A is the entire agreement. If any provision is unenforceable, remaining provisions remain in force. Agent may not assign without written Agency consent. Amendments must be in writing.
+
+─────────────────────────────────────────────
+EXHIBIT A — COMPENSATION SCHEDULE (INCORPORATED BY REFERENCE)
+─────────────────────────────────────────────
+
+Small Policy Total: $1,200
+Special Agent $600 / Regional Director $300 / Legacy Visionary $200 / Agency Owner $100
+
+Large Policy Total: $2,400
+Special Agent $1,200 / Regional Director $600 / Legacy Visionary $400 / Agency Owner $200
+
+Unlicensed split: 50% initial + 50% hold until licensing completion + first issued policy
+No double payout on skipped tiers
+Chargeback recoupment applies proportionally
+Default payout cadence: Friday, subject to compliance/carrier timing
+
+─────────────────────────────────────────────
+AGENT COMPLIANCE & COVERAGE ADDENDUM
+─────────────────────────────────────────────
+
+This addendum is incorporated into and forms part of the Legacy Link Independent Contractor Agreement (ICA).
+
+1. Policies and Disclosures
+Agent acknowledges that certain policies and disclosures may be provided during onboarding or participation in Legacy Link programs. These documents are incorporated into and form part of the Independent Contractor Agreement.
+
+2. Insurance Compliance
+Agent acknowledges that participation in Legacy Link programs does not require the purchase of any insurance product. Any life insurance coverage discussed or obtained is optional and must comply with applicable suitability standards, underwriting guidelines, and state insurance regulations.
+
+3. Optional Company Supported Coverage
+In certain circumstances, The Legacy Link may elect to cover or advance the cost of an initial life insurance policy for an agent as part of onboarding support. This support is not considered compensation, employment benefit, or inducement to purchase insurance.
+
+4. Premium Advancement
+If The Legacy Link advances the premium for a policy obtained by an agent, the payment shall be treated as a premium advancement made on behalf of the agent. If the policy is voluntarily cancelled, surrendered, or allowed to lapse within twelve (12) months of issuance, The Legacy Link reserves the right, where permitted by law, to recover or offset any advanced premium amount.
+
+5. Persistency Expectation
+When company supported coverage is used, policies are expected to remain in good standing for approximately twelve (12) months from issue date to demonstrate genuine insurance purpose and compliance with carrier guidelines.
+
+By signing below, Agent confirms they have read, understood, and agree to this Independent Contractor Agreement (V3) and all incorporated addenda.`;
 
 const bg = {
   minHeight: '100vh',
