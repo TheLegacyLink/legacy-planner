@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-// ── ICA full text ─────────────────────────────────────────────────────────────
-const ICA_TEXT = `INDEPENDENT CONTRACTOR AGREEMENT (V4)
+// ── ICA V3 full text ──────────────────────────────────────────────────────────
+const ICA_TEXT = `INDEPENDENT CONTRACTOR AGREEMENT (V3)
 THE LEGACY LINK / INVESTALINK LLC
+[DOCUSIGN VERSION — COMPANY COUNTERSIGN REQUIRED]
 
 This Independent Contractor Agreement ("Agreement") is entered into by and between The Legacy Link, a division of Investalink LLC ("Agency" or "Company"), and the undersigned independent agent ("Agent").
 
@@ -14,227 +15,243 @@ Effective Date: The latest date signed below.
 0. DEFINITIONS
 ──────────────────────────────────────────────
 
-• "Agency" / "Company" — The Legacy Link / Investalink LLC.
-• "Agent" — The independent contractor executing this Agreement.
-• "Active Agent" — An Agent in good standing, compliant, and not suspended or terminated.
-• "Issued Policy" — A policy accepted by a carrier and currently in force.
-• "Chargeback" — A reversal or reduction of paid commission resulting from a lapse, cancellation, or rescission.
-• "Compensation Schedule" — The current payout schedule set forth in Exhibit A, as updated in writing by Agency.
-• "JumpStart" — Agency's business-advance payout model; not a guarantee of income.
-• "Sponsorship Policy" — A policy initially funded under the Agency sponsorship structure.
+"Agency/Company" means The Legacy Link / Investalink LLC.
+"Agent" means the independent contractor who signs this Agreement.
+"Active Agent" means Agent in good standing, compliant, and not suspended/terminated.
+"Issued Policy" means a policy accepted by carrier and in-force.
+"Chargeback" means reversal/reduction of paid commission due to lapse/cancel/rescission.
+"Compensation Schedule" means the current payout schedule in Exhibit A (as updated in writing by Agency).
+"JumpStart" means Agency business-advance/payout model; not guaranteed income.
+"Sponsorship Policy" means a policy initially funded under the Agency sponsorship structure.
 
 ──────────────────────────────────────────────
 1. NATURE OF RELATIONSHIP
 ──────────────────────────────────────────────
 
 1.1 Independent Contractor Status
-Agent is an independent contractor — not an employee. Nothing in this Agreement creates an employer–employee relationship, partnership, or joint venture.
+Agent is an independent contractor and not an employee. Nothing in this Agreement creates an employer–employee relationship, partnership, or joint venture.
 
 1.2 Non-Captive Status
-Agent may contract with other agencies or carriers, provided Agency's confidential and proprietary information is not misused.
+Agent may contract with other agencies/carriers, provided Agent does not misuse Agency confidential/proprietary information.
 
 1.3 Agent Responsibilities
-Agent is solely responsible for maintaining all required licenses, paying applicable taxes, covering business expenses, and remaining in full legal and regulatory compliance.
+Agent is responsible for licensing, taxes, business expenses, and legal/regulatory compliance.
 
 ──────────────────────────────────────────────
 2. LICENSING, COMPLIANCE, AND E&O
 ──────────────────────────────────────────────
 
-2.1 Licensing
-Agent must hold and maintain all state insurance licenses required to conduct business.
-
-2.2 Compliance
-Agent must comply with all applicable state and federal insurance laws, carrier guidelines, and ethical sales standards at all times.
-
-2.3 E&O Coverage
-Agent must maintain active Errors & Omissions (E&O) coverage throughout the term of this Agreement.
-
-2.4 Agency-Provided E&O
-If Agency provides E&O coverage, that coverage applies only to policies written within Agency's hierarchy and terminates upon Agent's resignation or termination.
+2.1 Licensing — Agent must maintain all required state insurance licenses.
+2.2 Compliance — Agent must follow all state/federal insurance laws, carrier rules, and ethical sales standards.
+2.3 E&O — Agent must maintain active E&O coverage.
+2.4 E&O Limitations — If Agency provides E&O, coverage applies only to policies written within Agency hierarchy and terminates upon resignation/termination.
 
 ──────────────────────────────────────────────
 3. COMPENSATION, PAYMENTS, AND CHARGEBACKS
 ──────────────────────────────────────────────
 
-3.1 Commission Flow
-All commissions are paid through Agency's hierarchy structure.
-
-3.2 Overrides
-Override compensation is governed by the active Compensation Schedule in Exhibit A.
-
-3.3 Transfer Economics
-Transfer and upline economics are governed by approved written transfer terms and the active Compensation Schedule.
-
-3.4 Chargebacks
-Chargebacks are Agent's responsibility. Recoupment is applied proportionally as outlined in Exhibit A.
-
-3.5 Deduction Authorization
-Agent authorizes Agency to deduct any owed balance from future commissions or bonuses.
-
-3.6 Variability
-Compensation may vary based on carrier, product type, or applicable regulatory requirements.
-
-3.7 No Earnings Guarantee
-Agency makes no guarantee of leads, sales, commissions, bonuses, or income of any kind.
+3.1 Commission Flow — Commissions are paid through Agency hierarchy.
+3.2 Overrides — Overrides are paid under the active Compensation Schedule (Exhibit A).
+3.3 Transfer Economics — Transfer/upline economics are governed by approved written transfer terms and the active Compensation Schedule.
+3.4 Chargebacks — Chargebacks are Agent responsibility, with proportional recoupment as outlined in Exhibit A.
+3.5 Deduction Authorization — Agent authorizes Agency to deduct owed balances from future commissions/bonuses.
+3.6 Variability — Compensation may vary by carrier/product/regulatory requirements.
+3.7 No Earnings Guarantee — Agency does not guarantee leads, sales, commissions, bonuses, or income.
 
 ──────────────────────────────────────────────
 4. SPONSORSHIP PROGRAM TERMS
 ──────────────────────────────────────────────
 
-4.1 Sponsorship Acknowledgment
-Agent acknowledges that business written under the sponsorship program may be subject to split, holdback, and release rules as defined in Exhibit A.
+4.1 Sponsorship Acknowledgment — Agent acknowledges that sponsorship-program business may include split/holdback/release rules under Exhibit A.
 
-4.1A Optional Participation
-Participation in the sponsorship policy track is entirely optional. Agent is not required to accept a sponsorship policy to remain part of Agency. Eligibility is subject to Agency criteria and Agent election.
+4.1A Sponsorship Policy Is Optional — Agent is not required to accept a sponsorship policy to remain part of the Agency. Participation is optional and based on Agent election and Agency eligibility criteria.
 
-4.2 No Upfront Cost — Initial Sponsorship Window
-For eligible participants who elect the sponsorship track, Agency may cover initial premium obligations during the sponsorship window.
+4.2 No Upfront Cost (Initial Sponsorship Window) — For eligible sponsorship participants who elect the sponsorship policy track, Agency may cover initial premium obligations during the sponsorship window.
 
-4.2A Program Benefit Clarification
-Agency may use sponsorship-track participation to provide operational support benefits — including lead flow and CRM/system enablement — at no upfront cost during the applicable window, subject to Agency rules and compliance status.
+4.2A Program Benefit Clarification — Agency may use sponsorship-track participation to provide operational support benefits (including lead flow and CRM/system enablement) at no upfront cost during the applicable sponsorship window, subject to Agency rules and compliance status.
 
-4.3 Post-Sponsorship Responsibility — 14-Month Transition
-Beginning at month fourteen (14) from policy start date, Agent is responsible for assuming policy premium payments unless a separate written arrangement has been approved by Agency.
+4.3 Post-Sponsorship Responsibility (14-Month Transition) — At month fourteen (14) from policy start, Agent is responsible for taking over policy premium payments unless a separate written arrangement is approved by Agency.
 
-4.4 Non-Assumption at 14 Months
-If Agent does not assume premium responsibility at month 14, one of the following outcomes applies:
-• Option A — Ownership/Beneficiary Conversion: By written consent, Agency may become or remain policy owner and designate the beneficiary structure under Agency rules. Agency may continue premium payments.
-• Option B — Policy Termination: The policy may be canceled or terminated, which may result in loss of death benefit and potential loss or reduction of cash value, subject to carrier terms.
+4.4 If Agent Does Not Assume the Policy at 14 Months:
+Option A: Ownership/beneficiary conversion by written consent. Agency may become/remain policy owner and designate beneficiary structure under Agency rules.
+Option B: Policy termination. Policy may be canceled/terminated, which may result in loss of death benefit and potential loss/reduction of cash value subject to carrier terms.
 
-4.5 Community Service / Program Participation
-Sponsorship participation includes performance expectations such as community service completion, training attendance, and program engagement requirements as defined by Agency SOP and compliance policy.
+4.5 Community Service / Program Participation — Agent acknowledges sponsorship participation includes performance expectations such as community service completion, training attendance, and program engagement requirements.
 
 ──────────────────────────────────────────────
 5. TAX RESPONSIBILITY AND EXECUTIVE BONUS TREATMENT
 ──────────────────────────────────────────────
 
-5.1 Tax Responsibility
-Agent is solely responsible for all tax reporting and payment obligations related to commissions, bonuses, overrides, and any sponsored benefit treatment.
-
-5.2 Executive Bonus / Economic Benefit Acknowledgment
-Where sponsorship support or executive-bonus-style funding is provided, Agent acknowledges that such amounts may constitute reportable income depending on applicable tax rules and total annual earnings.
-
-5.3 No Tax Advice
-Agency does not provide legal or tax advice. Agent agrees to consult a qualified tax professional.
-
-5.4 Information Reporting
-Agent understands that IRS and state reporting thresholds may change and may apply at amounts lower than expected.
+5.1 Tax Responsibility — Agent is solely responsible for all tax reporting and payment obligations related to commissions, bonuses, overrides, and any sponsored benefit treatment.
+5.2 Executive Bonus / Economic Benefit Acknowledgment — Where sponsorship support or executive-bonus-style funding is provided, Agent acknowledges such amounts may create reportable income.
+5.3 No Tax Advice — Agency does not provide legal or tax advice. Agent agrees to consult a qualified tax professional.
+5.4 Information Reporting Clarification — IRS and state reporting thresholds can change and may apply at amounts lower than expected.
 
 ──────────────────────────────────────────────
 6. LEAD OWNERSHIP AND USE
 ──────────────────────────────────────────────
 
-Agency leads are and remain Agency property. Leads may not be sold, transferred, or used outside of Agency authorization. Upon termination, Agent must immediately cease contact with and use of Agency leads, unless otherwise required by law.
+6.1 Agency leads remain Agency property.
+6.2 Leads may not be sold, transferred, or used outside Agency authorization.
+6.3 Upon termination, Agent must cease contact/use of Agency leads unless required by law.
 
 ──────────────────────────────────────────────
 7. TECHNOLOGY AND PROPERTY
 ──────────────────────────────────────────────
 
-Agency CRM systems, phone numbers, email accounts, automations, scripts, and all related tools and systems remain Agency property. Access may be revoked at any time without notice.
+Agency CRM, numbers, emails, automations, scripts, and systems remain Agency property. Access may be revoked at any time.
 
 ──────────────────────────────────────────────
 8. PROGRAM PARTICIPATION TERMS
 ──────────────────────────────────────────────
 
-8.1 Agent may participate in lead programs and JumpStart programs under the terms of Exhibit A.
-8.2 Agency may adjust pricing or resource allocations based on operational costs and program structure.
-8.3 JumpStart tiers are business-model payout structures — not guaranteed wages or salary equivalents.
-8.4 Contract-Sign Gate: Sponsorship-track participants must fully execute this Agreement electronically before any sponsored application is submitted or finalized.
+8.1 Agent may participate in lead/JumpStart programs under Exhibit A.
+8.2 Agency may adjust pricing/allocations due to operational costs.
+8.3 JumpStart tiers are business-model payouts, not guaranteed wages.
+8.4 Contract-Sign Gate — Sponsorship-track participants must execute this Agreement electronically before sponsored application submission/final processing.
 
 ──────────────────────────────────────────────
 9. TERMINATION
 ──────────────────────────────────────────────
 
-Either party may terminate this Agreement with written notice. Agency may terminate immediately and without notice for misconduct, fraud, misrepresentation, or any compliance violation.
+Either party may terminate with written notice. Agency may terminate immediately for misconduct, fraud, misrepresentation, or compliance violations.
 
 ──────────────────────────────────────────────
-10. CONFIDENTIALITY / INTELLECTUAL PROPERTY / NON-CIRCUMVENTION / BRAND PROTECTION
+10. CONFIDENTIALITY / IP / NON-CIRCUMVENTION / BRAND PROTECTION
 ──────────────────────────────────────────────
 
-Agent shall not disclose, copy, replicate, or commercialize any Agency proprietary systems, methods, training materials, compensation logic, recruiting frameworks, automations, or operational processes. These protections survive termination of this Agreement.
+Agent shall not disclose, copy, or commercialize Agency proprietary systems, methods, training, compensation logic, recruiting frameworks, automation, or operations. These protections survive termination.
 
 ──────────────────────────────────────────────
 11. DISPUTE RESOLUTION
 ──────────────────────────────────────────────
 
-11.1 The parties will first attempt good-faith resolution of any dispute.
-11.2 If unresolved, disputes are subject to binding arbitration under AAA rules, with venue in North Carolina.
-11.3 Agency may seek injunctive or other equitable relief in a court of competent jurisdiction for any actual or threatened breach of confidentiality or intellectual property provisions.
-11.4 The prevailing party may recover reasonable attorneys' fees and costs where permitted by law.
+11.1 Good-faith resolution first.
+11.2 Binding arbitration (AAA or similar), venue in North Carolina.
+11.3 Agency may seek injunctive relief in court for confidentiality/IP breaches.
+11.4 Prevailing party may recover legal fees/costs where permitted by law.
 
 ──────────────────────────────────────────────
 12. RECORDING CONSENT
 ──────────────────────────────────────────────
 
-Trainings, calls, and meetings may be recorded for quality assurance and compliance purposes. Agent consents to such recording by participating.
+Trainings/calls/meetings may be recorded for quality/compliance. Agent consents.
 
 ──────────────────────────────────────────────
 13. GOVERNING LAW
 ──────────────────────────────────────────────
 
-This Agreement is governed by the laws of the State of North Carolina.
+State of North Carolina.
 
 ──────────────────────────────────────────────
 14. ELECTRONIC RECORDS AND NOTICES
 ──────────────────────────────────────────────
 
-Electronic signatures and records are fully binding. Notices delivered by email or platform message are valid and effective unless proven undelivered.
+Electronic signatures and records are binding. Email/platform notices are valid unless proven undelivered.
 
 ──────────────────────────────────────────────
 15. ENTIRE AGREEMENT / SEVERABILITY / ASSIGNMENT / AMENDMENTS
 ──────────────────────────────────────────────
 
-This Agreement, together with Exhibit A, constitutes the entire agreement between the parties. If any provision is found unenforceable, all remaining provisions stay in full force. Agent may not assign rights or obligations without prior written Agency consent. Amendments must be made in writing.
+This Agreement plus Exhibit A is the entire agreement. If any provision is unenforceable, remaining provisions remain in force. Agent may not assign without written Agency consent. Amendments must be in writing.
 
 ──────────────────────────────────────────────
 EXHIBIT A — COMPENSATION SCHEDULE
 ──────────────────────────────────────────────
 
-Small Policy — Total Payout: $1,200
-  Special Agent: $600 | Regional Director: $300 | Legacy Visionary: $200 | Agency Owner: $100
+Small Policy Total: $1,200
+  Special Agent $600 / Regional Director $300 / Legacy Visionary $200 / Agency Owner $100
 
-Large Policy — Total Payout: $2,400
-  Special Agent: $1,200 | Regional Director: $600 | Legacy Visionary: $400 | Agency Owner: $200
+Large Policy Total: $2,400
+  Special Agent $1,200 / Regional Director $600 / Legacy Visionary $400 / Agency Owner $200
 
-• Unlicensed split: 50% at initial payout + 50% held until licensing completion and first issued policy
+• Unlicensed split: 50% initial + 50% held until licensing completion + first issued policy
 • No double payout on skipped tiers
-• Chargeback recoupment applied proportionally
-• Default payout cadence: Friday, subject to compliance and carrier timing
+• Chargeback recoupment applies proportionally
+• Default payout cadence: Friday, subject to compliance/carrier timing`;
+
+// ── Compliance Addendum text ──────────────────────────────────────────────────
+const ADDENDUM_TEXT = `THE LEGACY LINK
+Agent Compliance & Coverage Addendum
+
+This addendum is incorporated into and forms part of the Legacy Link Independent Contractor Agreement (ICA).
 
 ──────────────────────────────────────────────
-AGENT COMPLIANCE & COVERAGE ADDENDUM
+1. POLICIES AND DISCLOSURES
 ──────────────────────────────────────────────
 
-This Addendum is incorporated into and forms part of the Legacy Link Independent Contractor Agreement (ICA).
-
-Policies and Disclosures
-Agent acknowledges that certain policies and disclosures may be provided during onboarding or program participation. These may include the Agent Protection and Coverage Policy, Lead By Example Program Policy, Optional Coverage Acknowledgment, Suitability Questionnaire, and Premium Advancement terms. All such documents are incorporated into and form part of the Independent Contractor Agreement.
-
-Insurance Compliance
-Participation in Legacy Link programs does not require the purchase of any insurance product. Any life insurance coverage discussed or obtained is optional and must comply with applicable suitability standards, underwriting guidelines, and state insurance regulations.
-
-Optional Company-Supported Coverage
-In certain circumstances, The Legacy Link may elect to cover or advance the cost of an initial life insurance policy for an agent as part of onboarding support. This support is intended to demonstrate the protection strategies taught to clients. It is not compensation, an employment benefit, or an inducement to purchase insurance.
-
-Premium Advancement
-If The Legacy Link advances the premium for an agent's policy, the payment is treated as a premium advancement made on the agent's behalf. If the policy is voluntarily cancelled, surrendered, or allowed to lapse within twelve (12) months of issuance, The Legacy Link reserves the right — where permitted by law — to recover or offset any advanced premium amount.
-
-Persistency Expectation
-When company-supported coverage is in place, policies are expected to remain in good standing for approximately twelve (12) months from issue date.
+Agent acknowledges that certain policies and disclosures may be provided during onboarding or participation in Legacy Link programs. These documents may include the Agent Protection and Coverage Policy, Lead By Example Program Policy, Optional Coverage Acknowledgment, Suitability Questionnaire, and Premium Advancement terms. These documents are incorporated into and form part of the Independent Contractor Agreement.
 
 ──────────────────────────────────────────────
-AGENT COVERAGE SUITABILITY QUESTIONNAIRE
+2. INSURANCE COMPLIANCE
 ──────────────────────────────────────────────
 
-This questionnaire is completed during onboarding to assess whether life insurance coverage may be appropriate for the participating agent.
+Agent acknowledges that participation in Legacy Link programs does not require the purchase of any insurance product. Any life insurance coverage discussed or obtained is optional and must comply with applicable suitability standards, underwriting guidelines, and state insurance regulations.
 
-1. Do you currently have any life insurance coverage? (Yes / No)
-2. Do you have anyone who relies on you financially? (Spouse/Partner / Children / Family Members / Business Partner / None)
-3. Do you currently have financial obligations that could create hardship if something happened to you? (Mortgage/Rent / Personal Debt / Business Obligations / Family Support / None)
-4. Would your family or loved ones experience financial hardship if you passed away unexpectedly? (Yes / No / Unsure)
-5. Do you understand the purpose of life insurance and how it can protect your family or financial responsibilities? (Yes / No)
+──────────────────────────────────────────────
+3. OPTIONAL COMPANY SUPPORTED COVERAGE
+──────────────────────────────────────────────
 
-Suitability Acknowledgment: I confirm that the information provided above is accurate to the best of my knowledge. I understand that any life insurance policy considered or applied for must be based on legitimate personal or financial protection needs and must meet applicable suitability guidelines.`;
+In certain circumstances, The Legacy Link may elect to cover or advance the cost of an initial life insurance policy for an agent as part of onboarding support. This support is intended to demonstrate the protection strategies taught to clients and is not considered compensation, employment benefit, or inducement to purchase insurance.
+
+──────────────────────────────────────────────
+4. PREMIUM ADVANCEMENT
+──────────────────────────────────────────────
+
+If The Legacy Link advances the premium for a policy obtained by an agent, the payment shall be treated as a premium advancement made on behalf of the agent. If the policy is voluntarily cancelled, surrendered, or allowed to lapse within twelve (12) months of issuance, The Legacy Link reserves the right, where permitted by law, to recover or offset any advanced premium amount.
+
+──────────────────────────────────────────────
+5. PERSISTENCY EXPECTATION
+──────────────────────────────────────────────
+
+When company supported coverage is used, policies are expected to remain in good standing for approximately twelve (12) months from issue date to demonstrate genuine insurance purpose and compliance with carrier guidelines.`;
+
+// ── Suitability questions ─────────────────────────────────────────────────────
+const SUITABILITY_QUESTIONS = [
+  {
+    id: 'q1',
+    text: 'Do you currently have any life insurance coverage?',
+    options: ['Yes', 'No'],
+  },
+  {
+    id: 'q2',
+    text: 'Do you have anyone who relies on you financially?',
+    options: ['Spouse/Partner', 'Children', 'Family Members', 'Business Partner', 'None'],
+    multi: true,
+  },
+  {
+    id: 'q3',
+    text: 'Do you currently have financial obligations that could create hardship if something happened to you?',
+    options: ['Mortgage/Rent', 'Personal Debt', 'Business Obligations', 'Family Support', 'None'],
+    multi: true,
+  },
+  {
+    id: 'q4',
+    text: 'Would your family or loved ones experience financial hardship if you passed away unexpectedly?',
+    options: ['Yes', 'No', 'Unsure'],
+  },
+  {
+    id: 'q5',
+    text: 'Do you understand the purpose of life insurance and how it can protect your family or financial responsibilities?',
+    options: ['Yes', 'No'],
+  },
+];
+
+function computeSuitability(answers) {
+  // Not suitable if: no dependents (q2=None), no obligations (q3=None), no hardship (q4=No), no understanding (q5=No)
+  const q2 = answers.q2 || [];
+  const q3 = answers.q3 || [];
+  const q4 = answers.q4 || '';
+  const q5 = answers.q5 || '';
+
+  const noDependents = Array.isArray(q2) ? (q2.length === 0 || (q2.length === 1 && q2[0] === 'None')) : q2 === 'None';
+  const noObligations = Array.isArray(q3) ? (q3.length === 0 || (q3.length === 1 && q3[0] === 'None')) : q3 === 'None';
+  const noHardship = q4 === 'No';
+  const noUnderstanding = q5 === 'No';
+
+  const notSuitable = (noDependents && noObligations) || (noHardship && noUnderstanding);
+  return !notSuitable;
+}
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const S = {
@@ -249,20 +266,20 @@ const S = {
   logo: { fontSize: 13, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#d4a12a', marginBottom: 4 },
   title: { fontSize: 26, fontWeight: 800, color: '#fff', margin: '0 0 4px' },
   subtitle: { fontSize: 14, color: '#94a3b8', margin: '0 0 28px' },
+  stepLabel: { fontSize: 12, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#d4a12a', marginBottom: 8 },
   scrollBox: {
     border: '1px solid #1e293b', borderRadius: 12, background: '#060c1a',
-    padding: '20px 22px', height: 360, overflowY: 'scroll',
+    padding: '20px 22px', height: 320, overflowY: 'scroll',
     fontSize: 13, lineHeight: 1.7, color: '#cbd5e1', whiteSpace: 'pre-wrap',
-    fontFamily: 'monospace', marginBottom: 24,
+    fontFamily: 'monospace', marginBottom: 12,
   },
-  scrollHint: { fontSize: 12, color: '#64748b', textAlign: 'right', marginTop: -20, marginBottom: 20 },
+  scrollHint: { fontSize: 12, color: '#64748b', textAlign: 'right', marginBottom: 20 },
   checkRow: { display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 20, cursor: 'pointer' },
-  checkBox: {
+  checkBox: (checked) => ({
     width: 20, height: 20, minWidth: 20, borderRadius: 4,
-    border: '2px solid #d4a12a', background: '#060c1a',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    marginTop: 1,
-  },
+    border: '2px solid #d4a12a', background: checked ? '#d4a12a' : '#060c1a',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1,
+  }),
   checkLabel: { fontSize: 14, color: '#e2e8f0', lineHeight: 1.5 },
   label: { display: 'block', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b', marginBottom: 6 },
   input: {
@@ -283,35 +300,81 @@ const S = {
     background: '#1e293b', color: '#4b5563', fontSize: 16, fontWeight: 800,
     cursor: 'not-allowed', letterSpacing: '.04em',
   },
+  btnGhost: {
+    width: '100%', padding: '14px', borderRadius: 12,
+    border: '1px solid #334155', background: 'transparent',
+    color: '#94a3b8', fontSize: 15, fontWeight: 700,
+    cursor: 'pointer', marginTop: 10,
+  },
   errorBox: { background: '#3f0d0d', border: '1px solid #7f1d1d', borderRadius: 8, padding: '10px 14px', color: '#fca5a5', fontSize: 13, marginBottom: 16 },
+  infoBox: { background: '#0f2040', border: '1px solid #1e4080', borderRadius: 8, padding: '12px 16px', color: '#93c5fd', fontSize: 13, marginBottom: 16, lineHeight: 1.6 },
+  warningBox: { background: '#2d1f00', border: '1px solid #92400e', borderRadius: 8, padding: '12px 16px', color: '#fbbf24', fontSize: 13, marginBottom: 16, lineHeight: 1.6 },
   successBox: {
     position: 'fixed', inset: 0, zIndex: 10000,
     background: '#0a0f1e', display: 'flex', flexDirection: 'column',
     alignItems: 'center', justifyContent: 'center', gap: 16,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
-  successIcon: { fontSize: 64 },
-  successTitle: { fontSize: 28, fontWeight: 800, color: '#d4a12a', margin: 0 },
-  successText: { fontSize: 15, color: '#94a3b8', margin: 0, textAlign: 'center', maxWidth: 380 },
   divider: { border: 'none', borderTop: '1px solid #1e293b', margin: '28px 0' },
+  questionCard: {
+    border: '1px solid #1e293b', borderRadius: 12, background: '#060c1a',
+    padding: '18px 20px', marginBottom: 16,
+  },
+  questionText: { fontSize: 15, fontWeight: 600, color: '#f1f5f9', marginBottom: 12, lineHeight: 1.5 },
+  optionRow: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, cursor: 'pointer' },
+  optionDot: (selected) => ({
+    width: 18, height: 18, minWidth: 18, borderRadius: '50%',
+    border: `2px solid ${selected ? '#d4a12a' : '#334155'}`,
+    background: selected ? '#d4a12a' : 'transparent',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  }),
+  optionCheck: (selected) => ({
+    width: 18, height: 18, minWidth: 18, borderRadius: 4,
+    border: `2px solid ${selected ? '#d4a12a' : '#334155'}`,
+    background: selected ? '#d4a12a' : 'transparent',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  }),
+  optionLabel: { fontSize: 14, color: '#cbd5e1' },
 };
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── Step indicator ────────────────────────────────────────────────────────────
+function StepDots({ step }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, marginBottom: 28 }}>
+      {[1, 2, 3].map((n) => (
+        <div key={n} style={{
+          height: 4, flex: 1, borderRadius: 999,
+          background: n <= step ? '#d4a12a' : '#1e293b',
+          transition: 'background .3s',
+        }} />
+      ))}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 export default function ICAContractGate({ token, session, onSigned }) {
-  const [ready, setReady] = useState(false);   // true = not yet signed, show gate
-  const [agreed, setAgreed] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [step, setStep] = useState(1); // 1=ICA, 2=Addendum, 3=Suitability
+  const [icaScrolled, setIcaScrolled] = useState(false);
+  const [icaAgreed, setIcaAgreed] = useState(false);
+  const [addendumScrolled, setAddendumScrolled] = useState(false);
+  const [addendumAgreed, setAddendumAgreed] = useState(false);
+  const [answers, setAnswers] = useState({});
+  const [allAnswered, setAllAnswered] = useState(false);
+  const [suitable, setSuitable] = useState(null);
+  const [optInPolicy, setOptInPolicy] = useState(false);
+  const [optedOut, setOptedOut] = useState(false);
   const [typedName, setTypedName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const scrollRef = useRef(null);
-  const [scrolledToBottom, setScrolledToBottom] = useState(false);
+  const icaScrollRef = useRef(null);
+  const addendumScrollRef = useRef(null);
 
-  // On mount: check if already signed
   useEffect(() => {
-    if (!token) return; // no token = nothing to gate
+    if (!token) return;
     setTypedName(String(session?.name || '').trim());
-
     let mounted = true;
     (async () => {
       try {
@@ -322,40 +385,75 @@ export default function ICAContractGate({ token, session, onSigned }) {
         const data = await res.json().catch(() => ({}));
         if (!mounted) return;
         if (data?.signed) {
-          onSigned(); // already signed, pass through immediately
+          onSigned();
         } else {
-          setReady(true); // not signed, show gate
+          setReady(true);
         }
       } catch {
-        if (mounted) setReady(true); // on error, show gate to be safe
+        if (mounted) setReady(true);
       }
     })();
     return () => { mounted = false; };
   }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Track scroll position to nudge user to read
-  function handleScroll(e) {
-    const el = e.currentTarget;
-    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
-    if (atBottom) setScrolledToBottom(true);
+  // Update allAnswered when answers change
+  useEffect(() => {
+    const answered = SUITABILITY_QUESTIONS.every((q) => {
+      const a = answers[q.id];
+      if (q.multi) return Array.isArray(a) && a.length > 0;
+      return Boolean(a);
+    });
+    setAllAnswered(answered);
+    if (answered) {
+      const s = computeSuitability(answers);
+      setSuitable(s);
+      if (!s) {
+        setOptInPolicy(false);
+        setOptedOut(true);
+      }
+    } else {
+      setSuitable(null);
+    }
+  }, [answers]);
+
+  function toggleMulti(qid, option) {
+    setAnswers((prev) => {
+      const current = Array.isArray(prev[qid]) ? prev[qid] : [];
+      if (option === 'None') return { ...prev, [qid]: ['None'] };
+      const withoutNone = current.filter((o) => o !== 'None');
+      if (withoutNone.includes(option)) {
+        return { ...prev, [qid]: withoutNone.filter((o) => o !== option) };
+      }
+      return { ...prev, [qid]: [...withoutNone, option] };
+    });
+  }
+
+  function setSingle(qid, option) {
+    setAnswers((prev) => ({ ...prev, [qid]: option }));
   }
 
   async function handleSubmit() {
     setError('');
-    if (!agreed) { setError('Please check the agreement box to confirm you have read the ICA.'); return; }
-    const name = typedName.trim();
-    if (!name) { setError('Please type your full legal name to sign.'); return; }
+    if (!typedName.trim()) { setError('Please type your full legal name to sign.'); return; }
 
     setSubmitting(true);
     try {
       const res = await fetch('/api/esign-contract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ action: 'candidate_sign', typedName: name, signatureType: 'typed' }),
+        body: JSON.stringify({
+          action: 'candidate_sign',
+          typedName: typedName.trim(),
+          signatureType: 'typed',
+          suitabilityAnswers: answers,
+          suitable,
+          optInPolicy: optInPolicy && !optedOut,
+          upline: session?.referredBy || session?.refCode || '',
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        setError(data?.error || 'Signature submission failed. Please try again.');
+        setError(data?.error || 'Submission failed. Please try again.');
         setSubmitting(false);
         return;
       }
@@ -367,100 +465,277 @@ export default function ICAContractGate({ token, session, onSigned }) {
     }
   }
 
-  // Nothing to render until check completes (or no token)
   if (!ready) return null;
 
-  // Success screen
   if (success) {
     return (
       <div style={S.successBox}>
-        <div style={S.successIcon}>✅</div>
-        <h2 style={S.successTitle}>Agreement Signed</h2>
-        <p style={S.successText}>Your Independent Contractor Agreement has been recorded. Loading your back office…</p>
+        <div style={{ fontSize: 64 }}>✅</div>
+        <h2 style={{ fontSize: 28, fontWeight: 800, color: '#d4a12a', margin: 0 }}>Agreement Signed</h2>
+        <p style={{ fontSize: 15, color: '#94a3b8', margin: 0, textAlign: 'center', maxWidth: 380 }}>
+          Your Independent Contractor Agreement has been recorded. Loading your back office…
+        </p>
       </div>
     );
   }
 
-  const canSubmit = agreed && typedName.trim().length > 0 && !submitting;
-
   return (
     <div style={S.overlay}>
       <div style={S.inner}>
-
-        {/* Header */}
         <div style={S.logo}>THE LEGACY LINK</div>
-        <h1 style={S.title}>Independent Contractor Agreement</h1>
+        <h1 style={S.title}>
+          {step === 1 && 'Independent Contractor Agreement'}
+          {step === 2 && 'Compliance & Coverage Addendum'}
+          {step === 3 && 'Coverage Suitability & Policy Election'}
+        </h1>
         <p style={S.subtitle}>
-          You must read and sign this agreement before accessing your back office.
-          This is a one-time requirement.
+          {step === 1 && 'Read and sign the ICA before accessing your back office. One-time requirement.'}
+          {step === 2 && 'Read and acknowledge the compliance addendum. Required before proceeding.'}
+          {step === 3 && 'Complete your suitability assessment and make your policy election.'}
         </p>
 
-        <hr style={S.divider} />
+        <StepDots step={step} />
 
-        {/* ICA Scroll Box */}
-        <div
-          ref={scrollRef}
-          style={S.scrollBox}
-          onScroll={handleScroll}
-        >
-          {ICA_TEXT}
-        </div>
-        {!scrolledToBottom && (
-          <p style={S.scrollHint}>↓ Scroll to read the full agreement</p>
+        {/* ── STEP 1: ICA ── */}
+        {step === 1 && (
+          <>
+            <div style={S.stepLabel}>Step 1 of 3 — Independent Contractor Agreement</div>
+            <div
+              ref={icaScrollRef}
+              style={S.scrollBox}
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                if (el.scrollTop + el.clientHeight >= el.scrollHeight - 20) setIcaScrolled(true);
+              }}
+            >
+              {ICA_TEXT}
+            </div>
+            {!icaScrolled && <p style={S.scrollHint}>↓ Scroll to read the full agreement</p>}
+
+            <div
+              style={S.checkRow}
+              onClick={() => setIcaAgreed((v) => !v)}
+              role="checkbox"
+              aria-checked={icaAgreed}
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') setIcaAgreed((v) => !v); }}
+            >
+              <div style={S.checkBox(icaAgreed)}>
+                {icaAgreed && <span style={{ color: '#0a0f1e', fontWeight: 900, fontSize: 14 }}>✓</span>}
+              </div>
+              <span style={S.checkLabel}>
+                I have read the full Independent Contractor Agreement and agree to all terms and conditions. I understand this is a legally binding agreement.
+              </span>
+            </div>
+
+            <button
+              type="button"
+              style={icaAgreed ? S.btn : S.btnDisabled}
+              disabled={!icaAgreed}
+              onClick={() => setStep(2)}
+            >
+              Continue to Compliance Addendum →
+            </button>
+          </>
         )}
 
-        <hr style={S.divider} />
+        {/* ── STEP 2: Addendum ── */}
+        {step === 2 && (
+          <>
+            <div style={S.stepLabel}>Step 2 of 3 — Compliance & Coverage Addendum</div>
+            <div
+              ref={addendumScrollRef}
+              style={S.scrollBox}
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                if (el.scrollTop + el.clientHeight >= el.scrollHeight - 20) setAddendumScrolled(true);
+              }}
+            >
+              {ADDENDUM_TEXT}
+            </div>
+            {!addendumScrolled && <p style={S.scrollHint}>↓ Scroll to read the full addendum</p>}
 
-        {/* Checkbox */}
-        <div
-          style={S.checkRow}
-          onClick={() => setAgreed((v) => !v)}
-          role="checkbox"
-          aria-checked={agreed}
-          tabIndex={0}
-          onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') setAgreed((v) => !v); }}
-        >
-          <div style={{ ...S.checkBox, background: agreed ? '#d4a12a' : '#060c1a' }}>
-            {agreed && <span style={{ color: '#0a0f1e', fontWeight: 900, fontSize: 14, lineHeight: 1 }}>✓</span>}
-          </div>
-          <span style={S.checkLabel}>
-            I have read the full Independent Contractor Agreement and I agree to all terms and conditions set forth above. I understand this is a legally binding agreement.
-          </span>
-        </div>
+            <div
+              style={S.checkRow}
+              onClick={() => setAddendumAgreed((v) => !v)}
+              role="checkbox"
+              aria-checked={addendumAgreed}
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') setAddendumAgreed((v) => !v); }}
+            >
+              <div style={S.checkBox(addendumAgreed)}>
+                {addendumAgreed && <span style={{ color: '#0a0f1e', fontWeight: 900, fontSize: 14 }}>✓</span>}
+              </div>
+              <span style={S.checkLabel}>
+                I have read and acknowledge the Compliance & Coverage Addendum. I understand it is incorporated into my ICA.
+              </span>
+            </div>
 
-        {/* Typed Name */}
-        <label style={S.label} htmlFor="ica-typed-name">
-          Type your full legal name to sign
-        </label>
-        <input
-          id="ica-typed-name"
-          type="text"
-          value={typedName}
-          onChange={(e) => setTypedName(e.target.value)}
-          placeholder="Your Full Legal Name"
-          style={S.input}
-          autoComplete="name"
-          disabled={submitting}
-        />
+            <button
+              type="button"
+              style={addendumAgreed ? S.btn : S.btnDisabled}
+              disabled={!addendumAgreed}
+              onClick={() => setStep(3)}
+            >
+              Continue to Suitability Assessment →
+            </button>
+            <button type="button" style={S.btnGhost} onClick={() => setStep(1)}>← Back</button>
+          </>
+        )}
 
-        {/* Error */}
-        {error && <div style={S.errorBox}>{error}</div>}
+        {/* ── STEP 3: Suitability + Sign ── */}
+        {step === 3 && (
+          <>
+            <div style={S.stepLabel}>Step 3 of 3 — Suitability & Policy Election</div>
 
-        {/* Submit */}
-        <button
-          type="button"
-          style={canSubmit ? S.btn : S.btnDisabled}
-          disabled={!canSubmit}
-          onClick={handleSubmit}
-        >
-          {submitting ? 'Signing…' : 'Sign & Continue →'}
-        </button>
+            <div style={S.infoBox}>
+              Answer the questions below honestly. These help determine whether a company-funded life insurance policy is appropriate for you. Regardless of outcome, you can still fully participate in Legacy Link.
+            </div>
 
-        <p style={{ fontSize: 12, color: '#475569', textAlign: 'center', marginTop: 16 }}>
-          Your electronic signature has the same legal effect as a handwritten signature.
-          By signing, you confirm the name above is your legal name.
-        </p>
+            {SUITABILITY_QUESTIONS.map((q) => (
+              <div key={q.id} style={S.questionCard}>
+                <div style={S.questionText}>{q.text}</div>
+                {q.multi ? (
+                  q.options.map((opt) => {
+                    const selected = Array.isArray(answers[q.id]) && answers[q.id].includes(opt);
+                    return (
+                      <div key={opt} style={S.optionRow} onClick={() => toggleMulti(q.id, opt)}>
+                        <div style={S.optionCheck(selected)}>
+                          {selected && <span style={{ color: '#0a0f1e', fontWeight: 900, fontSize: 11 }}>✓</span>}
+                        </div>
+                        <span style={S.optionLabel}>{opt}</span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  q.options.map((opt) => {
+                    const selected = answers[q.id] === opt;
+                    return (
+                      <div key={opt} style={S.optionRow} onClick={() => setSingle(q.id, opt)}>
+                        <div style={S.optionDot(selected)} />
+                        <span style={S.optionLabel}>{opt}</span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            ))}
 
+            {/* Suitability result + policy election */}
+            {allAnswered && (
+              <>
+                <hr style={S.divider} />
+
+                {suitable ? (
+                  <>
+                    <div style={{ ...S.infoBox, background: '#0a2a15', border: '1px solid #166534', color: '#86efac' }}>
+                      ✅ Based on your responses, you appear to be a suitable candidate for life insurance coverage.
+                    </div>
+
+                    <div
+                      style={{ ...S.checkRow, padding: '16px', border: `1px solid ${optInPolicy ? '#d4a12a' : '#334155'}`, borderRadius: 12, background: optInPolicy ? '#1a1200' : '#060c1a' }}
+                      onClick={() => { setOptInPolicy((v) => !v); setOptedOut(false); }}
+                      role="checkbox"
+                      aria-checked={optInPolicy}
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { setOptInPolicy((v) => !v); setOptedOut(false); } }}
+                    >
+                      <div style={S.checkBox(optInPolicy)}>
+                        {optInPolicy && <span style={{ color: '#0a0f1e', fontWeight: 900, fontSize: 14 }}>✓</span>}
+                      </div>
+                      <div>
+                        <div style={{ ...S.checkLabel, fontWeight: 700, color: '#f1f5f9' }}>
+                          I am suitable for insurance and choose to receive a company-funded policy
+                        </div>
+                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                          Subject to Agency approval and Kimora Link countersignature. Optional — you can still participate without this.
+                        </div>
+                      </div>
+                    </div>
+
+                    {!optInPolicy && (
+                      <div
+                        style={{ ...S.checkRow, padding: '16px', border: `1px solid ${optedOut ? '#475569' : '#334155'}`, borderRadius: 12, background: '#060c1a', marginTop: -8 }}
+                        onClick={() => { setOptedOut((v) => !v); setOptInPolicy(false); }}
+                        role="checkbox"
+                        aria-checked={optedOut}
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { setOptedOut((v) => !v); setOptInPolicy(false); } }}
+                      >
+                        <div style={S.checkBox(optedOut)}>
+                          {optedOut && <span style={{ color: '#0a0f1e', fontWeight: 900, fontSize: 14 }}>✓</span>}
+                        </div>
+                        <div>
+                          <div style={{ ...S.checkLabel, color: '#94a3b8' }}>
+                            I prefer to opt out of the company-funded policy at this time
+                          </div>
+                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                            You can still participate fully in Legacy Link.
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div style={S.warningBox}>
+                      ⚠️ Based on your responses, a company-funded life insurance policy may not be suitable for you at this time. You have been automatically opted out. You can still fully participate in Legacy Link — the policy is optional.
+                    </div>
+                    <div style={{ ...S.checkRow, padding: '16px', border: '1px solid #334155', borderRadius: 12, background: '#060c1a', opacity: 0.6 }}>
+                      <div style={{ ...S.checkBox(false), borderColor: '#334155' }} />
+                      <div>
+                        <div style={{ ...S.checkLabel, color: '#64748b' }}>Company-funded policy (not available — suitability not met)</div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <hr style={S.divider} />
+
+                {/* Signature */}
+                <label style={S.label} htmlFor="ica-typed-name">Type your full legal name to sign</label>
+                <input
+                  id="ica-typed-name"
+                  type="text"
+                  value={typedName}
+                  onChange={(e) => setTypedName(e.target.value)}
+                  placeholder="Your Full Legal Name"
+                  style={S.input}
+                  autoComplete="name"
+                  disabled={submitting}
+                />
+
+                {(optInPolicy || optedOut || !suitable) ? null : (
+                  <div style={S.infoBox}>Please select your policy preference above before signing.</div>
+                )}
+
+                {error && <div style={S.errorBox}>{error}</div>}
+
+                <button
+                  type="button"
+                  style={(typedName.trim() && (optInPolicy || optedOut || !suitable) && !submitting) ? S.btn : S.btnDisabled}
+                  disabled={!typedName.trim() || (!optInPolicy && !optedOut && suitable !== false) || submitting}
+                  onClick={handleSubmit}
+                >
+                  {submitting ? 'Signing…' : 'Sign & Complete →'}
+                </button>
+
+                <p style={{ fontSize: 12, color: '#475569', textAlign: 'center', marginTop: 16 }}>
+                  Your electronic signature is legally binding. By signing, you confirm the name above is your legal name.
+                  Your suitability responses and policy election will be reviewed by Kimora Link.
+                </p>
+              </>
+            )}
+
+            {!allAnswered && (
+              <div style={{ ...S.infoBox, marginTop: 8 }}>
+                Answer all questions above to proceed to signing.
+              </div>
+            )}
+
+            <button type="button" style={{ ...S.btnGhost, marginTop: 16 }} onClick={() => setStep(2)}>← Back</button>
+          </>
+        )}
       </div>
     </div>
   );

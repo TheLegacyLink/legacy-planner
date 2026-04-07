@@ -66,6 +66,11 @@ export async function POST(req) {
     const envelopeId = `LL-${Date.now()}-${randomBytes(4).toString('hex').toUpperCase()}`;
     const signedAt = nowIso();
 
+    const suitabilityAnswers = body?.suitabilityAnswers || {};
+    const suitable = body?.suitable !== undefined ? Boolean(body.suitable) : null;
+    const optInPolicy = Boolean(body?.optInPolicy);
+    const upline = clean(body?.upline || profile.referrerName || '');
+
     const record = {
       envelopeId,
       email: norm(profile.email),
@@ -74,13 +79,16 @@ export async function POST(req) {
       state: clean(profile.state || ''),
       trackType: clean(profile.trackType || 'unlicensed'),
       applicationId: clean(profile.applicationId || ''),
-      referrerName: clean(profile.referrerName || ''),
+      referrerName: upline,
       signatureType,
       typedName: typedName || clean(profile.name),
       signatureDataHash: signatureData ? sha256(signatureData) : '',
       candidateSignedAt: signedAt,
       ipAddress,
       userAgent,
+      suitabilityAnswers,
+      suitable,
+      optInPolicy,
       kimuraSignedAt: '',
       kimuraNote: '',
       finalizedAt: '',
@@ -104,6 +112,9 @@ export async function POST(req) {
           `Name: ${record.name || '—'}`,
           `Email: ${record.email || '—'}`,
           `Track: ${record.trackType || '—'}`,
+          `Suitable: ${suitable === null ? 'N/A' : suitable ? 'Yes' : 'No'}`,
+          `Policy Opt-In: ${optInPolicy ? 'Yes' : 'No'}`,
+          `Upline: ${upline || '—'}`,
           `Time: ${record.candidateSignedAt || '—'}`,
           `Envelope: ${record.envelopeId || '—'}`,
         ].join('\n');
@@ -111,6 +122,40 @@ export async function POST(req) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ chat_id: tgChat, text: msg, disable_web_page_preview: true }),
+        }).catch(() => {});
+      }
+    } catch { /* non-fatal */ }
+
+    // Email notification to Kimora + upline
+    try {
+      const nodemailer = (await import('nodemailer')).default;
+      const gmailUser = clean(process.env.GMAIL_APP_USER || '');
+      const gmailPass = clean(process.env.GMAIL_APP_PASSWORD || '');
+      if (gmailUser && gmailPass) {
+        const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser, pass: gmailPass } });
+        const suitStr = suitable === null ? 'N/A' : suitable ? '✅ Suitable' : '❌ Not Suitable';
+        const policyStr = optInPolicy ? '✅ Opted In' : '❌ Opted Out';
+        const html = `
+          <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.6;">
+            <h2 style="margin:0 0 8px;">✍️ ICA Signed — Review Required</h2>
+            <p><strong>Name:</strong> ${record.name}</p>
+            <p><strong>Email:</strong> ${record.email}</p>
+            <p><strong>Track:</strong> ${record.trackType}</p>
+            <p><strong>Upline:</strong> ${upline || '—'}</p>
+            <p><strong>Suitability:</strong> ${suitStr}</p>
+            <p><strong>Company Policy Election:</strong> ${policyStr}</p>
+            <p><strong>Envelope ID:</strong> ${record.envelopeId}</p>
+            <p><strong>Signed At:</strong> ${record.candidateSignedAt}</p>
+            <hr/>
+            <p style="color:#64748b;font-size:13px;">This agent requires your countersignature to finalize their ICA. Please review and sign off.</p>
+          </div>`;
+        const recipients = ['link@thelegacylink.com'];
+        if (upline && upline.includes('@')) recipients.push(upline);
+        await transporter.sendMail({
+          from: gmailUser,
+          to: recipients.join(', '),
+          subject: `ICA Signed — ${record.name} (${suitStr} | ${policyStr})`,
+          html,
         }).catch(() => {});
       }
     } catch { /* non-fatal */ }
@@ -161,6 +206,9 @@ function sanitize(r = {}) {
     kimuraSignedAt: clean(r?.kimuraSignedAt),
     finalizedAt: clean(r?.finalizedAt),
     source: clean(r?.source),
-    createdAt: clean(r?.createdAt)
+    createdAt: clean(r?.createdAt),
+    suitable: r?.suitable ?? null,
+    optInPolicy: Boolean(r?.optInPolicy),
+    referrerName: clean(r?.referrerName)
   };
 }
