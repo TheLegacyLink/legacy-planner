@@ -463,7 +463,7 @@ export default function StartPortalPage() {
               ← Use a different email
             </button>
             <p style={{ ...mutedStyle, textAlign: 'center' }}>
-              Didn't get the code?{' '}
+              Didn&apos;t get the code?{' '}
               <span
                 style={{ color: '#60A5FA', cursor: 'pointer', textDecoration: 'underline' }}
                 onClick={() => { setStage('email'); setOtp(''); setError(''); setNotice(''); }}
