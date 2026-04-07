@@ -6,8 +6,8 @@ function clean(v = '') { return String(v || '').trim(); }
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
   const email = clean(body?.email).toLowerCase();
-  const fullName = clean(body?.fullName);
-  if (!email || !fullName) return Response.json({ ok: false, error: 'email_and_full_name_required' }, { status: 400 });
+  const fullName = clean(body?.fullName || '');
+  if (!email) return Response.json({ ok: false, error: 'email_required' }, { status: 400 });
 
   const resolved = await resolveUnlicensedProfile({ email, fullName });
   if (!resolved?.ok || !resolved?.profile) return Response.json({ ok: false, error: 'not_unlicensed_match' }, { status: 403 });
