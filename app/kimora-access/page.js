@@ -18,7 +18,9 @@ const links = [
   { label: 'FNG Policies', href: '/fng-policies' },
   { label: 'Sponsorships', href: '/sponsorships' },
   { label: 'Caller - Emani', href: '/caller-emani' },
-  { label: 'Inner Circle Links', href: '/inner-circle-links' }
+  { label: 'Inner Circle Links', href: '/inner-circle-links' },
+  { label: 'Sponsorship Link Finder (Admin)', href: '/sponsorship-link-admin' },
+  { label: '✍️ Contract Signatures (Countersign)', href: '/kimora-access/contracts' }
 ];
 
 function absolute(href = '') {
