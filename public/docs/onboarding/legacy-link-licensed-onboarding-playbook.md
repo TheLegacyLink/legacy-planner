@@ -6,11 +6,15 @@ Complete each step in order, then execute daily standards with clean CRM updates
 
 ---
 
-## Step 1 — Back Office Access + Welcome Instructions
+## Step 1 — ICA Signing + Back Office Access
 - Open your Welcome Email and save your key links.
 - Start here: **https://innercirclelink.com/start**
-- Sign in and follow the guided onboarding steps shown in the system.
-- If prompted, complete contracting before continuing.
+- Sign in using your one-time passcode. Upon first login, you will be required to complete a one-time onboarding sequence:
+  - **Independent Contractor Agreement (ICA V3)** — read and sign
+  - **Compliance & Coverage Addendum** — read and acknowledge
+  - **Suitability Assessment** — answer 5 questions to determine eligibility for the company-funded policy
+  - **Policy Election** — choose to opt in or opt out of the company-funded policy (optional either way)
+- This is a one-time requirement. Complete it in one sitting before moving to any other step.
 - Confirm your back office access is active before moving to Step 2.
 
 ## Step 2 — Contracting
@@ -65,14 +69,15 @@ Complete each step in order, then execute daily standards with clean CRM updates
 - Licensed agents must also complete their first hour of community service before lead activation.
 
 ## Lead Distribution and Program Pathways
-- Full Sponsorship Path (policy portion completed):
+- Full Sponsorship Path (suitability confirmed + policy opted in):
   - **60 fresh leads in total**
   - full JumpStart access and support
 - If you are consistently contacting and following up with leads but have not closed yet, the company may drip additional leads to support your success.
-- Alternate Path (policy declined / not accepted / not suitable):
+- Alternate Path (opted out or not suitable for company policy):
   - **20 older leads**
   - drip-based delivery
   - continued onboarding support
+- Note: Suitability is determined during your ICA signing process. You can still participate in Legacy Link regardless of your policy election.
 
 ## Upline Support (Use the Help Button)
 - Use **Help / Messages** in back office to contact your upline directly.

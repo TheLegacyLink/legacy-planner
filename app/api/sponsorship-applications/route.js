@@ -229,8 +229,19 @@ function buildProgramOnboardingHtml({
         <p style="margin:0 0 14px;">Hi ${firstName || 'Agent'},</p>
         <p style="margin:0 0 14px;">${intro}</p>
 
+        <div style="margin:14px 0;padding:14px;border:1px solid #92400e;border-radius:10px;background:#1a0e00;">
+          <div style="font-weight:800;margin-bottom:8px;color:#fbbf24;">&#x26A0;&#xFE0F; First: Sign Your ICA (Required)</div>
+          <p style="margin:0 0 8px;font-size:14px;">Before accessing your back office, you will complete a one-time signing sequence:</p>
+          <ul style="margin:0 0 8px 18px;padding:0;font-size:14px;">
+            <li>Independent Contractor Agreement (ICA V3)</li>
+            <li>Compliance &amp; Coverage Addendum</li>
+            <li>Suitability Assessment + Policy Election</li>
+          </ul>
+          <p style="margin:0;font-size:13px;color:#94a3b8;">This takes about 5 minutes. Complete it in one sitting. Your upline and Kimora Link will be notified for countersignature review.</p>
+        </div>
+
         <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
-          <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Execute these steps in order</div>
+          <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Then Execute These Steps in Order</div>
           <ol style="margin:0 0 0 18px;padding:0;">
             <li style="margin-bottom:10px;"><strong>SOP Portal:</strong><br/><a href="${sopLink}" style="color:#F58426;text-decoration:none;font-weight:700;">${sopLink}</a></li>
             ${contractingStep}
@@ -273,15 +284,19 @@ async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licen
     : 'Legacy Link Approval: Unlicensed SOP + Licensing Path (Start Today)';
 
   const intro = licensed
-    ? 'You are approved on the licensed track. Complete your SOP and contracting steps now so you can move into production quickly.'
-    : 'You are approved on the unlicensed track. Complete your SOP and licensing steps now to unlock lead access.';
+    ? 'You are approved on the licensed track. Your first step is to sign your Independent Contractor Agreement — you will be prompted immediately when you log in. Complete it in one sitting (about 5 minutes), then follow the steps below to move into production.'
+    : 'You are approved on the unlicensed track. Your first step is to sign your Independent Contractor Agreement — the link is on your confirmation page right now. Complete it in one sitting (about 5 minutes), then follow the steps below to begin your licensing path.';
 
   const text = [
     `Hi ${firstName || 'Agent'},`,
     '',
     intro,
     '',
-    'Execute these steps in order:',
+    'FIRST — Sign Your ICA (Required before back office access):',
+    'You will be prompted to complete: ICA V3 + Compliance Addendum + Suitability Assessment + Policy Election.',
+    'This is a one-time requirement. Takes about 5 minutes.',
+    '',
+    'Then execute these steps in order:',
     `Step 1 — SOP Portal: ${sopLink}`,
     ...(licensed ? [`Step 2 — Contracting (Licensed Required): ${contractingUrl}`] : []),
     `Step ${licensed ? '3' : '2'} — Skool Community: ${skoolUrl}`,

@@ -6,10 +6,16 @@ Complete each step in order and maintain daily execution discipline.
 
 ---
 
-## Step 1 — Back Office Access + Welcome Instructions
+## Step 1 — ICA Signing + Back Office Access
 - Open your Welcome Email and save your links.
-- Start here: **https://innercirclelink.com/start**
-- Sign in and follow the guided onboarding steps shown in the system.
+- Start here: **https://innercirclelink.com/start/unlicensed**
+- Complete your profile setup. Immediately after submitting, you will be shown your ICA signing link.
+- Complete the one-time onboarding sequence before accessing anything else:
+  - **Independent Contractor Agreement (ICA V3)** — read and sign
+  - **Compliance & Coverage Addendum** — read and acknowledge
+  - **Suitability Assessment** — answer 5 questions to determine eligibility for the company-funded policy
+  - **Policy Election** — choose to opt in or opt out of the company-funded policy (optional either way)
+- This takes about 5 minutes. Complete it in one sitting.
 - Confirm your back office access is active before moving to Step 2.
 
 ## Step 2 — Community + Skool (Training)
