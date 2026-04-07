@@ -143,7 +143,7 @@ export default function LicensedStartPage() {
           </label>
 
           <div style={{ gridColumn: '1 / -1' }}>
-            <div style={{ marginBottom: 6, fontWeight: 600 }}>States You're Licensed In*</div>
+            <div style={{ marginBottom: 6, fontWeight: 600 }}>States You&apos;re Licensed In*</div>
             <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(66px,1fr))' }}>
               {STATES.map((s) => {
                 const active = form.licensedStates.includes(s);
