@@ -85,11 +85,26 @@ export default function LicensedStartPage() {
         <div style={{ width: 'min(680px, 96vw)', border: '1px solid #334155', borderRadius: 16, background: '#0B1220', padding: 22, textAlign: 'center' }}>
           <div style={{ fontSize: 34 }}>✅</div>
           <h1 style={{ margin: '6px 0 0' }}>Licensed Intake Submitted</h1>
-          <p style={{ color: '#94A3B8' }}>{savedRow?.contractStatus === 'signed' ? 'Your profile is captured and contract is complete. We’ll continue onboarding + credential delivery steps.' : 'Your profile is captured. Contract signature is required before full activation. Check your email for the contract link.'}</p>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a href={nextPath} style={{ color: '#93C5FD', fontWeight: 700 }}>Continue to Sign In</a>
-            <a href="/start" style={{ color: '#93C5FD' }}>Back to Start</a>
+          <p style={{ color: '#94A3B8', marginBottom: 20 }}>Your profile is captured. Log in now to sign your ICA and access your back office. It takes about 5 minutes.</p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+            <a
+              href="/start"
+              style={{
+                display: 'inline-block',
+                background: 'linear-gradient(135deg,#C8A96B 0%,#A78647 100%)',
+                color: '#0B1020',
+                fontWeight: 800,
+                fontSize: 16,
+                padding: '13px 26px',
+                borderRadius: 12,
+                textDecoration: 'none',
+                border: '1px solid #D6BD8D'
+              }}
+            >
+              Log In &amp; Sign Your ICA →
+            </a>
           </div>
+          <p style={{ color: '#64748B', fontSize: 13, margin: 0 }}>Use: <strong style={{ color: '#94A3B8' }}>{form.email}</strong></p>
         </div>
       </main>
     );
@@ -128,7 +143,7 @@ export default function LicensedStartPage() {
           </label>
 
           <div style={{ gridColumn: '1 / -1' }}>
-            <div style={{ marginBottom: 6, fontWeight: 600 }}>States You’re Licensed In*</div>
+            <div style={{ marginBottom: 6, fontWeight: 600 }}>States You're Licensed In*</div>
             <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(66px,1fr))' }}>
               {STATES.map((s) => {
                 const active = form.licensedStates.includes(s);
