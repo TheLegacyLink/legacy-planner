@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import ICAContractGate from '../../components/ICAContractGate';
 import licensedAgents from '../../data/licensedAgents.json';
 import innerCircleUsers from '../../data/innerCircleUsers.json';
 
@@ -303,6 +304,7 @@ export default function LicensedBackofficePage() {
   const [codeRequested, setCodeRequested] = useState(false);
   const [session, setSession] = useState(null);
   const [authToken, setAuthToken] = useState('');
+  const [icaSigned, setIcaSigned] = useState(false);
   const [tab, setTab] = useState('overview');
   const [policyRows, setPolicyRows] = useState([]);
   const [sponsorRows, setSponsorRows] = useState([]);
@@ -1364,6 +1366,10 @@ export default function LicensedBackofficePage() {
   }
 
   return (
+    <>
+      {session && authToken && !icaSigned && (
+        <ICAContractGate token={authToken} session={session} onSigned={() => setIcaSigned(true)} />
+      )}
     <main style={{ minHeight: '100vh', background: '#070b14', color: '#E5E7EB', padding: 22 }}>
       <section style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gap: 14 }}>
         <header style={{ border: '1px solid #2A3142', borderRadius: 14, background: '#0F172A', padding: 18 }}>

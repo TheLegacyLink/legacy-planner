@@ -60,13 +60,51 @@ export default function UnlicensedStartPage() {
     }
   }
 
+  const docusignUrl = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_DOCUSIGN_ICA_URL || '') : '';
+
   if (saved) {
+    const contractSigned = savedRow?.contractStatus === 'signed';
     return (
       <main style={{ minHeight: '100vh', background: '#020617', color: '#F8FAFC', padding: 16, display: 'grid', placeItems: 'center' }}>
         <div style={{ width: 'min(680px, 96vw)', border: '1px solid #334155', borderRadius: 16, background: '#0B1220', padding: 22, textAlign: 'center' }}>
           <div style={{ fontSize: 34 }}>✅</div>
           <h1 style={{ margin: '6px 0 0' }}>Unlicensed Intake Submitted</h1>
-          <p style={{ color: '#94A3B8' }}>{savedRow?.contractStatus === 'signed' ? 'Your profile is captured and contract is complete. We’ll send onboarding steps next.' : 'Your profile is captured. Contract signature is required before full activation. Check your email for the contract link.'}</p>
+          <p style={{ color: '#94A3B8', marginBottom: contractSigned ? 16 : 8 }}>
+            {contractSigned
+              ? 'Your profile is captured and contract is complete. We'll send onboarding steps next.'
+              : 'Your profile is captured. To unlock your back office access, sign your Independent Contractor Agreement below.'}
+          </p>
+
+          {!contractSigned && (
+            <div style={{ marginBottom: 20 }}>
+              {docusignUrl ? (
+                <a
+                  href={docusignUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'inline-block',
+                    background: 'linear-gradient(135deg,#C8A96B 0%,#A78647 100%)',
+                    color: '#0B1020',
+                    fontWeight: 800,
+                    fontSize: 16,
+                    padding: '13px 26px',
+                    borderRadius: 12,
+                    textDecoration: 'none',
+                    border: '1px solid #D6BD8D'
+                  }}
+                >
+                  Sign Your ICA Agreement →
+                </a>
+              ) : (
+                <p style={{ color: '#FCA5A5', fontSize: 14 }}>Contract link not configured. Please contact support@thelegacylink.com.</p>
+              )}
+              <p style={{ color: '#64748B', fontSize: 13, marginTop: 10 }}>
+                Use the same email you submitted: <strong style={{ color: '#94A3B8' }}>{form.email}</strong>
+              </p>
+            </div>
+          )}
+
           <a href="/start" style={{ color: '#93C5FD' }}>Back to Start</a>
         </div>
       </main>

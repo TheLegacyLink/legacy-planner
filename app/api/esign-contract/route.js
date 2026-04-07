@@ -93,6 +93,28 @@ export async function POST(req) {
     else list.push(record);
 
     await saveJsonStore(STORE_PATH, list);
+
+    // Telegram notification
+    try {
+      const tgToken = clean(process.env.TELEGRAM_BOT_TOKEN || '');
+      const tgChat = clean(process.env.TELEGRAM_CHAT_ID || '');
+      if (tgToken && tgChat) {
+        const msg = [
+          '✍️ ICA Signed',
+          `Name: ${record.name || '—'}`,
+          `Email: ${record.email || '—'}`,
+          `Track: ${record.trackType || '—'}`,
+          `Time: ${record.candidateSignedAt || '—'}`,
+          `Envelope: ${record.envelopeId || '—'}`,
+        ].join('\n');
+        await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: tgChat, text: msg, disable_web_page_preview: true }),
+        }).catch(() => {});
+      }
+    } catch { /* non-fatal */ }
+
     return Response.json({ ok: true, envelopeId, signedAt, record: sanitize(record) });
   }
 
