@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import { createHash, randomBytes } from 'crypto';
-import { loadJsonStore, saveJsonStore } from '../../../../lib/blobJsonStore';
-import { normalizePersonName } from '../../../../lib/nameAliases';
+import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import { normalizePersonName } from '../../../lib/nameAliases';
 
 export const CODES_PATH = 'stores/start-auth-codes.json';
 export const SESSIONS_PATH = 'stores/start-auth-sessions.json';
@@ -58,8 +58,8 @@ export async function resolveProfileByEmail(email = '') {
   // 3. Check licensed agents JSON
   let licensedAgents = [];
   try {
-    const mod = await import('../../../../data/licensedAgents.json', { assert: { type: 'json' } });
-    licensedAgents = Array.isArray(mod.default) ? mod.default : [];
+    const rows2 = await loadJsonStore(LICENSED_AGENTS_PATH, []);
+    licensedAgents = Array.isArray(rows2) ? rows2 : [];
   } catch {
     const rows = await loadJsonStore(LICENSED_AGENTS_PATH, []);
     licensedAgents = Array.isArray(rows) ? rows : [];

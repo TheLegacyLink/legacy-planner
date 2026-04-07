@@ -71,7 +71,7 @@ export default function UnlicensedStartPage() {
           <h1 style={{ margin: '6px 0 0' }}>Unlicensed Intake Submitted</h1>
           <p style={{ color: '#94A3B8', marginBottom: contractSigned ? 16 : 8 }}>
             {contractSigned
-              ? 'Your profile is captured and contract is complete. We'll send onboarding steps next.'
+              ? 'Your profile is captured and contract is complete. We\'ll send onboarding steps next.'
               : 'Your profile is captured. To unlock your back office access, sign your Independent Contractor Agreement below.'}
           </p>
 

@@ -2226,6 +2226,7 @@ export default function LicensedBackofficePage() {
         ) : null}
       </section>
     </main>
+    </>
   );
 }
 
