@@ -261,14 +261,7 @@ export default function StartPortalPage() {
         const p = data.profile;
         setToken(t);
         setProfile(p);
-        // Check if contract is already signed
-        const cr = await fetch('/api/esign-contract', { headers: { Authorization: `Bearer ${t}` }, cache: 'no-store' });
-        const cd = await cr.json().catch(() => ({}));
-        if (cd?.signed) {
-          redirectToBackoffice(p);
-        } else {
-          setStage('contract');
-        }
+        redirectToBackoffice(p);
       } catch { setStage('email'); }
     })();
     return () => { mounted = false; };
@@ -329,14 +322,7 @@ export default function StartPortalPage() {
       if (typeof window !== 'undefined') window.localStorage.setItem(PROFILE_KEY, JSON.stringify(data.profile));
       setToken(data.token);
       setProfile(data.profile);
-      // Check contract status
-      const cr = await fetch('/api/esign-contract', { headers: { Authorization: `Bearer ${data.token}` }, cache: 'no-store' });
-      const cd = await cr.json().catch(() => ({}));
-      if (cd?.signed) {
-        redirectToBackoffice(data.profile);
-      } else {
-        setStage('contract');
-      }
+      redirectToBackoffice(data.profile);
     } finally { setBusy(false); }
   }
 
