@@ -269,8 +269,7 @@ export default function UnlicensedBackofficePage() {
             <p style={{ margin: '8px 0 0', opacity: 0.95 }}>Unlicensed Back Office • License Sprint</p>
           </div>
           <div style={{ padding: 24, display: 'grid', gap: 10 }}>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email or login" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
-            <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full name (must match your application)" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
             {!codeRequested ? (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button onClick={requestCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>Send Login Code</button>

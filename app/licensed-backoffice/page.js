@@ -1315,27 +1315,13 @@ export default function LicensedBackofficePage() {
             <p style={{ margin: '8px 0 0', opacity: 0.95 }}>Licensed Agent Back Office</p>
           </div>
           <div style={{ padding: 24, display: 'grid', gap: 12 }}>
-            <label style={{ fontSize: 14, color: '#9CA3AF' }}>Sign in (licensed-only)</label>
+            <label style={{ fontSize: 14, color: '#9CA3AF' }}>Sign in with your email</label>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Licensed email or login"
+              placeholder="Your email address"
               style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }}
             />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <input
-                value={loginName}
-                onChange={(e) => setLoginName(e.target.value)}
-                placeholder="Full name (fallback)"
-                style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }}
-              />
-              <input
-                value={loginPhone}
-                onChange={(e) => setLoginPhone(e.target.value)}
-                placeholder="Phone (fallback)"
-                style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }}
-              />
-            </div>
             {!codeRequested ? (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button onClick={requestCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
