@@ -257,9 +257,10 @@ function buildProgramOnboardingHtml({
         </div>
 
         <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
-          <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Onboarding Playbook (PDF)</div>
-          <p style="margin:0 0 10px;">Your track-specific onboarding playbook is attached to this email.</p>
-          <a href="${playbookUrl}" style="display:inline-block;background:#F58426;color:#0B1020;padding:10px 14px;border-radius:8px;font-weight:800;text-decoration:none;">Open Playbook Link</a>
+          <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Onboarding Resources</div>
+          <p style="margin:0 0 10px;">Your track-specific onboarding playbook is attached to this email. You can also view your step-by-step visual guide online:</p>
+          <a href="https://innercirclelink.com/docs/onboarding/agent-onboarding-guide.html" style="display:inline-block;background:#F58426;color:#0B1020;padding:10px 14px;border-radius:8px;font-weight:800;text-decoration:none;margin-bottom:8px;">View Step-by-Step Onboarding Guide</a><br/>
+          <a href="${playbookUrl}" style="display:inline-block;background:#0f172a;color:#F58426;border:1px solid #F58426;padding:10px 14px;border-radius:8px;font-weight:800;text-decoration:none;">Open PDF Playbook</a>
         </div>
 
         <p style="margin:14px 0 0;"><strong>Let’s execute.</strong><br/>The Legacy Link Team</p>
@@ -305,7 +306,8 @@ async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licen
     `SOP Login Name: ${loginName || to}`,
     `SOP Password: ${loginPassword || ''}`,
     '',
-    'Your onboarding PDF is attached for a full step-by-step reference.',
+    'Step-by-Step Visual Guide: https://innercirclelink.com/docs/onboarding/agent-onboarding-guide.html',
+    'Your onboarding PDF is also attached for reference.',
     '',
     'Let’s execute.',
     '— The Legacy Link Team'
