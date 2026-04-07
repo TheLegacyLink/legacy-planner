@@ -678,12 +678,22 @@ export default function ICAContractGate({ token, session, onSigned }) {
                 ) : (
                   <>
                     <div style={S.warningBox}>
-                      ⚠️ Based on your responses, a company-funded life insurance policy may not be suitable for you at this time. You have been automatically opted out. You can still fully participate in Legacy Link — the policy is optional.
+                      ⚠️ Based on your responses, a company-funded life insurance policy may not be suitable for you at this time. You can still fully participate in Legacy Link — the policy is optional. Please acknowledge below to continue.
                     </div>
-                    <div style={{ ...S.checkRow, padding: '16px', border: '1px solid #334155', borderRadius: 12, background: '#060c1a', opacity: 0.6 }}>
-                      <div style={{ ...S.checkBox(false), borderColor: '#334155' }} />
+                    <div
+                      style={{ ...S.checkRow, padding: '16px', border: `1px solid ${optedOut ? '#475569' : '#334155'}`, borderRadius: 12, background: optedOut ? '#0f172a' : '#060c1a', cursor: 'pointer' }}
+                      onClick={() => setOptedOut((v) => !v)}
+                      role="checkbox"
+                      aria-checked={optedOut}
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') setOptedOut((v) => !v); }}
+                    >
+                      <div style={S.checkBox(optedOut)}>
+                        {optedOut && <span style={{ color: '#0a0f1e', fontWeight: 900, fontSize: 14 }}>✓</span>}
+                      </div>
                       <div>
-                        <div style={{ ...S.checkLabel, color: '#64748b' }}>Company-funded policy (not available — suitability not met)</div>
+                        <div style={{ ...S.checkLabel, color: '#e2e8f0', fontWeight: 700 }}>I understand I am not eligible for the company-funded policy at this time and wish to proceed</div>
+                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>You can still participate fully in Legacy Link.</div>
                       </div>
                     </div>
                   </>
@@ -704,16 +714,16 @@ export default function ICAContractGate({ token, session, onSigned }) {
                   disabled={submitting}
                 />
 
-                {(optInPolicy || optedOut || !suitable) ? null : (
-                  <div style={S.infoBox}>Please select your policy preference above before signing.</div>
+                {(optInPolicy || optedOut) ? null : (
+                  <div style={S.infoBox}>Please make your policy selection above before signing.</div>
                 )}
 
                 {error && <div style={S.errorBox}>{error}</div>}
 
                 <button
                   type="button"
-                  style={(typedName.trim() && (optInPolicy || optedOut || !suitable) && !submitting) ? S.btn : S.btnDisabled}
-                  disabled={!typedName.trim() || (!optInPolicy && !optedOut && suitable !== false) || submitting}
+                  style={(typedName.trim() && (optInPolicy || optedOut) && !submitting) ? S.btn : S.btnDisabled}
+                  disabled={!typedName.trim() || (!optInPolicy && !optedOut) || submitting}
                   onClick={handleSubmit}
                 >
                   {submitting ? 'Signing…' : 'Sign & Complete →'}
