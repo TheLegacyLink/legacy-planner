@@ -43,7 +43,7 @@ function generateFallbackPersonalizedPdf({ outPath = '', roleKey = '', roleLabel
     `Coach Name: ${clean(coachName) || 'Legacy Link Coach'}`,
     '',
     'Step Order (Do in this order):',
-    `1) Sign onboarding agreement: ${clean(contractLink)}`,
+    `1) Log in and sign your ICA (required first): ${clean(contractLink)}`,
     `2) Join Legacy Link App (CRM): ${clean(appUrl)}`,
     ...(isInner
       ? [
@@ -355,7 +355,7 @@ function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, 
   const safeSponsorship = escapeHtml(sponsorshipUrl || '');
 
   const onboardingRows = [
-    `<li style="margin-bottom:10px;"><strong>Review your onboarding agreement first:</strong><br/><a href="${safeContract}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeContract}</a></li>`
+    `<li style="margin-bottom:10px;"><strong>Log in and sign your ICA first (required):</strong><br/><a href="${safeContract}" style="color:#F58426;text-decoration:none;font-weight:700;">Sign In &amp; Sign Your ICA &rarr;</a></li>`
   ];
 
   if (isInnerCircle) {
@@ -474,8 +474,7 @@ export async function POST(req) {
   const playbookUrl = explicitPlaybookUrl || roleConfig.playbookUrl;
   const compScheduleUrl = clean(body?.compScheduleUrl || body?.customLinks?.compSchedule || 'https://innercirclelink.com/docs/onboarding/legacy-link-comp-schedule-bonuses-v2.pdf');
   const compSchedulePath = path.join(process.cwd(), 'public', 'docs', 'onboarding', 'legacy-link-comp-schedule-bonuses-v2.pdf');
-  const defaultContract = isInnerCircle ? 'https://innercirclelink.com/inner-circle-contract' : 'https://innercirclelink.com/contract-agreement';
-  const contractLink = clean(body?.contractLink || body?.customLinks?.contract || defaultContract);
+  const contractLink = 'https://innercirclelink.com/start';
   const referredBy = clean(body?.referredBy || body?.customLinks?.referredBy || '');
   // Current chain-of-command rule: coach defaults to the referrer unless explicitly overridden.
   const coachName = clean(body?.coachName || body?.customLinks?.coachName || referredBy || 'Legacy Link Coach');
@@ -498,7 +497,7 @@ export async function POST(req) {
     '',
     `Welcome to The Legacy Link ${roleConfig.label}! Here is your onboarding access:`,
     '',
-    `Step 1 (Required First): Onboarding Agreement: ${contractLink}`
+    `Step 1 (Required First): Log in and sign your ICA: ${contractLink}`
   ];
 
   if (isInnerCircle) {

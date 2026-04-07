@@ -30,12 +30,12 @@ function brandHeader() {
 
 function licensedWelcomeHtml({ firstName = 'Agent' } = {}) {
   const f = escapeHtml(firstName || 'Agent');
-  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#040B23;padding:24px;color:#E5E7EB;line-height:1.6;"><div style="max-width:860px;margin:0 auto;background:#0B1534;border:1px solid #1E3A8A;border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(0,0,0,0.35);"><div style="padding:18px 24px;background:#1651AE;text-align:center;"><div style="color:#FFFFFF;font-weight:800;font-size:42px;line-height:1;letter-spacing:1px;">THE LEGACY LINK</div></div><div style="padding:28px 30px;"><h2 style="margin:0 0 14px;font-size:34px;line-height:1.1;color:#F8FAFC;">Licensed Agent — Execute Your Next Steps</h2><p style="margin:0 0 8px;color:#E2E8F0;font-size:24px;">Hi ${f},</p><p style="margin:0 0 10px;color:#CBD5E1;font-size:19px;">Welcome to The Legacy Link.</p><p style="margin:0 0 14px;color:#CBD5E1;font-size:19px;">We’re excited to have you here and looking forward to helping you build. You’ve already taken an important step, and now it’s time to get everything in place so you can move with clarity, confidence, and speed.</p><p style="margin:0 0 14px;color:#E2E8F0;font-size:19px;font-weight:700;">Please complete the steps below so we can get you fully set up:</p><div style="background:#071235;border:1px solid #294B8D;border-radius:14px;padding:18px 20px;"><ol style="margin:0;padding-left:28px;color:#E2E8F0;font-size:21px;line-height:1.45;"><li style="margin-bottom:12px;"><strong>Back Office Access (Start Here):</strong><br/><a href="https://innercirclelink.com/start" target="_blank" rel="noopener noreferrer" style="color:#FB923C;text-decoration:underline;font-weight:700;">https://innercirclelink.com/start</a></li><li style="margin-bottom:12px;"><strong>Contracting:</strong><br/>See PDF attached:<br/><a href="https://innercirclelink.com/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf" target="_blank" rel="noopener noreferrer" style="color:#FB923C;text-decoration:underline;font-weight:700;">Licensed Agent Onboarding PDF</a></li><li style="margin-bottom:12px;"><strong>Skool Community:</strong><br/><a href="https://www.skool.com/legacylink/about" target="_blank" rel="noopener noreferrer" style="color:#FB923C;text-decoration:underline;font-weight:700;">https://www.skool.com/legacylink/about</a></li><li><strong>YouTube (Whatever It Takes):</strong><br/><a href="https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX" target="_blank" rel="noopener noreferrer" style="color:#FB923C;text-decoration:underline;font-weight:700;">https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX</a></li></ol></div></div></div></div>`;
+  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#040B23;padding:24px;color:#E5E7EB;line-height:1.6;"><div style="max-width:860px;margin:0 auto;background:#0B1534;border:1px solid #1E3A8A;border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(0,0,0,0.35);"><div style="padding:18px 24px;background:#1651AE;text-align:center;"><div style="color:#FFFFFF;font-weight:800;font-size:42px;line-height:1;letter-spacing:1px;">THE LEGACY LINK</div></div><div style="padding:28px 30px;"><h2 style="margin:0 0 14px;font-size:34px;line-height:1.1;color:#F8FAFC;">Licensed Agent - Execute Your Next Steps</h2><p style="margin:0 0 8px;color:#E2E8F0;font-size:24px;">Hi ${f},</p><p style="margin:0 0 10px;color:#CBD5E1;font-size:19px;">Welcome to The Legacy Link.</p><p style="margin:0 0 14px;color:#CBD5E1;font-size:19px;">We're excited to have you here and looking forward to helping you build. You've already taken an important step, and now it's time to get everything in place so you can move with clarity, confidence, and speed.</p><p style="margin:0 0 14px;color:#E2E8F0;font-size:19px;font-weight:700;">Please complete the steps below so we can get you fully set up:</p><div style="background:#071235;border:1px solid #294B8D;border-radius:14px;padding:18px 20px;"><ol style="margin:0;padding-left:28px;color:#E2E8F0;font-size:21px;line-height:1.45;"><li style="margin-bottom:12px;"><strong>Back Office Access (Start Here):</strong><br/><a href="https://innercirclelink.com/start" target="_blank" rel="noopener noreferrer" style="color:#FB923C;text-decoration:underline;font-weight:700;">https://innercirclelink.com/start</a></li><li style="margin-bottom:12px;"><strong>Contracting:</strong><br/>See PDF attached:<br/><a href="https://innercirclelink.com/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf" target="_blank" rel="noopener noreferrer" style="color:#FB923C;text-decoration:underline;font-weight:700;">Licensed Agent Onboarding PDF</a></li><li style="margin-bottom:12px;"><strong>Skool Community:</strong><br/><a href="https://www.skool.com/legacylink/about" target="_blank" rel="noopener noreferrer" style="color:#FB923C;text-decoration:underline;font-weight:700;">https://www.skool.com/legacylink/about</a></li><li><strong>YouTube (Whatever It Takes):</strong><br/><a href="https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX" target="_blank" rel="noopener noreferrer" style="color:#FB923C;text-decoration:underline;font-weight:700;">https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX</a></li></ol></div></div></div></div>`;
 }
 
 function unlicensedWelcomeHtml({ firstName = 'Agent', jamalEmail = '' } = {}) {
   const f = escapeHtml(firstName || 'Agent');
-  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#040B23;padding:24px;color:#E5E7EB;line-height:1.6;"><div style="max-width:860px;margin:0 auto;background:#0B1534;border:1px solid #1E3A8A;border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(0,0,0,0.35);"><div style="padding:18px 24px;background:#1651AE;text-align:center;"><div style="color:#FFFFFF;font-weight:800;font-size:42px;line-height:1;letter-spacing:1px;">THE LEGACY LINK</div></div><div style="padding:28px 30px;"><h2 style="margin:0 0 14px;font-size:34px;line-height:1.1;color:#F8FAFC;">Unlicensed Agent — Execute Your Next Steps</h2><p style="margin:0 0 8px;color:#E2E8F0;font-size:24px;">Hi ${f},</p><p style="margin:0 0 10px;color:#CBD5E1;font-size:19px;">Welcome to The Legacy Link.</p><p style="margin:0 0 14px;color:#CBD5E1;font-size:19px;">We’re excited to have you here and looking forward to helping you build. You do not need to have everything figured out today — that’s what we’re here for. Our goal is to help you get started the right way, move quickly through the process, and put you in position to grow.</p><p style="margin:0 0 14px;color:#E2E8F0;font-size:19px;font-weight:700;">Please complete the steps below so we can get you started:</p><div style="background:#071235;border:1px solid #294B8D;border-radius:14px;padding:18px 20px;"><ol style="margin:0;padding-left:28px;color:#E2E8F0;font-size:21px;line-height:1.45;"><li style="margin-bottom:12px;"><strong>Back Office Access (Start Here):</strong><br/><a href="https://innercirclelink.com/start" target="_blank" rel="noopener noreferrer" style="color:#60A5FA;text-decoration:underline;font-weight:700;">https://innercirclelink.com/start</a></li><li style="margin-bottom:12px;"><strong>Skool Community:</strong><br/><a href="https://www.skool.com/legacylink/about" target="_blank" rel="noopener noreferrer" style="color:#60A5FA;text-decoration:underline;font-weight:700;">https://www.skool.com/legacylink/about</a></li><li><strong>YouTube (Whatever It Takes):</strong><br/><a href="https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX" target="_blank" rel="noopener noreferrer" style="color:#60A5FA;text-decoration:underline;font-weight:700;">https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX</a></li></ol></div></div></div></div>`;
+  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#040B23;padding:24px;color:#E5E7EB;line-height:1.6;"><div style="max-width:860px;margin:0 auto;background:#0B1534;border:1px solid #1E3A8A;border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(0,0,0,0.35);"><div style="padding:18px 24px;background:#1651AE;text-align:center;"><div style="color:#FFFFFF;font-weight:800;font-size:42px;line-height:1;letter-spacing:1px;">THE LEGACY LINK</div></div><div style="padding:28px 30px;"><h2 style="margin:0 0 14px;font-size:34px;line-height:1.1;color:#F8FAFC;">Unlicensed Agent - Execute Your Next Steps</h2><p style="margin:0 0 8px;color:#E2E8F0;font-size:24px;">Hi ${f},</p><p style="margin:0 0 10px;color:#CBD5E1;font-size:19px;">Welcome to The Legacy Link.</p><p style="margin:0 0 14px;color:#CBD5E1;font-size:19px;">We're excited to have you here and looking forward to helping you build. You do not need to have everything figured out today - that's what we're here for. Our goal is to help you get started the right way, move quickly through the process, and put you in position to grow.</p><p style="margin:0 0 14px;color:#E2E8F0;font-size:19px;font-weight:700;">Please complete the steps below so we can get you started:</p><div style="background:#071235;border:1px solid #294B8D;border-radius:14px;padding:18px 20px;"><ol style="margin:0;padding-left:28px;color:#E2E8F0;font-size:21px;line-height:1.45;"><li style="margin-bottom:12px;"><strong>Back Office Access (Start Here):</strong><br/><a href="https://innercirclelink.com/start" target="_blank" rel="noopener noreferrer" style="color:#60A5FA;text-decoration:underline;font-weight:700;">https://innercirclelink.com/start</a></li><li style="margin-bottom:12px;"><strong>Skool Community:</strong><br/><a href="https://www.skool.com/legacylink/about" target="_blank" rel="noopener noreferrer" style="color:#60A5FA;text-decoration:underline;font-weight:700;">https://www.skool.com/legacylink/about</a></li><li><strong>YouTube (Whatever It Takes):</strong><br/><a href="https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX" target="_blank" rel="noopener noreferrer" style="color:#60A5FA;text-decoration:underline;font-weight:700;">https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX</a></li></ol></div></div></div></div>`;
 }
 
 function playbookMetaByTrack(track = '') {
@@ -60,15 +60,15 @@ function buildPlaybookAttachments(track = '') {
   return [{ filename: meta.filename, path: meta.staticPlaybookPath }];
 }
 
-function contractRequiredHtml({ firstName = 'Agent', contractLink = '', track = 'unlicensed', jamalEmail = '' } = {}) {
+function contractRequiredHtml({ firstName = 'Agent', track = 'unlicensed', jamalEmail = '' } = {}) {
   const f = escapeHtml(firstName || 'Agent');
-  const link = escapeHtml(contractLink || '');
   const jamal = escapeHtml(jamalEmail || '');
+  const loginUrl = 'https://innercirclelink.com/start';
   const contactLine = track === 'licensed'
     ? '<p style="margin-top:10px;">After signing, contact your upline. If you do not know your upline, email <a href="mailto:support@thelegacylink.com" style="color:#1d4ed8;text-decoration:none;font-weight:700;">support@thelegacylink.com</a>.</p>'
-    : `<p style="margin-top:10px;">After signing, contact Jamal at <a href="mailto:${jamal}" style="color:#1d4ed8;text-decoration:none;font-weight:700;">${jamal}</a> for your onboarding next steps.</p>`;
+    : `<p style="margin-top:10px;">After signing, Jamal (<a href="mailto:${jamal}" style="color:#1d4ed8;text-decoration:none;font-weight:700;">${jamal}</a>) will reach out within 1–3 business days for your onboarding next steps.</p>`;
 
-  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;"><div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">${brandHeader()}<div style="padding:22px;"><h2 style="margin:0 0 12px;font-size:22px;color:#0f172a;">Action Required: Sign Your Legacy Link Contract</h2><p>Hi ${f},</p><p>Welcome to The Legacy Link — before we can move your profile forward, please sign the contract below.</p><p><a href="${link}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700;">Sign Contract</a></p>${contactLine}<p style="margin-top:16px;">Once complete, we’ll mark your status as signed and continue activation.</p><p style="margin:18px 0 0;color:#475569;">— The Legacy Link Team</p></div></div></div>`;
+  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;line-height:1.6;"><div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">${brandHeader()}<div style="padding:22px;"><h2 style="margin:0 0 12px;font-size:22px;color:#0f172a;">Action Required: Sign Your Legacy Link Contract</h2><p>Hi ${f},</p><p>Welcome to The Legacy Link — before we can move your profile forward, you need to complete your Independent Contractor Agreement. It’s built right into your back office and takes about 5 minutes.</p><p><a href="${loginUrl}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700;">Log In &amp; Sign Your ICA →</a></p>${contactLine}<p style="margin-top:16px;">Once complete, your activation will continue automatically.</p><p style="margin:18px 0 0;color:#475569;">— The Legacy Link Team</p></div></div></div>`;
 }
 
 async function resolveContractStatus({ email = '', firstName = '', lastName = '' } = {}) {
@@ -109,30 +109,31 @@ async function sendWelcomeEmailByTrack(row = {}, options = {}) {
   const track = normalize(row?.trackType || '');
   const firstName = clean(row?.firstName || 'Agent');
   const jamalEmail = getEnv('SPONSORSHIP_UNLICENSED_COACH_EMAIL') || getEnv('JAMAL_EMAIL') || 'support@thelegacylink.com';
-  const contractLink = getEnv('NEXT_PUBLIC_DOCUSIGN_ICA_URL') || getEnv('DOCUSIGN_ICA_URL') || 'https://thelegacylink.com/contract-agreement';
   const contractRequired = options?.contractRequired === true;
   const playbookMeta = playbookMetaByTrack(track);
   const attachments = buildPlaybookAttachments(track);
 
   const subject = contractRequired
     ? 'Action Required: Sign Your Legacy Link Contract'
-    : (track === 'licensed' ? 'Licensed Agent — Execute Your Next Steps' : 'Unlicensed Agent — Execute Your Next Steps');
+    : (track === 'licensed' ? 'Licensed Agent - Execute Your Next Steps' : 'Unlicensed Agent - Execute Your Next Steps');
 
   const text = contractRequired
     ? [
         `Hi ${firstName},`,
         '',
         'Welcome to The Legacy Link.',
-        'Before we can move your profile forward, please sign your contract:',
-        contractLink,
+        'Before we can move your profile forward, complete your Independent Contractor Agreement.',
+        'It is built into your back office and takes about 5 minutes.',
+        '',
+        'Log in and sign here: https://innercirclelink.com/start',
         '',
         (track === 'licensed'
           ? 'After signing, contact your upline. If unknown, email support@thelegacylink.com.'
-          : `After signing, contact Jamal: ${jamalEmail}`),
+          : `After signing, Jamal (${jamalEmail}) will reach out within 1-3 business days.`),
         '',
         `Onboarding PDF (also attached): ${playbookMeta.playbookUrl}`,
         '',
-        '— The Legacy Link Team'
+        '- The Legacy Link Team'
       ].join('\n')
     : (track === 'licensed'
       ? [
@@ -140,7 +141,7 @@ async function sendWelcomeEmailByTrack(row = {}, options = {}) {
           '',
           'Welcome to The Legacy Link.',
           '',
-          'We’re excited to have you here and looking forward to helping you build. You’ve already taken an important step, and now it’s time to get everything in place so you can move with clarity, confidence, and speed.',
+          'We are excited to have you here and looking forward to helping you build. You have already taken an important step, and now it is time to get everything in place so you can move with clarity, confidence, and speed.',
           '',
           'Please complete the steps below so we can get you fully set up:',
           '',
@@ -151,14 +152,14 @@ async function sendWelcomeEmailByTrack(row = {}, options = {}) {
           '',
           `Onboarding PDF (also attached): ${playbookMeta.playbookUrl}`,
           '',
-          '— The Legacy Link Team'
+          '- The Legacy Link Team'
         ].join('\n')
       : [
           `Hi ${firstName},`,
           '',
           'Welcome to The Legacy Link.',
           '',
-          'We’re excited to have you here and looking forward to helping you build. You do not need to have everything figured out today — that’s what we’re here for. Our goal is to help you get started the right way, move quickly through the process, and put you in position to grow.',
+          'We are excited to have you here and looking forward to helping you build. You do not need to have everything figured out today - that is what we are here for. Our goal is to help you get started the right way, move quickly through the process, and put you in position to grow.',
           '',
           'Please complete the steps below so we can get you started:',
           '',
@@ -168,11 +169,11 @@ async function sendWelcomeEmailByTrack(row = {}, options = {}) {
           '',
           `Onboarding PDF (also attached): ${playbookMeta.playbookUrl}`,
           '',
-          '— The Legacy Link Team'
+          '- The Legacy Link Team'
         ].join('\n'));
 
   const html = contractRequired
-    ? contractRequiredHtml({ firstName, contractLink, track, jamalEmail })
+    ? contractRequiredHtml({ firstName, track, jamalEmail })
     : (track === 'licensed' ? licensedWelcomeHtml({ firstName }) : unlicensedWelcomeHtml({ firstName, jamalEmail }));
 
   const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
@@ -370,7 +371,7 @@ export async function POST(req) {
   };
 
   const contract = await resolveContractStatus({ email: next.email, firstName: next.firstName, lastName: next.lastName });
-  // Initial onboarding emails should always use the track-specific “Execute Your Next Steps” template.
+  // Initial onboarding emails should always use the track-specific "Execute Your Next Steps" template.
   const contractRequired = false;
 
   const patched = {

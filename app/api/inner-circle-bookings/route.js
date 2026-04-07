@@ -170,7 +170,7 @@ async function sendAttendeeConfirmationEmail(row = {}) {
 
   const zoomLink = clean(process.env.INNER_CIRCLE_ZOOM_LINK || process.env.NEXT_PUBLIC_INNER_CIRCLE_ZOOM_LINK || 'https://us06web.zoom.us/j/9574933592?pwd=KiWiYeUNEXTbCIhGvIGGd5M9JKAWkY.1');
   const appUrl = clean(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
-  const contractLink = clean(process.env.INNER_CIRCLE_CONTRACT_LINK || `${appUrl}/contract-agreement`);
+  const contractLink = 'https://innercirclelink.com/start';
   const localTime = localSlotLabel(row);
   const calLink = buildCalendarLink(row, zoomLink);
 
