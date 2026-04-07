@@ -271,17 +271,15 @@ export default function UnlicensedBackofficePage() {
           <div style={{ padding: 24, display: 'grid', gap: 10 }}>
             <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
             {!codeRequested ? (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button onClick={requestCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>Send Login Code</button>
-                <button onClick={() => setCodeRequested(true)} style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #475569', background: '#0B1220', color: '#E2E8F0', fontWeight: 700 }}>Use Password Login</button>
-              </div>
+              <button onClick={requestCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>Send Login Code</button>
             ) : (
               <>
-                <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="6-digit code or password" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
-                <button onClick={verifyCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>Verify & Enter</button>
+                <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Enter your 6-digit code" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} onKeyDown={(e) => e.key === 'Enter' && verifyCode()} />
+                <button onClick={verifyCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>Enter Back Office</button>
+                <small style={{ color: '#9CA3AF', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setCodeRequested(false)}>Resend code</small>
               </>
             )}
-            {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Use your code flow or hardwired login/password backup.</small>}
+            {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Enter your email to receive a login code.</small>}
           </div>
         </section>
       </main>

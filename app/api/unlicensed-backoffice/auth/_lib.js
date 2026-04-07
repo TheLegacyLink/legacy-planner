@@ -44,10 +44,10 @@ async function resolveFromSignedIntake({ email = '' } = {}) {
 
   const rows = await loadJsonStore(START_INTAKE_PATH, []);
   const list = Array.isArray(rows) ? rows : [];
+  // Accept any unlicensed intake — contract signing happens inside the back office
   const hit = list.find((r) => (
     norm(r?.email) === e
     && norm(r?.trackType) === 'unlicensed'
-    && norm(r?.contractStatus) === 'signed'
   ));
 
   if (!hit) return null;

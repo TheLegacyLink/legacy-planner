@@ -15,7 +15,7 @@ export async function POST(req) {
   const code = generateCode();
   const rows = await loadJsonStore(CODES_PATH, []);
   const list = Array.isArray(rows) ? rows : [];
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 minutes
 
   const next = [
     ...list.filter((r) => clean(r?.email).toLowerCase() !== email),
