@@ -18,14 +18,14 @@ endobj
 4 0 obj
 <<
 /A <<
-/S /URI /Type /Action /URI (https://accounts.surancebay.com/oauth/authorize?redirect_uri=https%3A%2F%2Fsurelc.surancebay.com%2Fproducer%2Foauth%3FreturnUrl%3D%252Fprofile%252Fcontact-info%253FgaId%253D168%2526gaId%253D168%2526branch%253DInvestaLink%2526branchVisible%253Dtrue%2526branchEditable%253Dfalse%2526branchRequired%253Dtrue%2526autoAdd%253Dfalse%2526requestMethod%253DGET%26gaId%3D168%26client_id%3Dsurecrmweb%26response_type%3Dcode)
+/S /URI /Type /Action /URI (https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance)
 >> /Border [ 0 0 0 ] /Rect [ 317.986 393.9 521.056 406.5 ] /Subtype /Link /Type /Annot
 >>
 endobj
 5 0 obj
 <<
 /A <<
-/S /URI /Type /Action /URI (https://accounts.surancebay.com/oauth/authorize?redirect_uri=https%3A%2F%2Fsurelc.surancebay.com%2Fproducer%2Foauth%3FreturnUrl%3D%252Fprofile%252Fcontact-info%253FgaId%253D168%2526gaId%253D168%2526branch%253DInvestaLink%2526branchVisible%253Dtrue%2526branchEditable%253Dfalse%2526branchRequired%253Dtrue%2526autoAdd%253Dfalse%2526requestMethod%253DGET%26gaId%3D168%26client_id%3Dsurecrmweb%26response_type%3Dcode)
+/S /URI /Type /Action /URI (https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance)
 >> /Border [ 0 0 0 ] /Rect [ 73 379.4 208.3975 392 ] /Subtype /Link /Type /Annot
 >>
 endobj
@@ -83,7 +83,7 @@ endobj
 endobj
 12 0 obj
 <<
-/Author (The Legacy Link) /CreationDate (D:20260408133010-05'00') /Creator (\(unspecified\)) /Keywords () /ModDate (D:20260408133010-05'00') /Producer (ReportLab PDF Library - \(opensource\)) 
+/Author (The Legacy Link) /CreationDate (D:20260408133536-05'00') /Creator (\(unspecified\)) /Keywords () /ModDate (D:20260408133536-05'00') /Producer (ReportLab PDF Library - \(opensource\)) 
   /Subject (\(unspecified\)) /Title (Legacy Link Licensed Agent Onboarding Playbook) /Trapped /False
 >>
 endobj
@@ -127,23 +127,23 @@ xref
 0000000102 00000 n 
 0000000209 00000 n 
 0000000321 00000 n 
-0000000878 00000 n 
-0000001429 00000 n 
-0000001674 00000 n 
-0000001899 00000 n 
-0000002094 00000 n 
-0000002289 00000 n 
-0000002485 00000 n 
-0000002555 00000 n 
-0000002871 00000 n 
-0000002950 00000 n 
-0000005142 00000 n 
-0000006920 00000 n 
-0000008083 00000 n 
+0000000626 00000 n 
+0000000925 00000 n 
+0000001170 00000 n 
+0000001395 00000 n 
+0000001590 00000 n 
+0000001785 00000 n 
+0000001981 00000 n 
+0000002051 00000 n 
+0000002367 00000 n 
+0000002446 00000 n 
+0000004638 00000 n 
+0000006416 00000 n 
+0000007579 00000 n 
 trailer
 <<
 /ID 
-[<ff71793d056a55084cb9afc1b6658fa9><ff71793d056a55084cb9afc1b6658fa9>]
+[<7784d529a2c7bd1a1fccbb4e0406cac8><7784d529a2c7bd1a1fccbb4e0406cac8>]
 % ReportLab generated PDF document -- digest (opensource)
 
 /Info 12 0 R
@@ -151,5 +151,5 @@ trailer
 /Size 18
 >>
 startxref
-8919
+8415
 %%EOF
