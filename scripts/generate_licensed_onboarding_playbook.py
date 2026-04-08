@@ -51,7 +51,11 @@ def linkify(text=''):
 def section(title, bullets, st):
     rows = [[Paragraph(f'<b>{title}</b>', st['h'])]]
     for b in bullets:
-        rows.append([Paragraph(f'• {linkify(b)}', st['b'])])
+        # If bullet already contains HTML tags (e.g. <a href>), don't run linkify
+        if '<a ' in b or '<font ' in b:
+            rows.append([Paragraph(f'\u2022 {b}', st['b'])])
+        else:
+            rows.append([Paragraph(f'\u2022 {linkify(b)}', st['b'])])
     t = Table(rows, colWidths=[6.75*inch])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#111827')),
@@ -95,7 +99,7 @@ def build():
 
     story.append(section('Step 2 — Contracting', [
         'Part A — Pinnacle Group (P.Group) / Business Partners (Mutual of Omaha, Transamerica, Foresters, American National): https://surelc.surancebay.com/producer/?gaId=190',
-        'Part B — InvestaLink (F&G + National Life Group): https://accounts.surancebay.com/oauth/authorize?redirect_uri=https:%2F%2Fsurelc.surancebay.com%2Fproducer%2Foauth%3FreturnUrl%3D%252Fprofile%252Fcontact-info%253FgaId%253D168%2526gaId%253D168%2526branch%253DInvestaLink%2526branchVisible%253Dtrue%2526branchEditable%253Dfalse%2526branchRequired%253Dtrue%2526autoAdd%253Dfalse%2526requestMethod%253DGET&gaId=168&client_id=surecrmweb&response_type=code',
+        'Part B — InvestaLink (F&amp;G + National Life Group): <a href="https://accounts.surancebay.com/oauth/authorize?redirect_uri=https%3A%2F%2Fsurelc.surancebay.com%2Fproducer%2Foauth%3FreturnUrl%3D%252Fprofile%252Fcontact-info%253FgaId%253D168%2526gaId%253D168%2526branch%253DInvestaLink%2526branchVisible%253Dtrue%2526branchEditable%253Dfalse%2526branchRequired%253Dtrue%2526autoAdd%253Dfalse%2526requestMethod%253DGET%26gaId%3D168%26client_id%3Dsurecrmweb%26response_type%3Dcode" color="#60A5FA"><u>Click here to complete your contracting with F&amp;G and National Life Group</u></a>',
         'Part C — Video tutorial on the contracting process: https://www.loom.com/share/79354f8de2334697ba53cc5b0ff80c86?sid=b88fafc3-96a0-4d6a-9918-f396f0047603',
         'National Life Group only: after completing the SureLC step, look out for a follow-up email within 48 hours (1–2 business days) to complete an additional required form.'
     ], st))
