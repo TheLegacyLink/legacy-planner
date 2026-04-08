@@ -1,10 +1,69 @@
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import { DEFAULT_CONFIG } from '../../../lib/runtimeConfig';
 
 const FB_LEADS_PATH = 'stores/fb-leads.json';
 const SPONSORSHIP_PATH = 'stores/sponsorship-applications.json';
 const POLICY_PATH = 'stores/policy-submissions.json';
 const EVENTS_PATH = 'stores/lead-router-events.json';
 
+// ─── Licensed-States Helpers ──────────────────────────────────────────────
+
+function parseAgentNameParts(rawName) {
+  const str = String(rawName || '').trim();
+  if (str.includes(',')) {
+    const commaIdx = str.indexOf(',');
+    const last = str.slice(0, commaIdx).trim().toLowerCase();
+    const firstPart = str.slice(commaIdx + 1).trim().split(/\s+/)[0].toLowerCase();
+    return { first: firstPart, last };
+  }
+  const parts = str.toLowerCase().split(/\s+/);
+  if (parts.length === 1) return { first: parts[0], last: parts[0] };
+  return { first: parts[0], last: parts[parts.length - 1] };
+}
+
+function buildLicensedStatesMap(agentsData) {
+  // Returns Map: "last|first" -> Set<state_code>
+  const map = new Map();
+  for (const agent of agentsData) {
+    if (!agent.full_name || !agent.state_code) continue;
+    const parsed = parseAgentNameParts(agent.full_name);
+    const key = `${parsed.last}|${parsed.first}`;
+    if (!map.has(key)) map.set(key, new Set());
+    map.get(key).add(String(agent.state_code).toUpperCase());
+  }
+  return map;
+}
+
+function lookupAgentStates(displayName, statesMap) {
+  const parsed = parseAgentNameParts(displayName);
+
+  // Try exact match
+  const exactKey = `${parsed.last}|${parsed.first}`;
+  if (statesMap.has(exactKey)) {
+    return Array.from(statesMap.get(exactKey)).sort();
+  }
+
+  // Fallback: same last name + first 3 chars of first name (handles spelling variants)
+  const prefix = parsed.first.slice(0, Math.min(3, parsed.first.length));
+  for (const [key, states] of statesMap) {
+    const [kLast, kFirst] = key.split('|');
+    if (kLast === parsed.last && kFirst.startsWith(prefix)) {
+      return Array.from(states).sort();
+    }
+  }
+
+  return [];
+}
+
+// ─── Agent list (mirrors page.js logic) ─────────────────────────────────────
+function getActiveAgentList() {
+  const base = (DEFAULT_CONFIG.agents || []).filter((a) => a !== 'Kimora Link');
+  const set = new Set(base.map((a) => a.toLowerCase()));
+  if (!set.has('andrea cannon')) return ['Andrea Cannon', ...base];
+  return base;
+}
+
+// ─── Normalizers ─────────────────────────────────────────────────────────────
 function normalizeEmail(e = '') {
   return String(e || '').trim().toLowerCase();
 }
@@ -95,7 +154,22 @@ export async function GET() {
       }
     }
 
-    return Response.json({ ok: true, leads, stats, agentTodayCounts });
+    // Build agents array with licensed states
+    let licensedAgentsData = [];
+    try {
+      const mod = await import('../../../data/licensedAgents.json', { assert: { type: 'json' } });
+      licensedAgentsData = Array.isArray(mod?.default) ? mod.default : [];
+    } catch { /* best-effort */ }
+
+    const statesMap = buildLicensedStatesMap(licensedAgentsData);
+    const agentList = getActiveAgentList();
+    const agents = agentList.map((name) => ({
+      name,
+      todayCount: agentTodayCounts[name] || 0,
+      licensedStates: lookupAgentStates(name, statesMap)
+    }));
+
+    return Response.json({ ok: true, leads, stats, agentTodayCounts, agents });
   } catch (err) {
     return Response.json(
       { ok: false, error: String(err?.message || 'load_failed') },

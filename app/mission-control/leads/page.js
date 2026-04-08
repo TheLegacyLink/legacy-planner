@@ -1,0 +1,702 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import AppShell from '../../../components/AppShell';
+import { DEFAULT_CONFIG } from '../../../lib/runtimeConfig';
+
+// ─── Colors ────────────────────────────────────────────────────────────────
+const BG = '#0B1020';
+const GOLD = '#C8A96B';
+const GOLD_SOFT = '#E6D1A6';
+const BORDER = '#1E2A45';
+const CARD_BG = '#111827';
+const CARD_BG2 = '#0f1929';
+
+// ─── Status Definitions ─────────────────────────────────────────────────────
+const STATUS_CONFIG = {
+  untouched: { label: 'Untouched', color: '#ef4444', bg: 'rgba(239,68,68,0.15)', icon: '🔴' },
+  contacted: { label: 'Contacted', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', icon: '🟡' },
+  form_submitted: { label: 'Form Submitted', color: '#22c55e', bg: 'rgba(34,197,94,0.15)', icon: '🟢' },
+  app_submitted: { label: 'App Submitted', color: GOLD, bg: 'rgba(200,169,107,0.15)', icon: '✅' }
+};
+
+function StatusBadge({ status }) {
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.untouched;
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '3px 10px',
+        borderRadius: 999,
+        background: cfg.bg,
+        color: cfg.color,
+        fontWeight: 600,
+        fontSize: 12,
+        border: `1px solid ${cfg.color}33`,
+        whiteSpace: 'nowrap'
+      }}
+    >
+      {cfg.icon} {cfg.label}
+    </span>
+  );
+}
+
+function StatCard({ label, value, color, onClick, active }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: active ? `rgba(200,169,107,0.08)` : CARD_BG,
+        border: `1px solid ${active ? GOLD : BORDER}`,
+        borderRadius: 14,
+        padding: '18px 20px',
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'border-color 0.15s',
+        minWidth: 0
+      }}
+    >
+      <p style={{ margin: '0 0 6px', color: '#94a3b8', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
+      <h2 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: color || '#f1f5f9' }}>{value}</h2>
+    </div>
+  );
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+}
+
+function parseCsvRobust(text) {
+  const lines = String(text || '').split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
+
+  // Parse CSV respecting quoted fields
+  function parseLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+        else { inQuotes = !inQuotes; }
+      } else if (ch === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  }
+
+  const headers = parseLine(lines[0]);
+  return lines.slice(1).map((line) => {
+    const vals = parseLine(line);
+    const row = {};
+    headers.forEach((h, i) => { row[h.trim()] = (vals[i] || '').trim(); });
+    return row;
+  }).filter((r) => r.id);
+}
+
+const ACTIVE_AGENTS = DEFAULT_CONFIG.agents.filter(
+  (a) => a !== 'Kimora Link'
+);
+
+// Add Andrea Cannon if missing
+const ALL_AGENTS = (() => {
+  const set = new Set(ACTIVE_AGENTS);
+  if (!set.has('Andrea Cannon')) return ['Andrea Cannon', ...ACTIVE_AGENTS];
+  return ACTIVE_AGENTS;
+})();
+
+export default function LeadsPage() {
+  const [leads, setLeads] = useState([]);
+  const [stats, setStats] = useState({ total: 0, untouched: 0, contacted: 0, form_submitted: 0, app_submitted: 0 });
+  const [agentTodayCounts, setAgentTodayCounts] = useState({});
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // CSV upload state
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Distribution state
+  const [agentCounts, setAgentCounts] = useState({});
+  const [distributing, setDistributing] = useState('');
+  const [distMsgs, setDistMsgs] = useState({});
+  const [agentLicensedStates, setAgentLicensedStates] = useState({});
+
+  const loadLeads = useCallback(async () => {
+    try {
+      const res = await fetch('/api/fb-leads', { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        setLeads(data.leads || []);
+        setStats(data.stats || {});
+        setAgentTodayCounts(data.agentTodayCounts || {});
+        // Build licensed states map from agents array
+        if (Array.isArray(data.agents)) {
+          const statesMap = {};
+          for (const a of data.agents) {
+            statesMap[a.name] = a.licensedStates || [];
+          }
+          setAgentLicensedStates(statesMap);
+        }
+        setError('');
+      } else {
+        setError(data?.error || 'Failed to load leads.');
+      }
+    } catch (err) {
+      setError(err.message || 'Network error.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLeads();
+  }, [loadLeads]);
+
+  // ── CSV Import ─────────────────────────────────────────────────────────────
+  async function handleCsvFile(file) {
+    if (!file) return;
+    setImporting(true);
+    setImportMsg('');
+    try {
+      const text = await file.text();
+      const rows = parseCsvRobust(text);
+      if (!rows.length) {
+        setImportMsg('⚠ No valid rows found. Check that your CSV has an "id" column.');
+        setImporting(false);
+        return;
+      }
+      const res = await fetch('/api/lead-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ csv: text })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        setImportMsg(`✅ ${data.added} new leads added • ${data.duplicates} already existed • ${data.total} total`);
+        await loadLeads();
+      } else {
+        setImportMsg(`❌ Import failed: ${data?.error || 'unknown error'}`);
+      }
+    } catch (err) {
+      setImportMsg(`❌ ${err.message}`);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function onFileInput(e) {
+    const file = e.target.files?.[0];
+    if (file) handleCsvFile(file);
+    e.target.value = '';
+  }
+
+  function onDrop(e) {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) handleCsvFile(file);
+  }
+
+  // ── Distribution ──────────────────────────────────────────────────────────
+  async function distributeToAgent(agentName) {
+    const count = Number(agentCounts[agentName] || 0);
+    if (!count || count < 1) return;
+    if (distributing) return;
+
+    setDistributing(agentName);
+    setDistMsgs((prev) => ({ ...prev, [agentName]: '' }));
+
+    try {
+      const res = await fetch('/api/fb-leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentName, count })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        setDistMsgs((prev) => ({
+          ...prev,
+          [agentName]: `✅ Sent ${data.sent} leads to ${agentName}`
+        }));
+        setAgentCounts((prev) => ({ ...prev, [agentName]: 0 }));
+        await loadLeads();
+      } else {
+        setDistMsgs((prev) => ({
+          ...prev,
+          [agentName]: `❌ ${data?.error || 'Failed to distribute'}`
+        }));
+      }
+    } catch (err) {
+      setDistMsgs((prev) => ({ ...prev, [agentName]: `❌ ${err.message}` }));
+    } finally {
+      setDistributing('');
+    }
+  }
+
+  // ── Untouched leads sorted oldest-first (for state preview) ──────────────
+  const untouchedSorted = useMemo(() =>
+    leads
+      .filter((l) => l.status === 'untouched')
+      .sort((a, b) => {
+        const at = new Date(a.created_time || a.importedAt || 0).getTime();
+        const bt = new Date(b.created_time || b.importedAt || 0).getTime();
+        return at - bt;
+      }),
+    [leads]
+  );
+
+  // ── Filtered Leads ─────────────────────────────────────────────────────────
+  const filtered = leads.filter((l) => {
+    if (filter !== 'all' && l.status !== filter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const hay = `${l.full_name} ${l.email} ${l.state} ${l.phone_number}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const untouchedCount = stats.untouched || 0;
+
+  // ── Styles ────────────────────────────────────────────────────────────────
+  const s = {
+    page: {
+      background: BG,
+      minHeight: '100vh',
+      color: '#f1f5f9',
+      padding: '0 0 60px'
+    },
+    section: {
+      background: CARD_BG,
+      border: `1px solid ${BORDER}`,
+      borderRadius: 16,
+      padding: '20px 24px',
+      marginBottom: 20
+    },
+    h2: { margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: GOLD_SOFT },
+    muted: { margin: 0, color: '#64748b', fontSize: 13 },
+    filterBtn: (active) => ({
+      padding: '6px 16px',
+      borderRadius: 999,
+      border: `1px solid ${active ? GOLD : BORDER}`,
+      background: active ? `rgba(200,169,107,0.12)` : 'transparent',
+      color: active ? GOLD : '#94a3b8',
+      cursor: 'pointer',
+      fontWeight: active ? 700 : 400,
+      fontSize: 13,
+      transition: 'all 0.15s'
+    }),
+    table: {
+      width: '100%',
+      borderCollapse: 'collapse',
+      fontSize: 13
+    },
+    th: {
+      padding: '10px 12px',
+      textAlign: 'left',
+      color: '#64748b',
+      fontWeight: 600,
+      borderBottom: `1px solid ${BORDER}`,
+      fontSize: 11,
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em',
+      background: CARD_BG2
+    },
+    td: {
+      padding: '10px 12px',
+      borderBottom: `1px solid ${BORDER}22`,
+      color: '#e2e8f0',
+      verticalAlign: 'middle'
+    }
+  };
+
+  return (
+    <AppShell title="Lead Distribution Hub">
+      <div style={s.page}>
+
+        {/* ── Stats Bar ─────────────────────────────────────────────────── */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: 12,
+            marginBottom: 20
+          }}
+        >
+          <StatCard label="Total Leads" value={stats.total || 0} onClick={() => setFilter('all')} active={filter === 'all'} />
+          <StatCard label="Untouched" value={stats.untouched || 0} color="#ef4444" onClick={() => setFilter('untouched')} active={filter === 'untouched'} />
+          <StatCard label="Contacted" value={stats.contacted || 0} color="#f59e0b" onClick={() => setFilter('contacted')} active={filter === 'contacted'} />
+          <StatCard label="Form Submitted" value={stats.form_submitted || 0} color="#22c55e" onClick={() => setFilter('form_submitted')} active={filter === 'form_submitted'} />
+          <StatCard label="App Submitted" value={stats.app_submitted || 0} color={GOLD} onClick={() => setFilter('app_submitted')} active={filter === 'app_submitted'} />
+        </div>
+
+        {/* ── CSV Upload ────────────────────────────────────────────────── */}
+        <div style={s.section}>
+          <h2 style={s.h2}>📥 Import Facebook Leads</h2>
+          <p style={{ ...s.muted, marginBottom: 14 }}>
+            Upload a CSV with columns: id, created_time, platform, full_name, email, state, phone_number, ad_name, campaign_name, etc.
+          </p>
+
+          <div
+            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={onDrop}
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              border: `2px dashed ${isDragOver ? GOLD : BORDER}`,
+              borderRadius: 12,
+              padding: '32px 24px',
+              textAlign: 'center',
+              cursor: 'pointer',
+              background: isDragOver ? 'rgba(200,169,107,0.05)' : CARD_BG2,
+              transition: 'all 0.2s',
+              color: isDragOver ? GOLD_SOFT : '#64748b'
+            }}
+          >
+            <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
+            <p style={{ margin: 0, fontWeight: 600, color: isDragOver ? GOLD_SOFT : '#94a3b8' }}>
+              {importing ? 'Importing…' : 'Drop CSV file here or click to browse'}
+            </p>
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#475569' }}>
+              Accepts: .csv • Deduplicates by Facebook Lead ID
+            </p>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={onFileInput}
+            style={{ display: 'none' }}
+          />
+
+          {importMsg && (
+            <p style={{
+              marginTop: 12,
+              padding: '10px 14px',
+              borderRadius: 8,
+              background: importMsg.startsWith('✅') ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+              border: `1px solid ${importMsg.startsWith('✅') ? '#22c55e44' : '#ef444444'}`,
+              color: importMsg.startsWith('✅') ? '#4ade80' : '#f87171',
+              fontSize: 13,
+              margin: '12px 0 0'
+            }}>
+              {importMsg}
+            </p>
+          )}
+        </div>
+
+        {/* ── Distribution Panel ────────────────────────────────────────── */}
+        <div style={s.section}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <h2 style={{ ...s.h2, margin: 0 }}>📤 Distribute to Agents</h2>
+            <span style={{
+              padding: '3px 10px', borderRadius: 999,
+              background: 'rgba(239,68,68,0.12)', color: '#ef4444',
+              fontSize: 12, fontWeight: 700,
+              border: '1px solid #ef444433'
+            }}>
+              {untouchedCount} untouched available
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+            {ALL_AGENTS.map((agent) => {
+              const todayCount = agentTodayCounts[agent] || 0;
+              const isBusy = distributing === agent;
+              const inputVal = agentCounts[agent] || '';
+              const msg = distMsgs[agent] || '';
+              const licensedStates = agentLicensedStates[agent] || null;
+
+              // State match preview
+              let previewMsg = '';
+              const inputNum = Number(inputVal);
+              if (inputNum >= 1 && !msg) {
+                const batch = untouchedSorted.slice(0, inputNum);
+                if (batch.length > 0 && licensedStates && licensedStates.length > 0) {
+                  const matchCount = batch.filter(
+                    (l) => l.state && licensedStates.includes(l.state.toUpperCase())
+                  ).length;
+                  const outside = batch.length - matchCount;
+                  const firstName = agent.split(' ')[0];
+                  const statesSample = licensedStates.slice(0, 3).join(', ');
+                  previewMsg = `${batch.length} lead${batch.length !== 1 ? 's' : ''} selected — ${matchCount} match ${firstName}'s states (${statesSample}${licensedStates.length > 3 ? '…' : ''})${outside > 0 ? `, ${outside} outside` : ''}`;
+                } else if (batch.length > 0) {
+                  previewMsg = `${batch.length} lead${batch.length !== 1 ? 's' : ''} will be sent`;
+                } else {
+                  previewMsg = 'No untouched leads available';
+                }
+              }
+
+              return (
+                <div
+                  key={agent}
+                  style={{
+                    background: CARD_BG2,
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: 12,
+                    padding: '14px 16px'
+                  }}
+                >
+                  {/* Agent header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontWeight: 700, color: GOLD_SOFT, fontSize: 14 }}>{agent}</span>
+                    <span style={{
+                      fontSize: 11, color: '#64748b',
+                      background: '#1e293b', padding: '2px 8px', borderRadius: 999
+                    }}>
+                      Today: {todayCount}
+                    </span>
+                  </div>
+
+                  {/* Licensed state pills */}
+                  {licensedStates === null ? (
+                    <p style={{ margin: '0 0 8px', fontSize: 11, color: '#475569' }}>States: Not on file</p>
+                  ) : licensedStates.length === 0 ? (
+                    <p style={{ margin: '0 0 8px', fontSize: 11, color: '#475569' }}>States: Not on file</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                      {licensedStates.slice(0, 6).map((st) => (
+                        <span
+                          key={st}
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 600,
+                            padding: '2px 6px',
+                            borderRadius: 4,
+                            background: 'rgba(200,169,107,0.1)',
+                            color: '#a08050',
+                            border: '1px solid rgba(200,169,107,0.2)',
+                            letterSpacing: '0.03em'
+                          }}
+                        >
+                          {st}
+                        </span>
+                      ))}
+                      {licensedStates.length > 6 && (
+                        <span style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                          background: '#1e293b',
+                          color: '#64748b',
+                          border: '1px solid #2d3f5a'
+                        }}>
+                          +{licensedStates.length - 6} more
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Input + Send */}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="number"
+                      min="1"
+                      max={untouchedCount}
+                      value={inputVal}
+                      onChange={(e) => {
+                        setAgentCounts((prev) => ({ ...prev, [agent]: e.target.value }));
+                        // Clear any stale result msg when user edits
+                        if (distMsgs[agent]) setDistMsgs((prev) => ({ ...prev, [agent]: '' }));
+                      }}
+                      placeholder="# to send"
+                      style={{
+                        flex: 1,
+                        background: '#0f172a',
+                        border: `1px solid ${BORDER}`,
+                        borderRadius: 8,
+                        padding: '7px 10px',
+                        color: '#f1f5f9',
+                        fontSize: 13
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={isBusy || !inputVal || Number(inputVal) < 1 || !!distributing}
+                      onClick={() => distributeToAgent(agent)}
+                      style={{
+                        background: isBusy || !!distributing
+                          ? '#1e293b'
+                          : `linear-gradient(135deg, ${GOLD}, #a0783a)`,
+                        color: isBusy || !!distributing ? '#64748b' : '#0B1020',
+                        border: 'none',
+                        borderRadius: 8,
+                        padding: '7px 14px',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: (isBusy || !inputVal || !!distributing) ? 'not-allowed' : 'pointer',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      {isBusy ? 'Sending…' : 'Send'}
+                    </button>
+                  </div>
+
+                  {/* Soft state-match preview (shows while typing, before send) */}
+                  {previewMsg && !msg && (
+                    <p style={{
+                      margin: '6px 0 0',
+                      fontSize: 11,
+                      color: '#64748b',
+                      lineHeight: 1.4
+                    }}>
+                      {previewMsg}
+                    </p>
+                  )}
+
+                  {/* Post-send confirmation */}
+                  {msg && (
+                    <p style={{
+                      margin: '8px 0 0',
+                      fontSize: 12,
+                      color: msg.startsWith('✅') ? '#4ade80' : '#f87171'
+                    }}>
+                      {msg}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Filter Bar ────────────────────────────────────────────────── */}
+        <div style={{ ...s.section, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'untouched', label: '🔴 Untouched' },
+              { key: 'contacted', label: '🟡 Contacted' },
+              { key: 'form_submitted', label: '🟢 Form Submitted' },
+              { key: 'app_submitted', label: '✅ App Submitted' }
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                style={s.filterBtn(filter === key)}
+                onClick={() => setFilter(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ marginLeft: 'auto' }}>
+            <input
+              type="text"
+              placeholder="Search name, email, state…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                background: CARD_BG2,
+                border: `1px solid ${BORDER}`,
+                borderRadius: 8,
+                padding: '7px 12px',
+                color: '#f1f5f9',
+                fontSize: 13,
+                width: 240,
+                outline: 'none'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* ── Lead Table ───────────────────────────────────────────────── */}
+        <div style={{ ...s.section, padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '16px 24px', borderBottom: `1px solid ${BORDER}` }}>
+            <h2 style={{ ...s.h2, margin: 0 }}>
+              Lead Table
+              <span style={{ marginLeft: 10, fontSize: 13, fontWeight: 400, color: '#64748b' }}>
+                {filtered.length} of {leads.length} leads
+              </span>
+            </h2>
+          </div>
+
+          {loading ? (
+            <div style={{ padding: '40px 24px', textAlign: 'center', color: '#64748b' }}>
+              Loading leads…
+            </div>
+          ) : error ? (
+            <div style={{ padding: '24px', color: '#f87171' }}>{error}</div>
+          ) : !filtered.length ? (
+            <div style={{ padding: '40px 24px', textAlign: 'center', color: '#64748b' }}>
+              {leads.length === 0
+                ? 'No leads imported yet. Upload a Facebook Leads CSV above.'
+                : 'No leads match your current filter.'}
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={s.table}>
+                <thead>
+                  <tr>
+                    {['Name', 'Date In', 'Platform', 'State', 'Email', 'Phone', 'Status', 'Distributed To'].map((h) => (
+                      <th key={h} style={s.th}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((lead, idx) => {
+                    const cfg = STATUS_CONFIG[lead.status] || STATUS_CONFIG.untouched;
+                    return (
+                      <tr
+                        key={lead.id || idx}
+                        style={{
+                          background: idx % 2 === 0 ? CARD_BG : CARD_BG2,
+                          borderLeft: `3px solid ${cfg.color}55`
+                        }}
+                      >
+                        <td style={s.td}>
+                          <span style={{ fontWeight: 600, color: '#f1f5f9' }}>{lead.full_name || '—'}</span>
+                        </td>
+                        <td style={{ ...s.td, color: '#94a3b8', fontSize: 12 }}>
+                          {fmtDate(lead.created_time || lead.importedAt)}
+                        </td>
+                        <td style={s.td}>
+                          <span style={{
+                            padding: '2px 8px', borderRadius: 6,
+                            background: lead.platform === 'ig' ? '#7c3aed22' : '#1d4ed822',
+                            color: lead.platform === 'ig' ? '#a78bfa' : '#60a5fa',
+                            fontSize: 11, fontWeight: 700, textTransform: 'uppercase'
+                          }}>
+                            {lead.platform || 'fb'}
+                          </span>
+                        </td>
+                        <td style={{ ...s.td, color: '#94a3b8' }}>{lead.state || '—'}</td>
+                        <td style={{ ...s.td, color: '#94a3b8', fontSize: 12 }}>{lead.email || '—'}</td>
+                        <td style={{ ...s.td, color: '#94a3b8', fontSize: 12 }}>{lead.phone_number || '—'}</td>
+                        <td style={s.td}><StatusBadge status={lead.status} /></td>
+                        <td style={{ ...s.td, color: '#64748b', fontSize: 12 }}>
+                          {lead.distributedTo
+                            ? <span style={{ color: GOLD_SOFT }}>{lead.distributedTo}</span>
+                            : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </AppShell>
+  );
+}
