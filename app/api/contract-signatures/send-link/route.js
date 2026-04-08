@@ -15,8 +15,12 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function getDocusignUrl() {
-  return clean(process.env.NEXT_PUBLIC_DOCUSIGN_ICA_URL || process.env.DOCUSIGN_ICA_URL || '');
+function getSigningPortalUrl() {
+  // Prefer an explicit override env var; fall back to the internal /start portal.
+  const explicit = clean(process.env.NEXT_PUBLIC_DOCUSIGN_ICA_URL || process.env.DOCUSIGN_ICA_URL || process.env.ICA_SIGNING_URL || '');
+  if (explicit) return explicit;
+  const appUrl = clean(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
+  return `${appUrl}/start`;
 }
 
 function smtp() {
@@ -56,10 +60,7 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'missing_applicant_fields' }, { status: 400 });
   }
 
-  const docusignUrl = getDocusignUrl();
-  if (!docusignUrl) {
-    return Response.json({ ok: false, error: 'missing_docusign_url' }, { status: 500 });
-  }
+  const signingPortalUrl = getSigningPortalUrl();
 
   const mailer = smtp();
   if (!mailer) {
@@ -72,8 +73,8 @@ export async function POST(req) {
     '',
     'Before your policy application can be submitted, your Independent Contractor Agreement must be signed.',
     '',
-    'Please sign here:',
-    docusignUrl,
+    'Sign your agreement here:',
+    signingPortalUrl,
     '',
     `Use this same email to sign: ${applicantEmail}`,
     applicantPhone ? `Phone on file: ${applicantPhone}` : '',
@@ -88,7 +89,7 @@ export async function POST(req) {
     <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.6;">
       <p>Hi <strong>${applicantName}</strong>,</p>
       <p>Before your policy application can be submitted, your <strong>Independent Contractor Agreement</strong> must be signed.</p>
-      <p><a href="${docusignUrl}" target="_blank" rel="noreferrer" style="display:inline-block;background:#0f172a;color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none;">Sign Agreement in DocuSign</a></p>
+      <p><a href="${signingPortalUrl}" target="_blank" rel="noreferrer" style="display:inline-block;background:#0047AB;color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:700;">Sign Your Agreement →</a></p>
       <p><strong>Use this same email to sign:</strong> ${applicantEmail}</p>
       ${applicantPhone ? `<p><strong>Phone on file:</strong> ${applicantPhone}</p>` : ''}
       ${applicantState ? `<p><strong>State on file:</strong> ${applicantState}</p>` : ''}
