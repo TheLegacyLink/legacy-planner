@@ -965,6 +965,28 @@ async function sendUnlicensedStartClassEmail(row = {}) {
   return { ok: true, messageId: clean(info?.messageId || ''), to: jamalEmail };
 }
 
+async function hasSignedIca(email = '') {
+  // Check esign-contracts.json (ICA signed via start portal)
+  try {
+    const rows = await loadJsonStore('stores/esign-contracts.json', []);
+    const list = Array.isArray(rows) ? rows : [];
+    const em = normalize(email);
+    const hit = list.find((r) => normalize(r?.email || '') === em);
+    if (hit?.candidateSignedAt) return true;
+  } catch { /* non-fatal */ }
+
+  // Also check contract-signatures.json (legacy/admin-marked signatures)
+  try {
+    const rows = await loadJsonStore('stores/contract-signatures.json', []);
+    const list = Array.isArray(rows) ? rows : [];
+    const em = normalize(email);
+    const hit = list.find((r) => normalize(r?.email || '') === em);
+    if (hit?.signedAt || hit?.signed_at || hit?.completedAt) return true;
+  } catch { /* non-fatal */ }
+
+  return false;
+}
+
 async function ensureSopProvisionFromActSubmit(row = {}) {
   const email = clean(row?.applicantEmail).toLowerCase();
   const name = clean(row?.applicantName);
@@ -995,14 +1017,21 @@ async function ensureSopProvisionFromActSubmit(row = {}) {
 
   const isLicensed = isLicensedValue(row?.applicantLicensedStatus);
 
-  const inviteEmail = await sendSopInviteEmail({
-    to: email,
-    firstName: clean(name.split(' ')[0]),
-    sopLink,
-    licensed: isLicensed,
-    loginName: authProvision.user?.email || member.email || email,
-    loginPassword: authProvision.plainPassword
-  }).catch((e) => ({ ok: false, error: clean(e?.message || 'send_failed') }));
+  // Duplicate-guard: if the agent already has a signed ICA, their onboarding
+  // email was already sent at approval time. Skip the agent-facing SOP invite
+  // to prevent duplicate emails. Still provision credentials and notify coach.
+  const alreadySigned = await hasSignedIca(email);
+
+  const inviteEmail = alreadySigned
+    ? { ok: true, skipped: true, reason: 'ica_already_signed_onboarding_email_previously_sent' }
+    : await sendSopInviteEmail({
+        to: email,
+        firstName: clean(name.split(' ')[0]),
+        sopLink,
+        licensed: isLicensed,
+        loginName: authProvision.user?.email || member.email || email,
+        loginPassword: authProvision.plainPassword
+      }).catch((e) => ({ ok: false, error: clean(e?.message || 'send_failed') }));
 
   const unlicensedCoachEmail = !isLicensed
     ? await sendUnlicensedStartClassEmail(row).catch((e) => ({ ok: false, error: clean(e?.message || 'coach_notify_failed') }))
@@ -1014,7 +1043,7 @@ async function ensureSopProvisionFromActSubmit(row = {}) {
     saveJsonFile(AUTH_USERS_PATH, authUsers)
   ]);
 
-  return { ok: true, sopLink, inviteToken: invite.token, inviteEmail, unlicensedCoachEmail, credentialsCreated: authProvision.created };
+  return { ok: true, sopLink, inviteToken: invite.token, inviteEmail, unlicensedCoachEmail, credentialsCreated: authProvision.created, duplicateEmailSuppressed: alreadySigned };
 }
 
 export async function GET() {
