@@ -35,7 +35,8 @@ function parseCsv(text) {
   // Strip any leading non-alphanumeric characters (e.g. colon prefix Facebook sometimes adds)
   const rawHeaders = parseCsvLine(lines[0]);
   const headers = rawHeaders.map((h, i) => i === 0 ? h.replace(/^[^a-zA-Z0-9]+/, '') : h);
-  return lines.slice(1).map((line) => {
+  const firstKey = headers[0]; // capture original (cleaned) first column name
+  const rows = lines.slice(1).map((line) => {
     const vals = parseCsvLine(line);
     const row = {};
     headers.forEach((h, i) => {
@@ -43,11 +44,15 @@ function parseCsv(text) {
     });
     return row;
   });
+  return { rows, firstKey };
 }
 
-function mapRow(row) {
+function mapRow(row, firstKey) {
+  // Facebook sometimes exports with a BOM or colon-prefixed first column that doesn't resolve to 'id'
+  // Fall back to whatever the first column key is
+  const id = String(row.id || row[firstKey] || '').trim();
   return {
-    id: String(row.id || '').trim(),
+    id,
     created_time: String(row.created_time || '').trim(),
     ad_id: String(row.ad_id || '').trim(),
     ad_name: String(row.ad_name || '').trim(),
@@ -77,15 +82,17 @@ export async function POST(req) {
     if (contentType.includes('application/json')) {
       const body = await req.json().catch(() => ({}));
       if (Array.isArray(body)) {
-        incoming = body.map(mapRow);
+        incoming = body.map((r) => mapRow(r, Object.keys(r)[0]));
       } else if (body.csv) {
-        incoming = parseCsv(body.csv).map(mapRow);
+        const { rows, firstKey } = parseCsv(body.csv);
+        incoming = rows.map((r) => mapRow(r, firstKey));
       } else if (Array.isArray(body.rows)) {
-        incoming = body.rows.map(mapRow);
+        incoming = body.rows.map((r) => mapRow(r, Object.keys(r)[0]));
       }
     } else {
       const text = await req.text().catch(() => '');
-      incoming = parseCsv(text).map(mapRow);
+      const { rows, firstKey } = parseCsv(text);
+      incoming = rows.map((r) => mapRow(r, firstKey));
     }
 
     incoming = incoming.filter((r) => r.id);
