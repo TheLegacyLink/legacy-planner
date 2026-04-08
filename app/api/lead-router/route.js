@@ -1251,6 +1251,41 @@ export async function GET(req) {
   };
 
   const counts = buildAgentCounts(settings, events, keys);
+
+  // Also count sponsorship-sourced leads per referring agent.
+  // These come through the sponsorship system (not router events), so buildAgentCounts misses them.
+  // Only count active/in-progress statuses; skip disqualified records.
+  const SPONSORSHIP_COUNT_STATUSES = new Set([
+    'approved – onboarding pending',
+    'pending review',
+    'call booking pending'
+  ]);
+  for (const sp of sponsorship || []) {
+    const spStatus = clean(sp?.status || '').toLowerCase();
+    if (!SPONSORSHIP_COUNT_STATUSES.has(spStatus)) continue;
+
+    const rawReferral = clean(sp?.referralName || sp?.referral_name || '');
+    if (!rawReferral) continue;
+
+    // Normalize via alias map so e.g. "Latricia Wright" → "Leticia Wright"
+    const referralName = normalizeAgentLabel(rawReferral);
+    const agentKey = normalize(referralName);
+    const matchedAgent = (settings.agents || []).find((a) => normalize(a.name) === agentKey);
+    if (!matchedAgent) continue;
+
+    const submittedIso = clean(sp?.submitted_at || sp?.submittedAt || sp?.createdAt || '');
+    if (!submittedIso) continue;
+
+    const spDateKey = cstDateKeyFromIso(submittedIso);
+    const spWeekKey = cstWeekKeyFromIso(submittedIso);
+    const spMonthKey = cstMonthKeyFromIso(submittedIso);
+
+    if (!counts[matchedAgent.name]) counts[matchedAgent.name] = { today: 0, week: 0, month: 0 };
+    if (spDateKey && spDateKey === keys.dateKey) counts[matchedAgent.name].today += 1;
+    if (spWeekKey && spWeekKey === keys.weekKey) counts[matchedAgent.name].week += 1;
+    if (spMonthKey && spMonthKey === keys.monthKey) counts[matchedAgent.name].month += 1;
+  }
+
   const yesterdayCounts = computeYesterdayCounts(settings, events, new Date());
 
   const sponsorshipMap = sponsorshipLookup(sponsorship);
