@@ -5,6 +5,7 @@ const FB_LEADS_PATH = 'stores/fb-leads.json';
 const SPONSORSHIP_PATH = 'stores/sponsorship-applications.json';
 const POLICY_PATH = 'stores/policy-submissions.json';
 const EVENTS_PATH = 'stores/lead-router-events.json';
+const AGENT_LICENSED_STATES_PATH = 'stores/agent-licensed-states.json';
 
 // ─── Licensed-States Helpers ──────────────────────────────────────────────
 
@@ -178,12 +179,41 @@ export async function GET() {
     } catch { /* best-effort */ }
 
     const statesMap = buildLicensedStatesMap(licensedAgentsData);
+
+    // Merge self-service licensed states from agent back office
+    let agentLicensedStatesOverride = {};
+    try {
+      const overrideStore = await loadJsonStore(AGENT_LICENSED_STATES_PATH, {});
+      agentLicensedStatesOverride = (overrideStore && typeof overrideStore === 'object' && !Array.isArray(overrideStore)) ? overrideStore : {};
+    } catch { /* best-effort */ }
+
+    // Build a name→email map from licensedAgentsData for override lookup
+    const nameToEmail = new Map();
+    for (const a of licensedAgentsData) {
+      if (a.email && (a.full_name || a.fullName)) {
+        const displayName = String(a.full_name || a.fullName || '').trim().toLowerCase();
+        nameToEmail.set(displayName, String(a.email).toLowerCase().trim());
+      }
+    }
+
     const agentList = getActiveAgentList();
-    const agents = agentList.map((name) => ({
-      name,
-      todayCount: agentTodayCounts[name] || 0,
-      licensedStates: lookupAgentStates(name, statesMap)
-    }));
+    const agents = agentList.map((name) => {
+      const baseStates = lookupAgentStates(name, statesMap);
+      // Look up override by email
+      const emailKey = nameToEmail.get(name.toLowerCase().trim()) || '';
+      const overrideStates = emailKey && Array.isArray(agentLicensedStatesOverride[emailKey])
+        ? agentLicensedStatesOverride[emailKey]
+        : [];
+      // Merge: union of base + override
+      const merged = overrideStates.length
+        ? [...new Set([...baseStates, ...overrideStates])].sort()
+        : baseStates;
+      return {
+        name,
+        todayCount: agentTodayCounts[name] || 0,
+        licensedStates: merged
+      };
+    });
 
     return Response.json({ ok: true, leads, stats, agentTodayCounts, agents });
   } catch (err) {
