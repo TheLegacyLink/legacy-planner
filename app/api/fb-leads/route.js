@@ -125,8 +125,14 @@ export async function POST(req) {
     const sponsorEmails = new Set(
       sponsorships.map((r) => normalizeEmail(r?.email || r?.applicant_email || '')).filter(Boolean)
     );
+    const sponsorPhones = new Set(
+      sponsorships.map((r) => normalizePhone(r?.phone || r?.applicant_phone || '')).filter(Boolean)
+    );
     const policyEmails = new Set(
       policies.map((r) => normalizeEmail(r?.email || r?.applicant_email || '')).filter(Boolean)
+    );
+    const policyPhones = new Set(
+      policies.map((r) => normalizePhone(r?.phone || r?.applicant_phone || '')).filter(Boolean)
     );
     const contactedEmails = new Set();
     for (const evt of events) {
@@ -137,7 +143,7 @@ export async function POST(req) {
     // Untouched leads sorted oldest first
     const untouched = fbLeads
       .filter((l) => {
-        const status = computeStatus(l, sponsorEmails, policyEmails, contactedEmails);
+        const status = computeStatus(l, sponsorEmails, policyEmails, contactedEmails, sponsorPhones, policyPhones);
         return status === 'untouched';
       })
       .sort((a, b) => {
@@ -164,6 +170,27 @@ export async function POST(req) {
     }
 
     await saveJsonStore(FB_LEADS_PATH, fbLeads);
+
+    // Update GHL contact owner for each lead in the batch
+    try {
+      const ghlToken = String(process.env.GHL_API_TOKEN || '').trim();
+      const ghlUserMapRaw = String(process.env.GHL_AGENT_USER_MAP_JSON || '{}');
+      let ghlUserMap = {};
+      try { ghlUserMap = JSON.parse(ghlUserMapRaw); } catch { /* ignore */ }
+      const ghlUserId = ghlUserMap[agentName] || ghlUserMap[agentName.toLowerCase()] || '';
+      if (ghlToken && ghlUserId) {
+        const ghlBaseUrl = 'https://rest.gohighlevel.com/v1/contacts';
+        await Promise.allSettled(batch.map(async (lead) => {
+          const contactId = lead.id; // Facebook lead ID = GHL contact external ID
+          if (!contactId) return;
+          await fetch(`${ghlBaseUrl}/${contactId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ghlToken}` },
+            body: JSON.stringify({ assignedTo: ghlUserId })
+          });
+        }));
+      }
+    } catch { /* GHL update is best-effort */ }
 
     // Send notification email using nodemailer (same pattern as lead-router)
     let emailResult = { ok: false, reason: 'not_attempted' };
