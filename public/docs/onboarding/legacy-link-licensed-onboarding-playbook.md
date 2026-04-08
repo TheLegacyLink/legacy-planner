@@ -56,7 +56,7 @@ You need to be contracted to get paid. There are two parts:
 **https://surelc.surancebay.com/producer/?gaId=190**
 
 **Part B — InvestaLink** (F&G + National Life Group):
-**https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance**
+[Click here to complete your contracting with F&G and National Life Group](https://accounts.surancebay.com/oauth/authorize?redirect_uri=https:%2F%2Fsurelc.surancebay.com%2Fproducer%2Foauth%3FreturnUrl%3D%252Fprofile%252Fcontact-info%253FgaId%253D168%2526gaId%253D168%2526branch%253DInvestaLink%2526branchVisible%253Dtrue%2526branchEditable%253Dfalse%2526branchRequired%253Dtrue%2526autoAdd%253Dfalse%2526requestMethod%253DGET&gaId=168&client_id=surecrmweb&response_type=code)
 
 **Part C — Watch the contracting tutorial** so you know what you're doing:
 **https://www.loom.com/share/79354f8de2334697ba53cc5b0ff80c86**
