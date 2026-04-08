@@ -23,13 +23,29 @@ function parseAgentNameParts(rawName) {
 
 function buildLicensedStatesMap(agentsData) {
   // Returns Map: "last|first" -> Set<state_code>
+  // Groups ALL rows per agent (agents appear once per state)
   const map = new Map();
+  // Also build email->name map to resolve aliases like INVESTALINK
+  const emailToKey = new Map();
+
   for (const agent of agentsData) {
-    if (!agent.full_name || !agent.state_code) continue;
-    const parsed = parseAgentNameParts(agent.full_name);
+    if (!agent.full_name || agent.full_name.includes('Legend')) continue;
+    const stateCode = String(agent.state_code || agent.home_state || '').toUpperCase().trim();
+    if (!stateCode || stateCode.length !== 2) continue;
+
+    let fullName = agent.full_name.trim().toUpperCase();
+    // Remap INVESTALINK to KIMORA LINK
+    if (fullName === 'INVESTALINK') fullName = 'LINK, KIMORA';
+
+    const parsed = parseAgentNameParts(fullName);
     const key = `${parsed.last}|${parsed.first}`;
     if (!map.has(key)) map.set(key, new Set());
-    map.get(key).add(String(agent.state_code).toUpperCase());
+    map.get(key).add(stateCode);
+
+    // Track email -> key for alias resolution
+    if (agent.email) {
+      emailToKey.set(String(agent.email).toLowerCase().trim(), key);
+    }
   }
   return map;
 }
