@@ -2,20 +2,18 @@ import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 
 const FB_LEADS_PATH = 'stores/fb-leads.json';
 
-function parseCsvLine(line) {
+function splitLine(line, sep) {
+  if (sep === '\t') return line.split('\t');
+  // comma-aware split with quote handling
   const result = [];
   let current = '';
   let inQuotes = false;
   for (let i = 0; i < line.length; i++) {
     const ch = line[i];
     if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (ch === ',' && !inQuotes) {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+      else { inQuotes = !inQuotes; }
+    } else if (ch === sep && !inQuotes) {
       result.push(current.trim());
       current = '';
     } else {
@@ -27,30 +25,35 @@ function parseCsvLine(line) {
 }
 
 function parseCsv(text) {
-  const lines = String(text || '')
-    .replace(/^\uFEFF/, '') // strip BOM
-    .split(/\r?\n/)
-    .filter((l) => l.trim());
-  if (lines.length < 2) return [];
-  // Strip any leading non-alphanumeric characters (e.g. colon prefix Facebook sometimes adds)
-  const rawHeaders = parseCsvLine(lines[0]);
-  const headers = rawHeaders.map((h, i) => i === 0 ? h.replace(/^[^a-zA-Z0-9]+/, '') : h);
-  const firstKey = headers[0]; // capture original (cleaned) first column name
+  const cleaned = String(text || '').replace(/^\uFEFF/, ''); // strip BOM
+  const lines = cleaned.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return { rows: [], firstKey: 'id' };
+
+  // Detect separator: if first line has more tabs than commas, it's TSV
+  const sep = (lines[0].split('\t').length > lines[0].split(',').length) ? '\t' : ',';
+
+  const rawHeaders = splitLine(lines[0], sep);
+  // Normalize headers: strip BOM/non-alphanum prefix, lowercase, trim
+  const headers = rawHeaders.map((h) => h.replace(/^[^a-zA-Z_]+/, '').trim().toLowerCase());
+  const firstKey = headers[0];
+
   const rows = lines.slice(1).map((line) => {
-    const vals = parseCsvLine(line);
+    const vals = splitLine(line, sep);
     const row = {};
-    headers.forEach((h, i) => {
-      row[h.trim()] = (vals[i] || '').trim();
-    });
+    headers.forEach((h, i) => { row[h] = (vals[i] || '').trim(); });
     return row;
   });
   return { rows, firstKey };
 }
 
+function stripPrefix(val) {
+  // Facebook prefixes values like l:123, ag:123, p:+1234, etc.
+  return String(val || '').replace(/^[a-z]+:/, '').trim();
+}
+
 function mapRow(row, firstKey) {
-  // Facebook sometimes exports with a BOM or colon-prefixed first column that doesn't resolve to 'id'
-  // Fall back to whatever the first column key is
-  const id = String(row.id || row[firstKey] || '').trim();
+  const rawId = row.id || row[firstKey] || '';
+  const id = stripPrefix(rawId);
   return {
     id,
     created_time: String(row.created_time || '').trim(),
@@ -67,7 +70,7 @@ function mapRow(row, firstKey) {
     full_name: String(row.full_name || '').trim(),
     email: String(row.email || '').trim().toLowerCase(),
     state: String(row.state || '').trim(),
-    phone_number: String(row.phone_number || '').trim(),
+    phone_number: stripPrefix(row.phone_number || ''),
     importedAt: new Date().toISOString(),
     distributedTo: '',
     distributedAt: ''
