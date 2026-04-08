@@ -21,6 +21,8 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+const ESIGN_STORE_PATH = 'stores/esign-contracts.json';
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const email = normalizeEmail(searchParams.get('email') || '');
@@ -44,6 +46,28 @@ export async function GET(req) {
   }
 
   const signedAt = clean(row?.signedAt || row?.signed_at || row?.completedAt || row?.completed_at || '');
+
+  // If not found in the legacy DocuSign-backed store, also check the internal esign store
+  // (populated by ICAContractGate.js via /api/esign-contract)
+  if (!signedAt && email) {
+    try {
+      const esignRows = await loadJsonStore(ESIGN_STORE_PATH, []);
+      const esignList = Array.isArray(esignRows) ? esignRows : [];
+      const esignRow = esignList.find((r) => normalizeEmail(r?.email) === email) || null;
+      const esignSignedAt = clean(esignRow?.candidateSignedAt || '');
+      if (esignSignedAt) {
+        return Response.json({
+          ok: true,
+          signed: true,
+          row: { email, name: clean(esignRow?.name || ''), signedAt: esignSignedAt, source: 'esign_internal' },
+          matchedBy: 'esign_email'
+        });
+      }
+    } catch {
+      // non-fatal: fall through to return unsigned
+    }
+  }
+
   return Response.json({ ok: true, signed: Boolean(signedAt), row: row ? { ...row, signedAt } : null, matchedBy });
 }
 
