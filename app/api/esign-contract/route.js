@@ -143,18 +143,18 @@ export async function POST(req) {
       const tgToken = clean(process.env.TELEGRAM_BOT_TOKEN || '');
       const tgChat = clean(process.env.TELEGRAM_CHAT_ID || '');
       if (tgToken && tgChat) {
-        const nameParts = (record.name || '').trim().split(/\s+/);
-        const shortName = nameParts.length >= 2
-          ? `${nameParts[0]} ${nameParts[nameParts.length - 1].charAt(0)}.`
-          : (record.name || '—');
+        const signerFirstName = (record.name || '').trim().split(/\s+/)[0] || '—';
+        const uplineNorm = (upline || '').trim();
+        const uplineDisplay = uplineNorm.toLowerCase() === 'kimora link'
+          ? 'Link'
+          : (uplineNorm.split(/\s+/)[0] || '—');
         const msg = [
           '✍️ ICA Signed',
-          `Name: ${shortName}`,
+          `Name: ${signerFirstName}`,
           `Track: ${record.trackType || '—'}`,
           `Suitable: ${suitable === null ? 'N/A' : suitable ? 'Yes' : 'No'}`,
           `Policy Opt-In: ${optInPolicy ? 'Yes' : 'No'}`,
-          `Upline: ${upline || '—'}`,
-          `Envelope: ${record.envelopeId || '—'}`,
+          `Upline: ${uplineDisplay}`,
           'Congratulations — keep up the good work! 🏆',
         ].join('\n');
         await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
