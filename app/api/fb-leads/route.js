@@ -226,10 +226,12 @@ export async function GET() {
 
 export async function POST(req) {
   // Distribution endpoint: assign N untouched leads to an agent and send email
+  // If leadId is provided, assign THAT specific lead instead of oldest N untouched.
   try {
     const body = await req.json().catch(() => ({}));
     const agentName = String(body?.agentName || '').trim();
     const count = Math.max(1, Math.min(500, Number(body?.count || 1)));
+    const specificLeadId = String(body?.leadId || '').trim();
 
     if (!agentName) {
       return Response.json({ ok: false, error: 'missing_agent_name' }, { status: 400 });
@@ -260,22 +262,32 @@ export async function POST(req) {
       if (evtEmail) contactedEmails.add(evtEmail);
     }
 
-    // Untouched leads sorted oldest first
-    const untouched = fbLeads
-      .filter((l) => {
-        const status = computeStatus(l, sponsorEmails, policyEmails, contactedEmails, sponsorPhones, policyPhones);
-        return status === 'untouched';
-      })
-      .sort((a, b) => {
-        const aTime = new Date(a.created_time || a.importedAt || 0).getTime();
-        const bTime = new Date(b.created_time || b.importedAt || 0).getTime();
-        return aTime - bTime;
-      });
+    let batch;
 
-    const batch = untouched.slice(0, count);
+    if (specificLeadId) {
+      // Per-lead assign: find the specific lead by ID
+      const specificLead = fbLeads.find((l) => l.id === specificLeadId);
+      if (!specificLead) {
+        return Response.json({ ok: false, error: 'lead_not_found' }, { status: 404 });
+      }
+      batch = [specificLead];
+    } else {
+      // Untouched leads sorted oldest first (for bulk distribution)
+      const untouched = fbLeads
+        .filter((l) => {
+          const status = computeStatus(l, sponsorEmails, policyEmails, contactedEmails, sponsorPhones, policyPhones);
+          return status === 'untouched';
+        })
+        .sort((a, b) => {
+          const aTime = new Date(a.created_time || a.importedAt || 0).getTime();
+          const bTime = new Date(b.created_time || b.importedAt || 0).getTime();
+          return aTime - bTime;
+        });
+      batch = untouched.slice(0, count);
+    }
 
     if (!batch.length) {
-      return Response.json({ ok: true, sent: 0, agentName, message: 'No untouched leads available.' });
+      return Response.json({ ok: true, sent: 0, agentName, message: 'No leads available.' });
     }
 
     const now = new Date().toISOString();

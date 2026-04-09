@@ -5,7 +5,8 @@ const SETTINGS_PATH = 'stores/fb-leads-settings.json';
 const DEFAULT_SETTINGS = {
   autoDistribute: false,
   autoDistributeMode: 'balanced',
-  autoDistributeAgents: ['Leticia Wright', 'Andrea Cannon']
+  autoDistributeAgents: ['Leticia Wright', 'Andrea Cannon'],
+  autoDistributeCaps: {}
 };
 
 export async function GET() {
@@ -30,7 +31,8 @@ export async function POST(req) {
       ...current,
       autoDistribute: typeof body.autoDistribute === 'boolean' ? body.autoDistribute : current.autoDistribute,
       autoDistributeMode: typeof body.autoDistributeMode === 'string' ? body.autoDistributeMode : current.autoDistributeMode,
-      autoDistributeAgents: Array.isArray(body.autoDistributeAgents) ? body.autoDistributeAgents : current.autoDistributeAgents
+      autoDistributeAgents: Array.isArray(body.autoDistributeAgents) ? body.autoDistributeAgents : current.autoDistributeAgents,
+      autoDistributeCaps: (body.autoDistributeCaps && typeof body.autoDistributeCaps === 'object' && !Array.isArray(body.autoDistributeCaps)) ? body.autoDistributeCaps : (current.autoDistributeCaps || {})
     };
 
     await saveJsonFile(SETTINGS_PATH, updated);

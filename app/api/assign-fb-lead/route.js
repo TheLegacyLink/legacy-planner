@@ -14,7 +14,8 @@ function clean(v = '') {
 }
 
 // Pick the agent from the list with fewest leads distributed today (balanced mode)
-function pickBalancedAgent(agentNames, allLeads) {
+// Respects per-agent daily caps: if an agent has hit their cap, they are skipped.
+function pickBalancedAgent(agentNames, allLeads, caps = {}) {
   const todayKey = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Chicago',
     year: 'numeric',
@@ -36,8 +37,20 @@ function pickBalancedAgent(agentNames, allLeads) {
     }
   }
 
+  // Filter out agents who have hit their daily cap
+  const eligible = agentNames.filter((agent) => {
+    const cap = caps && caps[agent] !== undefined ? Number(caps[agent]) : null;
+    if (cap !== null && !isNaN(cap) && cap > 0) {
+      return (todayCounts[agent] || 0) < cap;
+    }
+    return true; // no cap set — always eligible
+  });
+
+  // If all capped, fall back to full list
+  const pool = eligible.length > 0 ? eligible : agentNames;
+
   // Return agent with fewest leads today
-  return agentNames.reduce((best, agent) =>
+  return pool.reduce((best, agent) =>
     (todayCounts[agent] || 0) < (todayCounts[best] || 0) ? agent : best
   );
 }
@@ -105,8 +118,10 @@ export async function POST(req) {
         ? settings.autoDistributeAgents
         : DEFAULT_SETTINGS.autoDistributeAgents;
 
+      const caps = (settings?.autoDistributeCaps && typeof settings.autoDistributeCaps === 'object') ? settings.autoDistributeCaps : {};
+
       if (autoDistribute && agentList.length > 0) {
-        const pickedAgent = pickBalancedAgent(agentList, merged);
+        const pickedAgent = pickBalancedAgent(agentList, merged, caps);
 
         // Call the Lead Router's manual-assign endpoint
         const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');

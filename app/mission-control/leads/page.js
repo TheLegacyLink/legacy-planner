@@ -143,8 +143,12 @@ export default function LeadsPage() {
   // Auto-distribute settings state
   const [autoDistribute, setAutoDistribute] = useState(false);
   const [autoDistributeAgents, setAutoDistributeAgents] = useState(['Leticia Wright', 'Andrea Cannon']);
+  const [autoDistributeCaps, setAutoDistributeCaps] = useState({});
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState('');
+
+  // Per-lead assign state: leadId -> { open: bool, assigning: bool, assignedTo: string }
+  const [assignState, setAssignState] = useState({});
 
   // Load auto-distribute settings
   const loadSettings = useCallback(async () => {
@@ -155,6 +159,9 @@ export default function LeadsPage() {
         setAutoDistribute(!!data.settings.autoDistribute);
         if (Array.isArray(data.settings.autoDistributeAgents)) {
           setAutoDistributeAgents(data.settings.autoDistributeAgents);
+        }
+        if (data.settings.autoDistributeCaps && typeof data.settings.autoDistributeCaps === 'object') {
+          setAutoDistributeCaps(data.settings.autoDistributeCaps);
         }
       }
     } catch { /* best-effort */ }
@@ -192,6 +199,23 @@ export default function LeadsPage() {
     loadSettings();
   }, [loadLeads, loadSettings]);
 
+  // Close any open assign dropdown when clicking outside
+  useEffect(() => {
+    function handleClick() {
+      setAssignState((prev) => {
+        const hasOpen = Object.values(prev).some((s) => s?.open);
+        if (!hasOpen) return prev;
+        const next = {};
+        for (const [k, v] of Object.entries(prev)) {
+          next[k] = v?.open ? { ...v, open: false } : v;
+        }
+        return next;
+      });
+    }
+    document.addEventListener('click', handleClick, true);
+    return () => document.removeEventListener('click', handleClick, true);
+  }, []);
+
   // ── Save Auto-Distribute Settings ─────────────────────────────────────────
   async function saveAutoDistributeSettings() {
     setSettingsSaving(true);
@@ -203,7 +227,8 @@ export default function LeadsPage() {
         body: JSON.stringify({
           autoDistribute,
           autoDistributeMode: 'balanced',
-          autoDistributeAgents
+          autoDistributeAgents,
+          autoDistributeCaps
         })
       });
       const data = await res.json().catch(() => ({}));
@@ -307,6 +332,46 @@ export default function LeadsPage() {
     }
   }
 
+  // ── Per-lead Assign ────────────────────────────────────────────────
+  function toggleAssignDropdown(leadId) {
+    setAssignState((prev) => ({
+      ...prev,
+      [leadId]: { ...prev[leadId], open: !prev[leadId]?.open, assigning: false }
+    }));
+  }
+
+  async function assignLeadToAgent(leadId, agentName) {
+    setAssignState((prev) => ({
+      ...prev,
+      [leadId]: { open: false, assigning: true, assignedTo: '' }
+    }));
+    try {
+      const res = await fetch('/api/fb-leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentName, count: 1, leadId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        setAssignState((prev) => ({
+          ...prev,
+          [leadId]: { open: false, assigning: false, assignedTo: agentName }
+        }));
+        await loadLeads();
+      } else {
+        setAssignState((prev) => ({
+          ...prev,
+          [leadId]: { open: false, assigning: false, assignedTo: '', error: data?.error || 'Failed' }
+        }));
+      }
+    } catch (err) {
+      setAssignState((prev) => ({
+        ...prev,
+        [leadId]: { open: false, assigning: false, assignedTo: '', error: err.message }
+      }));
+    }
+  }
+
   // ── GHL Sync Now ──────────────────────────────────────────────────────────
   async function syncGhlLeads() {
     if (ghlSyncing) return;
@@ -341,16 +406,22 @@ export default function LeadsPage() {
     [leads]
   );
 
-  // ── Filtered Leads ─────────────────────────────────────────────────────────
-  const filtered = leads.filter((l) => {
-    if (filter !== 'all' && l.status !== filter) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      const hay = `${l.full_name} ${l.email} ${l.state} ${l.phone_number}`.toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
+  // ── Filtered Leads (display: newest first) ────────────────────────────────
+  const filtered = leads
+    .filter((l) => {
+      if (filter !== 'all' && l.status !== filter) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const hay = `${l.full_name} ${l.email} ${l.state} ${l.phone_number}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const at = new Date(a.importedAt || a.created_time || 0).getTime();
+      const bt = new Date(b.importedAt || b.created_time || 0).getTime();
+      return bt - at; // newest first
+    });
 
   const untouchedCount = stats.untouched || 0;
 
@@ -619,36 +690,73 @@ export default function LeadsPage() {
               <p style={{ margin: '0 0 8px', fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
                 Active agents for auto-distribute
               </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
                 {ALL_AGENTS.map((agent) => {
                   const checked = autoDistributeAgents.includes(agent);
+                  const capVal = autoDistributeCaps[agent] !== undefined ? autoDistributeCaps[agent] : '';
                   return (
-                    <label
+                    <div
                       key={agent}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 8,
-                        cursor: 'pointer',
+                        gap: 12,
                         padding: '8px 14px',
                         borderRadius: 10,
                         border: `1px solid ${checked ? GOLD : BORDER}`,
                         background: checked ? 'rgba(200,169,107,0.08)' : CARD_BG2,
-                        color: checked ? GOLD_SOFT : '#94a3b8',
-                        fontSize: 13,
-                        fontWeight: checked ? 700 : 400,
-                        transition: 'all 0.15s',
-                        userSelect: 'none'
+                        transition: 'all 0.15s'
                       }}
                     >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleAutoAgent(agent)}
-                        style={{ accentColor: GOLD, width: 14, height: 14, cursor: 'pointer' }}
-                      />
-                      {agent}
-                    </label>
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          cursor: 'pointer',
+                          color: checked ? GOLD_SOFT : '#94a3b8',
+                          fontSize: 13,
+                          fontWeight: checked ? 700 : 400,
+                          flex: 1,
+                          userSelect: 'none'
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleAutoAgent(agent)}
+                          style={{ accentColor: GOLD, width: 14, height: 14, cursor: 'pointer' }}
+                        />
+                        {agent}
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>Max/day</span>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="∞"
+                          value={capVal}
+                          onChange={(e) => {
+                            const v = e.target.value === '' ? undefined : Number(e.target.value);
+                            setAutoDistributeCaps((prev) => {
+                              const next = { ...prev };
+                              if (v === undefined) { delete next[agent]; } else { next[agent] = v; }
+                              return next;
+                            });
+                          }}
+                          style={{
+                            width: 60,
+                            background: '#0f172a',
+                            border: `1px solid ${BORDER}`,
+                            borderRadius: 6,
+                            padding: '4px 8px',
+                            color: '#f1f5f9',
+                            fontSize: 12,
+                            textAlign: 'center'
+                          }}
+                        />
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -979,7 +1087,7 @@ export default function LeadsPage() {
               <table style={s.table}>
                 <thead>
                   <tr>
-                    {['Name', 'Date In', 'Platform', 'State', 'Email', 'Phone', 'Status', 'Distributed To'].map((h) => (
+                    {['Name', 'Date In', 'Platform', 'State', 'Email', 'Phone', 'Status', 'Distributed To', 'Actions'].map((h) => (
                       <th key={h} style={s.th}>{h}</th>
                     ))}
                   </tr>
@@ -987,9 +1095,11 @@ export default function LeadsPage() {
                 <tbody>
                   {filtered.map((lead, idx) => {
                     const cfg = STATUS_CONFIG[lead.status] || STATUS_CONFIG.untouched;
+                    const leadId = lead.id || idx;
+                    const aState = assignState[leadId] || {};
                     return (
                       <tr
-                        key={lead.id || idx}
+                        key={leadId}
                         style={{
                           background: idx % 2 === 0 ? CARD_BG : CARD_BG2,
                           borderLeft: `3px solid ${cfg.color}55`
@@ -1024,9 +1134,80 @@ export default function LeadsPage() {
                         <td style={{ ...s.td, color: '#94a3b8', fontSize: 12 }}>{lead.phone_number || '—'}</td>
                         <td style={s.td}><StatusBadge status={lead.status} /></td>
                         <td style={{ ...s.td, color: '#64748b', fontSize: 12 }}>
-                          {lead.distributedTo
-                            ? <span style={{ color: GOLD_SOFT }}>{lead.distributedTo}</span>
-                            : '—'}
+                          {aState.assignedTo
+                            ? <span style={{ color: GOLD_SOFT }}>{aState.assignedTo}</span>
+                            : lead.distributedTo
+                              ? <span style={{ color: GOLD_SOFT }}>{lead.distributedTo}</span>
+                              : '—'}
+                        </td>
+                        <td style={{ ...s.td, position: 'relative' }}>
+                          {aState.assigning ? (
+                            <span style={{ fontSize: 11, color: '#64748b' }}>Assigning…</span>
+                          ) : aState.assignedTo ? (
+                            <span style={{ fontSize: 11, color: '#4ade80' }}>✓ Assigned</span>
+                          ) : aState.error ? (
+                            <span style={{ fontSize: 11, color: '#f87171' }}>{aState.error}</span>
+                          ) : (
+                            <div style={{ position: 'relative', display: 'inline-block' }}>
+                              <button
+                                type="button"
+                                onClick={() => toggleAssignDropdown(leadId)}
+                                style={{
+                                  background: `linear-gradient(135deg, ${GOLD}, #a0783a)`,
+                                  color: '#0B1020',
+                                  border: 'none',
+                                  borderRadius: 6,
+                                  padding: '4px 10px',
+                                  fontWeight: 700,
+                                  fontSize: 11,
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                Assign ▾
+                              </button>
+                              {aState.open && (
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    top: '110%',
+                                    left: 0,
+                                    zIndex: 100,
+                                    background: '#1e293b',
+                                    border: `1px solid ${BORDER}`,
+                                    borderRadius: 8,
+                                    minWidth: 160,
+                                    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                                    overflow: 'hidden'
+                                  }}
+                                >
+                                  {ALL_AGENTS.map((agent) => (
+                                    <button
+                                      key={agent}
+                                      type="button"
+                                      onClick={() => assignLeadToAgent(leadId, agent)}
+                                      style={{
+                                        display: 'block',
+                                        width: '100%',
+                                        textAlign: 'left',
+                                        padding: '8px 14px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: GOLD_SOFT,
+                                        fontSize: 13,
+                                        cursor: 'pointer',
+                                        borderBottom: `1px solid ${BORDER}33`
+                                      }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(200,169,107,0.1)'; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                                    >
+                                      {agent}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
