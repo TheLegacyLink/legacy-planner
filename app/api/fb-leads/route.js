@@ -291,26 +291,70 @@ export async function POST(req) {
 
     await saveJsonStore(FB_LEADS_PATH, fbLeads);
 
-    // Update GHL contact owner for each lead in the batch
+    // Update GHL contact owner + add tag for each lead (best-effort, lookup by email)
     try {
       const ghlToken = String(process.env.GHL_API_TOKEN || '').trim();
-      const ghlUserMapRaw = String(process.env.GHL_AGENT_USER_MAP_JSON || '{}');
-      let ghlUserMap = {};
-      try { ghlUserMap = JSON.parse(ghlUserMapRaw); } catch { /* ignore */ }
-      const ghlUserId = ghlUserMap[agentName] || ghlUserMap[agentName.toLowerCase()] || '';
-      if (ghlToken && ghlUserId) {
+      // Support both GHL_AGENT_USER_MAP_JSON (fb-leads specific) and GHL_USER_ID_MAP_JSON (lead-router pattern)
+      const agentUserMapRaw = String(process.env.GHL_AGENT_USER_MAP_JSON || process.env.GHL_USER_ID_MAP_JSON || '{}');
+      let agentUserMap = {};
+      try { agentUserMap = JSON.parse(agentUserMapRaw); } catch { /* ignore */ }
+      const ghlUserId = agentUserMap[agentName] || agentUserMap[agentName.toLowerCase()] || '';
+      const tagName = `Lead Assigned - ${agentName}`;
+
+      if (ghlToken) {
         const ghlBaseUrl = 'https://rest.gohighlevel.com/v1/contacts';
         await Promise.allSettled(batch.map(async (lead) => {
-          const contactId = lead.id; // Facebook lead ID = GHL contact external ID
-          if (!contactId) return;
-          await fetch(`${ghlBaseUrl}/${contactId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ghlToken}` },
-            body: JSON.stringify({ assignedTo: ghlUserId })
-          });
+          const email = String(lead.email || '').trim();
+          if (!email) return;
+
+          // Step 1: Look up GHL contact by email (FB lead ID ≠ GHL contact ID)
+          let ghlContactId = '';
+          try {
+            const searchRes = await fetch(`${ghlBaseUrl}/?email=${encodeURIComponent(email)}`, {
+              method: 'GET',
+              headers: { Authorization: `Bearer ${ghlToken}` }
+            });
+            if (searchRes.ok) {
+              const searchData = await searchRes.json().catch(() => ({}));
+              ghlContactId = String(searchData?.contacts?.[0]?.id || '').trim();
+            }
+          } catch { /* skip */ }
+
+          if (!ghlContactId) {
+            console.log(`[fb-leads] GHL contact not found for email: ${email}`);
+            return;
+          }
+
+          // Step 2: GET contact to fetch existing tags
+          let existingTags = [];
+          try {
+            const getRes = await fetch(`${ghlBaseUrl}/${ghlContactId}`, {
+              method: 'GET',
+              headers: { Authorization: `Bearer ${ghlToken}` }
+            });
+            if (getRes.ok) {
+              const getData = await getRes.json().catch(() => ({}));
+              existingTags = Array.isArray(getData?.contact?.tags) ? getData.contact.tags : [];
+            }
+          } catch { /* skip */ }
+
+          // Step 3: Build merged tags
+          const mergedTags = existingTags.includes(tagName) ? existingTags : [...existingTags, tagName];
+
+          // Step 4: PUT — update owner + tags together
+          const putBody = { tags: mergedTags };
+          if (ghlUserId) putBody.assignedTo = ghlUserId;
+
+          try {
+            await fetch(`${ghlBaseUrl}/${ghlContactId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ghlToken}` },
+              body: JSON.stringify(putBody)
+            });
+          } catch { /* skip */ }
         }));
       }
-    } catch { /* GHL update is best-effort */ }
+    } catch { /* GHL update is best-effort — never fail distribution */ }
 
     // Send notification email using nodemailer (same pattern as lead-router)
     let emailResult = { ok: false, reason: 'not_attempted' };
