@@ -270,6 +270,8 @@ export default function InnerCircleHubPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
 
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+
   const [kpi, setKpi] = useState(null);
   const [scripts, setScripts] = useState([]);
   const [scriptFilter, setScriptFilter] = useState('all');
@@ -1923,9 +1925,10 @@ export default function InnerCircleHubPage() {
     setLicensedStatesBusy(true);
     setLicensedStatesMsg('');
     try {
+      const sessionToken = clean(member?.token || '');
       const res = await fetch('/api/agent-licensed-states', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}) },
         body: JSON.stringify({ email: memberEmail, states: licensedStates })
       });
       const data = await res.json().catch(() => ({}));
@@ -2245,9 +2248,102 @@ export default function InnerCircleHubPage() {
           </div>
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
-            <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
-              {tabs.map((t) => <button key={t.key} type="button" className={tab === t.key ? 'publicPrimaryBtn' : 'ghost'} onClick={() => { if (t.key === 'incentives') { if (typeof window !== 'undefined') window.open('/champions-circle/inner-circle?home=/inner-circle-hub', '_blank', 'noopener,noreferrer'); return; } if (t.key === 'scripts2') { if (typeof window !== 'undefined') window.open('/inner-circle-scripts?home=/inner-circle-hub', '_blank','noopener,noreferrer'); return; } if (t.key === 'submitapp') { const me = clean(member?.applicantName || member?.name || ''); const href = `/inner-circle-app-submit?referredBy=${encodeURIComponent(me)}&policyWriter=${encodeURIComponent(me)}&source=inner-circle-hub`; if (typeof window !== 'undefined') window.open(href, '_blank', 'noopener,noreferrer'); return; } setTab(t.key); }}>{t.label}</button>)}
-            </div>
+            {(() => {
+              const PINNED_KEYS = ['dashboard', 'dailydrive', 'onboarding', 'production', 'submitapp'];
+              const pinnedTabs = PINNED_KEYS.map((k) => tabs.find((t) => t.key === k)).filter(Boolean);
+              const overflowTabs = tabs.filter((t) => !PINNED_KEYS.includes(t.key));
+
+              function handleTabClick(t) {
+                setMoreMenuOpen(false);
+                if (t.key === 'incentives') { if (typeof window !== 'undefined') window.open('/champions-circle/inner-circle?home=/inner-circle-hub', '_blank', 'noopener,noreferrer'); return; }
+                if (t.key === 'scripts2') { if (typeof window !== 'undefined') window.open('/inner-circle-scripts?home=/inner-circle-hub', '_blank', 'noopener,noreferrer'); return; }
+                if (t.key === 'submitapp') { const me = clean(member?.applicantName || member?.name || ''); const href = `/inner-circle-app-submit?referredBy=${encodeURIComponent(me)}&policyWriter=${encodeURIComponent(me)}&source=inner-circle-hub`; if (typeof window !== 'undefined') window.open(href, '_blank', 'noopener,noreferrer'); return; }
+                setTab(t.key);
+              }
+
+              return (
+                <div style={{ position: 'relative' }}>
+                  <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+                    {pinnedTabs.map((t) => (
+                      <button key={t.key} type="button"
+                        className={tab === t.key ? 'publicPrimaryBtn' : 'ghost'}
+                        onClick={() => handleTabClick(t)}
+                      >{t.label}</button>
+                    ))}
+                    {overflowTabs.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setMoreMenuOpen((o) => !o)}
+                        style={{
+                          padding: '8px 14px', borderRadius: 8, border: `1px solid #c8a96b`,
+                          background: moreMenuOpen ? '#c8a96b' : 'rgba(17,24,39,0.55)',
+                          color: moreMenuOpen ? '#0b1020' : '#c8a96b',
+                          fontWeight: 700, cursor: 'pointer', fontSize: 14
+                        }}
+                      >More ›</button>
+                    )}
+                  </div>
+
+                  {/* Overflow popover — desktop dropdown + mobile slide-up */}
+                  {moreMenuOpen && overflowTabs.length > 0 && (
+                    <>
+                      {/* Backdrop */}
+                      <div
+                        onClick={() => setMoreMenuOpen(false)}
+                        style={{ position: 'fixed', inset: 0, zIndex: 50 }}
+                      />
+                      {/* Desktop dropdown */}
+                      <div style={{
+                        position: 'absolute', top: 'calc(100% + 6px)', left: 0,
+                        zIndex: 60, background: '#0f172a',
+                        border: '1px solid #3a2f1a',
+                        borderRadius: 12, padding: '8px 0',
+                        minWidth: 220, boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
+                        display: 'flex', flexDirection: 'column',
+                        maxHeight: '60vh', overflowY: 'auto',
+                        '@media (max-width: 640px)': { display: 'none' }
+                      }} className="more-dropdown">
+                        {overflowTabs.map((t) => (
+                          <button key={t.key} type="button"
+                            onClick={() => handleTabClick(t)}
+                            style={{
+                              padding: '10px 18px', background: tab === t.key ? '#1f2937' : 'transparent',
+                              border: 'none', color: tab === t.key ? '#c8a96b' : '#e2e8f0',
+                              textAlign: 'left', cursor: 'pointer', fontWeight: tab === t.key ? 700 : 500,
+                              fontSize: 14, borderLeft: tab === t.key ? '3px solid #c8a96b' : '3px solid transparent'
+                            }}
+                          >{t.label}</button>
+                        ))}
+                      </div>
+
+                      {/* Mobile slide-up */}
+                      <div style={{
+                        position: 'fixed', bottom: 0, left: 0, right: 0,
+                        zIndex: 60, background: '#0f172a',
+                        borderTop: '2px solid #3a2f1a',
+                        borderRadius: '16px 16px 0 0',
+                        padding: '12px 0 24px',
+                        display: 'flex', flexDirection: 'column',
+                        maxHeight: '60vh', overflowY: 'auto',
+                      }} className="more-slideup">
+                        <div style={{ padding: '4px 18px 10px', color: '#c8a96b', fontWeight: 700, fontSize: 15, borderBottom: '1px solid #1f2937' }}>More tabs</div>
+                        {overflowTabs.map((t) => (
+                          <button key={t.key} type="button"
+                            onClick={() => handleTabClick(t)}
+                            style={{
+                              padding: '13px 18px', background: tab === t.key ? '#1f2937' : 'transparent',
+                              border: 'none', color: tab === t.key ? '#c8a96b' : '#e2e8f0',
+                              textAlign: 'left', cursor: 'pointer', fontWeight: tab === t.key ? 700 : 500,
+                              fontSize: 15, borderLeft: tab === t.key ? '3px solid #c8a96b' : '3px solid transparent'
+                            }}
+                          >{t.label}</button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
             {tab === 'dashboard' ? (
               <div style={{ display: 'grid', gap: 10 }}>
@@ -3628,6 +3724,13 @@ export default function InnerCircleHubPage() {
           border-color: #5f4a23 !important;
           color: #f3e8d1 !important;
           background: rgba(17, 24, 39, 0.55) !important;
+        }
+        /* More menu: desktop shows dropdown, mobile shows slide-up */
+        @media (min-width: 641px) {
+          .more-slideup { display: none !important; }
+        }
+        @media (max-width: 640px) {
+          .more-dropdown { display: none !important; }
         }
       `}</style>
     </main>
