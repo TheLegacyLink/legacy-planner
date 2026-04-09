@@ -414,7 +414,7 @@ export default function LeadsPage() {
           </div>
         )}
 
-        {/* ── Stats Bar ─────────────────────────────────────────────────── */
+        {/* ── Stats Bar ─────────────────────────────────────────────────── */}
         <div
           style={{
             display: 'grid',
