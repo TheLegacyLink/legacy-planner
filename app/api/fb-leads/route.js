@@ -469,12 +469,47 @@ export async function POST(req) {
       emailResult = { ok: false, reason: String(emailErr?.message || 'email_failed') };
     }
 
+    // Push each lead to Lead Router for reliable GHL assignment via proven externalId path
+    let leadRouterResult = { ok: false, reason: 'not_attempted' };
+    try {
+      const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
+      const intakeToken = String(process.env.GHL_INTAKE_TOKEN || '');
+      const routerResults = await Promise.allSettled(
+        batch.map((lead) =>
+          fetch(`${appUrl}/api/lead-router`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-intake-token': intakeToken
+            },
+            body: JSON.stringify({
+              mode: 'manual-assign',
+              name: lead.full_name,
+              email: lead.email,
+              phone: lead.phone_number,
+              externalId: lead.ghlContactId || lead.id, // use GHL contact ID if we have it
+              assignTo: agentName,
+              source: 'lead-hub'
+            }),
+            cache: 'no-store'
+          })
+            .then((r) => r.json().catch(() => ({ ok: false })))
+            .catch(() => ({ ok: false, reason: 'fetch_error' }))
+        )
+      );
+      const succeeded = routerResults.filter((r) => r.status === 'fulfilled' && r.value?.ok).length;
+      leadRouterResult = { ok: succeeded > 0, sent: batch.length, succeeded };
+    } catch (routerErr) {
+      leadRouterResult = { ok: false, reason: String(routerErr?.message || 'router_push_failed') };
+    }
+
     return Response.json({
       ok: true,
       sent: batch.length,
       agentName,
       emailResult,
-      message: `Sent ${batch.length} leads to ${agentName}`
+      message: `Sent ${batch.length} leads to ${agentName}`,
+      leadRouterResult
     });
   } catch (err) {
     return Response.json(

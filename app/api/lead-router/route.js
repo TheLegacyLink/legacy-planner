@@ -1643,6 +1643,192 @@ export async function POST(req) {
   const now = new Date();
 
   const mode = clean(body?.mode || '').toLowerCase();
+
+  // ─── Manual Assign (Lead Hub push) ────────────────────────────────────────
+  // Called by the Lead Hub distribute handler to sync GHL owner assignment
+  // via the Lead Router's proven externalId path.
+  if (mode === 'manual-assign') {
+    const name = clean(body?.name || '');
+    const email = clean(body?.email || '').toLowerCase();
+    const phone = normalizePhone(body?.phone || '');
+    const externalId = clean(body?.externalId || '');
+    const assignTo = clean(body?.assignTo || '');
+    const source = clean(body?.source || 'lead-hub');
+
+    if (!assignTo) {
+      return Response.json({ ok: false, error: 'missing_assign_to' }, { status: 400 });
+    }
+
+    const assignedUserId = resolveOwnerUserId(assignTo, agentDirectory);
+    const now = new Date();
+    const keys = {
+      dateKey: cstDateKey(now),
+      weekKey: cstWeekKey(now),
+      monthKey: cstMonthKey(now)
+    };
+
+    // Determine GHL contact ID: Facebook lead IDs are long numeric strings (10+ digits)
+    // GHL contact IDs are alphanumeric
+    const isFbLeadId = /^\d{10,}$/.test(externalId);
+    let ghlContactId = isFbLeadId ? '' : externalId;
+
+    if (!ghlContactId) {
+      // Search GHL by email then phone to find the real contact ID
+      const ghlToken = clean(process.env.GHL_API_TOKEN || '');
+      if (ghlToken) {
+        const ghlHeaders = {
+          Authorization: `Bearer ${ghlToken}`,
+          'Content-Type': 'application/json',
+          Version: '2021-07-28'
+        };
+        const bases = [
+          clean(process.env.GHL_API_BASE_URL || ''),
+          'https://services.leadconnectorhq.com',
+          'https://rest.gohighlevel.com'
+        ].filter(Boolean);
+
+        const ghlSearch = async (query) => {
+          for (const base of bases) {
+            for (const prefix of ['/contacts', '/v1/contacts']) {
+              try {
+                const res = await fetch(`${base.replace(/\/$/, '')}${prefix}/?${query}`, {
+                  method: 'GET',
+                  headers: ghlHeaders,
+                  cache: 'no-store'
+                });
+                if (res.ok) {
+                  const data = await res.json().catch(() => ({}));
+                  const id = clean(data?.contacts?.[0]?.id || '');
+                  if (id) return id;
+                }
+              } catch { /* try next */ }
+            }
+          }
+          return '';
+        };
+
+        if (email) ghlContactId = await ghlSearch(`email=${encodeURIComponent(email)}`);
+        if (!ghlContactId && phone) ghlContactId = await ghlSearch(`phone=${encodeURIComponent(phone)}`);
+      }
+    }
+
+    // Update GHL contact owner (best-effort)
+    let ghlSyncResult = { ok: false, reason: 'no_contact_id' };
+    if (ghlContactId && assignedUserId) {
+      // Add "legacy" tag and update owner
+      const ghlToken = clean(process.env.GHL_API_TOKEN || '');
+      const ghlHeaders = {
+        Authorization: `Bearer ${ghlToken}`,
+        'Content-Type': 'application/json',
+        Version: '2021-07-28'
+      };
+      const bases = [
+        clean(process.env.GHL_API_BASE_URL || ''),
+        'https://services.leadconnectorhq.com',
+        'https://rest.gohighlevel.com'
+      ].filter(Boolean);
+
+      // GET existing tags
+      let existingTags = [];
+      for (const base of bases) {
+        for (const prefix of ['/contacts', '/v1/contacts']) {
+          try {
+            const res = await fetch(`${base.replace(/\/$/, '')}${prefix}/${encodeURIComponent(ghlContactId)}`, {
+              method: 'GET',
+              headers: ghlHeaders,
+              cache: 'no-store'
+            });
+            if (res.ok) {
+              const data = await res.json().catch(() => ({}));
+              existingTags = Array.isArray(data?.contact?.tags) ? data.contact.tags : [];
+              break;
+            }
+          } catch { /* try next */ }
+        }
+        if (existingTags.length >= 0) break; // got a response
+      }
+
+      const mergedTags = existingTags.includes('legacy') ? existingTags : [...existingTags, 'legacy'];
+      const putBody = JSON.stringify({ assignedTo: assignedUserId, tags: mergedTags });
+
+      let putDone = false;
+      for (const base of bases) {
+        for (const prefix of ['/contacts', '/v1/contacts']) {
+          try {
+            const res = await fetch(`${base.replace(/\/$/, '')}${prefix}/${encodeURIComponent(ghlContactId)}`, {
+              method: 'PUT',
+              headers: ghlHeaders,
+              body: putBody,
+              cache: 'no-store'
+            });
+            if (res.ok) { putDone = true; break; }
+          } catch { /* try next */ }
+        }
+        if (putDone) break;
+      }
+
+      ghlSyncResult = putDone
+        ? { ok: true, contactId: ghlContactId, assignedUserId }
+        : { ok: false, reason: 'ghl_put_failed', contactId: ghlContactId };
+    } else if (ghlContactId && !assignedUserId) {
+      ghlSyncResult = { ok: false, reason: 'no_user_id_for_agent', agent: assignTo };
+    }
+
+    // Log assignment event so Lead Router counts update
+    events.push({
+      id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: 'assigned',
+      timestamp: nowIso(),
+      dateKey: keys.dateKey,
+      weekKey: keys.weekKey,
+      monthKey: keys.monthKey,
+      leadId: externalId || ghlContactId || `lh-${Date.now()}`,
+      externalId: ghlContactId || externalId || '',
+      name,
+      email,
+      phone,
+      assignedTo: normalizeAgentLabel(assignTo),
+      reason: `manual_assign_from_${source}`,
+      mode: 'manual',
+      routingMode: 'live',
+      source
+    });
+
+    // Log GHL sync event
+    events.push({
+      id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: 'ghl_owner_sync',
+      timestamp: nowIso(),
+      dateKey: keys.dateKey,
+      weekKey: keys.weekKey,
+      monthKey: keys.monthKey,
+      leadId: externalId || ghlContactId || '',
+      externalId: ghlContactId || externalId || '',
+      name,
+      email,
+      phone,
+      assignedTo: normalizeAgentLabel(assignTo),
+      ok: Boolean(ghlSyncResult?.ok),
+      reason: clean(ghlSyncResult?.reason || ''),
+      detail: clean(ghlSyncResult?.contactId || '')
+    });
+
+    const trimmedEvents = events
+      .sort((a, b) => new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime())
+      .slice(-5000);
+    await saveJsonStore(EVENTS_PATH, trimmedEvents);
+
+    return Response.json({
+      ok: true,
+      mode: 'manual-assign',
+      assignTo: normalizeAgentLabel(assignTo),
+      assignedUserId,
+      ghlContactId,
+      ghlSyncResult
+    });
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
   if (mode === 'run-delayed-release' || mode === 'process-delayed-release') {
     const releaseRun = await runDelayedReleasePass({ settings, leads, events, submittedBlockLookup, agentDirectory, now });
     if (releaseRun.released || releaseRun.blockedSubmitted || releaseRun.blockedResponded || releaseRun.blockedManualHold || releaseRun.waitingEligibleAgent) {
