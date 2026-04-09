@@ -212,8 +212,8 @@ export default function LeadsPage() {
         return next;
       });
     }
-    document.addEventListener('click', handleClick, true);
-    return () => document.removeEventListener('click', handleClick, true);
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
   }, []);
 
   // ── Save Auto-Distribute Settings ─────────────────────────────────────────
@@ -1188,7 +1188,7 @@ export default function LeadsPage() {
                                     <button
                                       key={agent}
                                       type="button"
-                                      onClick={() => assignLeadToAgent(leadId, agent)}
+                                      onClick={(e) => { e.stopPropagation(); assignLeadToAgent(leadId, agent); }}
                                       style={{
                                         display: 'block',
                                         width: '100%',
