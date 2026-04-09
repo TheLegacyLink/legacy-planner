@@ -1671,10 +1671,13 @@ export async function POST(req) {
       monthKey: cstMonthKey(now)
     };
 
-    // Determine GHL contact ID: Facebook lead IDs are long numeric strings (10+ digits)
-    // GHL contact IDs are alphanumeric
+    // Determine GHL contact ID:
+    // - Facebook lead IDs: long numeric strings (10+ digits) → search by email
+    // - Generated fallback IDs: start with 'ghl-' → search by email
+    // - Real GHL contact IDs: alphanumeric, not all-digit → use directly
     const isFbLeadId = /^\d{10,}$/.test(externalId);
-    let ghlContactId = isFbLeadId ? '' : externalId;
+    const isFakeId = !externalId || externalId.startsWith('ghl-');
+    let ghlContactId = (isFbLeadId || isFakeId) ? '' : externalId;
 
     if (!ghlContactId) {
       // Search GHL by email then phone to find the real contact ID
