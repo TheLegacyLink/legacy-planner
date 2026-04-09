@@ -844,24 +844,30 @@ export default function LeadsPage() {
                 }
               }
 
+              // Check if agent hit daily cap
+              const agentCap = autoDistributeCaps[agent] !== undefined ? Number(autoDistributeCaps[agent]) : null;
+              const isCapped = agentCap !== null && !isNaN(agentCap) && agentCap > 0 && todayCount >= agentCap;
+
               return (
                 <div
                   key={agent}
                   style={{
                     background: CARD_BG2,
-                    border: `1px solid ${BORDER}`,
+                    border: isCapped ? '1px solid #ef444488' : `1px solid ${BORDER}`,
                     borderRadius: 12,
-                    padding: '14px 16px'
+                    padding: '14px 16px',
+                    boxShadow: isCapped ? '0 0 12px rgba(239,68,68,0.3)' : 'none',
+                    transition: 'box-shadow 0.3s, border-color 0.3s'
                   }}
                 >
                   {/* Agent header */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontWeight: 700, color: GOLD_SOFT, fontSize: 14 }}>{agent}</span>
+                    <span style={{ fontWeight: 700, color: isCapped ? '#f87171' : GOLD_SOFT, fontSize: 14 }}>{agent}</span>
                     <span style={{
-                      fontSize: 11, color: '#64748b',
-                      background: '#1e293b', padding: '2px 8px', borderRadius: 999
+                      fontSize: 11, color: isCapped ? '#f87171' : '#64748b',
+                      background: isCapped ? '#450a0a' : '#1e293b', padding: '2px 8px', borderRadius: 999
                     }}>
-                      Today: {todayCount}
+                      {isCapped ? `🔴 Cap hit (${todayCount}/${agentCap})` : `Today: ${todayCount}`}
                     </span>
                   </div>
 

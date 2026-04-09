@@ -46,11 +46,11 @@ function pickBalancedAgent(agentNames, allLeads, caps = {}) {
     return true; // no cap set — always eligible
   });
 
-  // If all capped, fall back to full list
-  const pool = eligible.length > 0 ? eligible : agentNames;
+  // If all capped, overflow to Kimora Link
+  if (eligible.length === 0) return 'Kimora Link';
 
   // Return agent with fewest leads today
-  return pool.reduce((best, agent) =>
+  return eligible.reduce((best, agent) =>
     (todayCounts[agent] || 0) < (todayCounts[best] || 0) ? agent : best
   );
 }
