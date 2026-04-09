@@ -238,7 +238,7 @@ function DailyDriveOnboarding({ tier, onComplete }) {
               border: `1px solid ${GOLD}33`, marginBottom: 16
             }}>
               <div style={{ color: '#94A3B8', fontSize: 12, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Your Why</div>
-              <div style={{ color: GOLD_LIGHT, fontSize: 17, fontStyle: 'italic', lineHeight: 1.5 }}>"{why}"</div>
+              <div style={{ color: GOLD_LIGHT, fontSize: 17, fontStyle: 'italic', lineHeight: 1.5 }}>&ldquo;{why}&rdquo;</div>
             </div>
             <div style={{
               padding: '12px 20px', borderRadius: 12, background: CARD,
@@ -635,13 +635,13 @@ function DailyDriveDashboard({ userData, userEmail, onUpdate }) {
             </div>
           ) : (
             <div style={{ color: GOLD_LIGHT, fontSize: 18, fontStyle: 'italic', lineHeight: 1.65, fontWeight: 600 }}>
-              "{userData.why || 'Your why will appear here.'}"
+              &ldquo;{userData.why || 'Your why will appear here.'}&rdquo;
             </div>
           )}
 
           <div style={{ marginTop: 20, padding: '12px 16px', borderRadius: 10, background: 'rgba(0,0,0,0.4)', border: '1px solid #1E293B' }}>
             <div style={{ color: '#475569', fontSize: 12, marginBottom: 4 }}>Daily reminder</div>
-            <div style={{ color: '#94A3B8', fontSize: 14, fontStyle: 'italic' }}>"{QUOTES[quoteIdx]}"</div>
+            <div style={{ color: '#94A3B8', fontSize: 14, fontStyle: 'italic' }}>&ldquo;{QUOTES[quoteIdx]}&rdquo;</div>
           </div>
         </div>
       </div>
