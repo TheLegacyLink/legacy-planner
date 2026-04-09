@@ -216,6 +216,7 @@ function DailyDriveOnboarding({ tier, onComplete }) {
                   }}
                 />
               </label>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               {whyPhoto && <img src={whyPhoto} alt="Why" style={{ marginTop: 8, maxHeight: 80, borderRadius: 8, opacity: 0.8 }} />}
             </div>
           </div>
@@ -602,6 +603,7 @@ function DailyDriveDashboard({ userData, userEmail, onUpdate }) {
         position: 'relative', background: CARD
       }}>
         {userData.whyPhoto && (
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={userData.whyPhoto} alt="" style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%',
             objectFit: 'cover', opacity: 0.15, pointerEvents: 'none'
