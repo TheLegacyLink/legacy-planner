@@ -1144,71 +1144,29 @@ export default function LeadsPage() {
                           {aState.assigning ? (
                             <span style={{ fontSize: 11, color: '#64748b' }}>Assigning…</span>
                           ) : aState.assignedTo ? (
-                            <span style={{ fontSize: 11, color: '#4ade80' }}>✓ Assigned</span>
-                          ) : aState.error ? (
-                            <span style={{ fontSize: 11, color: '#f87171' }}>{aState.error}</span>
+                            <span style={{ fontSize: 11, color: '#4ade80' }}>✓ {aState.assignedTo.split(' ')[0]}</span>
                           ) : (
-                            <div style={{ position: 'relative', display: 'inline-block' }}>
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); toggleAssignDropdown(leadId); }}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <select
+                                defaultValue=""
+                                onChange={(e) => { if (e.target.value) assignLeadToAgent(leadId, e.target.value); }}
                                 style={{
-                                  background: `linear-gradient(135deg, ${GOLD}, #a0783a)`,
-                                  color: '#0B1020',
-                                  border: 'none',
+                                  background: '#1e293b',
+                                  color: GOLD_SOFT,
+                                  border: `1px solid ${GOLD}88`,
                                   borderRadius: 6,
-                                  padding: '4px 10px',
-                                  fontWeight: 700,
+                                  padding: '3px 6px',
                                   fontSize: 11,
                                   cursor: 'pointer',
-                                  whiteSpace: 'nowrap'
+                                  maxWidth: 130
                                 }}
                               >
-                                Assign ▾
-                              </button>
-                              {aState.assigning && <span style={{ color: GOLD, fontSize: 11, marginLeft: 6 }}>Sending...</span>}
-                              {aState.assignedTo && <span style={{ color: '#4ade80', fontSize: 11, marginLeft: 6 }}>✓ {aState.assignedTo.split(' ')[0]}</span>}
-                              {aState.error && <span style={{ color: '#f87171', fontSize: 10, marginLeft: 6 }}>✗ {aState.error}</span>}
-                              {aState.open && (
-                                <div
-                                  style={{
-                                    position: 'absolute',
-                                    top: '110%',
-                                    left: 0,
-                                    zIndex: 100,
-                                    background: '#1e293b',
-                                    border: `1px solid ${BORDER}`,
-                                    borderRadius: 8,
-                                    minWidth: 160,
-                                    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                                    overflow: 'hidden'
-                                  }}
-                                >
-                                  {ALL_AGENTS.map((agent) => (
-                                    <button
-                                      key={agent}
-                                      type="button"
-                                      onClick={(e) => { e.stopPropagation(); assignLeadToAgent(leadId, agent); }}
-                                      style={{
-                                        display: 'block',
-                                        width: '100%',
-                                        textAlign: 'left',
-                                        padding: '8px 14px',
-                                        background: 'transparent',
-                                        border: 'none',
-                                        color: GOLD_SOFT,
-                                        fontSize: 13,
-                                        cursor: 'pointer',
-                                        borderBottom: `1px solid ${BORDER}33`
-                                      }}
-                                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(200,169,107,0.1)'; }}
-                                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                                    >
-                                      {agent}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
+                                <option value="" disabled>Assign ▾</option>
+                                {ALL_AGENTS.map((agent) => (
+                                  <option key={agent} value={agent}>{agent.split(' ')[0]}</option>
+                                ))}
+                              </select>
+                              {aState.error && <span style={{ color: '#f87171', fontSize: 10 }}>✗</span>}
                             </div>
                           )}
                         </td>
