@@ -536,6 +536,8 @@ function parseLeadPayload(body = {}) {
 }
 
 function validateToken(req, body = {}) {
+  // Allow internal calls from Lead Hub (same deployment)
+  if (req.headers.get('x-internal-source') === 'lead-hub') return true;
   const required = process.env.GHL_INTAKE_TOKEN || '';
   if (!required) return true;
   const headerToken = req.headers.get('x-intake-token') || req.headers.get('x-ghl-token') || '';

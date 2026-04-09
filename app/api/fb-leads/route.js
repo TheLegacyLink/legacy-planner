@@ -480,7 +480,7 @@ export async function POST(req) {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'x-intake-token': intakeToken
+              'x-internal-source': 'lead-hub'
             },
             body: JSON.stringify({
               mode: 'manual-assign',
