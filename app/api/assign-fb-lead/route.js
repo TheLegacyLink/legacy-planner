@@ -14,7 +14,8 @@ function clean(v = '') {
 }
 
 // Pick the agent from the list with fewest leads distributed today (balanced mode)
-// Respects per-agent daily caps: if an agent has hit their cap, they are skipped.
+// True round-robin with hard daily cap enforcement.
+// If all active agents are capped, overflow goes to Kimora Link.
 function pickBalancedAgent(agentNames, allLeads, caps = {}) {
   const todayKey = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Chicago',
@@ -23,35 +24,41 @@ function pickBalancedAgent(agentNames, allLeads, caps = {}) {
     day: '2-digit'
   }).format(new Date());
 
+  // Build today's count and last-assigned timestamp per agent
   const todayCounts = {};
-  for (const agent of agentNames) todayCounts[agent] = 0;
+  const lastAssignedAt = {};
+  for (const agent of agentNames) {
+    todayCounts[agent] = 0;
+    lastAssignedAt[agent] = 0;
+  }
 
   for (const lead of allLeads) {
-    if (
-      lead.distributedTo &&
-      agentNames.includes(lead.distributedTo) &&
-      lead.distributedAt &&
-      lead.distributedAt.startsWith(todayKey)
-    ) {
+    if (!lead.distributedTo || !agentNames.includes(lead.distributedTo)) continue;
+    const ts = lead.distributedAt ? new Date(lead.distributedAt).getTime() : 0;
+    if (lead.distributedAt && lead.distributedAt.startsWith(todayKey)) {
       todayCounts[lead.distributedTo] = (todayCounts[lead.distributedTo] || 0) + 1;
+    }
+    // Track most recent assignment across all time for round-robin ordering
+    if (ts > (lastAssignedAt[lead.distributedTo] || 0)) {
+      lastAssignedAt[lead.distributedTo] = ts;
     }
   }
 
-  // Filter out agents who have hit their daily cap
+  // Hard cap: exclude agents who have hit their daily cap
   const eligible = agentNames.filter((agent) => {
     const cap = caps && caps[agent] !== undefined ? Number(caps[agent]) : null;
     if (cap !== null && !isNaN(cap) && cap > 0) {
-      return (todayCounts[agent] || 0) < cap;
+      return (todayCounts[agent] || 0) < cap; // hard wall — cap hit = excluded
     }
     return true; // no cap set — always eligible
   });
 
-  // If all capped, overflow to Kimora Link
+  // If all capped — hard overflow to Kimora Link, no exceptions
   if (eligible.length === 0) return 'Kimora Link';
 
-  // Return agent with fewest leads today
+  // True round-robin: pick the eligible agent who was assigned LEAST RECENTLY
   return eligible.reduce((best, agent) =>
-    (todayCounts[agent] || 0) < (todayCounts[best] || 0) ? agent : best
+    (lastAssignedAt[agent] || 0) < (lastAssignedAt[best] || 0) ? agent : best
   );
 }
 
