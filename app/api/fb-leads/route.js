@@ -338,20 +338,37 @@ export async function POST(req) {
           return false;
         };
 
+        let ghlContactIdsUpdated = false;
         await Promise.allSettled(batch.map(async (lead) => {
           const email = String(lead.email || '').trim();
-          if (!email) return;
+          const phone = normalizePhone(lead.phone_number);
 
-          // Step 1: Look up GHL contact by email
-          let ghlContactId = '';
-          try {
-            const searchData = await ghlGet(`/?email=${encodeURIComponent(email)}`);
-            ghlContactId = String(searchData?.contacts?.[0]?.id || '').trim();
-          } catch { /* skip */ }
+          // Step 1: Use stored ghlContactId if available, otherwise search by email then phone
+          let ghlContactId = String(lead.ghlContactId || '').trim();
+
+          if (!ghlContactId && email) {
+            try {
+              const searchData = await ghlGet(`/?email=${encodeURIComponent(email)}`);
+              ghlContactId = String(searchData?.contacts?.[0]?.id || '').trim();
+            } catch { /* skip */ }
+          }
+
+          if (!ghlContactId && phone) {
+            try {
+              const searchData = await ghlGet(`/?phone=${encodeURIComponent(phone)}`);
+              ghlContactId = String(searchData?.contacts?.[0]?.id || '').trim();
+            } catch { /* skip */ }
+          }
 
           if (!ghlContactId) {
-            console.log(`[fb-leads] GHL contact not found for email: ${email}`);
+            console.log(`[fb-leads] GHL contact not found for email: ${email}, phone: ${phone}`);
             return;
+          }
+
+          // Cache ghlContactId on the lead record for future distributions
+          if (!lead.ghlContactId) {
+            lead.ghlContactId = ghlContactId;
+            ghlContactIdsUpdated = true;
           }
 
           // Step 2: GET contact to fetch existing tags
@@ -372,6 +389,11 @@ export async function POST(req) {
             await ghlPut(`/${ghlContactId}`, putBody);
           } catch { /* skip */ }
         }));
+
+        // Persist any newly discovered ghlContactIds back to the store
+        if (ghlContactIdsUpdated) {
+          await saveJsonStore(FB_LEADS_PATH, fbLeads).catch(() => {});
+        }
       }
     } catch { /* GHL update is best-effort */ }
 
@@ -410,36 +432,25 @@ export async function POST(req) {
 
         const leadListHtml = batch
           .map(
-            (l) =>
-              `<tr>
-                <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${l.full_name || '—'}</td>
-                <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${l.email || '—'}</td>
-                <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${l.phone_number || '—'}</td>
-                <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${l.state || '—'}</td>
-                <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${l.platform || 'fb'}</td>
-              </tr>`
+            (l, i) =>
+              `<div style="padding:12px 0;border-bottom:1px solid #e2e8f0;">
+                <p style="margin:0 0 4px;font-size:16px;font-weight:bold;color:#0f172a;">${i + 1}. ${l.full_name || '—'}</p>
+                <p style="margin:0;color:#475569;font-size:14px;">
+                  📞 ${l.phone_number || '—'} &nbsp;|&nbsp; ✉️ ${l.email || '—'} &nbsp;|&nbsp; 📍 ${l.state || '—'}
+                </p>
+              </div>`
           )
           .join('');
 
         const html = `
-          <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.6;">
-            <h2 style="margin:0 0 12px;">New Lead Batch — ${batch.length} Leads Assigned</h2>
-            <p>Hi <strong>${agentName}</strong>,</p>
-            <p>You've been assigned <strong>${batch.length}</strong> new Facebook leads to work. Please reach out to each lead as soon as possible.</p>
-            <table style="width:100%;border-collapse:collapse;margin-top:12px;">
-              <thead>
-                <tr style="background:#f1f5f9;">
-                  <th style="padding:8px 10px;text-align:left;">Name</th>
-                  <th style="padding:8px 10px;text-align:left;">Email</th>
-                  <th style="padding:8px 10px;text-align:left;">Phone</th>
-                  <th style="padding:8px 10px;text-align:left;">State</th>
-                  <th style="padding:8px 10px;text-align:left;">Platform</th>
-                </tr>
-              </thead>
-              <tbody>${leadListHtml}</tbody>
-            </table>
-            <p style="margin-top:16px;">Please log all activity in your Back Office and reach out within 10 minutes of receiving this email.</p>
-            <p>— The Legacy Link Support Team</p>
+          <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.6;max-width:600px;">
+            <h2 style="margin:0 0 4px;color:#0f172a;">New Lead Batch — ${batch.length} Lead${batch.length !== 1 ? 's' : ''} Assigned</h2>
+            <p style="margin:0 0 16px;color:#64748b;font-size:14px;">Assigned to <strong>${agentName}</strong> · ${new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+            <div style="background:#f8fafc;border-radius:8px;padding:16px 20px;margin-bottom:20px;">
+              ${leadListHtml}
+            </div>
+            <p style="margin:0 0 8px;">Please reach out to each lead within <strong>10 minutes</strong> of receiving this email and log all activity in your Back Office.</p>
+            <p style="margin:0;color:#64748b;font-size:13px;">— The Legacy Link Support Team</p>
           </div>`;
 
         const info = await tx.sendMail({
