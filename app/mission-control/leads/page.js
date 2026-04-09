@@ -136,6 +136,26 @@ export default function LeadsPage() {
   const [distMsgs, setDistMsgs] = useState({});
   const [agentLicensedStates, setAgentLicensedStates] = useState({});
 
+  // Auto-distribute settings state
+  const [autoDistribute, setAutoDistribute] = useState(false);
+  const [autoDistributeAgents, setAutoDistributeAgents] = useState(['Leticia Wright', 'Andrea Cannon']);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsMsg, setSettingsMsg] = useState('');
+
+  // Load auto-distribute settings
+  const loadSettings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/fb-leads-settings', { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok && data.settings) {
+        setAutoDistribute(!!data.settings.autoDistribute);
+        if (Array.isArray(data.settings.autoDistributeAgents)) {
+          setAutoDistributeAgents(data.settings.autoDistributeAgents);
+        }
+      }
+    } catch { /* best-effort */ }
+  }, []);
+
   const loadLeads = useCallback(async () => {
     try {
       const res = await fetch('/api/fb-leads', { cache: 'no-store' });
@@ -165,7 +185,42 @@ export default function LeadsPage() {
 
   useEffect(() => {
     loadLeads();
-  }, [loadLeads]);
+    loadSettings();
+  }, [loadLeads, loadSettings]);
+
+  // ── Save Auto-Distribute Settings ─────────────────────────────────────────
+  async function saveAutoDistributeSettings() {
+    setSettingsSaving(true);
+    setSettingsMsg('');
+    try {
+      const res = await fetch('/api/fb-leads-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          autoDistribute,
+          autoDistributeMode: 'balanced',
+          autoDistributeAgents
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        setSettingsMsg('✅ Settings saved');
+      } else {
+        setSettingsMsg(`❌ ${data?.error || 'Failed to save'}`);
+      }
+    } catch (err) {
+      setSettingsMsg(`❌ ${err.message}`);
+    } finally {
+      setSettingsSaving(false);
+      setTimeout(() => setSettingsMsg(''), 4000);
+    }
+  }
+
+  function toggleAutoAgent(agent) {
+    setAutoDistributeAgents((prev) =>
+      prev.includes(agent) ? prev.filter((a) => a !== agent) : [...prev, agent]
+    );
+  }
 
   // ── CSV Import ─────────────────────────────────────────────────────────────
   async function handleCsvFile(file) {
@@ -484,6 +539,130 @@ export default function LeadsPage() {
               {importMsg}
             </p>
           )}
+        </div>
+
+        {/* ── Auto-Distribute Panel ─────────────────────────────────────── */}
+        <div style={s.section}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+            <h2 style={{ ...s.h2, margin: 0 }}>⚡ Auto-Distribute New Leads</h2>
+            {/* Toggle switch */}
+            <button
+              type="button"
+              onClick={() => setAutoDistribute((v) => !v)}
+              aria-label={autoDistribute ? 'Disable auto-distribute' : 'Enable auto-distribute'}
+              style={{
+                position: 'relative',
+                display: 'inline-flex',
+                alignItems: 'center',
+                width: 48,
+                height: 26,
+                borderRadius: 999,
+                border: `2px solid ${autoDistribute ? GOLD : '#334155'}`,
+                background: autoDistribute
+                  ? `linear-gradient(135deg, ${GOLD}, #a0783a)`
+                  : '#1e293b',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                padding: 0,
+                flexShrink: 0
+              }}
+            >
+              <span
+                style={{
+                  position: 'absolute',
+                  left: autoDistribute ? 'calc(100% - 22px)' : 2,
+                  width: 18,
+                  height: 18,
+                  borderRadius: '50%',
+                  background: autoDistribute ? '#0B1020' : '#475569',
+                  transition: 'left 0.2s',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.4)'
+                }}
+              />
+            </button>
+            <span style={{ fontSize: 13, fontWeight: 600, color: autoDistribute ? GOLD : '#64748b' }}>
+              {autoDistribute ? 'ON' : 'OFF'}
+            </span>
+          </div>
+
+          {autoDistribute ? (
+            <div>
+              <p style={{ margin: '0 0 12px', fontSize: 13, color: '#94a3b8' }}>
+                New leads will be automatically balanced across selected agents as they arrive
+              </p>
+              <p style={{ margin: '0 0 8px', fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                Active agents for auto-distribute
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+                {ALL_AGENTS.map((agent) => {
+                  const checked = autoDistributeAgents.includes(agent);
+                  return (
+                    <label
+                      key={agent}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        cursor: 'pointer',
+                        padding: '8px 14px',
+                        borderRadius: 10,
+                        border: `1px solid ${checked ? GOLD : BORDER}`,
+                        background: checked ? 'rgba(200,169,107,0.08)' : CARD_BG2,
+                        color: checked ? GOLD_SOFT : '#94a3b8',
+                        fontSize: 13,
+                        fontWeight: checked ? 700 : 400,
+                        transition: 'all 0.15s',
+                        userSelect: 'none'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleAutoAgent(agent)}
+                        style={{ accentColor: GOLD, width: 14, height: 14, cursor: 'pointer' }}
+                      />
+                      {agent}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <p style={{ margin: '0 0 14px', fontSize: 13, color: '#64748b' }}>
+              Manual mode — distribute leads yourself using the panel below
+            </p>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              type="button"
+              disabled={settingsSaving}
+              onClick={saveAutoDistributeSettings}
+              style={{
+                background: settingsSaving
+                  ? '#1e293b'
+                  : `linear-gradient(135deg, ${GOLD}, #a0783a)`,
+                color: settingsSaving ? '#64748b' : '#0B1020',
+                border: 'none',
+                borderRadius: 8,
+                padding: '8px 20px',
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: settingsSaving ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s'
+              }}
+            >
+              {settingsSaving ? 'Saving…' : 'Save Settings'}
+            </button>
+            {settingsMsg && (
+              <span style={{
+                fontSize: 13,
+                color: settingsMsg.startsWith('✅') ? '#4ade80' : '#f87171'
+              }}>
+                {settingsMsg}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* ── Distribution Panel ────────────────────────────────────────── */}

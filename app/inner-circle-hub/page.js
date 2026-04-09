@@ -227,7 +227,8 @@ function availableTabs(member = {}) {
     { key: 'academy', label: 'IUL Academy' },
     { key: 'awards', label: 'Achievement Center' },
     { key: 'links', label: 'My VIP Links' },
-    { key: 'library', label: 'PDF Library' }
+    { key: 'library', label: 'PDF Library' },
+    { key: 'licensedstates', label: 'My Licensed States' }
   ];
   return all.filter((t) => modules?.[t.key] !== false);
 }
@@ -340,6 +341,9 @@ export default function InnerCircleHubPage() {
   const [savingTracker, setSavingTracker] = useState(false);
   const [copiedKey, setCopiedKey] = useState('');
   const [uplineUnreadCount, setUplineUnreadCount] = useState(0);
+  const [licensedStates, setLicensedStates] = useState([]);
+  const [licensedStatesBusy, setLicensedStatesBusy] = useState(false);
+  const [licensedStatesMsg, setLicensedStatesMsg] = useState('');
 
   const gate = useMemo(() => onboardingState(member || {}), [member]);
   const unlocked = gate.active;
@@ -1892,6 +1896,54 @@ export default function InnerCircleHubPage() {
     setNewPassword('');
     setConfirmPassword('');
     try { localStorage.removeItem(SESSION_KEY); } catch {}
+  }
+
+  // ── Licensed States ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const memberEmail = clean(member?.email || '').toLowerCase();
+    if (!memberEmail) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/agent-licensed-states?email=${encodeURIComponent(memberEmail)}`, { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && res.ok && data?.ok) {
+          setLicensedStates(Array.isArray(data.states) ? data.states : []);
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [member?.email]);
+
+  async function saveLicensedStates() {
+    const memberEmail = clean(member?.email || '').toLowerCase();
+    if (!memberEmail) return;
+    setLicensedStatesBusy(true);
+    setLicensedStatesMsg('');
+    try {
+      const res = await fetch('/api/agent-licensed-states', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: memberEmail, states: licensedStates })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setLicensedStatesMsg('Save failed. Please try again.');
+        return;
+      }
+      setLicensedStatesMsg('Licensed states updated ✅');
+      setTimeout(() => setLicensedStatesMsg(''), 3500);
+    } catch {
+      setLicensedStatesMsg('Save failed. Please try again.');
+    } finally {
+      setLicensedStatesBusy(false);
+    }
+  }
+
+  function toggleLicensedState(code) {
+    setLicensedStates((prev) =>
+      prev.includes(code) ? prev.filter((s) => s !== code) : [...prev, code]
+    );
   }
 
   async function copyLink(value = '', key = '') {
@@ -3494,6 +3546,65 @@ export default function InnerCircleHubPage() {
                 </div>
               </div>
             ) : null}
+
+            {tab === 'licensedstates' ? (() => {
+              const ALL_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
+              return (
+                <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#071022', padding: 18, display: 'grid', gap: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: 22, color: '#fff' }}>My Licensed States</h3>
+                      <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: 14 }}>Click states where you hold an active license. These update your lead eligibility.</p>
+                    </div>
+                    <span style={{ border: '1px solid #C8A96B', borderRadius: 999, padding: '4px 14px', color: '#C8A96B', fontWeight: 700, fontSize: 14 }}>
+                      {licensedStates.length} selected
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))', gap: 8 }}>
+                    {ALL_STATES.map((code) => {
+                      const selected = licensedStates.includes(code);
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => toggleLicensedState(code)}
+                          style={{
+                            padding: '10px 0',
+                            borderRadius: 8,
+                            border: '1.5px solid #C8A96B',
+                            background: selected ? '#C8A96B' : '#1F2937',
+                            color: selected ? '#0B1020' : '#C8A96B',
+                            fontWeight: 700,
+                            fontSize: 13,
+                            cursor: 'pointer',
+                            transition: 'all .15s ease'
+                          }}
+                        >
+                          {code}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={saveLicensedStates}
+                      disabled={licensedStatesBusy}
+                      style={{ padding: '12px 22px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
+                    >
+                      {licensedStatesBusy ? 'Saving…' : 'Save My Licensed States'}
+                    </button>
+                    {licensedStatesMsg ? (
+                      <span style={{ color: licensedStatesMsg.includes('✅') ? '#86EFAC' : '#FCA5A5', fontWeight: 600 }}>
+                        {licensedStatesMsg}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })() : null}
           </div>
         )}
       </div>
