@@ -125,9 +125,10 @@ async function runSync() {
     return true;
   });
 
-  // 4. Load existing leads for deduplication
+  // 4. Load existing leads for deduplication (by ID and email)
   const existingLeads = await loadJsonStore(FB_LEADS_PATH, []);
   const existingIds = new Set(existingLeads.map((l) => String(l.id || '')));
+  const existingEmails = new Set(existingLeads.map((l) => String(l.email || '').toLowerCase()).filter(Boolean));
 
   // 5. Load settings for auto-distribute
   const settings = await loadJsonFile(FB_LEADS_SETTINGS_PATH, DEFAULT_SETTINGS);
@@ -146,13 +147,16 @@ async function runSync() {
     if (!contact.id) continue;
 
     // Skip duplicates
+    const contactEmail = String(contact.email || '').toLowerCase();
     if (existingIds.has(String(contact.id))) continue;
+    if (contactEmail && existingEmails.has(contactEmail)) continue; // dedup by email too
 
     const newLead = buildLeadFromContact(contact);
 
     // a. Add to leads array
     mergedLeads = [...mergedLeads, newLead];
     existingIds.add(String(contact.id));
+    if (contactEmail) existingEmails.add(contactEmail);
     added++;
 
     // b. Tag contact in GHL with "legacy"

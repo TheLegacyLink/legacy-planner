@@ -100,14 +100,16 @@ export async function POST(req) {
     distributedAt: ''
   };
 
-  // Load existing, deduplicate by id (GHL contact ID)
+  // Load existing, deduplicate by id OR email (same person from multiple triggers)
   const existing = await loadJsonStore(FB_LEADS_PATH, []);
   const existingIds = new Set(existing.map((l) => String(l.id || '')));
+  const existingEmails = new Set(existing.map((l) => String(l.email || '').toLowerCase()).filter(Boolean));
 
   let isNew = false;
   let merged = existing;
+  const emailKey = email.toLowerCase();
 
-  if (!existingIds.has(contactId)) {
+  if (!existingIds.has(contactId) && (!emailKey || !existingEmails.has(emailKey))) {
     merged = [...existing, newLead];
     isNew = true;
     await saveJsonStore(FB_LEADS_PATH, merged);
