@@ -159,7 +159,7 @@ export async function POST(req) {
         const now = new Date().toISOString();
         const final = merged.map((l) =>
           l.id === contactId
-            ? { ...l, distributedTo: pickedAgent, distributedAt: now }
+            ? { ...l, distributedTo: pickedAgent, distributedAt: now, ghlAssigned: false }
             : l
         );
         await saveJsonStore(FB_LEADS_PATH, final);

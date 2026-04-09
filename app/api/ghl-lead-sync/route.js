@@ -209,8 +209,39 @@ async function runSync() {
     }
   }
 
-  // 6. Save updated leads
-  if (added > 0) {
+  // 6. Retry pending GHL assignments for leads distributed but not yet assigned in GHL
+  const pendingAssign = mergedLeads.filter((l) => l.distributedTo && !l.ghlAssigned && l.distributedAt);
+  if (pendingAssign.length > 0) {
+    const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
+    for (const lead of pendingAssign.slice(0, 10)) { // process up to 10 per cycle
+      try {
+        const res = await fetch(`${appUrl}/api/lead-router`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-internal-source': 'lead-hub' },
+          body: JSON.stringify({
+            mode: 'manual-assign',
+            name: lead.full_name,
+            email: lead.email,
+            phone: lead.phone_number,
+            externalId: lead.ghlContactId || lead.id,
+            assignTo: lead.distributedTo,
+            source: 'ghl-sync-retry'
+          }),
+          cache: 'no-store'
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data?.ok && data?.ghlSyncResult?.ok) {
+          // Mark as successfully assigned in GHL
+          mergedLeads = mergedLeads.map((l) =>
+            l.id === lead.id ? { ...l, ghlAssigned: true } : l
+          );
+        }
+      } catch { /* best-effort */ }
+    }
+  }
+
+  // Save updated leads
+  if (added > 0 || pendingAssign.length > 0) {
     await saveJsonStore(FB_LEADS_PATH, mergedLeads);
   }
 
