@@ -124,6 +124,9 @@ export async function POST(req) {
       if (autoDistribute && agentList.length > 0) {
         const pickedAgent = pickBalancedAgent(agentList, merged, caps);
 
+        // Wait 10 seconds before assigning — GHL needs time to fully index the new contact
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+
         // Use the same Lead Router manual-assign path that works for manual clicks
         try {
           const appUrl = 'https://innercirclelink.com';
