@@ -2215,7 +2215,8 @@ export default function InnerCircleHubPage() {
                 </span>
               ) : null}
             </a>
-            <a href={leadMarketplaceHref} target="_blank" rel="noreferrer" className="publicPrimaryBtn" style={{ textDecoration: 'none' }}>Open Lead Marketplace</a>
+            <a href={leadMarketplaceHref} target="_blank" rel="noreferrer" className="publicPrimaryBtn" style={{ textDecoration: 'none' }}>Lead Marketplace</a>
+            <button type="button" className="ghost" onClick={() => setTab('dashboard')} style={{ marginRight: 4 }}>🏠 Home</button>
             <button type="button" className="ghost" onClick={logout}>Logout</button>
           </div>
         </div>
@@ -2251,7 +2252,7 @@ export default function InnerCircleHubPage() {
             {(() => {
               const PINNED_KEYS = ['dashboard', 'dailydrive', 'onboarding', 'production', 'submitapp'];
               const pinnedTabs = PINNED_KEYS.map((k) => tabs.find((t) => t.key === k)).filter(Boolean);
-              const overflowTabs = tabs.filter((t) => !PINNED_KEYS.includes(t.key));
+              const overflowTabs = tabs.filter((t) => !PINNED_KEYS.includes(t.key)).sort((a, b) => a.label.localeCompare(b.label));
 
               function handleTabClick(t) {
                 setMoreMenuOpen(false);
