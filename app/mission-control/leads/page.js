@@ -1095,7 +1095,7 @@ export default function LeadsPage() {
                 <tbody>
                   {filtered.map((lead, idx) => {
                     const cfg = STATUS_CONFIG[lead.status] || STATUS_CONFIG.untouched;
-                    const leadId = lead.id || idx;
+                    const leadId = lead.id || lead.ghlContactId || String(idx);
                     const aState = assignState[leadId] || {};
                     return (
                       <tr
@@ -1166,6 +1166,9 @@ export default function LeadsPage() {
                               >
                                 Assign ▾
                               </button>
+                              {aState.assigning && <span style={{ color: GOLD, fontSize: 11, marginLeft: 6 }}>Sending...</span>}
+                              {aState.assignedTo && <span style={{ color: '#4ade80', fontSize: 11, marginLeft: 6 }}>✓ {aState.assignedTo.split(' ')[0]}</span>}
+                              {aState.error && <span style={{ color: '#f87171', fontSize: 10, marginLeft: 6 }}>✗ {aState.error}</span>}
                               {aState.open && (
                                 <div
                                   style={{
