@@ -142,9 +142,10 @@ export async function POST(req) {
             source: 'lead-hub-auto'
           }),
           cache: 'no-store'
-        }).catch(() => null);
+        }).catch((err) => { console.error('[auto-distribute] fetch error:', err?.message); return null; });
 
         const routerData = routerRes ? await routerRes.json().catch(() => ({})) : {};
+        if (!routerData?.ok) console.warn('[auto-distribute] Lead Router returned not-ok:', JSON.stringify(routerData).slice(0, 200));
 
         // Mark lead as distributed in fb-leads.json
         const now = new Date().toISOString();
