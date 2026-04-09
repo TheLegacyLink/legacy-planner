@@ -1151,7 +1151,7 @@ export default function LeadsPage() {
                             <div style={{ position: 'relative', display: 'inline-block' }}>
                               <button
                                 type="button"
-                                onClick={() => toggleAssignDropdown(leadId)}
+                                onClick={(e) => { e.stopPropagation(); toggleAssignDropdown(leadId); }}
                                 style={{
                                   background: `linear-gradient(135deg, ${GOLD}, #a0783a)`,
                                   color: '#0B1020',
