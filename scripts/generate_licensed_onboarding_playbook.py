@@ -98,7 +98,7 @@ def build():
     story.append(Spacer(1, 8))
 
     story.append(section('Step 2 — Contracting', [
-        'Part A — Pinnacle Group (P.Group) / Business Partners (Mutual of Omaha, Transamerica, Foresters, American National): https://surelc.surancebay.com/producer/?gaId=190',
+        'Part A — Pinnacle Group (P.Group) / Business Partners (Mutual of Omaha, Transamerica, Foresters, AIG): https://surelc.surancebay.com/producer/?gaId=190',
         'Part B — InvestaLink (F&amp;G + National Life Group): <a href="https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&amp;branchEditable=off&amp;branchRequired=on&amp;branchVisible=on&amp;gaId=168&amp;gaName=AIP%20Marketing%20Alliance" color="#60A5FA"><u>Click here to complete your contracting with F&amp;G and National Life Group</u></a>',
         'Part C — Video tutorial on the contracting process: <a href="https://www.loom.com/share/79354f8de2334697ba53cc5b0ff80c86?sid=b88fafc3-96a0-4d6a-9918-f396f0047603" color="#60A5FA"><u>Click here to watch the contracting tutorial</u></a>',
         'National Life Group only: after completing the SureLC step, look out for a follow-up email within 48 hours (1–2 business days) to complete an additional required form.'

@@ -52,7 +52,7 @@ Done. Kimora and your upline will be notified to countersign.
 
 You need to be contracted to get paid. There are two parts:
 
-**Part A — Pinnacle Group** (Mutual of Omaha, Transamerica, Foresters, American National):
+**Part A — Pinnacle Group** (Mutual of Omaha, Transamerica, Foresters, AIG):
 **https://surelc.surancebay.com/producer/?gaId=190**
 
 **Part B — InvestaLink** (F&G + National Life Group):
