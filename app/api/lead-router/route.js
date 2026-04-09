@@ -226,7 +226,9 @@ async function sendLeadAssignedEmail({ assignedTo = '', previousOwner = '', row 
 
 function resolveOwnerUserId(assignedToName = '', directory = null) {
   const normalizedName = normalizeAgentLabel(assignedToName);
-  const map = safeJsonParse(process.env.GHL_USER_ID_MAP_JSON || '{}', {});
+  // Check both env var names — GHL_USER_ID_MAP_JSON (lead-router standard) and GHL_AGENT_USER_MAP_JSON (lead-hub standard)
+  const rawMap = process.env.GHL_USER_ID_MAP_JSON || process.env.GHL_AGENT_USER_MAP_JSON || '{}';
+  const map = safeJsonParse(rawMap, {});
 
   const direct = map?.[normalizedName] || map?.[assignedToName] || map?.[normalize(normalizedName)] || map?.[normalize(assignedToName)];
   if (direct) return String(direct);
