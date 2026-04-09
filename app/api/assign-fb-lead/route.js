@@ -144,15 +144,19 @@ export async function POST(req) {
           }
           const mergedTags = existingTags.includes('legacy') ? existingTags : [...existingTags, 'legacy'];
           // PUT owner + tags
+          let ghlPutOk = false;
           for (const base of bases) {
             try {
               const r = await fetch(`${base}/v1/contacts/${contactId}`, {
                 method: 'PUT', headers: ghlHeaders, cache: 'no-store',
                 body: JSON.stringify({ assignedTo: ghlUserId, tags: mergedTags })
               });
-              if (r.ok) break;
-            } catch { /* try next */ }
+              const txt = await r.text().catch(() => '');
+              console.log(`[auto-assign] GHL PUT ${base}/v1/contacts/${contactId} -> ${r.status} | userId: ${ghlUserId} | body: ${txt.slice(0,200)}`);
+              if (r.ok) { ghlPutOk = true; break; }
+            } catch (e) { console.warn('[auto-assign] GHL PUT error:', e?.message); }
           }
+          if (!ghlPutOk) console.warn('[auto-assign] All GHL PUT attempts failed for contactId:', contactId);
         }
 
         // Mark lead as distributed in fb-leads.json
