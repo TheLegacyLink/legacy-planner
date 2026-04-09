@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import ICAContractGate from '../../components/ICAContractGate';
+import DailyDrive from '../../components/DailyDrive';
 import licensedAgents from '../../data/licensedAgents.json';
 import innerCircleUsers from '../../data/innerCircleUsers.json';
 
@@ -1437,6 +1438,7 @@ export default function LicensedBackofficePage() {
           {(() => {
             const primaryTabs = [
               ['overview', 'Overview'],
+              ['dailydrive', 'Daily Drive'],
               ['tracker', 'Onboarding Tracker'],
               ['financials', 'Financials'],
               ['sponsorships', 'Sponsorships'],
@@ -2276,6 +2278,10 @@ export default function LicensedBackofficePage() {
                 </div>
               );
             })() : null}
+
+            {tab === 'dailydrive' ? (
+              <DailyDrive email={session?.email || ''} tier="licensed_agent" />
+            ) : null}
 
             {tab === 'linkleads' ? (
               <div style={{ border: '1px solid #334155', borderRadius: 18, background: 'radial-gradient(120% 120% at 0% 0%, #12203a 0%, #0B1220 55%, #070b14 100%)', padding: 18, display: 'grid', gap: 14, boxShadow: '0 18px 40px rgba(2,6,23,.35)' }}>

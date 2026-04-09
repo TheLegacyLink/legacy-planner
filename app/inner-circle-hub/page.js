@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import licensedAgents from '../../data/licensedAgents.json';
 import CommunityServiceTab from './community-service-tab';
 import LinkBlendBuilderTab from './tools-link-blend-builder';
+import DailyDrive from '../../components/DailyDrive';
 
 const SESSION_KEY = 'inner_circle_hub_member_v1';
 const LINK_LEADS_SESSION_KEY = 'legacy_lead_marketplace_user_v1';
@@ -208,6 +209,7 @@ function availableTabs(member = {}) {
   const isKimora = email === 'kimora@thelegacylink.com';
   const all = [
     { key: 'dashboard', label: 'The Lounge' },
+    { key: 'dailydrive', label: 'Daily Drive' },
     { key: 'faststart', label: 'Fast Start' },
     { key: 'growth', label: 'Growth Hub' },
     { key: 'scripts2', label: 'Script Vault 2.0' },
@@ -3545,6 +3547,10 @@ export default function InnerCircleHubPage() {
                   })}
                 </div>
               </div>
+            ) : null}
+
+            {tab === 'dailydrive' ? (
+              <DailyDrive email={member?.email || ''} tier="inner_circle" />
             ) : null}
 
             {tab === 'licensedstates' ? (() => {
