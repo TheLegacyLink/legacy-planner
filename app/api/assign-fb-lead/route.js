@@ -73,7 +73,8 @@ export async function POST(req) {
     body?.contactId || body?.contact?.id || body?.id || ''
   ) || `ghl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  const name = clean(body?.name || body?.full_name || body?.firstName || '');
+  const rawName = clean(body?.name || body?.full_name || body?.firstName || '');
+  const name = rawName.split(' ').map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : '').join(' ').trim();
   const email = clean(body?.email || body?.contact?.email || '');
   const phone = clean(body?.phone || body?.phone_number || body?.contact?.phone || '');
   const state = clean(body?.state || body?.contact?.state || body?.customFields?.state || '');

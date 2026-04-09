@@ -28,9 +28,11 @@ function getGhlHeaders() {
 }
 
 function buildLeadFromContact(contact) {
-  const firstName = String(contact.firstName || '').trim();
-  const lastName = String(contact.lastName || '').trim();
-  const contactName = String(contact.contactName || contact.name || '').trim();
+  const cap = (s) => s ? s[0].toUpperCase() + s.slice(1).toLowerCase() : '';
+  const capName = (n) => n.split(' ').map(cap).join(' ').trim();
+  const firstName = capName(String(contact.firstName || '').trim());
+  const lastName = capName(String(contact.lastName || '').trim());
+  const contactName = capName(String(contact.contactName || contact.name || '').trim());
   const fullName = contactName || [firstName, lastName].filter(Boolean).join(' ') || '';
 
   return {
