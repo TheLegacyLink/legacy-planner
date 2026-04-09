@@ -3,6 +3,10 @@
     {
       "path": "/api/booking-email-reminders",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/ghl-lead-sync",
+      "schedule": "*/2 * * * *"
     }
   ]
 }

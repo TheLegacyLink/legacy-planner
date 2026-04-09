@@ -130,6 +130,10 @@ export default function LeadsPage() {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef(null);
 
+  // GHL Sync state
+  const [ghlSyncing, setGhlSyncing] = useState(false);
+  const [ghlSyncMsg, setGhlSyncMsg] = useState('');
+
   // Distribution state
   const [agentCounts, setAgentCounts] = useState({});
   const [distributing, setDistributing] = useState('');
@@ -300,6 +304,28 @@ export default function LeadsPage() {
       setDistMsgs((prev) => ({ ...prev, [agentName]: `❌ ${err.message}` }));
     } finally {
       setDistributing('');
+    }
+  }
+
+  // ── GHL Sync Now ──────────────────────────────────────────────────────────
+  async function syncGhlLeads() {
+    if (ghlSyncing) return;
+    setGhlSyncing(true);
+    setGhlSyncMsg('');
+    try {
+      const res = await fetch('/api/ghl-lead-sync', { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        setGhlSyncMsg(`✅ Found ${data.found} new, ${data.added} added`);
+        if (data.added > 0) await loadLeads();
+      } else {
+        setGhlSyncMsg(`❌ ${data?.error || 'Sync failed'}`);
+      }
+    } catch (err) {
+      setGhlSyncMsg(`❌ ${err.message}`);
+    } finally {
+      setGhlSyncing(false);
+      setTimeout(() => setGhlSyncMsg(''), 6000);
     }
   }
 
@@ -863,7 +889,46 @@ export default function LeadsPage() {
             ))}
           </div>
 
-          <div style={{ marginLeft: 'auto' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* GHL Sync Button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                type="button"
+                disabled={ghlSyncing}
+                onClick={syncGhlLeads}
+                title="Pull latest leads from GoHighLevel"
+                style={{
+                  background: ghlSyncing
+                    ? '#1e293b'
+                    : `linear-gradient(135deg, ${GOLD}, #a0783a)`,
+                  color: ghlSyncing ? '#64748b' : '#0B1020',
+                  border: 'none',
+                  borderRadius: 8,
+                  padding: '7px 14px',
+                  fontWeight: 700,
+                  fontSize: 12,
+                  cursor: ghlSyncing ? 'not-allowed' : 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <span style={{ fontSize: 14 }}>🔄</span>
+                {ghlSyncing ? 'Syncing…' : 'Sync GHL Leads'}
+              </button>
+              {ghlSyncMsg && (
+                <span style={{
+                  fontSize: 12,
+                  color: ghlSyncMsg.startsWith('✅') ? '#4ade80' : '#f87171',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {ghlSyncMsg}
+                </span>
+              )}
+            </div>
+
             <input
               type="text"
               placeholder="Search name, email, state…"
