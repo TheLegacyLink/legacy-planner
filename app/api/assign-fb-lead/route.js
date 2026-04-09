@@ -69,9 +69,14 @@ export async function POST(req) {
     }
   }
 
+  // Log the full body keys to understand what GHL sends
+  console.log('[assign-fb-lead] body keys:', Object.keys(body || {}).join(', '));
+  console.log('[assign-fb-lead] contactId fields:', JSON.stringify({ contactId: body?.contactId, contactDotId: body?.contact?.id, id: body?.id, type: body?.type }).slice(0, 300));
+
   const contactId = clean(
     body?.contactId || body?.contact?.id || body?.id || ''
   ) || `ghl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  console.log('[assign-fb-lead] resolved contactId:', contactId, '| email:', clean(body?.email || body?.contact?.email || ''));
 
   const rawName = clean(body?.name || body?.full_name || body?.firstName || '');
   const name = rawName.split(' ').map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : '').join(' ').trim();
