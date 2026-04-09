@@ -299,7 +299,7 @@ export async function POST(req) {
       let agentUserMap = {};
       try { agentUserMap = JSON.parse(agentUserMapRaw); } catch { /* ignore */ }
       const ghlUserId = agentUserMap[agentName] || agentUserMap[agentName.toLowerCase()] || '';
-      const tagName = `Lead Assigned - ${agentName}`;
+      const tagName = 'legacy';
 
       if (ghlToken) {
         const ghlBaseUrl = 'https://rest.gohighlevel.com/v1/contacts';
