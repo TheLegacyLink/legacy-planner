@@ -719,8 +719,11 @@ export default function LeadsPage() {
               if (inputNum >= 1 && !msg) {
                 const batch = untouchedSorted.slice(0, inputNum);
                 if (batch.length > 0 && licensedStates && licensedStates.length > 0) {
+                  // Normalize state to 2-letter code for comparison
+                  const STATE_MAP = { 'alabama':'AL','alaska':'AK','arizona':'AZ','arkansas':'AR','california':'CA','colorado':'CO','connecticut':'CT','delaware':'DE','florida':'FL','georgia':'GA','hawaii':'HI','idaho':'ID','illinois':'IL','indiana':'IN','iowa':'IA','kansas':'KS','kentucky':'KY','louisiana':'LA','maine':'ME','maryland':'MD','massachusetts':'MA','michigan':'MI','minnesota':'MN','mississippi':'MS','missouri':'MO','montana':'MT','nebraska':'NE','nevada':'NV','new hampshire':'NH','new jersey':'NJ','new mexico':'NM','new york':'NY','north carolina':'NC','north dakota':'ND','ohio':'OH','oklahoma':'OK','oregon':'OR','pennsylvania':'PA','rhode island':'RI','south carolina':'SC','south dakota':'SD','tennessee':'TN','texas':'TX','utah':'UT','vermont':'VT','virginia':'VA','washington':'WA','west virginia':'WV','wisconsin':'WI','wyoming':'WY','district of columbia':'DC','dc':'DC' };
+                  const normalizeState = (s) => { const t = String(s||'').trim().toLowerCase(); return STATE_MAP[t] || t.toUpperCase().slice(0,2); };
                   const matchCount = batch.filter(
-                    (l) => l.state && licensedStates.includes(l.state.toUpperCase())
+                    (l) => l.state && licensedStates.includes(normalizeState(l.state))
                   ).length;
                   const outside = batch.length - matchCount;
                   const firstName = agent.split(' ')[0];
