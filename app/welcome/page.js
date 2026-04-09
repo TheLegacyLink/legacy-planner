@@ -77,7 +77,7 @@ export default function WelcomePage() {
           backgroundColor: '#0d1428',
         }}>
           <iframe
-            src="https://www.loom.com/embed/e1f7fe2290d24b539c4786fb6bf9b6bb"
+            src="https://www.loom.com/embed/e0eb135297f14184b37a8c9d2ad60bfe"
             frameBorder="0"
             allowFullScreen
             style={{
