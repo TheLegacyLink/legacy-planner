@@ -1,3 +1,7 @@
+import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+
+const FB_LEADS_PATH = 'stores/fb-leads.json';
+
 function clean(v = '') {
   return String(v || '').trim();
 }
@@ -8,88 +12,6 @@ function safeJsonParse(raw, fallback = {}) {
   } catch {
     return fallback;
   }
-}
-
-function resolveOwnerUserId(assignedToName = '') {
-  const map = safeJsonParse(process.env.GHL_USER_ID_MAP_JSON || '{}', {});
-  const direct = map?.[assignedToName];
-  if (direct) return String(direct);
-
-  const fallback = clean(process.env.GHL_FALLBACK_USER_ID || '');
-  return fallback || '';
-}
-
-async function callLeadRouter(req, body) {
-  const target = new URL('/api/lead-router', req.url);
-  const token = clean(process.env.GHL_INTAKE_TOKEN || body?.token || '');
-
-  const payload = {
-    ...body,
-    source: body?.source || 'facebook',
-    ...(token ? { token } : {})
-  };
-
-  const res = await fetch(target, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    cache: 'no-store'
-  });
-
-  const data = await res.json().catch(() => ({}));
-  return { ok: res.ok && data?.ok, status: res.status, data };
-}
-
-async function updateGhlContactOwner({ contactId, assignedUserId }) {
-  const token = clean(process.env.GHL_API_TOKEN || '');
-  if (!token || !contactId || !assignedUserId) {
-    return { ok: false, reason: 'missing_ghl_config_or_ids' };
-  }
-
-  const body = JSON.stringify({ assignedTo: assignedUserId });
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json',
-    Version: '2021-07-28'
-  };
-
-  const bases = [
-    clean(process.env.GHL_API_BASE_URL || ''),
-    'https://services.leadconnectorhq.com',
-    'https://rest.gohighlevel.com'
-  ].filter(Boolean);
-
-  const paths = [
-    `/contacts/${encodeURIComponent(contactId)}`,
-    `/v1/contacts/${encodeURIComponent(contactId)}`
-  ];
-
-  let lastError = 'unknown';
-
-  for (const base of bases) {
-    for (const path of paths) {
-      const url = `${base.replace(/\/$/, '')}${path}`;
-      try {
-        const res = await fetch(url, {
-          method: 'PUT',
-          headers,
-          body,
-          cache: 'no-store'
-        });
-
-        if (res.ok) {
-          return { ok: true, url, status: res.status };
-        }
-
-        const text = await res.text().catch(() => '');
-        lastError = `${url} -> ${res.status} ${text.slice(0, 200)}`;
-      } catch (err) {
-        lastError = `${url} -> ${String(err?.message || err)}`;
-      }
-    }
-  }
-
-  return { ok: false, reason: 'ghl_update_failed', detail: lastError };
 }
 
 export async function POST(req) {
@@ -103,43 +25,39 @@ export async function POST(req) {
     }
   }
 
-  const contactId = clean(body?.contactId || body?.contact?.id || body?.id || '');
+  const contactId = clean(
+    body?.contactId || body?.contact?.id || body?.id || ''
+  ) || `ghl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  const normalizedBody = {
-    ...body,
-    // Ensure we still get a unique event in lead-router even if contactId is missing
-    ...(contactId
-      ? { contactId }
-      : {
-          id: clean(body?.id) || `missing-contact-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-        })
+  const name = clean(body?.name || body?.full_name || body?.firstName || '');
+  const email = clean(body?.email || body?.contact?.email || '');
+  const phone = clean(body?.phone || body?.phone_number || body?.contact?.phone || '');
+  const state = clean(body?.state || body?.contact?.state || body?.customFields?.state || '');
+
+  const newLead = {
+    id: contactId,
+    ghlContactId: contactId,
+    created_time: new Date().toISOString(),
+    full_name: name,
+    email,
+    phone_number: phone,
+    state: state || '',
+    platform: 'ghl',
+    ad_name: clean(body?.adName || body?.ad_name || ''),
+    form_name: clean(body?.formName || body?.form_name || ''),
+    importedAt: new Date().toISOString(),
+    distributedTo: '',
+    distributedAt: ''
   };
 
-  const router = await callLeadRouter(req, normalizedBody);
-  if (!router.ok) {
-    return Response.json(
-      {
-        ok: false,
-        error: 'lead_router_failed',
-        status: router.status,
-        detail: router.data || null
-      },
-      { status: 502 }
-    );
+  // Load existing, deduplicate by id (GHL contact ID)
+  const existing = await loadJsonStore(FB_LEADS_PATH, []);
+  const existingIds = new Set(existing.map((l) => String(l.id || '')));
+
+  if (!existingIds.has(contactId)) {
+    const merged = [...existing, newLead];
+    await saveJsonStore(FB_LEADS_PATH, merged);
   }
 
-  const assignedToName = clean(router.data?.assignedTo || '');
-  const assignedUserId = clean(body?.assignedUserId || resolveOwnerUserId(assignedToName));
-
-  const ghlUpdate = await updateGhlContactOwner({ contactId, assignedUserId });
-
-  return Response.json({
-    ok: true,
-    contactId: contactId || null,
-    assignedTo: assignedToName,
-    assignedUserId: assignedUserId || null,
-    ghlOwnerUpdated: !!ghlUpdate.ok,
-    warning: contactId ? null : 'missing_contact_id_payload',
-    ghlUpdate
-  });
+  return Response.json({ ok: true, queued: true, contactId });
 }

@@ -79,7 +79,7 @@ export async function POST(req) {
           ? new Date(createdTimestamp * 1000).toISOString()
           : new Date().toISOString();
 
-        // Check if Facebook/GHL sent a contact_id directly
+        // Check if Facebook/GHL sent a contact_id directly (store as ghlContactId)
         const fbGhlContactId = String(value.contact_id || fbLead?.contact_id || '').trim();
 
         newLeads.push({
@@ -100,7 +100,7 @@ export async function POST(req) {
           created_time: createdIso,
           importedAt: new Date().toISOString(),
           source: 'facebook_webhook',
-          ...(fbGhlContactId ? { ghlContactId: fbGhlContactId } : {})
+          ghlContactId: fbGhlContactId || ''
         });
       }
     }

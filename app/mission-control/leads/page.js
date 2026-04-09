@@ -273,6 +273,15 @@ export default function LeadsPage() {
 
   const untouchedCount = stats.untouched || 0;
 
+  // ── New leads today (any platform, still untouched) ─────────────────────
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const newTodayUntouched = leads.filter((l) => {
+    if (l.status && l.status !== 'untouched') return false;
+    const t = new Date(l.importedAt || l.created_time || 0).getTime();
+    return t >= todayStart.getTime();
+  }).length;
+
   // ── Styles ────────────────────────────────────────────────────────────────
   const s = {
     page: {
@@ -329,7 +338,83 @@ export default function LeadsPage() {
     <AppShell title="Lead Distribution Hub">
       <div style={s.page}>
 
-        {/* ── Stats Bar ─────────────────────────────────────────────────── */}
+        {/* ── Facebook Webhook Info Banner ──────────────────────────────── */}
+        <details
+          style={{
+            border: `1px solid #a37a2e`,
+            borderRadius: 12,
+            background: 'rgba(200,169,107,0.08)',
+            padding: '12px 16px',
+            marginBottom: 16,
+            cursor: 'pointer'
+          }}
+        >
+          <summary style={{ color: GOLD, fontWeight: 700, fontSize: 14, userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>📡</span>
+            <span>Live Facebook leads are delivered here automatically via webhook</span>
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: '#94a3b8', fontWeight: 400 }}>Click to expand</span>
+          </summary>
+          <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 260, background: '#0f1929', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '10px 14px' }}>
+                <p style={{ margin: '0 0 4px', fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Webhook URL (register in Facebook Developer Portal)</p>
+                <code style={{ color: GOLD_SOFT, fontSize: 13, wordBreak: 'break-all' }}>https://innercirclelink.com/api/facebook-lead-webhook</code>
+              </div>
+              <div style={{ flex: 1, minWidth: 260, background: '#0f1929', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '10px 14px' }}>
+                <p style={{ margin: '0 0 4px', fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Verify Token (set in Vercel env vars)</p>
+                <code style={{ color: GOLD_SOFT, fontSize: 13 }}>FACEBOOK_WEBHOOK_VERIFY_TOKEN</code>
+              </div>
+            </div>
+            <p style={{ margin: 0, color: '#64748b', fontSize: 12 }}>
+              Leads arrive here automatically when someone fills out a Facebook Lead Ad form. No CSV upload needed.
+              Also set <code style={{ color: GOLD_SOFT }}>FACEBOOK_PAGE_ACCESS_TOKEN</code> in Vercel to enable full lead data retrieval.
+            </p>
+          </div>
+        </details>
+
+        {/* ── New Leads Today Banner ──────────────────────────────────── */}
+        {newTodayUntouched > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '12px 20px',
+              borderRadius: 12,
+              background: 'rgba(200,169,107,0.1)',
+              border: `1.5px solid ${GOLD}`,
+              marginBottom: 16
+            }}
+          >
+            <span
+              style={{
+                background: GOLD,
+                color: '#0B1020',
+                fontWeight: 900,
+                fontSize: 22,
+                minWidth: 40,
+                height: 40,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '50%',
+                flexShrink: 0
+              }}
+            >
+              {newTodayUntouched}
+            </span>
+            <div>
+              <p style={{ margin: 0, fontWeight: 700, color: GOLD_SOFT, fontSize: 15 }}>
+                New leads came in today
+              </p>
+              <p style={{ margin: 0, fontSize: 12, color: '#94a3b8' }}>
+                {newTodayUntouched} untouched lead{newTodayUntouched !== 1 ? 's' : ''} arrived today across all platforms — ready to distribute
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Stats Bar ─────────────────────────────────────────────────── */
         <div
           style={{
             display: 'grid',
@@ -670,14 +755,22 @@ export default function LeadsPage() {
                           {fmtDate(lead.created_time || lead.importedAt)}
                         </td>
                         <td style={s.td}>
-                          <span style={{
-                            padding: '2px 8px', borderRadius: 6,
-                            background: lead.platform === 'ig' ? '#7c3aed22' : '#1d4ed822',
-                            color: lead.platform === 'ig' ? '#a78bfa' : '#60a5fa',
-                            fontSize: 11, fontWeight: 700, textTransform: 'uppercase'
-                          }}>
-                            {lead.platform || 'fb'}
-                          </span>
+                          {(() => {
+                            const plat = (lead.platform || 'fb').toLowerCase();
+                            let bg, color;
+                            if (plat === 'ig') { bg = '#7c3aed22'; color = '#a78bfa'; }
+                            else if (plat === 'ghl') { bg = '#0369a122'; color = '#38bdf8'; }
+                            else { bg = '#1d4ed822'; color = '#60a5fa'; } // fb default
+                            return (
+                              <span style={{
+                                padding: '2px 8px', borderRadius: 6,
+                                background: bg, color,
+                                fontSize: 11, fontWeight: 700, textTransform: 'uppercase'
+                              }}>
+                                {plat}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td style={{ ...s.td, color: '#94a3b8' }}>{lead.state || '—'}</td>
                         <td style={{ ...s.td, color: '#94a3b8', fontSize: 12 }}>{lead.email || '—'}</td>
