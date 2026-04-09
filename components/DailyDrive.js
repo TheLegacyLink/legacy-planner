@@ -602,13 +602,11 @@ function DailyDriveDashboard({ userData, userEmail, onUpdate }) {
         border: `1px solid ${GOLD}44`, overflow: 'hidden',
         position: 'relative', background: CARD
       }}>
-        {userData.whyPhoto && (
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={userData.whyPhoto} alt="" style={{
-            position: 'absolute', inset: 0, width: '100%', height: '100%',
-            objectFit: 'cover', opacity: 0.15, pointerEvents: 'none'
-          }} />
-        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {userData.whyPhoto && <img src={userData.whyPhoto} alt="" style={{
+          position: 'absolute', inset: 0, width: '100%', height: '100%',
+          objectFit: 'cover', opacity: 0.15, pointerEvents: 'none'
+        }} />}
         <div style={{ position: 'relative' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
             <div style={{ color: '#64748B', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Your Why</div>
