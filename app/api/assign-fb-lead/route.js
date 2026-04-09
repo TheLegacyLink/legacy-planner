@@ -124,28 +124,36 @@ export async function POST(req) {
       if (autoDistribute && agentList.length > 0) {
         const pickedAgent = pickBalancedAgent(agentList, merged, caps);
 
-        // Call the Lead Router's manual-assign endpoint
-        const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
-        const routerRes = await fetch(`${appUrl}/api/lead-router`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-internal-source': 'lead-hub'
-          },
-          body: JSON.stringify({
-            mode: 'manual-assign',
-            name,
-            email,
-            phone,
-            externalId: contactId,
-            assignTo: pickedAgent,
-            source: 'lead-hub-auto'
-          }),
-          cache: 'no-store'
-        }).catch((err) => { console.error('[auto-distribute] fetch error:', err?.message); return null; });
+        // Directly assign in GHL — no HTTP roundtrip to lead-router
+        const ghlToken = clean(process.env.GHL_API_TOKEN || '');
+        const agentMapRaw = String(process.env.GHL_AGENT_USER_MAP_JSON || process.env.GHL_USER_ID_MAP_JSON || '{}');
+        let agentMap = {};
+        try { agentMap = JSON.parse(agentMapRaw); } catch { /* ignore */ }
+        const ghlUserId = agentMap[pickedAgent] || agentMap[pickedAgent.toLowerCase()] || '';
 
-        const routerData = routerRes ? await routerRes.json().catch(() => ({})) : {};
-        if (!routerData?.ok) console.warn('[auto-distribute] Lead Router returned not-ok:', JSON.stringify(routerData).slice(0, 200));
+        if (ghlToken && ghlUserId && contactId) {
+          const ghlHeaders = { Authorization: `Bearer ${ghlToken}`, 'Content-Type': 'application/json', Version: '2021-07-28' };
+          const bases = ['https://services.leadconnectorhq.com', 'https://rest.gohighlevel.com'];
+          // GET existing tags
+          let existingTags = [];
+          for (const base of bases) {
+            try {
+              const r = await fetch(`${base}/v1/contacts/${contactId}`, { headers: ghlHeaders, cache: 'no-store' });
+              if (r.ok) { const d = await r.json(); existingTags = d?.contact?.tags || []; break; }
+            } catch { /* try next */ }
+          }
+          const mergedTags = existingTags.includes('legacy') ? existingTags : [...existingTags, 'legacy'];
+          // PUT owner + tags
+          for (const base of bases) {
+            try {
+              const r = await fetch(`${base}/v1/contacts/${contactId}`, {
+                method: 'PUT', headers: ghlHeaders, cache: 'no-store',
+                body: JSON.stringify({ assignedTo: ghlUserId, tags: mergedTags })
+              });
+              if (r.ok) break;
+            } catch { /* try next */ }
+          }
+        }
 
         // Mark lead as distributed in fb-leads.json
         const now = new Date().toISOString();
