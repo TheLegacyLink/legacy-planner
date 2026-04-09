@@ -302,22 +302,51 @@ export async function POST(req) {
       const tagName = 'legacy';
 
       if (ghlToken) {
-        const ghlBaseUrl = 'https://rest.gohighlevel.com/v1/contacts';
+        const ghlHeaders = {
+          Authorization: `Bearer ${ghlToken}`,
+          'Content-Type': 'application/json',
+          Version: '2021-07-28'
+        };
+        // Try multiple base URLs same as lead-router
+        const ghlBases = [
+          String(process.env.GHL_API_BASE_URL || '').replace(/\/$/, ''),
+          'https://services.leadconnectorhq.com',
+          'https://rest.gohighlevel.com'
+        ].filter(Boolean);
+
+        const ghlGet = async (path) => {
+          for (const base of ghlBases) {
+            for (const prefix of ['/contacts', '/v1/contacts']) {
+              try {
+                const res = await fetch(`${base}${prefix}${path}`, { method: 'GET', headers: ghlHeaders, cache: 'no-store' });
+                if (res.ok) return await res.json().catch(() => ({}));
+              } catch { /* try next */ }
+            }
+          }
+          return {};
+        };
+
+        const ghlPut = async (path, body) => {
+          for (const base of ghlBases) {
+            for (const prefix of ['/contacts', '/v1/contacts']) {
+              try {
+                const res = await fetch(`${base}${prefix}${path}`, { method: 'PUT', headers: ghlHeaders, body: JSON.stringify(body), cache: 'no-store' });
+                if (res.ok) return true;
+              } catch { /* try next */ }
+            }
+          }
+          return false;
+        };
+
         await Promise.allSettled(batch.map(async (lead) => {
           const email = String(lead.email || '').trim();
           if (!email) return;
 
-          // Step 1: Look up GHL contact by email (FB lead ID ≠ GHL contact ID)
+          // Step 1: Look up GHL contact by email
           let ghlContactId = '';
           try {
-            const searchRes = await fetch(`${ghlBaseUrl}/?email=${encodeURIComponent(email)}`, {
-              method: 'GET',
-              headers: { Authorization: `Bearer ${ghlToken}` }
-            });
-            if (searchRes.ok) {
-              const searchData = await searchRes.json().catch(() => ({}));
-              ghlContactId = String(searchData?.contacts?.[0]?.id || '').trim();
-            }
+            const searchData = await ghlGet(`/?email=${encodeURIComponent(email)}`);
+            ghlContactId = String(searchData?.contacts?.[0]?.id || '').trim();
           } catch { /* skip */ }
 
           if (!ghlContactId) {
@@ -328,14 +357,8 @@ export async function POST(req) {
           // Step 2: GET contact to fetch existing tags
           let existingTags = [];
           try {
-            const getRes = await fetch(`${ghlBaseUrl}/${ghlContactId}`, {
-              method: 'GET',
-              headers: { Authorization: `Bearer ${ghlToken}` }
-            });
-            if (getRes.ok) {
-              const getData = await getRes.json().catch(() => ({}));
-              existingTags = Array.isArray(getData?.contact?.tags) ? getData.contact.tags : [];
-            }
+            const getData = await ghlGet(`/${ghlContactId}`);
+            existingTags = Array.isArray(getData?.contact?.tags) ? getData.contact.tags : [];
           } catch { /* skip */ }
 
           // Step 3: Build merged tags
@@ -346,15 +369,13 @@ export async function POST(req) {
           if (ghlUserId) putBody.assignedTo = ghlUserId;
 
           try {
-            await fetch(`${ghlBaseUrl}/${ghlContactId}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ghlToken}` },
-              body: JSON.stringify(putBody)
-            });
+            await ghlPut(`/${ghlContactId}`, putBody);
           } catch { /* skip */ }
         }));
       }
-    } catch { /* GHL update is best-effort — never fail distribution */ }
+    } catch { /* GHL update is best-effort */ }
+
+
 
     // Send notification email using nodemailer (same pattern as lead-router)
     let emailResult = { ok: false, reason: 'not_attempted' };
