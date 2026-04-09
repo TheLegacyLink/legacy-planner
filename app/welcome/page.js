@@ -149,7 +149,7 @@ export default function WelcomePage() {
                   color: '#64748b',
                   lineHeight: '1.6',
                 }}>
-                  If you haven't signed your Independent Contractor Agreement yet, complete it now to unlock your back office.
+                  If you haven&apos;t signed your Independent Contractor Agreement yet, complete it now to unlock your back office.
                 </div>
               </div>
             </div>
