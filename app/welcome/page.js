@@ -1,6 +1,6 @@
 export const metadata = {
   title: 'Welcome to The Legacy Link',
-  description: 'You just made a powerful decision. Watch this message from Kimora Link.',
+  description: 'You just made a powerful decision. Watch this message from our Founder.',
 };
 
 export default function WelcomePage() {
@@ -60,7 +60,7 @@ export default function WelcomePage() {
           marginLeft: 'auto',
           marginRight: 'auto',
         }}>
-          You just made a powerful decision. Watch this message from Kimora Link.
+          You just made a powerful decision. Watch this message from our Founder.
         </p>
 
         {/* Loom Video Embed */}
@@ -89,7 +89,7 @@ export default function WelcomePage() {
               border: 'none',
               borderRadius: '16px',
             }}
-            title="Welcome message from Kimora Link"
+            title="Welcome message from our Founder"
           />
         </div>
 
