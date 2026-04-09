@@ -965,6 +965,77 @@ async function sendUnlicensedStartClassEmail(row = {}) {
   return { ok: true, messageId: clean(info?.messageId || ''), to: jamalEmail };
 }
 
+async function sendWelcomeEmail(row = {}) {
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  if (!user || !pass) return { ok: false, error: 'missing_gmail_env' };
+
+  const to = clean(row?.applicantEmail || '').toLowerCase();
+  if (!to) return { ok: false, error: 'missing_applicant_email' };
+
+  const firstName = clean((row?.applicantName || 'Agent').split(' ')[0]) || 'Agent';
+  const subject = `You're officially in. Welcome to The Legacy Link. 🏆`;
+
+  const html = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+  <body style="margin:0;padding:0;background:#0B1020;font-family:Inter,'Helvetica Neue',Arial,sans-serif;">
+    <div style="background:#0B1020;padding:32px 16px;">
+      <div style="max-width:600px;margin:0 auto;background:#111827;border:1px solid rgba(200,169,107,0.15);border-radius:16px;overflow:hidden;">
+
+        <!-- Header -->
+        <div style="padding:28px 32px 24px;text-align:center;border-bottom:1px solid rgba(200,169,107,0.1);">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:#C8A96B;">THE LEGACY LINK</div>
+        </div>
+
+        <!-- Body -->
+        <div style="padding:36px 32px;">
+          <p style="margin:0 0 18px;font-size:17px;font-weight:700;color:#E6D1A6;">Hey ${firstName},</p>
+
+          <p style="margin:0 0 14px;font-size:15px;color:#94a3b8;line-height:1.7;">You just took a step most people only talk about.</p>
+          <p style="margin:0 0 14px;font-size:15px;color:#94a3b8;line-height:1.7;">We're glad you're here. Watch this short message from Kimora — it'll take less than 3 minutes.</p>
+
+          <!-- CTA Button -->
+          <div style="text-align:center;margin:36px 0;">
+            <a href="https://innercirclelink.com/welcome"
+               style="display:inline-block;background:linear-gradient(135deg,#C8A96B,#E6D1A6);color:#0B1020;font-size:15px;font-weight:800;text-decoration:none;padding:16px 40px;border-radius:10px;letter-spacing:0.03em;">
+              Watch Your Welcome Message &rarr;
+            </a>
+          </div>
+
+          <p style="margin:0 0 8px;font-size:14px;color:#64748b;line-height:1.7;">Your onboarding materials are on the way. Check your back office at <a href="https://innercirclelink.com/start" style="color:#C8A96B;text-decoration:none;font-weight:600;">innercirclelink.com/start</a> to get started.</p>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding:24px 32px;border-top:1px solid rgba(200,169,107,0.1);text-align:left;">
+          <p style="margin:0;font-size:14px;color:#6b7280;">&mdash; Kimora Link, The Legacy Link</p>
+        </div>
+
+      </div>
+    </div>
+  </body>
+  </html>`;
+
+  const text = [
+    `Hey ${firstName},`,
+    '',
+    'You just took a step most people only talk about.',
+    "We're glad you're here. Watch this short message from Kimora — it'll take less than 3 minutes.",
+    '',
+    'Watch your welcome message: https://innercirclelink.com/welcome',
+    '',
+    'Your onboarding materials are on the way. Check your back office at innercirclelink.com/start to get started.',
+    '',
+    '— Kimora Link, The Legacy Link'
+  ].join('\n');
+
+  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+  const info = await tx.sendMail({ from, to, subject, text, html });
+  return { ok: true, messageId: info?.messageId || '', to };
+}
+
 async function hasSignedIca(email = '') {
   // Check esign-contracts.json (ICA signed via start portal)
   try {
@@ -1257,7 +1328,9 @@ export async function POST(req) {
     ? { ok: true, skipped: true, reason: 'skip_sop_provision' }
     : await ensureSopProvisionFromActSubmit(finalRow).catch((e) => ({ ok: false, error: clean(e?.message || 'sop_provision_failed') }));
 
-  return Response.json({ ok: true, row: finalRow, hierarchy, sop, removedFromBookingQueue, bookingQueueRetention: 'preserved' });
+  const welcomeEmail = await sendWelcomeEmail(finalRow).catch((e) => ({ ok: false, error: clean(e?.message || 'welcome_email_failed') }));
+
+  return Response.json({ ok: true, row: finalRow, hierarchy, sop, welcomeEmail, removedFromBookingQueue, bookingQueueRetention: 'preserved' });
 }
 
 export async function PATCH(req) {
