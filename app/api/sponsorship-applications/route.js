@@ -5,6 +5,7 @@ import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../
 import users from '../../../data/innerCircleUsers.json';
 
 const STORE_PATH = 'stores/sponsorship-applications.json';
+const FB_LEADS_PATH = 'stores/fb-leads.json';
 const MEMBERS_PATH = 'stores/sponsorship-program-members.json';
 const INVITES_PATH = 'stores/sponsorship-sop-invites.json';
 const AUTH_USERS_PATH = 'stores/sponsorship-sop-auth-users.json';
@@ -504,6 +505,34 @@ export async function POST(req) {
       if (!clean(record.referredByName)) record.referredByName = sponsorName;
       if (!clean(record.referred_by)) record.referred_by = sponsorName;
     }
+
+    // Option B: FB lead assignment overrides form referral attribution.
+    // If this applicant was distributed to an agent via the lead hub, that agent gets credit.
+    // This prevents mismatches where someone fills out with a different agent's link.
+    try {
+      const fbLeads = await loadJsonStore(FB_LEADS_PATH, []);
+      const appEmail = clean(record.email || '').toLowerCase();
+      const appPhone = (record.phone || '').replace(/\D/g, '');
+      const matchedLead = (Array.isArray(fbLeads) ? fbLeads : []).find((fl) => {
+        const distTo = clean(fl?.distributedTo || '');
+        if (!distTo) return false; // not yet assigned
+        const flEmail = clean(fl?.email || '').toLowerCase();
+        const flPhone = (fl?.phone_number || fl?.phone || '').replace(/\D/g, '');
+        if (appEmail && flEmail && appEmail === flEmail) return true;
+        if (appPhone && flPhone && appPhone.slice(-10) === flPhone.slice(-10)) return true;
+        return false;
+      });
+      if (matchedLead && clean(matchedLead.distributedTo)) {
+        const assignedAgent = clean(matchedLead.distributedTo);
+        record.referralName = assignedAgent;
+        record.referredByName = assignedAgent;
+        record.referred_by = assignedAgent;
+        record.sponsorDisplayName = assignedAgent;
+        record.refCode = assignedAgent.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+        record.referralLocked = true;
+        record.assignmentSource = 'fb_lead_distribution';
+      }
+    } catch { /* non-blocking */ }
 
     if (!record.firstName || !record.lastName) {
       return Response.json({ ok: false, error: 'missing_name' }, { status: 400 });
