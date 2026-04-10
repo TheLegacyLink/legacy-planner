@@ -3761,7 +3761,6 @@ export default function InnerCircleHubPage() {
                       </span>
                     ) : null}
                   </div>
-                </div>
 
                 {/* ── Carrier Contracts ─────────────────────────────────── */}
                 {(() => {
@@ -3856,8 +3855,8 @@ export default function InnerCircleHubPage() {
                     </div>
                   );
                 })()}
-              </div>
-            );
+                </div>
+              );
             })() : null}
           </div>
         )}
