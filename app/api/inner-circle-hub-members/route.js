@@ -460,11 +460,10 @@ export async function POST(req) {
     for (const k of ALLOWED) {
       if (contracts[k] !== undefined) sanitized[k] = { contracted: Boolean(contracts[k]?.contracted), agentId: clean(contracts[k]?.agentId || ''), status: clean(contracts[k]?.status || '') };
     }
-    const { loadJsonStore: loadC, saveJsonStore: saveC } = await import('../../../lib/blobJsonStore.js');
-    const cStore = await loadC('stores/agent-carrier-contracts.json', {});
+    const cStore = await loadJsonStore('stores/agent-carrier-contracts.json', {});
     const cData = (cStore && typeof cStore === 'object' && !Array.isArray(cStore)) ? cStore : {};
     cData[email] = sanitized;
-    await saveC('stores/agent-carrier-contracts.json', cData);
+    await saveJsonStore('stores/agent-carrier-contracts.json', cData);
     return Response.json({ ok: true, contracts: sanitized });
   }
 
@@ -485,11 +484,10 @@ export async function POST(req) {
       if (!found) return Response.json({ ok: false, error: 'member_not_found' }, { status: 403 });
     }
 
-    const { loadJsonStore: loadStates, saveJsonStore: saveStates } = await import('../../../lib/blobJsonStore.js');
-    const statesStore = await loadStates('stores/agent-licensed-states.json', {});
+    const statesStore = await loadJsonStore('stores/agent-licensed-states.json', {});
     const statesData = (statesStore && typeof statesStore === 'object' && !Array.isArray(statesStore)) ? statesStore : {};
     statesData[email] = states;
-    await saveStates('stores/agent-licensed-states.json', statesData);
+    await saveJsonStore('stores/agent-licensed-states.json', statesData);
 
     return Response.json({ ok: true, states });
   }
