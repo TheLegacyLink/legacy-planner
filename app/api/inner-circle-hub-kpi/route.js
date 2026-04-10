@@ -3,6 +3,7 @@ import { loadJsonStore } from '../../../lib/blobJsonStore';
 const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
 const SPONSORSHIP_BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
 const SPONSORSHIP_APPS_PATH = 'stores/sponsorship-applications.json';
+const FB_LEADS_PATH = 'stores/fb-leads.json';
 
 function clean(v = '') { return String(v || '').trim(); }
 function normalize(v = '') { return clean(v).toLowerCase().replace(/\s+/g, ' '); }
@@ -180,7 +181,7 @@ function buildPolicyPersonMap(policyRows = []) {
   return map;
 }
 
-function computeMonthKpi(month, { sponsorshipApps, bookingRows, policyRows }, ownerName, ownerEmail, ownerRefCodes) {
+function computeMonthKpi(month, { sponsorshipApps, bookingRows, policyRows, fbLeads }, ownerName, ownerEmail, ownerRefCodes) {
   const appById = new Map((sponsorshipApps || []).map((a) => [clean(a?.id), a]));
 
   // ownerAppKeys: person keys for apps owned by this agent (used for booking lookup)
@@ -250,18 +251,36 @@ function computeMonthKpi(month, { sponsorshipApps, bookingRows, policyRows }, ow
     phone: clean(r?.applicantPhone || r?.phone || '')
   })));
 
-  // Potential: leads × $500 (raw revenue potential based on all form fills)
+  // Raw leads in: FB leads distributed to this agent where the lead itself originated in the same month
+  // created_time reflects when the person submitted the FB form — excludes stale CSV-imported leads
+  const ownerCanon2 = canonicalName(ownerName);
+  const rawLeadsIn = (fbLeads || []).filter((r) => {
+    const distTo = canonicalName(r?.distributedTo || '');
+    if (!distTo || distTo !== ownerCanon2) return false;
+    // Use created_time (when lead actually originated) to exclude backdated CSV imports
+    const createdTs = r?.created_time || '';
+    if (!createdTs) return false;
+    const createdMonth = monthKeyFromIso(new Date(createdTs).toISOString());
+    return createdMonth === month;
+  });
+  const rawLeadsCount = rawLeadsIn.length;
+
+  // Potential: completed sponsorships × $500
   const potentialEarned = leadsReceived * 500;
 
+  // Conversion: completed sponsorships / raw leads in
+  const conversionRate = rawLeadsCount > 0 ? (leadsReceived / rawLeadsCount) * 100 : 0;
   const completionRate = leadsReceived > 0 ? (closesThisMonth / leadsReceived) * 100 : 0;
 
   return {
     leadsReceived,
+    rawLeadsIn: rawLeadsCount,
+    conversionRate: Number(conversionRate.toFixed(1)),
     monthlyTarget: 60,
     remainingToTarget: Math.max(0, 60 - leadsReceived),
     bookingsThisMonth,
     closesThisMonth,
-    completedSponsorship: closesThisMonth,
+    completedSponsorship: leadsReceived,
     completionRate: Number(completionRate.toFixed(1)),
     submittedApps: submittedAppsCount,
     sponsorshipApprovedThisMonth: closesThisMonth,
@@ -332,10 +351,11 @@ export async function GET(req) {
     return Response.json({ ok: false, error: 'missing_name_or_email' }, { status: 400 });
   }
 
-  const [policyRows, bookingRows, sponsorshipApps] = await Promise.all([
+  const [policyRows, bookingRows, sponsorshipApps, fbLeads] = await Promise.all([
     loadJsonStore(POLICY_SUBMISSIONS_PATH, []),
     loadJsonStore(SPONSORSHIP_BOOKINGS_PATH, []),
-    loadJsonStore(SPONSORSHIP_APPS_PATH, [])
+    loadJsonStore(SPONSORSHIP_APPS_PATH, []),
+    loadJsonStore(FB_LEADS_PATH, [])
   ]);
 
   const currentMonth = monthKey(new Date());
@@ -351,7 +371,7 @@ export async function GET(req) {
     normalize(ownerName) === 'kimora link' ? 'link' : ''
   ].filter(Boolean)));
 
-  const data = { policyRows, bookingRows, sponsorshipApps };
+  const data = { policyRows, bookingRows, sponsorshipApps, fbLeads };
 
   // Compute KPI for requested month + 2 prior months
   const monthsToCompute = [
