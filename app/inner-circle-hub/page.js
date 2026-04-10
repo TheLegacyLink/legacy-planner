@@ -348,6 +348,9 @@ export default function InnerCircleHubPage() {
   const [licensedStates, setLicensedStates] = useState([]);
   const [licensedStatesBusy, setLicensedStatesBusy] = useState(false);
   const [licensedStatesMsg, setLicensedStatesMsg] = useState('');
+  const [carrierContracts, setCarrierContracts] = useState({});
+  const [carrierBusy, setCarrierBusy] = useState(false);
+  const [carrierMsg, setCarrierMsg] = useState('');
 
   const gate = useMemo(() => onboardingState(member || {}), [member]);
   const unlocked = gate.active;
@@ -1952,6 +1955,56 @@ export default function InnerCircleHubPage() {
     setLicensedStates((prev) =>
       prev.includes(code) ? prev.filter((s) => s !== code) : [...prev, code]
     );
+  }
+
+  // ── Carrier Contracts ────────────────────────────────────────────────────
+  useEffect(() => {
+    const memberEmail = clean(member?.email || '').toLowerCase();
+    if (!memberEmail) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/agent-carrier-contracts?email=${encodeURIComponent(memberEmail)}`, { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && res.ok && data?.ok) {
+          setCarrierContracts(data.contracts || {});
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [member?.email]);
+
+  async function saveCarrierContracts() {
+    const memberEmail = clean(member?.email || '').toLowerCase();
+    if (!memberEmail) return;
+    setCarrierBusy(true);
+    setCarrierMsg('');
+    try {
+      const sessionToken = clean(
+        member?.token ||
+        (typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') || '' : '')
+      );
+      const res = await fetch('/api/agent-carrier-contracts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}) },
+        body: JSON.stringify({ email: memberEmail, contracts: carrierContracts })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) { setCarrierMsg('Save failed. Please try again.'); return; }
+      setCarrierMsg('Carrier contracts updated ✅');
+      setTimeout(() => setCarrierMsg(''), 3500);
+    } catch {
+      setCarrierMsg('Save failed. Please try again.');
+    } finally {
+      setCarrierBusy(false);
+    }
+  }
+
+  function updateCarrier(key, field, value) {
+    setCarrierContracts((prev) => ({
+      ...prev,
+      [key]: { ...(prev[key] || {}), [field]: value }
+    }));
   }
 
   async function copyLink(value = '', key = '') {
@@ -3709,7 +3762,102 @@ export default function InnerCircleHubPage() {
                     ) : null}
                   </div>
                 </div>
-              );
+
+                {/* ── Carrier Contracts ─────────────────────────────────── */}
+                {(() => {
+                  const CARRIERS = [
+                    { key: 'fg', label: 'F&G', sub: 'Fidelity & Guaranty Life', logo: '🏦' },
+                    { key: 'national_life', label: 'National Life Group', sub: 'NLG / Sentinel', logo: '🌳' },
+                    { key: 'mutual_of_omaha', label: 'Mutual of Omaha', sub: 'MOO', logo: '🐂' },
+                  ];
+                  return (
+                    <div style={{ marginTop: 32 }}>
+                      <div style={{ fontWeight: 800, fontSize: 17, color: '#C8A96B', marginBottom: 6 }}>Carrier Contracts</div>
+                      <div style={{ color: '#94A3B8', fontSize: 13, marginBottom: 18 }}>
+                        Mark which carriers you&apos;re contracted with through Legacy Link and enter your Agent ID. This helps route policies to the right agent.
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        {CARRIERS.map(({ key, label, sub, logo }) => {
+                          const entry = carrierContracts[key] || {};
+                          const isContracted = Boolean(entry.contracted);
+                          return (
+                            <div
+                              key={key}
+                              style={{
+                                background: isContracted ? 'rgba(134,239,172,0.07)' : 'rgba(255,255,255,0.03)',
+                                border: `1.5px solid ${isContracted ? '#86EFAC44' : '#1E2A40'}`,
+                                borderRadius: 14,
+                                padding: '16px 18px',
+                                transition: 'all 0.2s',
+                                boxShadow: isContracted ? '0 0 16px rgba(134,239,172,0.08)' : 'none'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
+                                <span style={{ fontSize: 22 }}>{logo}</span>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontWeight: 700, fontSize: 15, color: isContracted ? '#86EFAC' : '#CBD5E1' }}>{label}</div>
+                                  <div style={{ fontSize: 12, color: '#64748B' }}>{sub}</div>
+                                </div>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
+                                  <div
+                                    onClick={() => updateCarrier(key, 'contracted', !isContracted)}
+                                    style={{
+                                      width: 44, height: 24, borderRadius: 12,
+                                      background: isContracted ? '#22C55E' : '#1E293B',
+                                      border: `1.5px solid ${isContracted ? '#16A34A' : '#334155'}`,
+                                      position: 'relative', cursor: 'pointer', transition: 'all 0.2s'
+                                    }}
+                                  >
+                                    <div style={{
+                                      position: 'absolute', top: 3, left: isContracted ? 22 : 3,
+                                      width: 16, height: 16, borderRadius: '50%',
+                                      background: '#fff', transition: 'left 0.2s'
+                                    }} />
+                                  </div>
+                                  <span style={{ fontSize: 13, color: isContracted ? '#86EFAC' : '#64748B', fontWeight: 600 }}>
+                                    {isContracted ? 'Contracted' : 'Not Contracted'}
+                                  </span>
+                                </label>
+                              </div>
+                              {isContracted && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                  <span style={{ fontSize: 12, color: '#94A3B8', whiteSpace: 'nowrap' }}>Agent ID:</span>
+                                  <input
+                                    type="text"
+                                    value={entry.agentId || ''}
+                                    onChange={(e) => updateCarrier(key, 'agentId', e.target.value)}
+                                    placeholder="e.g. 000576030"
+                                    style={{
+                                      flex: 1, background: '#0B1020', border: '1px solid #1E2A40',
+                                      borderRadius: 8, padding: '8px 12px', color: '#F1F5F9',
+                                      fontSize: 14, outline: 'none', fontFamily: 'monospace'
+                                    }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 }}>
+                        <button
+                          onClick={saveCarrierContracts}
+                          disabled={carrierBusy}
+                          style={{ padding: '12px 22px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
+                        >
+                          {carrierBusy ? 'Saving…' : 'Save Carrier Info'}
+                        </button>
+                        {carrierMsg ? (
+                          <span style={{ color: carrierMsg.includes('✅') ? '#86EFAC' : '#FCA5A5', fontWeight: 600 }}>
+                            {carrierMsg}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            );
             })() : null}
           </div>
         )}
