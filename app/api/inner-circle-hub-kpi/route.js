@@ -197,16 +197,24 @@ function computeMonthKpi(month, { sponsorshipApps, bookingRows, policyRows }, ow
   });
   const leadsReceived = uniquePeopleCount(leadApps.map(appToPerson));
 
-  // Bookings: existing logic filtered to the requested month
+  // Bookings: bookings created this month linked to this agent
+  // Match via: referred_by / referral_code on the booking directly, OR source app match
+  const refCodeSet = new Set(ownerRefCodes.map(v => clean(v).toLowerCase()).filter(Boolean));
+  const ownerCanonical = canonicalName(ownerName);
   const bookedRows = (bookingRows || []).filter((r) => {
     const ts = r?.created_at || r?.updated_at || '';
     if (!ts || monthKeyFromIso(ts) !== month) return false;
-    const status = normalize(r?.booking_status || 'booked');
-    if (!['booked', 'confirmed', 'completed'].includes(status)) return false;
-    if (rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes)) return true;
+    // Direct referral_code match (most reliable for bookings)
+    const rc = clean(r?.referral_code || '').toLowerCase();
+    if (rc && refCodeSet.has(rc)) return true;
+    // referred_by name match
+    const rb = canonicalName(r?.referred_by || '');
+    if (rb && rb === ownerCanonical) return true;
+    // Source app match
     const srcId = clean(r?.source_application_id || '');
     const app = appById.get(srcId);
-    if (app && rowMatchesOwner(app, ownerName, ownerEmail, ownerRefCodes)) return true;
+    if (app && sponsorAppReferrerMatch(app, ownerName, ownerEmail, ownerRefCodes)) return true;
+    // Person key match against known owner apps
     const bpk = personKey({
       name: clean(r?.applicant_name || r?.name || ''),
       email: clean(r?.applicant_email || r?.email || ''),
@@ -229,15 +237,23 @@ function computeMonthKpi(month, { sponsorshipApps, bookingRows, policyRows }, ow
   });
   const closesThisMonth = uniquePeopleCount(closeApps.map(appToPerson));
 
-  // Potential: closes with a linked policy submission → recommendedPotential(); no policy = $0
+  // Submitted Apps: funded policy submissions linked to agent
   const policyMap = buildPolicyPersonMap(policyRows);
-  let potentialEarned = 0;
-  for (const app of closeApps) {
-    const policy = policyMap.get(personKey(appToPerson(app)));
-    if (policy) potentialEarned += recommendedPotential(policy);
-  }
+  const submittedApps = (policyRows || []).filter((r) => {
+    const ts = r?.approvedAt || r?.approved_at || r?.submittedAt || r?.submitted_at || r?.updatedAt || '';
+    if (!ts || monthKeyFromIso(ts) !== month) return false;
+    return rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes);
+  });
+  const submittedAppsCount = uniquePeopleCount(submittedApps.map(r => ({
+    name: clean(r?.applicantName || r?.name || r?.insuredName || ''),
+    email: clean(r?.applicantEmail || r?.email || ''),
+    phone: clean(r?.applicantPhone || r?.phone || '')
+  })));
 
-  const closeRate = leadsReceived > 0 ? (closesThisMonth / leadsReceived) * 100 : 0;
+  // Potential: leads × $500 (raw revenue potential based on all form fills)
+  const potentialEarned = leadsReceived * 500;
+
+  const completionRate = leadsReceived > 0 ? (closesThisMonth / leadsReceived) * 100 : 0;
 
   return {
     leadsReceived,
@@ -245,10 +261,13 @@ function computeMonthKpi(month, { sponsorshipApps, bookingRows, policyRows }, ow
     remainingToTarget: Math.max(0, 60 - leadsReceived),
     bookingsThisMonth,
     closesThisMonth,
+    completedSponsorship: closesThisMonth,
+    completionRate: Number(completionRate.toFixed(1)),
+    submittedApps: submittedAppsCount,
     sponsorshipApprovedThisMonth: closesThisMonth,
-    closeRate: Number(closeRate.toFixed(1)),
-    potentialEarned: Number(potentialEarned.toFixed(2)),
-    grossEarned: Number(potentialEarned.toFixed(2)),
+    closeRate: Number(completionRate.toFixed(1)),
+    potentialEarned,
+    grossEarned: potentialEarned,
     closesToday: 0,
     potentialToday: 0
   };
@@ -282,14 +301,8 @@ function computeTeamMonthKpi(month, { sponsorshipApps, bookingRows, policyRows }
   });
   const closesThisMonth = uniquePeopleCount(closeApps.map(appToPerson));
 
-  const policyMap = buildPolicyPersonMap(policyRows);
-  let potentialEarned = 0;
-  for (const app of closeApps) {
-    const policy = policyMap.get(personKey(appToPerson(app)));
-    if (policy) potentialEarned += recommendedPotential(policy);
-  }
-
-  const closeRate = leadsReceived > 0 ? (closesThisMonth / leadsReceived) * 100 : 0;
+  const completionRate2 = leadsReceived > 0 ? (closesThisMonth / leadsReceived) * 100 : 0;
+  const potentialEarned2 = leadsReceived * 500;
 
   return {
     leadsReceived,
@@ -297,10 +310,13 @@ function computeTeamMonthKpi(month, { sponsorshipApps, bookingRows, policyRows }
     remainingToTarget: Math.max(0, 60 - leadsReceived),
     bookingsThisMonth,
     closesThisMonth,
+    completedSponsorship: closesThisMonth,
+    completionRate: Number(completionRate2.toFixed(1)),
+    submittedApps: 0,
     sponsorshipApprovedThisMonth: closesThisMonth,
-    closeRate: Number(closeRate.toFixed(1)),
-    potentialEarned: Number(potentialEarned.toFixed(2)),
-    grossEarned: Number(potentialEarned.toFixed(2)),
+    closeRate: Number(completionRate2.toFixed(1)),
+    potentialEarned: potentialEarned2,
+    grossEarned: potentialEarned2,
     closesToday: 0,
     potentialToday: 0
   };
