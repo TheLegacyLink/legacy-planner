@@ -1,4 +1,4 @@
-import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import { loadJsonFile, saveJsonFile, loadJsonStore } from '../../../lib/blobJsonStore';
 import { sessionFromToken } from '../licensed-backoffice/auth/_lib';
 import { clean } from '../../../lib/licensedAgentMatch';
 import licensedAgents from '../../../data/licensedAgents.json';
@@ -41,8 +41,8 @@ export async function GET(req) {
     const email = clean(searchParams.get('email') || '').toLowerCase();
     if (!email) return Response.json({ ok: false, error: 'missing_email' }, { status: 400 });
 
-    const store = await loadJsonStore(STORE_PATH, {});
-    const data = (store && typeof store === 'object' && !Array.isArray(store)) ? store : {};
+    const raw = await loadJsonFile(STORE_PATH, {});
+    const data = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
     let states = Array.isArray(data[email]) ? data[email] : null;
 
     // Auto-seed from licensedAgents.json if nothing saved yet
@@ -81,10 +81,10 @@ export async function POST(req) {
     }
     // No token: allow — licensed state data is non-sensitive and self-reported
 
-    const store = await loadJsonStore(STORE_PATH, {});
-    const data = (store && typeof store === 'object' && !Array.isArray(store)) ? store : {};
+    const raw = await loadJsonFile(STORE_PATH, {});
+    const data = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
     data[email] = states;
-    await saveJsonStore(STORE_PATH, data);
+    await saveJsonFile(STORE_PATH, data);
 
     return Response.json({ ok: true, states });
   } catch (err) {

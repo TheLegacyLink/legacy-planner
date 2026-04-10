@@ -1,4 +1,4 @@
-import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import { loadJsonFile, saveJsonFile, loadJsonStore } from '../../../lib/blobJsonStore';
 import { sessionFromToken } from '../licensed-backoffice/auth/_lib';
 import licensedAgents from '../../../data/licensedAgents.json';
 import icMembers from '../../../data/innerCircleUsers.json';
@@ -44,8 +44,8 @@ export async function GET(req) {
     const email = clean(searchParams.get('email') || '').toLowerCase();
     if (!email) return Response.json({ ok: false, error: 'missing_email' }, { status: 400 });
 
-    const store = await loadJsonStore(STORE_PATH, {});
-    const data = (store && typeof store === 'object' && !Array.isArray(store)) ? store : {};
+    const raw = await loadJsonFile(STORE_PATH, {});
+    const data = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
 
     let contracts = data[email] || null;
 
@@ -94,10 +94,10 @@ export async function POST(req) {
       }
     }
 
-    const store = await loadJsonStore(STORE_PATH, {});
-    const data = (store && typeof store === 'object' && !Array.isArray(store)) ? store : {};
+    const raw = await loadJsonFile(STORE_PATH, {});
+    const data = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
     data[email] = sanitized;
-    await saveJsonStore(STORE_PATH, data);
+    await saveJsonFile(STORE_PATH, data);
 
     return Response.json({ ok: true, contracts: sanitized });
   } catch (err) {
