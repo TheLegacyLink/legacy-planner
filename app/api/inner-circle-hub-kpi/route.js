@@ -251,17 +251,18 @@ function computeMonthKpi(month, { sponsorshipApps, bookingRows, policyRows, fbLe
     phone: clean(r?.applicantPhone || r?.phone || '')
   })));
 
-  // Raw leads in: FB leads distributed to this agent where the lead itself originated in the same month
-  // created_time reflects when the person submitted the FB form — excludes stale CSV-imported leads
+  // Raw leads in: FB leads distributed to this agent this month
+  // Use distributedAt (when assigned) not created_time (when FB form was submitted, could be old)
+  // Exclude CSV imports: leads with no platform field or no ad_id are likely CSV
   const ownerCanon2 = canonicalName(ownerName);
   const rawLeadsIn = (fbLeads || []).filter((r) => {
     const distTo = canonicalName(r?.distributedTo || '');
     if (!distTo || distTo !== ownerCanon2) return false;
-    // Use created_time (when lead actually originated) to exclude backdated CSV imports
-    const createdTs = r?.created_time || '';
-    if (!createdTs) return false;
-    const createdMonth = monthKeyFromIso(new Date(createdTs).toISOString());
-    return createdMonth === month;
+    const distAt = r?.distributedAt || '';
+    if (!distAt || monthKeyFromIso(distAt) !== month) return false;
+    // Exclude CSV imports (no platform or no ad_id means it wasn't from a live FB form)
+    const hasFbSource = clean(r?.platform || '') || clean(r?.ad_id || '') || clean(r?.form_id || '');
+    return Boolean(hasFbSource);
   });
   const rawLeadsCount = rawLeadsIn.length;
 
