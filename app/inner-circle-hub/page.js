@@ -2590,20 +2590,25 @@ export default function InnerCircleHubPage() {
                           ? (row?.decision === 'declined' ? 'Declined' : 'Sponsorship Approved')
                           : row?.type === 'completed'
                             ? 'Application Approved'
-                            : 'Application Submitted';
+                            : row?.type === 'submitted'
+                              ? 'Sponsorship Pending'
+                              : 'Application Submitted';
 
                       const isBooked = row?.type === 'booked';
                       const isSponsorDecision = row?.type === 'decision';
                       const isAppSubmitted = row?.type === 'fng';
                       const isAppApproved = row?.type === 'completed';
+                      const isPending = row?.type === 'submitted';
 
                       const pillStyle = isBooked
                         ? { background: '#fef9c3', color: '#854d0e', border: '1px solid #facc15' }
                         : isSponsorDecision
-                          ? { background: '#7f1d1d', color: '#fee2e2', border: '1px solid #ef4444' }
+                          ? (row?.decision === 'declined' ? { background: '#7f1d1d', color: '#fee2e2', border: '1px solid #ef4444' } : { background: '#14532d', color: '#dcfce7', border: '1px solid #22c55e' })
                           : isAppSubmitted
                             ? { background: '#1e3a8a', color: '#dbeafe', border: '1px solid #2563eb' }
-                            : { background: '#14532d', color: '#dcfce7', border: '1px solid #22c55e' };
+                            : isPending
+                              ? { background: '#44300a', color: '#fcd34d', border: '1px solid #C8A96B' }
+                              : { background: '#14532d', color: '#dcfce7', border: '1px solid #22c55e' };
 
                       const rowStyle = isAppApproved
                         ? { border: '1px solid #22c55e', boxShadow: '0 0 0 1px rgba(34,197,94,0.20), 0 0 12px rgba(34,197,94,0.16)' }
