@@ -2583,31 +2583,27 @@ export default function InnerCircleHubPage() {
 
                   <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
                     {(filteredActivityRows || []).map((row, idx) => {
-                      const label = row?.type === 'booked'
-                        ? 'Booked'
-                        : row?.type === 'decision'
-                          ? (row?.decision === 'declined' ? 'Declined' : 'Sponsorship Approved')
-                          : row?.type === 'completed'
-                            ? 'Application Approved'
-                            : row?.type === 'submitted'
-                              ? 'Sponsorship Pending'
-                              : 'Application Submitted';
-
-                      const isBooked = row?.type === 'booked';
-                      const isSponsorDecision = row?.type === 'decision';
-                      const isAppSubmitted = row?.type === 'fng';
-                      const isAppApproved = row?.type === 'completed';
                       const isPending = row?.type === 'submitted';
+                      const isApproved = row?.type === 'decision' && row?.decision !== 'declined';
+                      const isDeclined = row?.type === 'decision' && row?.decision === 'declined';
+                      const isAppApproved = row?.type === 'completed';
 
-                      const pillStyle = isBooked
-                        ? { background: '#fef9c3', color: '#854d0e', border: '1px solid #facc15' }
-                        : isSponsorDecision
-                          ? (row?.decision === 'declined' ? { background: '#7f1d1d', color: '#fee2e2', border: '1px solid #ef4444' } : { background: '#14532d', color: '#dcfce7', border: '1px solid #22c55e' })
-                          : isAppSubmitted
-                            ? { background: '#1e3a8a', color: '#dbeafe', border: '1px solid #2563eb' }
-                            : isPending
-                              ? { background: '#44300a', color: '#fcd34d', border: '1px solid #C8A96B' }
-                              : { background: '#14532d', color: '#dcfce7', border: '1px solid #22c55e' };
+                      const label = isPending
+                        ? 'Sponsorship Pending'
+                        : isApproved
+                          ? 'Sponsorship Approved'
+                          : isDeclined
+                            ? 'Declined'
+                            : 'Application Approved';
+
+                      // Sponsorship Pending = red, Sponsorship Approved = gold, App Approved = green, Declined = dark red
+                      const pillStyle = isPending
+                        ? { background: '#7f1d1d', color: '#fee2e2', border: '1px solid #ef4444' }
+                        : isApproved
+                          ? { background: '#44300a', color: '#fde68a', border: '1px solid #C8A96B' }
+                          : isDeclined
+                            ? { background: '#3b0d0d', color: '#fca5a5', border: '1px solid #b91c1c' }
+                            : { background: '#14532d', color: '#dcfce7', border: '1px solid #22c55e' };
 
                       const rowStyle = isAppApproved
                         ? { border: '1px solid #22c55e', boxShadow: '0 0 0 1px rgba(34,197,94,0.20), 0 0 12px rgba(34,197,94,0.16)' }
@@ -2625,11 +2621,8 @@ export default function InnerCircleHubPage() {
                           <div style={{ color: '#e2e8f0', fontSize: 14, flex: 1 }}>
                             {row?.name || 'Unknown'}{isAppApproved ? <span title="Application Approved" style={{ marginLeft: 8, color: '#fbbf24', textShadow: '0 0 8px rgba(251,191,36,0.45)', letterSpacing: 1.5 }}>⭐⭐⭐</span> : null}
                           </div>
-                          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                          <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
                             <small className="muted" style={{ whiteSpace: 'nowrap' }}>Tap for details</small>
-                            {row?.showFngButton ? (
-                              <a href={fngHref} onClick={(e) => e.stopPropagation()} className="ghost" style={{ textDecoration: 'none', fontSize: 12, whiteSpace: 'nowrap' }}>Submit App</a>
-                            ) : null}
                           </div>
                         </button>
                       );

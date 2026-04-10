@@ -349,18 +349,14 @@ export async function GET(req) {
       at: clean(r?.approvedAt || r?.approved_at || r?.updatedAt || r?.submittedAt || r?.createdAt || '')
     })));
 
-  // Include submitted (Sponsorship Pending) so apps that haven't been decided show in the feed.
-  // collapseToLatestStage keeps the highest-stage event per person, so once someone
-  // gets a decision/booking/policy, the 'submitted' entry is superseded automatically.
+  // Three-stage pipeline: Pending → Approved → Application Approved
+  // Booked and Application Submitted (fng) are excluded from the feed.
   const pendingSubmitted = submitted.map((r) => ({ ...r, detail: 'Sponsorship Pending' }));
-  const stageRows = collapseToLatestStage([...pendingSubmitted, ...booked, ...decisions, ...fng, ...completed]);
+  const stageRows = collapseToLatestStage([...pendingSubmitted, ...decisions, ...completed]);
 
   const rows = stageRows
-    .filter((r) => r.type !== 'bulk') // strip any bulk-type entries
-    .map((r) => ({
-      ...r,
-      showFngButton: r.type === 'booked' || (r.type === 'decision' && r.decision === 'approved')
-    }));
+    .filter((r) => r.type !== 'bulk' && r.type !== 'booked' && r.type !== 'fng')
+    .map((r) => ({ ...r, showFngButton: false }));
 
   const summary = {
     submitted: submitted.length,
