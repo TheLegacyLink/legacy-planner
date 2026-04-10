@@ -294,6 +294,13 @@ export default function LicensedAgentsPage() {
       const agent = map.get(mapKey);
       const st = normalize(row.state_code);
       if (st) agent.states.add(st);
+      // Also parse licensed_states array if present
+      if (Array.isArray(row.licensed_states)) {
+        for (const s of row.licensed_states) {
+          const sc = normalize(String(s || '').trim());
+          if (sc.length === 2) agent.states.add(sc);
+        }
+      }
       if (rawAgentId) agent.agentIds.add(rawAgentId);
 
       const carrierList = Array.isArray(row.carriers_all) ? row.carriers_all : [];

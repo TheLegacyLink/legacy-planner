@@ -23,6 +23,68 @@
     ]
   },
   {
+    "agent_id": "000631664",
+    "full_name": "LINK, KIMORA",
+    "email": "kimora@thelegacylink.com",
+    "email_alt": "investalinkinsurance@gmail.com",
+    "phone": "646-945-9530",
+    "city": "NEW YORK",
+    "home_state": "NY",
+    "state_code": "NY",
+    "license_status": "Active",
+    "licensed_states": [
+      "AZ",
+      "CO",
+      "CT",
+      "DE",
+      "DC",
+      "FL",
+      "GA",
+      "IN",
+      "KY",
+      "LA",
+      "MD",
+      "MO",
+      "NJ",
+      "NY",
+      "NC",
+      "OH",
+      "PA",
+      "SC",
+      "TN",
+      "TX",
+      "VA"
+    ],
+    "carriers_active": [
+      "F&G",
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carriers_all": [
+      "F&G",
+      "Mutual of Omaha",
+      "National Life Group"
+    ],
+    "carrier_details": [
+      {
+        "carrier": "F&G",
+        "contract_status": "Active",
+        "carrier_agent_id": "000631664"
+      },
+      {
+        "carrier": "Mutual of Omaha",
+        "contract_status": "Active",
+        "carrier_agent_id": "2058112"
+      },
+      {
+        "carrier": "National Life Group",
+        "contract_status": "Active",
+        "carrier_agent_id": "7685T"
+      }
+    ],
+    "effective_date": "06-14-2024"
+  },
+  {
     "agent_id": "000576030",
     "full_name": "ADAMS, MADALYN",
     "email": "madalynm13@gmail.com",
