@@ -136,6 +136,9 @@ export async function POST(req) {
     if (!user.logs[date]) user.logs[date] = { touch: 0, engaged: 0, realConvo: 0 };
     user.logs[date].frozen = true;
     user.freezeUsedThisWeek = true;
+  } else if (action === 'update-goal') {
+    const newGoal = Math.min(50, Math.max(1, Number(body?.dailyGoal || 0) || 1));
+    user.dailyGoal = newGoal;
   } else {
     return Response.json({ ok: false, error: 'unknown_action' }, { status: 400 });
   }

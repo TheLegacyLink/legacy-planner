@@ -408,6 +408,92 @@ function Leaderboard({ userEmail, userTier }) {
   );
 }
 
+// ─── Income Projection Card ─────────────────────────────────────────────────
+
+function IncomeProjectionCard({ defaultWeeklyGoal }) {
+  const [weeklyConvos, setWeeklyConvos] = useState(defaultWeeklyGoal || 20);
+
+  const monthly = weeklyConvos * 4;
+  const interested = Math.round(monthly * 0.75);
+  const moveForward = Math.round(interested * 0.75);
+  const income = moveForward * 500;
+
+  const handleChange = (e) => {
+    const v = Math.max(1, Math.min(999, Number(e.target.value) || 1));
+    setWeeklyConvos(v);
+  };
+
+  return (
+    <div style={{ background: CARD, borderRadius: 16, padding: 20, marginBottom: 16, border: '1px solid #1E293B' }}>
+      <div style={{ color: '#94A3B8', fontSize: 13, marginBottom: 16 }}>💰 Income Projection</div>
+
+      {/* Editable weekly convo input */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        <input
+          type="number"
+          min="1"
+          max="999"
+          value={weeklyConvos}
+          onChange={handleChange}
+          style={{
+            width: 80, padding: '8px 10px', borderRadius: 10,
+            background: '#0F172A', border: `1px solid ${GOLD}`,
+            color: GOLD, fontSize: 22, fontWeight: 900, textAlign: 'center',
+            outline: 'none'
+          }}
+        />
+        <span style={{ color: '#94A3B8', fontSize: 15 }}>conversations / week</span>
+      </div>
+
+      {/* Flowing visual */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        <div style={{
+          padding: '12px 16px', borderRadius: 12,
+          background: '#0F172A', border: '1px solid #334155'
+        }}>
+          <span style={{ color: GOLD, fontWeight: 900, fontSize: 24 }}>{monthly.toLocaleString()}</span>
+          <span style={{ color: '#64748B', fontSize: 14, marginLeft: 10 }}>conversations / month</span>
+        </div>
+
+        <div style={{ textAlign: 'center', color: '#334155', fontSize: 22, lineHeight: 1 }}>↓</div>
+
+        <div style={{
+          padding: '12px 16px', borderRadius: 12,
+          background: '#0F172A', border: '1px solid #334155'
+        }}>
+          <span style={{ color: GOLD, fontWeight: 900, fontSize: 24 }}>{interested.toLocaleString()}</span>
+          <span style={{ color: '#64748B', fontSize: 14, marginLeft: 10 }}>interested (75% conversion)</span>
+        </div>
+
+        <div style={{ textAlign: 'center', color: '#334155', fontSize: 22, lineHeight: 1 }}>↓</div>
+
+        <div style={{
+          padding: '12px 16px', borderRadius: 12,
+          background: '#0F172A', border: '1px solid #334155'
+        }}>
+          <span style={{ color: GOLD, fontWeight: 900, fontSize: 24 }}>{moveForward.toLocaleString()}</span>
+          <span style={{ color: '#64748B', fontSize: 14, marginLeft: 10 }}>move forward (25% drop-off)</span>
+        </div>
+
+        <div style={{ textAlign: 'center', color: '#334155', fontSize: 22, lineHeight: 1 }}>↓</div>
+
+        <div style={{
+          padding: '16px 20px', borderRadius: 12,
+          background: 'linear-gradient(135deg, #0F172A 0%, #0B1020 100%)',
+          border: `1px solid ${GOLD}55`
+        }}>
+          <span style={{ color: '#4ADE80', fontWeight: 900, fontSize: 28 }}>~${income.toLocaleString()}</span>
+          <span style={{ color: '#94A3B8', fontSize: 15, marginLeft: 10 }}>/month projected</span>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 12, color: '#475569', fontSize: 12, fontStyle: 'italic' }}>
+        Based on team averages. Your results will vary.
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 function DailyDriveDashboard({ userData, userEmail, onUpdate }) {
@@ -424,6 +510,11 @@ function DailyDriveDashboard({ userData, userEmail, onUpdate }) {
   const [quoteIdx] = useState(() => Math.floor(Date.now() / (1000 * 60 * 60 * 6)) % QUOTES.length);
   const prevHit = useRef(pct >= 1);
 
+  // Adjustable goal
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalDraft, setGoalDraft] = useState(String(goal));
+  const [savingGoal, setSavingGoal] = useState(false);
+
   useEffect(() => {
     if (pct >= 1 && !prevHit.current) {
       setShowConfetti(true);
@@ -431,6 +522,20 @@ function DailyDriveDashboard({ userData, userEmail, onUpdate }) {
     }
     prevHit.current = pct >= 1;
   }, [pct]);
+
+  const saveGoal = async () => {
+    const newGoal = Math.min(50, Math.max(1, Number(goalDraft) || goal));
+    setSavingGoal(true);
+    const res = await fetch('/api/daily-drive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: userEmail, action: 'update-goal', dailyGoal: newGoal })
+    });
+    const d = await res.json();
+    if (d.ok) { onUpdate(d.user); }
+    setSavingGoal(false);
+    setEditingGoal(false);
+  };
 
   const progressMsg = () => {
     if (pct === 0) return "Let's get to work.";
@@ -478,11 +583,8 @@ function DailyDriveDashboard({ userData, userEmail, onUpdate }) {
   const weekScore = weekDays.reduce((sum, d) => sum + scoreForDay(userData.logs?.[d]), 0);
   const weekGoal = goal * 5;
 
-  // Real convos this week for projection
-  const weekRealConvos = weekDays.reduce((s, d) => s + (userData.logs?.[d]?.realConvo || 0), 0);
-  const projectedMonthly = Math.round(weekRealConvos * 4.33);
-  const projectedSignups = Math.floor(projectedMonthly / 10);
-  const projectedEarnings = projectedSignups * 400;
+  // Default weekly convo goal for projection card = dailyGoal × 5
+  const defaultWeeklyConvoGoal = goal * 5;
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '16px 12px', fontFamily: 'inherit' }}>
@@ -503,6 +605,49 @@ function DailyDriveDashboard({ userData, userEmail, onUpdate }) {
             </div>
             <div style={{ fontSize: 14, color: '#64748B' }}>/ {goal}</div>
           </div>
+        </div>
+
+        {/* Adjustable goal */}
+        <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          {editingGoal ? (
+            <>
+              <span style={{ color: '#94A3B8', fontSize: 13 }}>Your number:</span>
+              <input
+                type="number" min="1" max="50"
+                value={goalDraft}
+                onChange={(e) => setGoalDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveGoal(); if (e.key === 'Escape') setEditingGoal(false); }}
+                autoFocus
+                style={{
+                  width: 56, padding: '4px 8px', borderRadius: 8,
+                  background: '#0F172A', border: `1px solid ${GOLD}`,
+                  color: GOLD, fontSize: 18, fontWeight: 900, textAlign: 'center', outline: 'none'
+                }}
+              />
+              <button
+                onClick={saveGoal}
+                disabled={savingGoal}
+                style={{ padding: '4px 12px', borderRadius: 8, background: GOLD, color: '#000', border: 'none', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
+              >{savingGoal ? '...' : 'Save'}</button>
+              <button
+                onClick={() => setEditingGoal(false)}
+                style={{ padding: '4px 10px', borderRadius: 8, background: '#1E293B', color: '#94A3B8', border: 'none', cursor: 'pointer', fontSize: 13 }}
+              >Cancel</button>
+            </>
+          ) : (
+            <>
+              <span style={{ color: '#94A3B8', fontSize: 13 }}>Your number: <strong style={{ color: GOLD }}>{goal}</strong></span>
+              <button
+                onClick={() => { setGoalDraft(String(goal)); setEditingGoal(true); }}
+                title="Edit daily goal"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: 16, padding: '2px 6px', borderRadius: 6,
+                  color: '#475569', lineHeight: 1
+                }}
+              >✏️</button>
+            </>
+          )}
         </div>
         <div style={{ fontSize: 16, color: pct >= 1 ? '#4ADE80' : '#94A3B8', fontWeight: 600 }}>{progressMsg()}</div>
         {userData.streakDays > 0 && (
@@ -573,23 +718,7 @@ function DailyDriveDashboard({ userData, userEmail, onUpdate }) {
       </div>
 
       {/* 5. Income Projection */}
-      <div style={{ background: CARD, borderRadius: 16, padding: 20, marginBottom: 16, border: '1px solid #1E293B' }}>
-        <div style={{ color: '#94A3B8', fontSize: 13, marginBottom: 12 }}>💰 Income Projection</div>
-        {projectedMonthly === 0 ? (
-          <div style={{ color: '#475569', fontSize: 14 }}>Log real conversations to see your income projection.</div>
-        ) : (
-          <>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#4ADE80', marginBottom: 8 }}>
-              ~${projectedEarnings.toLocaleString()} potential
-            </div>
-            <div style={{ color: '#94A3B8', fontSize: 14, lineHeight: 1.6 }}>
-              At your pace this week, you're on track for <strong style={{ color: GOLD }}>{projectedMonthly} real convos</strong> this month →{' '}
-              ~{projectedSignups} signup{projectedSignups !== 1 ? 's' : ''} → ~${projectedEarnings.toLocaleString()} potential
-            </div>
-            <div style={{ marginTop: 8, color: '#475569', fontSize: 12 }}>Based on team averages — your results will vary</div>
-          </>
-        )}
-      </div>
+      <IncomeProjectionCard defaultWeeklyGoal={defaultWeeklyConvoGoal} />
 
       {/* 6. Leaderboard */}
       <div style={{ marginBottom: 16 }}>
