@@ -1991,7 +1991,7 @@ export default function InnerCircleHubPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) { setCarrierMsg('Save failed. Please try again.'); return; }
-      setCarrierMsg('Carrier contracts updated ✅');
+      setCarrierMsg('Carrier contracts updated - saved!');
       setTimeout(() => setCarrierMsg(''), 3500);
     } catch {
       setCarrierMsg('Save failed. Please try again.');
@@ -3708,6 +3708,11 @@ export default function InnerCircleHubPage() {
 
             {tab === 'licensedstates' ? (() => {
               const ALL_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
+              const CARRIERS = [
+                { ckey: 'fg', label: 'F&G', sub: 'Fidelity & Guaranty Life', logo: '\uD83C\uDFE6' },
+                { ckey: 'national_life', label: 'National Life Group', sub: 'NLG / Sentinel', logo: '\uD83C\uDF33' },
+                { ckey: 'mutual_of_omaha', label: 'Mutual of Omaha', sub: 'MOO', logo: '\uD83D\uDC02' },
+              ];
               return (
                 <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#071022', padding: 18, display: 'grid', gap: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
@@ -3763,98 +3768,44 @@ export default function InnerCircleHubPage() {
                   </div>
 
                 {/* ── Carrier Contracts ─────────────────────────────────── */}
-                {(() => {
-                  const CARRIERS = [
-                    { key: 'fg', label: 'F&G', sub: 'Fidelity & Guaranty Life', logo: '🏦' },
-                    { key: 'national_life', label: 'National Life Group', sub: 'NLG / Sentinel', logo: '🌳' },
-                    { key: 'mutual_of_omaha', label: 'Mutual of Omaha', sub: 'MOO', logo: '🐂' },
-                  ];
-                  return (
-                    <div style={{ marginTop: 32 }}>
-                      <div style={{ fontWeight: 800, fontSize: 17, color: '#C8A96B', marginBottom: 6 }}>Carrier Contracts</div>
-                      <div style={{ color: '#94A3B8', fontSize: 13, marginBottom: 18 }}>
-                        Mark which carriers you&apos;re contracted with through Legacy Link and enter your Agent ID. This helps route policies to the right agent.
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                        {CARRIERS.map(({ key, label, sub, logo }) => {
-                          const entry = carrierContracts[key] || {};
-                          const isContracted = Boolean(entry.contracted);
-                          return (
-                            <div
-                              key={key}
-                              style={{
-                                background: isContracted ? 'rgba(134,239,172,0.07)' : 'rgba(255,255,255,0.03)',
-                                border: `1.5px solid ${isContracted ? '#86EFAC44' : '#1E2A40'}`,
-                                borderRadius: 14,
-                                padding: '16px 18px',
-                                transition: 'all 0.2s',
-                                boxShadow: isContracted ? '0 0 16px rgba(134,239,172,0.08)' : 'none'
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
-                                <span style={{ fontSize: 22 }}>{logo}</span>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontWeight: 700, fontSize: 15, color: isContracted ? '#86EFAC' : '#CBD5E1' }}>{label}</div>
-                                  <div style={{ fontSize: 12, color: '#64748B' }}>{sub}</div>
-                                </div>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
-                                  <div
-                                    onClick={() => updateCarrier(key, 'contracted', !isContracted)}
-                                    style={{
-                                      width: 44, height: 24, borderRadius: 12,
-                                      background: isContracted ? '#22C55E' : '#1E293B',
-                                      border: `1.5px solid ${isContracted ? '#16A34A' : '#334155'}`,
-                                      position: 'relative', cursor: 'pointer', transition: 'all 0.2s'
-                                    }}
-                                  >
-                                    <div style={{
-                                      position: 'absolute', top: 3, left: isContracted ? 22 : 3,
-                                      width: 16, height: 16, borderRadius: '50%',
-                                      background: '#fff', transition: 'left 0.2s'
-                                    }} />
-                                  </div>
-                                  <span style={{ fontSize: 13, color: isContracted ? '#86EFAC' : '#64748B', fontWeight: 600 }}>
-                                    {isContracted ? 'Contracted' : 'Not Contracted'}
-                                  </span>
-                                </label>
-                              </div>
-                              {isContracted && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                  <span style={{ fontSize: 12, color: '#94A3B8', whiteSpace: 'nowrap' }}>Agent ID:</span>
-                                  <input
-                                    type="text"
-                                    value={entry.agentId || ''}
-                                    onChange={(e) => updateCarrier(key, 'agentId', e.target.value)}
-                                    placeholder="e.g. 000576030"
-                                    style={{
-                                      flex: 1, background: '#0B1020', border: '1px solid #1E2A40',
-                                      borderRadius: 8, padding: '8px 12px', color: '#F1F5F9',
-                                      fontSize: 14, outline: 'none', fontFamily: 'monospace'
-                                    }}
-                                  />
-                                </div>
-                              )}
+                <div style={{ marginTop: 32 }}>
+                  <div style={{ fontWeight: 800, fontSize: 17, color: '#C8A96B', marginBottom: 6 }}>Carrier Contracts</div>
+                  <div style={{ color: '#94A3B8', fontSize: 13, marginBottom: 18 }}>Mark which carriers you are contracted with through Legacy Link and enter your Agent ID.</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {CARRIERS.map(function(c) {
+                      var ck = c.ckey;
+                      var entry = carrierContracts[ck] || {};
+                      var isCon = Boolean(entry.contracted);
+                      return (
+                        <div key={ck} style={{ background: isCon ? 'rgba(134,239,172,0.07)' : 'rgba(255,255,255,0.03)', border: isCon ? '1.5px solid rgba(134,239,172,0.27)' : '1.5px solid #1E2A40', borderRadius: 14, padding: '16px 18px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: isCon ? 12 : 0 }}>
+                            <span style={{ fontSize: 22 }}>{c.logo}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 700, fontSize: 15, color: isCon ? '#86EFAC' : '#CBD5E1' }}>{c.label}</div>
+                              <div style={{ fontSize: 12, color: '#64748B' }}>{c.sub}</div>
                             </div>
-                          );
-                        })}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 }}>
-                        <button
-                          onClick={saveCarrierContracts}
-                          disabled={carrierBusy}
-                          style={{ padding: '12px 22px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
-                        >
-                          {carrierBusy ? 'Saving…' : 'Save Carrier Info'}
-                        </button>
-                        {carrierMsg ? (
-                          <span style={{ color: carrierMsg.includes('✅') ? '#86EFAC' : '#FCA5A5', fontWeight: 600 }}>
-                            {carrierMsg}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })()}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div onClick={function() { updateCarrier(ck, 'contracted', !isCon); }} style={{ width: 44, height: 24, borderRadius: 12, background: isCon ? '#22C55E' : '#1E293B', border: isCon ? '1.5px solid #16A34A' : '1.5px solid #334155', position: 'relative', cursor: 'pointer' }}>
+                                <div style={{ position: 'absolute', top: 3, left: isCon ? 22 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff' }} />
+                              </div>
+                              <span style={{ fontSize: 13, color: isCon ? '#86EFAC' : '#64748B', fontWeight: 600 }}>{isCon ? 'Contracted' : 'Not Contracted'}</span>
+                            </div>
+                          </div>
+                          {isCon && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ fontSize: 12, color: '#94A3B8', whiteSpace: 'nowrap' }}>Agent ID:</span>
+                              <input type="text" value={entry.agentId || ''} onChange={function(e) { updateCarrier(ck, 'agentId', e.target.value); }} placeholder="e.g. 000576030" style={{ flex: 1, background: '#0B1020', border: '1px solid #1E2A40', borderRadius: 8, padding: '8px 12px', color: '#F1F5F9', fontSize: 14, outline: 'none' }} />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 }}>
+                    <button onClick={saveCarrierContracts} disabled={carrierBusy} style={{ padding: '12px 22px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>{carrierBusy ? 'Saving...' : 'Save Carrier Info'}</button>
+                    {carrierMsg ? <span style={{ color: carrierMsg.includes('OK') ? '#86EFAC' : '#FCA5A5', fontWeight: 600 }}>{carrierMsg}</span> : null}
+                  </div>
+                </div>
                 </div>
               );
             })() : null}
