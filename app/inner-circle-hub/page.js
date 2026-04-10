@@ -1932,12 +1932,24 @@ export default function InnerCircleHubPage() {
         member?.token ||
         (typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') || '' : '')
       );
-      const res = await fetch('/api/agent-licensed-states', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}) },
-        body: JSON.stringify({ email: memberEmail, states: licensedStates })
-      });
-      const data = await res.json().catch(() => ({}));
+      let res, data;
+      if (sessionToken) {
+        // Licensed backoffice agent — use direct API with bearer token
+        res = await fetch('/api/agent-licensed-states', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+          body: JSON.stringify({ email: memberEmail, states: licensedStates })
+        });
+        data = await res.json().catch(() => ({}));
+      } else {
+        // IC Hub member (no bearer token) — proxy through hub-members API
+        res = await fetch('/api/inner-circle-hub-members', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'save_licensed_states', memberId: member?.id || '', email: memberEmail, states: licensedStates })
+        });
+        data = await res.json().catch(() => ({}));
+      }
       if (!res.ok || !data?.ok) {
         setLicensedStatesMsg('Save failed. Please try again.');
         return;
@@ -1984,12 +1996,22 @@ export default function InnerCircleHubPage() {
         member?.token ||
         (typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') || '' : '')
       );
-      const res = await fetch('/api/agent-carrier-contracts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}) },
-        body: JSON.stringify({ email: memberEmail, contracts: carrierContracts })
-      });
-      const data = await res.json().catch(() => ({}));
+      let res, data;
+      if (sessionToken) {
+        res = await fetch('/api/agent-carrier-contracts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+          body: JSON.stringify({ email: memberEmail, contracts: carrierContracts })
+        });
+        data = await res.json().catch(() => ({}));
+      } else {
+        res = await fetch('/api/inner-circle-hub-members', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'save_carrier_contracts', memberId: member?.id || '', email: memberEmail, contracts: carrierContracts })
+        });
+        data = await res.json().catch(() => ({}));
+      }
       if (!res.ok || !data?.ok) { setCarrierMsg('Save failed. Please try again.'); return; }
       setCarrierMsg('Carrier contracts updated - saved!');
       setTimeout(() => setCarrierMsg(''), 3500);

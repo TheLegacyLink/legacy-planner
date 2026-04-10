@@ -443,5 +443,56 @@ export async function POST(req) {
     await saveJsonStore(STORE_PATH, rows);
     return Response.json({ ok: true, updated: idxs.length });
   }
+  // Proxy: save carrier contracts — auth via memberId + email
+  if (action === 'save_carrier_contracts') {
+    const memberId = clean(body?.memberId);
+    const email = clean(body?.email || '').toLowerCase();
+    const contracts = body?.contracts || {};
+    if (!memberId || !email) return Response.json({ ok: false, error: 'missing_member_or_email' }, { status: 400 });
+    const STATIC_ADMINS = ['kimora@thelegacylink.com', 'link@thelegacylink.com'];
+    const isStaticAdmin = STATIC_ADMINS.includes(email);
+    if (!isStaticAdmin) {
+      const found = rows.find((r) => clean(r?.id) === memberId && clean(r?.email || '').toLowerCase() === email && Boolean(r?.active));
+      if (!found) return Response.json({ ok: false, error: 'member_not_found' }, { status: 403 });
+    }
+    const ALLOWED = ['fg', 'mutual_of_omaha', 'national_life'];
+    const sanitized = {};
+    for (const k of ALLOWED) {
+      if (contracts[k] !== undefined) sanitized[k] = { contracted: Boolean(contracts[k]?.contracted), agentId: clean(contracts[k]?.agentId || ''), status: clean(contracts[k]?.status || '') };
+    }
+    const { loadJsonStore: loadC, saveJsonStore: saveC } = await import('../../../lib/blobJsonStore.js');
+    const cStore = await loadC('stores/agent-carrier-contracts.json', {});
+    const cData = (cStore && typeof cStore === 'object' && !Array.isArray(cStore)) ? cStore : {};
+    cData[email] = sanitized;
+    await saveC('stores/agent-carrier-contracts.json', cData);
+    return Response.json({ ok: true, contracts: sanitized });
+  }
+
+  // Proxy: save licensed states — auth via memberId + email (no bearer token needed)
+  if (action === 'save_licensed_states') {
+    const memberId = clean(body?.memberId);
+    const email = clean(body?.email || '').toLowerCase();
+    const rawStates = Array.isArray(body?.states) ? body.states : [];
+    const states = rawStates.map((s) => String(s || '').toUpperCase().trim()).filter((s) => s.length === 2);
+
+    if (!memberId || !email) return Response.json({ ok: false, error: 'missing_member_or_email' }, { status: 400 });
+
+    // Validate: member must exist with matching id + email (or be a known static admin)
+    const STATIC_ADMINS = ['kimora@thelegacylink.com', 'link@thelegacylink.com'];
+    const isStaticAdmin = STATIC_ADMINS.includes(email);
+    if (!isStaticAdmin) {
+      const found = rows.find((r) => clean(r?.id) === memberId && clean(r?.email || '').toLowerCase() === email && Boolean(r?.active));
+      if (!found) return Response.json({ ok: false, error: 'member_not_found' }, { status: 403 });
+    }
+
+    const { loadJsonStore: loadStates, saveJsonStore: saveStates } = await import('../../../lib/blobJsonStore.js');
+    const statesStore = await loadStates('stores/agent-licensed-states.json', {});
+    const statesData = (statesStore && typeof statesStore === 'object' && !Array.isArray(statesStore)) ? statesStore : {};
+    statesData[email] = states;
+    await saveStates('stores/agent-licensed-states.json', statesData);
+
+    return Response.json({ ok: true, states });
+  }
+
   return Response.json({ ok: false, error: 'unsupported_action' }, { status: 400 });
 }
