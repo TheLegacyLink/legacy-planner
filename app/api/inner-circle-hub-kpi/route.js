@@ -1,6 +1,5 @@
 import { loadJsonStore } from '../../../lib/blobJsonStore';
 
-const LEAD_ROUTER_EVENTS_PATH = 'stores/lead-router-events.json';
 const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
 const SPONSORSHIP_BOOKINGS_PATH = 'stores/sponsorship-bookings.json';
 const SPONSORSHIP_APPS_PATH = 'stores/sponsorship-applications.json';
@@ -56,6 +55,12 @@ function dateKeyFromIso(iso = '') {
   return `${y}-${m}-${day}`;
 }
 
+function prevMonthKey(key, n = 1) {
+  const [y, m] = key.split('-').map(Number);
+  const d = new Date(y, m - 1 - n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 function refCodeFromName(name = '') {
   return clean(name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
@@ -81,18 +86,6 @@ function personKey({ name = '', email = '', phone = '' } = {}) {
 function uniquePeopleCount(rows = []) {
   const keys = new Set((rows || []).map((r) => personKey(r)));
   return keys.size;
-}
-
-function uniquePeople(rows = []) {
-  const seen = new Set();
-  const out = [];
-  for (const r of rows || []) {
-    const k = personKey(r);
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(r);
-  }
-  return out;
 }
 
 function recommendedPotential(row = {}) {
@@ -155,21 +148,182 @@ function rowMatchesOwner(row = {}, ownerName = '', ownerEmail = '', ownerRefCode
   return refCandidates.some((r) => r && codeSet.has(r));
 }
 
+// Matches sponsorship apps where the agent is the referral source.
+// Checks referred_by, referredByName, sponsorDisplayName, referralName via rowMatchesOwner + extras.
+function sponsorAppReferrerMatch(row = {}, ownerName = '', ownerEmail = '', ownerRefCodes = []) {
+  if (rowMatchesOwner(row, ownerName, ownerEmail, ownerRefCodes)) return true;
+  // Extra fields specific to sponsorship apps
+  const n = canonicalName(ownerName);
+  if (!n) return false;
+  const extra = [row?.sponsorDisplayName, row?.referralName].map(canonicalName).filter(Boolean);
+  return extra.some((c) => c === n);
+}
+
+function appToPerson(app = {}) {
+  return {
+    name: clean(`${app?.firstName || ''} ${app?.lastName || ''}`.trim() || app?.name || ''),
+    email: clean(app?.email || ''),
+    phone: clean(app?.phone || '')
+  };
+}
+
+function buildPolicyPersonMap(policyRows = []) {
+  const map = new Map();
+  for (const p of (policyRows || [])) {
+    const key = personKey({
+      name: clean(p?.applicantName || p?.name || p?.insuredName || ''),
+      email: clean(p?.applicantEmail || p?.email || ''),
+      phone: clean(p?.applicantPhone || p?.phone || '')
+    });
+    if (key && !map.has(key)) map.set(key, p);
+  }
+  return map;
+}
+
+function computeMonthKpi(month, { sponsorshipApps, bookingRows, policyRows }, ownerName, ownerEmail, ownerRefCodes) {
+  const appById = new Map((sponsorshipApps || []).map((a) => [clean(a?.id), a]));
+
+  // ownerAppKeys: person keys for apps owned by this agent (used for booking lookup)
+  const ownerAppKeys = new Set(
+    (sponsorshipApps || [])
+      .filter((a) => rowMatchesOwner(a, ownerName, ownerEmail, ownerRefCodes))
+      .map((a) => personKey(appToPerson(a)))
+  );
+
+  // Leads: sponsorship apps where agent is referral source, submitted_at in month
+  const leadApps = (sponsorshipApps || []).filter((r) => {
+    const ts = r?.submitted_at || r?.submittedAt || '';
+    return ts && monthKeyFromIso(ts) === month && sponsorAppReferrerMatch(r, ownerName, ownerEmail, ownerRefCodes);
+  });
+  const leadsReceived = uniquePeopleCount(leadApps.map(appToPerson));
+
+  // Bookings: existing logic filtered to the requested month
+  const bookedRows = (bookingRows || []).filter((r) => {
+    const ts = r?.created_at || r?.updated_at || '';
+    if (!ts || monthKeyFromIso(ts) !== month) return false;
+    const status = normalize(r?.booking_status || 'booked');
+    if (!['booked', 'confirmed', 'completed'].includes(status)) return false;
+    if (rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes)) return true;
+    const srcId = clean(r?.source_application_id || '');
+    const app = appById.get(srcId);
+    if (app && rowMatchesOwner(app, ownerName, ownerEmail, ownerRefCodes)) return true;
+    const bpk = personKey({
+      name: clean(r?.applicant_name || r?.name || ''),
+      email: clean(r?.applicant_email || r?.email || ''),
+      phone: clean(r?.applicant_phone || r?.phone || '')
+    });
+    return ownerAppKeys.has(bpk);
+  }).map((r) => ({
+    name: clean(r?.applicant_name || r?.name || ''),
+    email: clean(r?.applicant_email || r?.email || ''),
+    phone: clean(r?.applicant_phone || r?.phone || '')
+  }));
+  const bookingsThisMonth = uniquePeopleCount(bookedRows);
+
+  // Closes: approved sponsorship apps where agent is referral source, date in month
+  const closeApps = (sponsorshipApps || []).filter((r) => {
+    const status = normalize(r?.status || '');
+    if (!status.includes('approved')) return false;
+    const ts = r?.approved_at || r?.reviewedAt || r?.updatedAt || r?.submitted_at || '';
+    return ts && monthKeyFromIso(ts) === month && sponsorAppReferrerMatch(r, ownerName, ownerEmail, ownerRefCodes);
+  });
+  const closesThisMonth = uniquePeopleCount(closeApps.map(appToPerson));
+
+  // Potential: closes with a linked policy submission → recommendedPotential(); no policy = $0
+  const policyMap = buildPolicyPersonMap(policyRows);
+  let potentialEarned = 0;
+  for (const app of closeApps) {
+    const policy = policyMap.get(personKey(appToPerson(app)));
+    if (policy) potentialEarned += recommendedPotential(policy);
+  }
+
+  const closeRate = leadsReceived > 0 ? (closesThisMonth / leadsReceived) * 100 : 0;
+
+  return {
+    leadsReceived,
+    monthlyTarget: 60,
+    remainingToTarget: Math.max(0, 60 - leadsReceived),
+    bookingsThisMonth,
+    closesThisMonth,
+    sponsorshipApprovedThisMonth: closesThisMonth,
+    closeRate: Number(closeRate.toFixed(1)),
+    potentialEarned: Number(potentialEarned.toFixed(2)),
+    grossEarned: Number(potentialEarned.toFixed(2)),
+    closesToday: 0,
+    potentialToday: 0
+  };
+}
+
+function computeTeamMonthKpi(month, { sponsorshipApps, bookingRows, policyRows }) {
+  // Team-wide: no owner filtering (fallback when personal data is empty)
+  const leadApps = (sponsorshipApps || []).filter((r) => {
+    const ts = r?.submitted_at || r?.submittedAt || '';
+    return ts && monthKeyFromIso(ts) === month;
+  });
+  const leadsReceived = leadApps.length;
+
+  const bookedRows = (bookingRows || []).filter((r) => {
+    const ts = r?.created_at || r?.updated_at || '';
+    if (!ts || monthKeyFromIso(ts) !== month) return false;
+    const status = normalize(r?.booking_status || 'booked');
+    return ['booked', 'confirmed', 'completed'].includes(status);
+  }).map((r) => ({
+    name: clean(r?.applicant_name || r?.name || ''),
+    email: clean(r?.applicant_email || r?.email || ''),
+    phone: clean(r?.applicant_phone || r?.phone || '')
+  }));
+  const bookingsThisMonth = uniquePeopleCount(bookedRows);
+
+  const closeApps = (sponsorshipApps || []).filter((r) => {
+    const status = normalize(r?.status || '');
+    if (!status.includes('approved')) return false;
+    const ts = r?.approved_at || r?.reviewedAt || r?.updatedAt || r?.submitted_at || '';
+    return ts && monthKeyFromIso(ts) === month;
+  });
+  const closesThisMonth = uniquePeopleCount(closeApps.map(appToPerson));
+
+  const policyMap = buildPolicyPersonMap(policyRows);
+  let potentialEarned = 0;
+  for (const app of closeApps) {
+    const policy = policyMap.get(personKey(appToPerson(app)));
+    if (policy) potentialEarned += recommendedPotential(policy);
+  }
+
+  const closeRate = leadsReceived > 0 ? (closesThisMonth / leadsReceived) * 100 : 0;
+
+  return {
+    leadsReceived,
+    monthlyTarget: 60,
+    remainingToTarget: Math.max(0, 60 - leadsReceived),
+    bookingsThisMonth,
+    closesThisMonth,
+    sponsorshipApprovedThisMonth: closesThisMonth,
+    closeRate: Number(closeRate.toFixed(1)),
+    potentialEarned: Number(potentialEarned.toFixed(2)),
+    grossEarned: Number(potentialEarned.toFixed(2)),
+    closesToday: 0,
+    potentialToday: 0
+  };
+}
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const ownerName = clean(searchParams.get('name') || '');
   const ownerEmail = clean(searchParams.get('email') || '');
+  const monthParam = clean(searchParams.get('month') || '');
 
   if (!ownerName && !ownerEmail) {
     return Response.json({ ok: false, error: 'missing_name_or_email' }, { status: 400 });
   }
 
-  const [events, policyRows, bookingRows, sponsorshipApps] = await Promise.all([
-    loadJsonStore(LEAD_ROUTER_EVENTS_PATH, []),
+  const [policyRows, bookingRows, sponsorshipApps] = await Promise.all([
     loadJsonStore(POLICY_SUBMISSIONS_PATH, []),
     loadJsonStore(SPONSORSHIP_BOOKINGS_PATH, []),
     loadJsonStore(SPONSORSHIP_APPS_PATH, [])
   ]);
+
+  const currentMonth = monthKey(new Date());
+  const requestedMonth = /^\d{4}-\d{2}$/.test(monthParam) ? monthParam : currentMonth;
 
   const ownerRefCodes = Array.from(new Set([
     refCodeFromName(ownerName),
@@ -180,189 +334,71 @@ export async function GET(req) {
     canonicalName(ownerName) === 'leticia wright' ? 'latrisha_wright' : '',
     normalize(ownerName) === 'kimora link' ? 'link' : ''
   ].filter(Boolean)));
-  const appById = new Map((sponsorshipApps || []).map((a) => [clean(a?.id), a]));
-  const ownerAppKeys = new Set(
-    (sponsorshipApps || [])
-      .filter((a) => rowMatchesOwner(a, ownerName, ownerEmail, ownerRefCodes))
-      .map((a) => personKey({
-        name: clean(`${a?.firstName || ''} ${a?.lastName || ''}` || a?.name || ''),
-        email: clean(a?.email || ''),
-        phone: clean(a?.phone || '')
-      }))
-  );
 
-  const currentMonth = monthKey(new Date());
+  const data = { policyRows, bookingRows, sponsorshipApps };
+
+  // Compute KPI for requested month + 2 prior months
+  const monthsToCompute = [
+    requestedMonth,
+    prevMonthKey(requestedMonth, 1),
+    prevMonthKey(requestedMonth, 2)
+  ];
+
   const currentDateKey = dateKeyFromIso(new Date().toISOString());
+  const policyMap = buildPolicyPersonMap(policyRows);
 
-  const assignedThisMonth = (events || []).filter((r) => {
-    const type = normalize(r?.type || '');
-    const isAssign = type.includes('assign') || type.includes('release_to_agent') || type.includes('released');
-    const ts = r?.createdAt || r?.created_at || r?.timestamp || r?.at || '';
-    return isAssign && monthKeyFromIso(ts) === currentMonth && rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes);
-  });
+  const computeFullKpiForMonth = (month) => {
+    const personal = computeMonthKpi(month, data, ownerName, ownerEmail, ownerRefCodes);
+    const personalIsEmpty = personal.leadsReceived === 0 && personal.bookingsThisMonth === 0 && personal.closesThisMonth === 0;
 
-  const leadsReceived = assignedThisMonth.length;
+    if (personalIsEmpty) {
+      const team = computeTeamMonthKpi(month, data);
+      // Add today metrics for current month team fallback
+      if (month === currentMonth) {
+        const todayTeamCloseApps = (sponsorshipApps || []).filter((r) => {
+          const status = normalize(r?.status || '');
+          if (!status.includes('approved')) return false;
+          const ts = r?.approved_at || r?.reviewedAt || r?.updatedAt || r?.submitted_at || '';
+          return ts && dateKeyFromIso(ts) === currentDateKey;
+        });
+        let potentialToday = 0;
+        for (const app of todayTeamCloseApps) {
+          const policy = policyMap.get(personKey(appToPerson(app)));
+          if (policy) potentialToday += recommendedPotential(policy);
+        }
+        return { ...team, closesToday: todayTeamCloseApps.length, potentialToday: Number(potentialToday.toFixed(2)) };
+      }
+      return team;
+    }
 
-  const closesThisMonthRows = (policyRows || []).filter((r) => {
-    if (!normalize(r?.status || '').startsWith('approved')) return false;
-    const ts = r?.approvedAt || r?.approved_at || r?.updatedAt || r?.submittedAt || r?.submitted_at || '';
-    if (monthKeyFromIso(ts) !== currentMonth) return false;
-    return rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes);
-  }).map((r) => ({
-    name: clean(r?.applicantName || r?.name || r?.insuredName || ''),
-    email: clean(r?.applicantEmail || r?.email || ''),
-    phone: clean(r?.applicantPhone || r?.phone || '')
-  }));
+    // Add today metrics for current month personal
+    if (month === currentMonth) {
+      const todayCloseApps = (sponsorshipApps || []).filter((r) => {
+        const status = normalize(r?.status || '');
+        if (!status.includes('approved')) return false;
+        const ts = r?.approved_at || r?.reviewedAt || r?.updatedAt || r?.submitted_at || '';
+        return ts && dateKeyFromIso(ts) === currentDateKey && sponsorAppReferrerMatch(r, ownerName, ownerEmail, ownerRefCodes);
+      });
+      let potentialToday = 0;
+      for (const app of todayCloseApps) {
+        const policy = policyMap.get(personKey(appToPerson(app)));
+        if (policy) potentialToday += recommendedPotential(policy);
+      }
+      return { ...personal, closesToday: todayCloseApps.length, potentialToday: Number(potentialToday.toFixed(2)) };
+    }
 
-  const approvedPolicyRows = uniquePeople((policyRows || []).filter((r) => {
-    const ts = r?.approvedAt || r?.approved_at || r?.updatedAt || r?.submittedAt || r?.submitted_at || '';
-    if (monthKeyFromIso(ts) !== currentMonth) return false;
-    if (!normalize(r?.status || '').startsWith('approved')) return false;
-    return rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes);
-  }).map((r) => ({
-    ...r,
-    name: clean(r?.applicantName || r?.name || r?.insuredName || ''),
-    email: clean(r?.applicantEmail || r?.email || ''),
-    phone: clean(r?.applicantPhone || r?.phone || '')
-  })));
+    return personal;
+  };
 
-  const approvedPolicyRowsToday = uniquePeople((policyRows || []).filter((r) => {
-    const ts = r?.approvedAt || r?.approved_at || r?.updatedAt || r?.submittedAt || r?.submitted_at || '';
-    if (dateKeyFromIso(ts) !== currentDateKey) return false;
-    if (!normalize(r?.status || '').startsWith('approved')) return false;
-    return rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes);
-  }).map((r) => ({
-    ...r,
-    name: clean(r?.applicantName || r?.name || r?.insuredName || ''),
-    email: clean(r?.applicantEmail || r?.email || ''),
-    phone: clean(r?.applicantPhone || r?.phone || '')
-  })));
-
-  const bookedThisMonthRows = (bookingRows || []).filter((r) => {
-    const ts = r?.created_at || r?.updated_at || '';
-    if (monthKeyFromIso(ts) !== currentMonth) return false;
-    const status = normalize(r?.booking_status || 'booked');
-    const bookingQualified = ['booked', 'confirmed', 'completed'].includes(status);
-    if (!bookingQualified) return false;
-
-    if (rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes)) return true;
-    const srcId = clean(r?.source_application_id || '');
-    const app = appById.get(srcId);
-    if (app && rowMatchesOwner(app, ownerName, ownerEmail, ownerRefCodes)) return true;
-
-    const bookingPersonKey = personKey({
-      name: clean(r?.applicant_name || r?.name || ''),
-      email: clean(r?.applicant_email || r?.email || ''),
-      phone: clean(r?.applicant_phone || r?.phone || '')
-    });
-    return ownerAppKeys.has(bookingPersonKey);
-  }).map((r) => ({
-    name: clean(r?.applicant_name || r?.name || ''),
-    email: clean(r?.applicant_email || r?.email || ''),
-    phone: clean(r?.applicant_phone || r?.phone || '')
-  }));
-
-  const approvedThisMonthRows = (sponsorshipApps || []).filter((r) => {
-    const status = normalize(r?.status || '');
-    if (!status.includes('approved')) return false;
-    const ts = r?.approved_at || r?.reviewedAt || r?.updatedAt || r?.submitted_at || '';
-    if (monthKeyFromIso(ts) !== currentMonth) return false;
-    return rowMatchesOwner(r, ownerName, ownerEmail, ownerRefCodes);
-  }).map((r) => ({
-    name: clean(`${r?.firstName || ''} ${r?.lastName || ''}` || r?.name || ''),
-    email: clean(r?.email || ''),
-    phone: clean(r?.phone || '')
-  }));
-
-  const closesThisMonth = uniquePeopleCount(closesThisMonthRows);
-  const bookingsThisMonth = uniquePeopleCount(bookedThisMonthRows);
-  const sponsorshipApprovedThisMonth = uniquePeopleCount(approvedThisMonthRows);
-
-  let displayLeadsReceived = leadsReceived;
-  let displayBookingsThisMonth = bookingsThisMonth;
-  let displayClosesThisMonth = closesThisMonth;
-  let displaySponsorshipApprovedThisMonth = sponsorshipApprovedThisMonth;
-  let displayPotentialEarned = Number(approvedPolicyRows.reduce((sum, r) => sum + recommendedPotential(r), 0).toFixed(2));
-  let displayClosesToday = uniquePeopleCount(approvedPolicyRowsToday);
-  let displayPotentialToday = Number(approvedPolicyRowsToday.reduce((sum, r) => sum + recommendedPotential(r), 0).toFixed(2));
-
-  const personalIsEmpty = displayLeadsReceived === 0 && displayBookingsThisMonth === 0 && displayClosesThisMonth === 0 && displaySponsorshipApprovedThisMonth === 0;
-
-  if (personalIsEmpty) {
-    const teamAssigned = (events || []).filter((r) => {
-      const type = normalize(r?.type || '');
-      const isAssign = type.includes('assign') || type.includes('release_to_agent') || type.includes('released');
-      const ts = r?.createdAt || r?.created_at || r?.timestamp || r?.at || '';
-      return isAssign && monthKeyFromIso(ts) === currentMonth;
-    });
-
-    const teamApprovedPolicies = uniquePeople((policyRows || []).filter((r) => {
-      const ts = r?.approvedAt || r?.approved_at || r?.updatedAt || r?.submittedAt || r?.submitted_at || '';
-      return monthKeyFromIso(ts) === currentMonth && normalize(r?.status || '').startsWith('approved');
-    }).map((r) => ({
-      ...r,
-      name: clean(r?.applicantName || r?.name || r?.insuredName || ''),
-      email: clean(r?.applicantEmail || r?.email || ''),
-      phone: clean(r?.applicantPhone || r?.phone || '')
-    })));
-
-    const teamApprovedPoliciesToday = uniquePeople((policyRows || []).filter((r) => {
-      const ts = r?.approvedAt || r?.approved_at || r?.updatedAt || r?.submittedAt || r?.submitted_at || '';
-      return dateKeyFromIso(ts) === currentDateKey && normalize(r?.status || '').startsWith('approved');
-    }).map((r) => ({
-      ...r,
-      name: clean(r?.applicantName || r?.name || r?.insuredName || ''),
-      email: clean(r?.applicantEmail || r?.email || ''),
-      phone: clean(r?.applicantPhone || r?.phone || '')
-    })));
-
-    const teamBookings = (bookingRows || []).filter((r) => {
-      const ts = r?.created_at || r?.updated_at || '';
-      const status = normalize(r?.booking_status || 'booked');
-      const bookingQualified = ['booked', 'confirmed', 'completed'].includes(status);
-      return monthKeyFromIso(ts) === currentMonth && bookingQualified;
-    }).map((r) => ({
-      name: clean(r?.applicant_name || r?.name || ''),
-      email: clean(r?.applicant_email || r?.email || ''),
-      phone: clean(r?.applicant_phone || r?.phone || '')
-    }));
-
-    const teamApprovedApps = (sponsorshipApps || []).filter((r) => {
-      const status = normalize(r?.status || '');
-      const ts = r?.approved_at || r?.reviewedAt || r?.updatedAt || r?.submitted_at || '';
-      return status.includes('approved') && monthKeyFromIso(ts) === currentMonth;
-    }).map((r) => ({
-      name: clean(`${r?.firstName || ''} ${r?.lastName || ''}` || r?.name || ''),
-      email: clean(r?.email || ''),
-      phone: clean(r?.phone || '')
-    }));
-
-    displayLeadsReceived = teamAssigned.length;
-    displayBookingsThisMonth = uniquePeopleCount(teamBookings);
-    displayClosesThisMonth = uniquePeopleCount(teamApprovedPolicies);
-    displaySponsorshipApprovedThisMonth = uniquePeopleCount(teamApprovedApps);
-    displayPotentialEarned = Number(teamApprovedPolicies.reduce((sum, r) => sum + recommendedPotential(r), 0).toFixed(2));
-    displayClosesToday = uniquePeopleCount(teamApprovedPoliciesToday);
-    displayPotentialToday = Number(teamApprovedPoliciesToday.reduce((sum, r) => sum + recommendedPotential(r), 0).toFixed(2));
-  }
-
-  const closeRate = displayLeadsReceived > 0 ? (displayClosesThisMonth / displayLeadsReceived) * 100 : 0;
+  const [mainKpi, prev1Kpi, prev2Kpi] = monthsToCompute.map(computeFullKpiForMonth);
 
   return Response.json({
     ok: true,
-    month: currentMonth,
-    kpi: {
-      leadsReceived: displayLeadsReceived,
-      monthlyTarget: 60,
-      remainingToTarget: Math.max(0, 60 - displayLeadsReceived),
-      bookingsThisMonth: displayBookingsThisMonth,
-      closesThisMonth: displayClosesThisMonth,
-      sponsorshipApprovedThisMonth: displaySponsorshipApprovedThisMonth,
-      closeRate: Number(closeRate.toFixed(1)),
-      potentialEarned: displayPotentialEarned,
-      grossEarned: displayPotentialEarned,
-      closesToday: displayClosesToday,
-      potentialToday: displayPotentialToday
-    }
+    month: requestedMonth,
+    kpi: mainKpi,
+    prevMonths: [
+      { month: monthsToCompute[1], kpi: prev1Kpi },
+      { month: monthsToCompute[2], kpi: prev2Kpi }
+    ]
   });
 }

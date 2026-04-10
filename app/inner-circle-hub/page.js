@@ -273,6 +273,8 @@ export default function InnerCircleHubPage() {
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
   const [kpi, setKpi] = useState(null);
+  const [kpiMonth, setKpiMonth] = useState(() => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; });
+  const [kpiHistory, setKpiHistory] = useState({});
   const [scripts, setScripts] = useState([]);
   const [scriptFilter, setScriptFilter] = useState('all');
   const [vault, setVault] = useState({ content: [], calls: [], onboarding: [] });
@@ -1476,6 +1478,13 @@ export default function InnerCircleHubPage() {
           }
 
           setKpi(nextKpi);
+          // Build month history map for navigation
+          const history = {};
+          if (kpiData.month && nextKpi) history[kpiData.month] = nextKpi;
+          for (const pm of (Array.isArray(kpiData.prevMonths) ? kpiData.prevMonths : [])) {
+            if (pm?.month && pm?.kpi) history[pm.month] = pm.kpi;
+          }
+          setKpiHistory(history);
         }
         if (!canceled && dailyRes.ok && dailyData?.ok) {
           const rows = Array.isArray(dailyData.rows) ? dailyData.rows : [];
@@ -2010,6 +2019,26 @@ export default function InnerCircleHubPage() {
     }));
   }
 
+  function prevKpiMonthNav() {
+    const [y, m] = kpiMonth.split('-').map(Number);
+    const prev = new Date(y, m - 2, 1);
+    setKpiMonth(`${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`);
+  }
+
+  function nextKpiMonthNav() {
+    const [y, m] = kpiMonth.split('-').map(Number);
+    const next = new Date(y, m, 1);
+    setKpiMonth(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`);
+  }
+
+  function kpiMonthLabel(key = '') {
+    if (!key) return '';
+    const [y, m] = key.split('-').map(Number);
+    if (!y || !m) return key;
+    const d = new Date(y, m - 1, 1);
+    return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }
+
   async function copyLink(value = '', key = '') {
     try {
       if (!value) return;
@@ -2229,6 +2258,17 @@ export default function InnerCircleHubPage() {
     }
   }
 
+  const _currentMonthKey = (() => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; })();
+  const displayedKpi = kpiHistory[kpiMonth] || kpi;
+  const canGoBack = (() => {
+    if (!kpiMonth) return false;
+    const [y, m] = kpiMonth.split('-').map(Number);
+    const prev = new Date(y, m - 2, 1);
+    const prevKey = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+    return Boolean(kpiHistory[prevKey]);
+  })();
+  const canGoForward = kpiMonth !== _currentMonthKey;
+
   if (!member) {
     return (
       <main className="publicPage" style={{ minHeight: '100vh', background: 'radial-gradient(circle at top,#17120a 0%,#0b1020 42%, #05070f 100%)', color: '#e5e7eb' }}>
@@ -2423,12 +2463,16 @@ export default function InnerCircleHubPage() {
                 </div>
 
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
-                  <strong style={{ color: '#fff', fontSize: 16 }}>KPI Dashboard (This Month)</strong>
-                  <div style={{ display: 'grid', gap: 10, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
-                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Leads</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.leadsReceived ?? 0}</div></div>
-                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Bookings</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.bookingsThisMonth ?? 0}</div></div>
-                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Closes</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.closesThisMonth ?? 0}</div><small className="muted">Close Rate: {kpi?.closeRate ?? 0}%</small></div>
-                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Potential</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>${kpi?.potentialEarned ?? kpi?.grossEarned ?? 0}</div></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                    <button type="button" onClick={prevKpiMonthNav} disabled={!canGoBack} className="ghost" style={{ padding: '4px 12px', fontSize: 18, opacity: canGoBack ? 1 : 0.35 }}>◀</button>
+                    <strong style={{ color: '#fff', fontSize: 16, flex: 1 }}>KPI Dashboard — {kpiMonthLabel(kpiMonth)}</strong>
+                    <button type="button" onClick={nextKpiMonthNav} disabled={!canGoForward} className="ghost" style={{ padding: '4px 12px', fontSize: 18, opacity: canGoForward ? 1 : 0.35 }}>▶</button>
+                  </div>
+                  <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
+                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Leads</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{displayedKpi?.leadsReceived ?? 0}</div></div>
+                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Bookings</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{displayedKpi?.bookingsThisMonth ?? 0}</div></div>
+                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Closes</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{displayedKpi?.closesThisMonth ?? 0}</div><small className="muted">Close Rate: {displayedKpi?.closeRate ?? 0}%</small></div>
+                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Potential</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>${displayedKpi?.potentialEarned ?? displayedKpi?.grossEarned ?? 0}</div></div>
                   </div>
                 </div>
                 <div style={{ border: '1px solid #3a2f1a', borderRadius: 12, padding: 14, background: '#0f172a' }}>
