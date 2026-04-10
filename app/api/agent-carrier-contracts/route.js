@@ -1,6 +1,7 @@
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 import { sessionFromToken } from '../licensed-backoffice/auth/_lib';
 import licensedAgents from '../../../data/licensedAgents.json';
+import icMembers from '../../../data/innerCircleUsers.json';
 
 const STORE_PATH = 'stores/agent-carrier-contracts.json';
 
@@ -67,17 +68,29 @@ export async function POST(req) {
 
     if (!email) return Response.json({ ok: false, error: 'missing_email' }, { status: 400 });
 
-    // Auth: Bearer token (licensed backoffice session)
+    // Auth: Bearer token OR valid IC Hub member (no token)
     const auth = clean(req.headers.get('authorization') || '');
     const token = auth.toLowerCase().startsWith('bearer ') ? clean(auth.slice(7)) : '';
-    if (!token) return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
-    const profile = await sessionFromToken(token);
-    if (!profile) return Response.json({ ok: false, error: 'invalid_session' }, { status: 401 });
-
-    const isAdmin = String(profile?.role || '').toLowerCase() === 'admin';
-    if (!isAdmin && profile.email !== email) {
-      return Response.json({ ok: false, error: 'email_mismatch' }, { status: 403 });
+    if (token) {
+      const profile = await sessionFromToken(token);
+      if (!profile) return Response.json({ ok: false, error: 'invalid_session' }, { status: 401 });
+      const isAdmin = String(profile?.role || '').toLowerCase() === 'admin';
+      if (!isAdmin && profile.email !== email) {
+        return Response.json({ ok: false, error: 'email_mismatch' }, { status: 403 });
+      }
+    } else {
+      // No token: check IC Hub member
+      const staticMatch = (Array.isArray(icMembers) ? icMembers : []).find(
+        (u) => clean(u?.email || '').toLowerCase() === email && u?.active !== false
+      );
+      if (!staticMatch) {
+        const members = await loadJsonStore('stores/inner-circle-hub-members.json', []);
+        const hubMatch = Array.isArray(members) && members.some(
+          (m) => clean(m?.email || '').toLowerCase() === email && Boolean(m?.active)
+        );
+        if (!hubMatch) return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+      }
     }
 
     // Sanitize: only allow known carrier keys and expected fields

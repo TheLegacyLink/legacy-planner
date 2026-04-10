@@ -1932,24 +1932,14 @@ export default function InnerCircleHubPage() {
         member?.token ||
         (typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') || '' : '')
       );
-      let res, data;
-      if (sessionToken) {
-        // Licensed backoffice agent — use direct API with bearer token
-        res = await fetch('/api/agent-licensed-states', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
-          body: JSON.stringify({ email: memberEmail, states: licensedStates })
-        });
-        data = await res.json().catch(() => ({}));
-      } else {
-        // IC Hub member (no bearer token) — proxy through hub-members API
-        res = await fetch('/api/inner-circle-hub-members', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'save_licensed_states', memberId: member?.id || '', email: memberEmail, states: licensedStates })
-        });
-        data = await res.json().catch(() => ({}));
-      }
+      // Always call agent-licensed-states directly — API now accepts IC Hub members without bearer token
+      const headers = { 'Content-Type': 'application/json', ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}) };
+      const res = await fetch('/api/agent-licensed-states', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email: memberEmail, states: licensedStates })
+      });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
         setLicensedStatesMsg('Save failed. Please try again.');
         return;
@@ -1996,22 +1986,13 @@ export default function InnerCircleHubPage() {
         member?.token ||
         (typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') || '' : '')
       );
-      let res, data;
-      if (sessionToken) {
-        res = await fetch('/api/agent-carrier-contracts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
-          body: JSON.stringify({ email: memberEmail, contracts: carrierContracts })
-        });
-        data = await res.json().catch(() => ({}));
-      } else {
-        res = await fetch('/api/inner-circle-hub-members', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'save_carrier_contracts', memberId: member?.id || '', email: memberEmail, contracts: carrierContracts })
-        });
-        data = await res.json().catch(() => ({}));
-      }
+      const headers2 = { 'Content-Type': 'application/json', ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}) };
+      const res = await fetch('/api/agent-carrier-contracts', {
+        method: 'POST',
+        headers: headers2,
+        body: JSON.stringify({ email: memberEmail, contracts: carrierContracts })
+      });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) { setCarrierMsg('Save failed. Please try again.'); return; }
       setCarrierMsg('Carrier contracts updated - saved!');
       setTimeout(() => setCarrierMsg(''), 3500);
@@ -3730,6 +3711,7 @@ export default function InnerCircleHubPage() {
 
             {tab === 'licensedstates' ? (() => {
               const ALL_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
+              const STATE_NAMES = {AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',CO:'Colorado',CT:'Connecticut',DE:'Delaware',DC:'D.C.',FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hamp.',NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'N. Carolina',ND:'N. Dakota',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Is.',SC:'S. Carolina',SD:'S. Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'W. Virginia',WI:'Wisconsin',WY:'Wyoming'};
               const CARRIERS = [
                 { ckey: 'fg', label: 'F&G', sub: 'Fidelity & Guaranty Life', logo: '\uD83C\uDFE6' },
                 { ckey: 'national_life', label: 'National Life Group', sub: 'NLG / Sentinel', logo: '\uD83C\uDF33' },
@@ -3756,7 +3738,7 @@ export default function InnerCircleHubPage() {
                           type="button"
                           onClick={() => toggleLicensedState(code)}
                           style={{
-                            padding: '10px 0',
+                            padding: '8px 4px',
                             borderRadius: 8,
                             border: '1.5px solid #C8A96B',
                             background: selected ? '#C8A96B' : '#1F2937',
@@ -3764,10 +3746,15 @@ export default function InnerCircleHubPage() {
                             fontWeight: 700,
                             fontSize: 13,
                             cursor: 'pointer',
-                            transition: 'all .15s ease'
+                            transition: 'all .15s ease',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: 2
                           }}
                         >
-                          {code}
+                          <span>{code}</span>
+                          <span style={{ fontSize: 9, fontWeight: 400, opacity: 0.8, lineHeight: 1 }}>{STATE_NAMES[code] || ''}</span>
                         </button>
                       );
                     })}
