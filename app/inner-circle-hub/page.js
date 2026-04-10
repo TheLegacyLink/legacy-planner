@@ -1925,7 +1925,10 @@ export default function InnerCircleHubPage() {
     setLicensedStatesBusy(true);
     setLicensedStatesMsg('');
     try {
-      const sessionToken = clean(member?.token || '');
+      const sessionToken = clean(
+        member?.token ||
+        (typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') || '' : '')
+      );
       const res = await fetch('/api/agent-licensed-states', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}) },
