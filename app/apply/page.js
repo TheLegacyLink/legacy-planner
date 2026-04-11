@@ -349,6 +349,7 @@ const INITIAL = {
   maritalStatus: '', citizenship: '',
   visaType: '', countryOfCitizenship: '',
   driversLicenseNumber: '', driversLicenseState: '',
+  idType: '', idPhotoBase64: '',
   // Step 2
   employer: '', occupation: '', workPhone: '',
   employerStreet: '', employerCity: '', employerState: '', employerZip: '',
@@ -385,6 +386,8 @@ export default function ApplyPage() {
   const topRef = useRef(null);
 
   const [fd, setFd] = useState(INITIAL);
+  const [idPhotoPreview, setIdPhotoPreview] = useState(null);
+  const idPhotoRef = useRef(null);
   const [primaryBenes, setPrimaryBenes] = useState([
     { fullName: '', dateOfBirth: '', ssn: '', relationship: '', percentage: '' },
   ]);
@@ -422,6 +425,8 @@ export default function ApplyPage() {
         if (!fd.visaType.trim()) e.visaType = 'Required';
         if (!fd.countryOfCitizenship.trim()) e.countryOfCitizenship = 'Required';
       }
+      if (!fd.idType) e.idPhoto = 'Please select your ID type';
+      if (!fd.idPhotoBase64) e.idPhoto = 'Please upload a photo of your government-issued ID';
     }
     if (step === 3) {
       if (!fd.coveragePurpose) e.coveragePurpose = 'Please select your membership level';
@@ -501,6 +506,7 @@ export default function ApplyPage() {
         marital_status: fd.maritalStatus, citizenship: fd.citizenship,
         visa_type: fd.visaType, country_of_citizenship: fd.countryOfCitizenship,
         drivers_license_number: fd.driversLicenseNumber, drivers_license_state: fd.driversLicenseState,
+        id_type: fd.idType, id_photo_base64: fd.idPhotoBase64,
         employer: fd.employer, occupation: fd.occupation, work_phone: fd.workPhone,
         employer_street: fd.employerStreet, employer_city: fd.employerCity,
         employer_state: fd.employerState, employer_zip: fd.employerZip,
@@ -648,6 +654,67 @@ export default function ApplyPage() {
               {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
             </FSelect>
           </Row2>
+
+          {/* ── Government-Issued ID Upload ── */}
+          <div style={{ marginTop: 8 }}>
+            <Lbl req>Government-Issued ID — Front Photo</Lbl>
+            <div style={{ display: 'flex', gap: 14, marginBottom: 10, flexWrap: 'wrap' }}>
+              {["Driver's License", "Non-Driver's ID", "Passport"].map(type => (
+                <label key={type} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: TEXT, fontSize: 14 }}>
+                  <input
+                    type="radio" name="idType" value={type}
+                    checked={fd.idType === type}
+                    onChange={() => upd('idType', type)}
+                    style={{ accentColor: GOLD, width: 15, height: 15 }}
+                  />
+                  {type}
+                </label>
+              ))}
+            </div>
+            <div
+              onClick={() => idPhotoRef.current?.click()}
+              style={{
+                border: `2px dashed ${idPhotoPreview ? GOLD : BORDER}`,
+                borderRadius: 10, padding: '20px 16px',
+                background: idPhotoPreview ? 'rgba(212,175,55,0.05)' : INPUT_BG,
+                cursor: 'pointer', textAlign: 'center',
+                transition: 'border-color 0.2s',
+              }}
+            >
+              {idPhotoPreview ? (
+                <div>
+                  <img
+                    src={idPhotoPreview} alt="ID preview"
+                    style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 8, objectFit: 'contain' }}
+                  />
+                  <div style={{ color: GOLD, fontSize: 12, marginTop: 8 }}>Tap to replace</div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: 28, marginBottom: 6 }}>📎</div>
+                  <div style={{ color: TEXT, fontSize: 14, fontWeight: 600 }}>Tap to upload ID photo</div>
+                  <div style={{ color: MUTED, fontSize: 12, marginTop: 4 }}>JPG, PNG, HEIC — front side only</div>
+                </div>
+              )}
+            </div>
+            <input
+              ref={idPhotoRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = ev => {
+                  setIdPhotoPreview(ev.target.result);
+                  upd('idPhotoBase64', ev.target.result);
+                };
+                reader.readAsDataURL(file);
+              }}
+            />
+            <FieldErr msg={errors.idPhoto} />
+          </div>
         </Card>
       </>
     );
