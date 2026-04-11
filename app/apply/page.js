@@ -580,7 +580,7 @@ export default function ApplyPage() {
         <GoldBanner>National Life Group — Life Insurance Pre-Qualification Form</GoldBanner>
 
         <Card>
-          <CardTitle>Personal Information</CardTitle>
+          <CardTitle>Welcome to The Legacy Link</CardTitle>
           <Row2>
             <FInput label="First Name" req value={fd.firstName} onChange={e => upd('firstName', e.target.value)} error={errors.firstName} />
             <FInput label="Middle Name" value={fd.middleName} onChange={e => upd('middleName', e.target.value)} />
