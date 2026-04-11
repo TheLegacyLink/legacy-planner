@@ -1330,7 +1330,13 @@ export async function POST(req) {
 
   const welcomeEmail = await sendWelcomeEmail(finalRow).catch((e) => ({ ok: false, error: clean(e?.message || 'welcome_email_failed') }));
 
-  return Response.json({ ok: true, row: finalRow, hierarchy, sop, welcomeEmail, removedFromBookingQueue, bookingQueueRetention: 'preserved' });
+  // Notify Jamal for unlicensed submissions — fires regardless of submittedByRole or SOP skip flag
+  const isUnlicensedSubmission = !isLicensedValue(finalRow?.applicantLicensedStatus);
+  const jamalNotify = isUnlicensedSubmission
+    ? await sendUnlicensedStartClassEmail(finalRow).catch((e) => ({ ok: false, error: clean(e?.message || 'jamal_notify_failed') }))
+    : { ok: true, skipped: true, reason: 'licensed_applicant' };
+
+  return Response.json({ ok: true, row: finalRow, hierarchy, sop, welcomeEmail, jamalNotify, removedFromBookingQueue, bookingQueueRetention: 'preserved' });
 }
 
 export async function PATCH(req) {
