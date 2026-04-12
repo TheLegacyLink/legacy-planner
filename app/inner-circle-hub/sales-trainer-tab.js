@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import React from 'react';
 
 const BG = '#0E131B';
 const GOLD = '#c8a96b';
@@ -530,7 +531,9 @@ export default function SalesTrainerTab({ member }) {
       persona={selectedPersona}
       progress={progress}
       leaderboard={leaderboard}
+      transcript={transcript}
       onTrainAgain={() => setScreen('home')}
+      onResumeSession={() => setScreen('training')}
     />;
   }
 
@@ -811,7 +814,8 @@ function TrainingScreen({
 
 // ─── REVIEW SCREEN ──────────────────────────────────────────────────────────
 
-function ReviewScreen({ score, isScoring, persona, progress, leaderboard, onTrainAgain }) {
+function ReviewScreen({ score, isScoring, persona, progress, leaderboard, transcript, onTrainAgain, onResumeSession }) {
+  const [activeTab, setActiveTab] = React.useState('summary');
   if (isScoring || !score) {
     return (
       <div style={{ background: BG, minHeight: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 40, fontFamily: 'sans-serif' }}>
@@ -836,7 +840,6 @@ function ReviewScreen({ score, isScoring, persona, progress, leaderboard, onTrai
   const gColor = gradeColor(score.grade);
   const passed = score.grade === 'A' || score.grade === 'B';
   const certified = progress?.certifiedAt;
-
   const cats = [
     { key: 'discovery', label: 'Discovery' },
     { key: 'productKnowledge', label: 'Product Knowledge' },
@@ -846,118 +849,156 @@ function ReviewScreen({ score, isScoring, persona, progress, leaderboard, onTrai
   ];
 
   return (
-    <div style={{ background: BG, minHeight: '100%', padding: '24px 20px', fontFamily: 'sans-serif', color: TEXT }}>
-      {/* Certified banner */}
-      {certified && (
-        <div style={{ background: 'rgba(200,169,107,0.15)', border: `1px solid ${GOLD}`, borderRadius: 12, padding: '14px 20px', marginBottom: 20, textAlign: 'center', fontSize: 18, fontWeight: 700, color: GOLD }}>
-          🏆 You're a Certified Legacy Link Closer!
-        </div>
-      )}
-
-      {/* Passed banner */}
-      {passed && !certified && (
-        <div style={{ background: 'rgba(74,222,128,0.1)', border: `1px solid ${GREEN}44`, borderRadius: 12, padding: '10px 16px', marginBottom: 20, textAlign: 'center', fontSize: 15, fontWeight: 600, color: GREEN }}>
-          🏆 Session Complete — Progress Updated!
-        </div>
-      )}
-
+    <div style={{ background: BG, minHeight: '100%', fontFamily: 'sans-serif', color: TEXT }}>
       {/* Score header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20 }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 48, fontWeight: 800, color: gColor, lineHeight: 1 }}>{score.overall}</div>
-          <div style={{ fontSize: 13, color: MUTED }}>/ 100</div>
-        </div>
-        <div style={{ background: gColor + '22', border: `2px solid ${gColor}`, borderRadius: 12, width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 800, color: gColor }}>
-          {score.grade}
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: 15 }}>{persona?.name} · {persona?.difficulty}</div>
-          <div style={{ color: MUTED, fontSize: 13, marginTop: 4 }}>{score.verdict}</div>
-          <div style={{ marginTop: 6, fontSize: 13, color: score.wouldBuy ? GREEN : DANGER }}>
-            {score.wouldBuy ? '✅ They would have moved forward' : '❌ They would not have moved forward'}
+      <div style={{ background: CARD, borderBottom: `1px solid ${BORDER}`, padding: '14px 16px' }}>
+        {certified && <div style={{ background: 'rgba(200,169,107,0.15)', border: `1px solid ${GOLD}`, borderRadius: 8, padding: '7px 12px', marginBottom: 10, textAlign: 'center', fontSize: 13, fontWeight: 700, color: GOLD }}>🏆 Certified Legacy Link Closer!</div>}
+        {passed && !certified && <div style={{ background: 'rgba(74,222,128,0.1)', border: `1px solid ${GREEN}44`, borderRadius: 8, padding: '7px 12px', marginBottom: 10, textAlign: 'center', fontSize: 12, fontWeight: 600, color: GREEN }}>🏆 Session Complete — Progress Updated!</div>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ textAlign: 'center', minWidth: 50 }}>
+            <div style={{ fontSize: 38, fontWeight: 800, color: gColor, lineHeight: 1 }}>{score.overall}</div>
+            <div style={{ fontSize: 11, color: MUTED }}>/100</div>
+          </div>
+          <div style={{ background: gColor + '22', border: `2px solid ${gColor}`, borderRadius: 10, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: gColor }}>{score.grade}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>{persona?.name} · {persona?.difficulty}</div>
+            <div style={{ color: MUTED, fontSize: 12, marginTop: 2 }}>{score.verdict}</div>
+            <div style={{ marginTop: 3, fontSize: 12, color: score.wouldBuy ? GREEN : DANGER }}>{score.wouldBuy ? '✅ Would move forward' : '❌ Would not move forward'}</div>
           </div>
         </div>
       </div>
 
-      {/* Category bars */}
-      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: GOLD }}>Category Breakdown</div>
-        {cats.map((cat) => {
-          const c = score.categories?.[cat.key];
-          if (!c) return null;
-          const pct = Math.round((c.score / c.max) * 100);
-          return (
-            <div key={cat.key} style={{ marginBottom: 14 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-                <span>{cat.label}</span>
-                <span style={{ color: GOLD }}>{c.score}/{c.max}</span>
-              </div>
-              <div style={{ background: CARD2, borderRadius: 6, height: 8 }}>
-                <div style={{ background: GOLD, borderRadius: 6, height: 8, width: `${pct}%`, transition: 'width 0.5s' }} />
-              </div>
-              <div style={{ fontSize: 12, color: MUTED, marginTop: 4 }}>{c.feedback}</div>
-            </div>
-          );
-        })}
+      {/* Tabs */}
+      <div style={{ display: 'flex', background: CARD, borderBottom: `1px solid ${BORDER}` }}>
+        {['summary','scorecard','transcript'].map(t => (
+          <button key={t} onClick={() => setActiveTab(t)} style={{
+            flex: 1, padding: '10px 0', border: 'none', background: 'none', cursor: 'pointer',
+            fontSize: 12, fontWeight: 600, textTransform: 'capitalize',
+            color: activeTab === t ? GOLD : MUTED,
+            borderBottom: activeTab === t ? `2px solid ${GOLD}` : '2px solid transparent',
+          }}>{t}</button>
+        ))}
       </div>
 
-      {/* Strengths + Improvements */}
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
-        <div style={{ flex: 1, minWidth: 220, background: CARD, border: `1px solid rgba(74,222,128,0.2)`, borderRadius: 12, padding: '14px 16px' }}>
-          <div style={{ fontWeight: 700, color: GREEN, marginBottom: 10 }}>Strengths</div>
-          {(score.strengths || []).map((s, i) => (
-            <div key={i} style={{ fontSize: 13, color: TEXT, marginBottom: 6 }}>✅ {s}</div>
-          ))}
-        </div>
-        <div style={{ flex: 1, minWidth: 220, background: CARD, border: `1px solid rgba(251,191,36,0.2)`, borderRadius: 12, padding: '14px 16px' }}>
-          <div style={{ fontWeight: 700, color: GOLD, marginBottom: 10 }}>To Improve</div>
-          {(score.improvements || []).map((s, i) => (
-            <div key={i} style={{ fontSize: 13, color: TEXT, marginBottom: 6 }}>🔧 {s}</div>
-          ))}
-        </div>
+      <div style={{ padding: '14px 14px 90px', overflowY: 'auto' }}>
+        {/* SUMMARY TAB */}
+        {activeTab === 'summary' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {score.callContext && (
+              <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '13px 14px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: GOLD, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Call Overview</div>
+                <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.6 }}>{score.callContext}</div>
+              </div>
+            )}
+            {score.strengthsNarrative && (
+              <div style={{ background: CARD, border: `1px solid rgba(74,222,128,0.2)`, borderRadius: 12, padding: '13px 14px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: GREEN, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Strengths</div>
+                <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.6 }}>{score.strengthsNarrative}</div>
+              </div>
+            )}
+            {score.weaknessesNarrative && (
+              <div style={{ background: CARD, border: `1px solid rgba(248,113,113,0.2)`, borderRadius: 12, padding: '13px 14px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: DANGER, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Areas to Improve</div>
+                <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.6 }}>{score.weaknessesNarrative}</div>
+              </div>
+            )}
+            {score.customerResponse && (
+              <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '13px 14px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Prospect Response</div>
+                <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.6 }}>{score.customerResponse}</div>
+              </div>
+            )}
+            {score.overallImpression && (
+              <div style={{ background: 'rgba(200,169,107,0.08)', border: `1px solid ${GOLD}44`, borderRadius: 12, padding: '13px 14px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: GOLD, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Overall Impression</div>
+                <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.6 }}>{score.overallImpression}</div>
+              </div>
+            )}
+            {!score.strengthsNarrative && (
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 180, background: CARD, border: `1px solid rgba(74,222,128,0.2)`, borderRadius: 12, padding: '13px 14px' }}>
+                  <div style={{ fontWeight: 700, color: GREEN, marginBottom: 8, fontSize: 13 }}>Strengths</div>
+                  {(score.strengths || []).map((s, i) => <div key={i} style={{ fontSize: 13, color: TEXT, marginBottom: 5 }}>✅ {s}</div>)}
+                </div>
+                <div style={{ flex: 1, minWidth: 180, background: CARD, border: `1px solid rgba(251,191,36,0.2)`, borderRadius: 12, padding: '13px 14px' }}>
+                  <div style={{ fontWeight: 700, color: GOLD, marginBottom: 8, fontSize: 13 }}>To Improve</div>
+                  {(score.improvements || []).map((s, i) => <div key={i} style={{ fontSize: 13, color: TEXT, marginBottom: 5 }}>🔧 {s}</div>)}
+                </div>
+              </div>
+            )}
+            {score.momentFlags?.length > 0 && (
+              <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '13px 14px' }}>
+                <div style={{ fontWeight: 700, color: GOLD, marginBottom: 8, fontSize: 13 }}>Key Moments</div>
+                {score.momentFlags.map((flag, i) => (
+                  <div key={i} style={{ borderLeft: `3px solid ${flag.type === 'positive' ? GREEN : DANGER}`, paddingLeft: 10, marginBottom: 10 }}>
+                    <div style={{ fontSize: 12, color: MUTED, marginBottom: 2 }}>You said: "{flag.quote}"</div>
+                    <div style={{ fontSize: 13, color: flag.type === 'positive' ? GREEN : DANGER }}>{flag.feedback}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SCORECARD TAB */}
+        {activeTab === 'scorecard' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '14px 16px' }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12, color: GOLD }}>Category Breakdown</div>
+              {cats.map((cat) => {
+                const c = score.categories?.[cat.key];
+                if (!c) return null;
+                const pct = Math.round((c.score / c.max) * 100);
+                return (
+                  <div key={cat.key} style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
+                      <span>{cat.label}</span><span style={{ color: GOLD }}>{c.score}/{c.max}</span>
+                    </div>
+                    <div style={{ background: CARD2, borderRadius: 6, height: 7 }}>
+                      <div style={{ background: GOLD, borderRadius: 6, height: 7, width: `${pct}%`, transition: 'width 0.5s' }} />
+                    </div>
+                    <div style={{ fontSize: 11, color: MUTED, marginTop: 3 }}>{c.feedback}</div>
+                  </div>
+                );
+              })}
+            </div>
+            {leaderboard.length > 0 && (
+              <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '13px 14px' }}>
+                <div style={{ fontWeight: 700, color: GOLD, marginBottom: 8, fontSize: 13 }}>🏆 Top Performers</div>
+                {leaderboard.slice(0, 5).map((row, i) => (
+                  <div key={row.id || i} style={{ display: 'flex', gap: 8, fontSize: 13, marginBottom: 5 }}>
+                    <span style={{ color: i === 0 ? GOLD : MUTED, width: 22 }}>#{i + 1}</span>
+                    <span style={{ flex: 1 }}>{row.name}</span>
+                    <span style={{ color: gradeColor(row.grade) }}>{row.overall}/100 · {row.grade}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TRANSCRIPT TAB */}
+        {activeTab === 'transcript' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {(transcript || []).map((msg, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: msg.role === 'prospect' ? GOLD : MUTED, minWidth: 40, paddingTop: 2 }}>
+                  {msg.role === 'prospect' ? persona?.name?.split(' ')[0] : 'You'}
+                </span>
+                <span style={{ fontSize: 13, color: TEXT, lineHeight: 1.5, flex: 1 }}>{msg.content}</span>
+              </div>
+            ))}
+            {(!transcript || transcript.length === 0) && (
+              <div style={{ color: MUTED, fontSize: 13, textAlign: 'center', marginTop: 20 }}>No transcript available.</div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Moment Flags */}
-      {score.momentFlags?.length > 0 && (
-        <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '14px 16px', marginBottom: 20 }}>
-          <div style={{ fontWeight: 700, color: GOLD, marginBottom: 10 }}>Key Moments</div>
-          {score.momentFlags.map((flag, i) => (
-            <div key={i} style={{ borderLeft: `3px solid ${flag.type === 'positive' ? GREEN : DANGER}`, paddingLeft: 12, marginBottom: 12 }}>
-              <div style={{ fontSize: 12, color: MUTED, marginBottom: 2 }}>You said: "{flag.quote}"</div>
-              <div style={{ fontSize: 13, color: flag.type === 'positive' ? GREEN : DANGER }}>{flag.feedback}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Leaderboard snippet */}
-      {leaderboard.length > 0 && (
-        <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '14px 16px', marginBottom: 20 }}>
-          <div style={{ fontWeight: 700, color: GOLD, marginBottom: 10 }}>🏆 Top Performers</div>
-          {leaderboard.slice(0, 5).map((row, i) => (
-            <div key={row.id || i} style={{ display: 'flex', gap: 10, fontSize: 13, marginBottom: 6 }}>
-              <span style={{ color: i === 0 ? GOLD : MUTED, width: 24 }}>#{i + 1}</span>
-              <span style={{ flex: 1 }}>{row.name}</span>
-              <span style={{ color: gradeColor(row.grade) }}>{row.overall}/100 · {row.grade}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: 12 }}>
-        <button
-          onClick={onTrainAgain}
-          style={{ flex: 1, background: GOLD, color: '#0E131B', border: 'none', borderRadius: 8, padding: '12px', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}
-        >
-          Train Again
-        </button>
-        <button
-          onClick={() => document.querySelector('[data-leaderboard]')?.scrollIntoView({ behavior: 'smooth' })}
-          style={{ flex: 1, background: CARD, color: GOLD, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '12px', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}
-        >
-          View Leaderboard
-        </button>
+      {/* Fixed bottom actions */}
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: CARD, borderTop: `1px solid ${BORDER}`, padding: '10px 14px', display: 'flex', gap: 10 }}>
+        <button onClick={onTrainAgain} style={{ flex: 1, background: GOLD, color: '#0E131B', border: 'none', borderRadius: 8, padding: '11px', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>Train Again</button>
+        <button onClick={onResumeSession} style={{ flex: 1, background: CARD2, color: TEXT, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '11px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Resume Session</button>
       </div>
     </div>
   );

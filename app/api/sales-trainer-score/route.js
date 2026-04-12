@@ -37,6 +37,11 @@ Please evaluate the agent's performance and respond in VALID JSON format only (n
   "grade": "<A/B/C/D/F>",
   "verdict": "<1-2 sentence summary>",
   "wouldBuy": <true/false>,
+  "callContext": "<2-3 sentence overview of how the call went>",
+  "strengthsNarrative": "<Detailed paragraph analyzing what the agent did well with specific examples from the transcript>",
+  "weaknessesNarrative": "<Detailed paragraph analyzing weaknesses with exact quotes from the transcript>",
+  "customerResponse": "<Paragraph describing how the prospect responded and evolved throughout the call>",
+  "overallImpression": "<Concluding paragraph with big picture assessment and one key takeaway>",
   "categories": {
     "discovery": { "score": <0-25>, "max": 25, "feedback": "<specific feedback>" },
     "productKnowledge": { "score": <0-25>, "max": 25, "feedback": "<specific feedback>" },
@@ -60,7 +65,7 @@ Grading: A (90-100), B (75-89), C (60-74), D (45-59), F (0-44)`;
         headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
-          max_tokens: 2500,
+          max_tokens: 4000,
           messages: [{ role: 'user', content: scoringPrompt }],
         }),
       });
