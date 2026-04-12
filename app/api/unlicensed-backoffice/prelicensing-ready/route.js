@@ -102,17 +102,16 @@ async function sendTriggerEmail({ member = {}, address = {} } = {}) {
   const lastName = clean(member?.name || '').split(' ').slice(1).join(' ') || '';
 
   const text = [
-    `PRE-LICENSING REQUEST`,
-    ``,
-    `Name: ${clean(member?.name) || '—'}`,
+    `PRELICENSING_REQUEST`,
+    `First Name: ${firstName || '—'}`,
+    `Last Name: ${lastName || '—'}`,
     `Email: ${clean(member?.email) || '—'}`,
     `Phone: ${clean(member?.phone) || '—'}`,
     `Home State: ${clean(member?.state) || '—'}`,
-    ``,
-    `Mailing Address:`,
-    `${clean(address?.street) || '—'}`,
-    `${clean(address?.city) || '—'}, ${clean(address?.state) || '—'} ${clean(address?.zip) || '—'}`,
-    ``,
+    `Street Address: ${clean(address?.street) || '—'}`,
+    `City: ${clean(address?.city) || '—'}`,
+    `State: ${clean(address?.state) || '—'}`,
+    `Zip: ${clean(address?.zip) || '—'}`,
     `Referrer: ${clean(member?.referrerName) || '—'}`,
     `Requested At: ${new Date().toISOString()}`,
   ].join('\n');
