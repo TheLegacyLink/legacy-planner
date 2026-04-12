@@ -59,7 +59,7 @@ Grading: A (90-100), B (75-89), C (60-74), D (45-59), F (0-44)`;
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-20241101',
+        model: 'claude-3-haiku-20240307',
         max_tokens: 2500,
         messages: [{ role: 'user', content: scoringPrompt }],
       }),

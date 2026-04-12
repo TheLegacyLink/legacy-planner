@@ -78,7 +78,7 @@ export async function POST(request) {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-20241101',
+        model: 'claude-3-haiku-20240307',
         max_tokens: 300,
         system: persona.systemPrompt,
         messages: mappedMessages,
