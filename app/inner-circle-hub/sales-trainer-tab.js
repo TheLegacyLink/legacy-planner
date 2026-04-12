@@ -128,16 +128,17 @@ export default function SalesTrainerTab({ member }) {
   const [isMuted, setIsMuted] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const [isScoring, setIsScoring] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [callSeconds, setCallSeconds] = useState(0);
+  const callTimerRef = useRef(null);
 
   const chatEndRef = useRef(null);
   const recognitionRef = useRef(null);
   const audioRef = useRef(null);
   const silenceTimerRef = useRef(null);
-  const inputRef = useRef(null);
   const accumulatedRef = useRef('');
   const isVoiceActiveRef = useRef(false);
   const startListeningRef = useRef(null);
@@ -216,9 +217,19 @@ export default function SalesTrainerTab({ member }) {
       setSelectedPersona(persona);
       setTranscript([]);
       setScore(null);
+      setCallSeconds(0);
+      setIsConnecting(true);
       setScreen('training');
 
-      // Trigger the AI to open the call
+      // Short "Connecting..." pause for realism
+      await new Promise((r) => setTimeout(r, 1000));
+      setIsConnecting(false);
+
+      // Start call timer
+      if (callTimerRef.current) clearInterval(callTimerRef.current);
+      callTimerRef.current = setInterval(() => setCallSeconds((s) => s + 1), 1000);
+
+      // AI opens the call
       setIsTyping(true);
       try {
         const res = await fetch('/api/sales-trainer-chat', {
@@ -232,13 +243,8 @@ export default function SalesTrainerTab({ member }) {
         const data = await res.json();
         const reply = data.reply || 'Hello?';
         setTranscript([{ role: 'prospect', content: reply }]);
-        if (!isMuted) {
-          await playTTS(reply, persona.id);
-        }
-        // Auto-start mic if voice mode is already active
-        if (isVoiceActiveRef.current) {
-          setTimeout(() => startListeningRef.current?.(), 800);
-        }
+        if (!isMuted) await playTTS(reply, persona.id);
+        if (isVoiceActiveRef.current) setTimeout(() => startListeningRef.current?.(), 800);
       } catch {
         setTranscript([{ role: 'prospect', content: 'Hello? Who is this?' }]);
       } finally {
@@ -248,12 +254,23 @@ export default function SalesTrainerTab({ member }) {
     [isMuted, playTTS]
   );
 
+  // Stop call timer when ending session
+  const stopCallTimer = useCallback(() => {
+    if (callTimerRef.current) {
+      clearInterval(callTimerRef.current);
+      callTimerRef.current = null;
+    }
+  }, []);
+
   // End session → go to review
   const endSession = useCallback(async () => {
+    stopCallTimer();
     if (transcript.length < 2) {
+      stopListening();
       setScreen('home');
       return;
     }
+    stopListening();
     setIsScoring(true);
     setScreen('review');
 
@@ -463,10 +480,9 @@ export default function SalesTrainerTab({ member }) {
       voiceTranscript={voiceTranscript}
       voiceMode={voiceMode}
       isMuted={isMuted}
-      inputText={inputText}
-      inputRef={inputRef}
       chatEndRef={chatEndRef}
-      onSend={sendMessage}
+      callSeconds={callSeconds}
+      isConnecting={isConnecting}
       onEndSession={endSession}
       onToggleVoice={() => {
         if (voiceMode) {
@@ -484,9 +500,6 @@ export default function SalesTrainerTab({ member }) {
           return !m;
         });
       }}
-      onStartListening={startListening}
-      onStopListening={stopListening}
-      onInputChange={(v) => setInputText(v)}
     />;
   }
 
@@ -505,83 +518,79 @@ export default function SalesTrainerTab({ member }) {
   const trackPersonas = PERSONAS.filter((p) => p.track === selectedTrack);
 
   return (
-    <div style={{ background: BG, minHeight: '100%', padding: '24px 16px', fontFamily: 'sans-serif', color: TEXT }}>
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 26, fontWeight: 700, color: GOLD }}>🎭 AI Sales Trainer</div>
-        <div style={{ color: MUTED, fontSize: 14, marginTop: 4 }}>
-          Train like you're on a real call. Choose your track and difficulty.
+    <div style={{ background: BG, padding: '16px', fontFamily: 'sans-serif', color: TEXT }}>
+      {/* Compact header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: GOLD }}>📞 AI Sales Trainer</div>
+          {progress && (
+            <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>
+              {getLevelLabel(progress)} &nbsp;·&nbsp; Warm: {progress.warmCompleted || 0} &nbsp;·&nbsp; Skeptical: {progress.skepticalCompleted || 0} &nbsp;·&nbsp; Cold: {progress.coldCompleted || 0}
+            </div>
+          )}
         </div>
-        {progress && (
-          <div style={{ marginTop: 8, display: 'inline-block', background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '4px 12px', fontSize: 13, color: GOLD }}>
-            {getLevelLabel(progress)} · Warm: {progress.warmCompleted || 0} · Skeptical: {progress.skepticalCompleted || 0} · Cold: {progress.coldCompleted || 0}
-          </div>
-        )}
+        {/* Track tabs */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {TRACKS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setSelectedTrack(t.key)}
+              style={{
+                padding: '5px 14px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                fontWeight: 600, fontSize: 12,
+                background: selectedTrack === t.key ? GOLD : CARD2,
+                color: selectedTrack === t.key ? '#0E131B' : MUTED,
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Track tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-        {TRACKS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setSelectedTrack(t.key)}
-            style={{
-              padding: '8px 20px',
-              borderRadius: 8,
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: 14,
-              background: selectedTrack === t.key ? GOLD : CARD,
-              color: selectedTrack === t.key ? '#0E131B' : TEXT,
-              borderBottom: selectedTrack === t.key ? `2px solid ${GOLD}` : 'none',
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Difficulty sections */}
+      {/* Difficulty sections — compact 2-col grid */}
       {DIFFICULTIES.map((diff) => {
         const personas = trackPersonas.filter((p) => p.difficulty === diff.key);
         const unlocked = isUnlocked(diff.key, progress);
-        const neededFor = diff.key === 'skeptical' ? 'warm' : 'skeptical';
-        const needed = diff.key === 'warm' ? 0 : 3;
+        const neededFor = diff.key === 'skeptical' ? 'Warm' : 'Skeptical';
 
         return (
-          <div key={diff.key} style={{ marginBottom: 28 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: diff.color }}>{diff.label}</div>
+          <div key={diff.key} style={{ marginBottom: 14 }}>
+            {/* Section label */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: diff.color, textTransform: 'uppercase', letterSpacing: 0.5 }}>{diff.label}</span>
               {unlocked ? (
-                <span style={{ background: 'rgba(74,222,128,0.12)', color: GREEN, border: `1px solid rgba(74,222,128,0.3)`, borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>
-                  ✓ Unlocked
-                </span>
+                <span style={{ fontSize: 11, color: GREEN }}>✓ Unlocked</span>
               ) : (
-                <span style={{ background: 'rgba(200,169,107,0.1)', color: MUTED, border: `1px solid ${BORDER}`, borderRadius: 20, padding: '2px 10px', fontSize: 12 }}>
-                  🔒 Complete 3 {neededFor} (B+) to unlock
-                </span>
+                <span style={{ fontSize: 11, color: MUTED }}>🔒 Complete 3 {neededFor} (B+)</span>
               )}
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+            {/* Compact cards — 2 per row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
               {personas.map((persona) => (
                 <div
                   key={persona.id}
                   style={{
                     background: CARD,
-                    border: `1px solid ${unlocked ? diff.color + '44' : BORDER}`,
-                    borderRadius: 12,
-                    padding: '16px 20px',
-                    width: 280,
-                    opacity: unlocked ? 1 : 0.5,
+                    border: `1px solid ${unlocked ? diff.color + '55' : BORDER}`,
+                    borderRadius: 10,
+                    padding: '10px 14px',
+                    opacity: unlocked ? 1 : 0.45,
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
                   }}
                 >
-                  <div style={{ fontWeight: 700, fontSize: 16, color: TEXT }}>{persona.name}</div>
-                  <div style={{ color: MUTED, fontSize: 13, marginBottom: 6 }}>
-                    {persona.age} · {persona.occupation}
+                  {!unlocked && (
+                    <div style={{ position: 'absolute', top: 8, right: 10, fontSize: 16 }}>🔒</div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: TEXT }}>{persona.name}</span>
+                    <span style={{ fontSize: 12, color: MUTED }}>{persona.age} · {persona.occupation}</span>
                   </div>
-                  <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.5, marginBottom: 14 }}>
+                  <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                     {persona.backstory}
                   </div>
                   <button
@@ -590,16 +599,13 @@ export default function SalesTrainerTab({ member }) {
                     style={{
                       background: unlocked ? GOLD : CARD2,
                       color: unlocked ? '#0E131B' : MUTED,
-                      border: 'none',
-                      borderRadius: 8,
-                      padding: '8px 16px',
-                      fontWeight: 700,
-                      fontSize: 13,
+                      border: 'none', borderRadius: 6,
+                      padding: '6px 0', fontWeight: 700, fontSize: 12,
                       cursor: unlocked ? 'pointer' : 'not-allowed',
-                      width: '100%',
+                      marginTop: 2,
                     }}
                   >
-                    {unlocked ? 'Start Training →' : '🔒 Locked'}
+                    {unlocked ? '📞 Start Call' : '🔒 Locked'}
                   </button>
                 </div>
               ))}
@@ -608,215 +614,152 @@ export default function SalesTrainerTab({ member }) {
         );
       })}
 
-      {/* Top Performers */}
-      <div style={{ marginTop: 32 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: GOLD, marginBottom: 12 }}>🏆 Top Performers</div>
-        {leaderboard.length === 0 ? (
-          <div style={{ color: MUTED, fontSize: 14 }}>No scores yet. Be the first!</div>
-        ) : (
-          <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' }}>
-            {leaderboard.slice(0, 5).map((row, i) => (
-              <div
-                key={row.id || i}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '10px 16px',
-                  borderBottom: i < Math.min(leaderboard.length, 5) - 1 ? `1px solid ${BORDER}` : 'none',
-                  gap: 12,
-                }}
-              >
-                <div style={{ width: 28, color: i === 0 ? GOLD : MUTED, fontWeight: 700 }}>#{i + 1}</div>
-                <div style={{ flex: 1, fontWeight: 600 }}>{row.name}</div>
-                <div style={{ color: MUTED, fontSize: 13 }}>{row.personaName} · {row.difficulty}</div>
-                <div style={{ color: gradeColor(row.grade), fontWeight: 700, minWidth: 50, textAlign: 'right' }}>
-                  {row.overall}/100
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Top 5 strip */}
+      {leaderboard.length > 0 && (
+        <div style={{ marginTop: 16, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ padding: '8px 14px', borderBottom: `1px solid ${BORDER}`, fontSize: 12, fontWeight: 700, color: GOLD }}>🏆 Top Performers</div>
+          {leaderboard.slice(0, 5).map((row, i) => (
+            <div key={row.id || i} style={{ display: 'flex', alignItems: 'center', padding: '7px 14px', borderBottom: i < 4 ? `1px solid ${BORDER}` : 'none', gap: 10, fontSize: 12 }}>
+              <span style={{ color: i === 0 ? GOLD : MUTED, width: 20, fontWeight: 700 }}>#{i + 1}</span>
+              <span style={{ flex: 1, fontWeight: 600 }}>{row.name}</span>
+              <span style={{ color: MUTED }}>{row.personaName} · {row.difficulty}</span>
+              <span style={{ color: gradeColor(row.grade), fontWeight: 700 }}>{row.overall}/100</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── TRAINING SCREEN ────────────────────────────────────────────────────────
+// ─── TRAINING SCREEN — Phone Call UI ──────────────────────────────────────
+
+function formatCallTime(secs) {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
 
 function TrainingScreen({
   persona, transcript, isTyping, isListening, voiceTranscript, voiceMode,
-  isMuted, inputText, inputRef, chatEndRef,
-  onSend, onEndSession, onToggleVoice, onToggleMute, onStartListening, onStopListening, onInputChange,
+  isMuted, chatEndRef, callSeconds, isConnecting,
+  onEndSession, onToggleVoice, onToggleMute,
 }) {
   const diffColor = { warm: GREEN, skeptical: GOLD, cold: DANGER }[persona.difficulty] || GOLD;
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      onSend(inputText);
-    }
-  };
+  if (isConnecting) {
+    return (
+      <div style={{ background: BG, minHeight: 400, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: 'sans-serif' }}>
+        <div style={{ fontSize: 48 }}>📞</div>
+        <div style={{ color: GOLD, fontSize: 18, fontWeight: 700 }}>Connecting to {persona.name}...</div>
+        <div style={{ color: MUTED, fontSize: 13 }}>{persona.age} · {persona.occupation}</div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ background: BG, minHeight: '100%', padding: '0', fontFamily: 'sans-serif', color: TEXT, display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: CARD, borderBottom: `1px solid ${BORDER}` }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 17 }}>{persona.name} <span style={{ color: MUTED, fontWeight: 400, fontSize: 14 }}>· {persona.occupation}</span></div>
-          <span style={{ background: diffColor + '22', color: diffColor, border: `1px solid ${diffColor}55`, borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>
-            {persona.difficulty.charAt(0).toUpperCase() + persona.difficulty.slice(1)}
+    <div style={{ background: BG, fontFamily: 'sans-serif', color: TEXT, display: 'flex', flexDirection: 'column' }}>
+
+      {/* Call header — persona + timer */}
+      <div style={{ background: CARD, borderBottom: `1px solid ${BORDER}`, padding: '14px 20px', textAlign: 'center' }}>
+        <div style={{ fontSize: 20, fontWeight: 700 }}>{persona.name}</div>
+        <div style={{ fontSize: 13, color: MUTED, marginTop: 2 }}>{persona.age} · {persona.occupation}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8 }}>
+          <span style={{ width: 8, height: 8, background: GREEN, borderRadius: '50%', display: 'inline-block' }} />
+          <span style={{ fontSize: 13, color: GREEN, fontWeight: 600 }}>In Call · {formatCallTime(callSeconds)}</span>
+          <span style={{ background: diffColor + '22', color: diffColor, border: `1px solid ${diffColor}44`, borderRadius: 20, padding: '1px 8px', fontSize: 11, fontWeight: 600, marginLeft: 4 }}>
+            {persona.difficulty}
           </span>
         </div>
-        <button
-          onClick={onEndSession}
-          style={{ background: DANGER + '22', color: DANGER, border: `1px solid ${DANGER}55`, borderRadius: 8, padding: '8px 16px', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
-        >
-          End Session
-        </button>
       </div>
 
-      {/* Chat */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12, minHeight: 0, maxHeight: 420 }}>
+      {/* Transcript — compact phone call log */}
+      <div style={{ overflowY: 'auto', maxHeight: 260, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {transcript.length === 0 && !isTyping && (
+          <div style={{ color: MUTED, fontSize: 13, textAlign: 'center', marginTop: 20 }}>Call connected — speak when ready.</div>
+        )}
         {transcript.map((msg, i) => (
-          <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === 'agent' ? 'flex-end' : 'flex-start' }}>
-            <div style={{ fontSize: 11, color: MUTED, marginBottom: 3 }}>
-              {msg.role === 'agent' ? 'You' : persona.name}
-            </div>
-            <div style={{
-              maxWidth: '80%',
-              padding: '10px 14px',
-              borderRadius: 12,
-              fontSize: 14,
-              lineHeight: 1.55,
-              background: msg.role === 'agent' ? 'rgba(200,169,107,0.15)' : CARD2,
-              borderLeft: msg.role === 'prospect' ? `3px solid ${GOLD}` : 'none',
-              borderRight: msg.role === 'agent' ? `3px solid ${GOLD}` : 'none',
-            }}>
-              {msg.content}
-            </div>
+          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <span style={{ fontSize: 11, color: msg.role === 'prospect' ? GOLD : MUTED, fontWeight: 600, minWidth: 40, paddingTop: 2 }}>
+              {msg.role === 'prospect' ? persona.name.split(' ')[0] : 'You'}
+            </span>
+            <span style={{ fontSize: 13, color: TEXT, lineHeight: 1.5, flex: 1 }}>{msg.content}</span>
           </div>
         ))}
-
         {isTyping && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <div style={{ fontSize: 11, color: MUTED, marginBottom: 3 }}>{persona.name}</div>
-            <div style={{ background: CARD2, borderLeft: `3px solid ${GOLD}`, padding: '10px 14px', borderRadius: 12, fontSize: 14 }}>
-              <span style={{ animation: 'pulse 1s infinite' }}>•••</span>
-            </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <span style={{ fontSize: 11, color: GOLD, fontWeight: 600, minWidth: 40 }}>{persona.name.split(' ')[0]}</span>
+            <span style={{ fontSize: 13, color: MUTED }}>•••</span>
           </div>
         )}
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input */}
-      <div style={{ padding: '12px 20px', background: CARD, borderTop: `1px solid ${BORDER}` }}>
-        {/* Voice transcript preview */}
-        {voiceMode && isListening && voiceTranscript && (
-          <div style={{ fontSize: 13, color: GOLD, marginBottom: 8, fontStyle: 'italic' }}>
-            "{voiceTranscript}"
-          </div>
-        )}
-        {voiceMode && isListening && !voiceTranscript && (
-          <div style={{ fontSize: 13, color: MUTED, marginBottom: 8 }}>🎙️ Listening for your voice...</div>
-        )}
+      {/* Voice transcript preview */}
+      {isListening && voiceTranscript && (
+        <div style={{ padding: '6px 16px', background: 'rgba(200,169,107,0.08)', borderTop: `1px solid ${BORDER}`, fontSize: 12, color: GOLD, fontStyle: 'italic' }}>
+          "{voiceTranscript}"
+        </div>
+      )}
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      {/* Bottom call controls */}
+      <div style={{ background: CARD, borderTop: `1px solid ${BORDER}`, padding: '16px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
+
           {/* Mute */}
-          <button
-            onClick={onToggleMute}
-            title={isMuted ? 'Unmute' : 'Mute'}
-            style={{ background: CARD2, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '8px', cursor: 'pointer', fontSize: 16 }}
-          >
-            {isMuted ? '🔇' : '🔊'}
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            <button
+              onClick={onToggleMute}
+              style={{
+                width: 52, height: 52, borderRadius: '50%',
+                background: isMuted ? CARD2 : 'rgba(200,169,107,0.15)',
+                border: `2px solid ${isMuted ? BORDER : GOLD}`,
+                cursor: 'pointer', fontSize: 20,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              {isMuted ? '🔇' : '🔊'}
+            </button>
+            <span style={{ fontSize: 10, color: MUTED }}>{isMuted ? 'Unmute' : 'Muted'}</span>
+          </div>
 
-          {voiceMode ? (
-            isListening ? (
-              <button
-                onClick={onToggleVoice}
-                style={{
-                  flex: 1,
-                  background: DANGER + '22',
-                  border: `1px solid ${DANGER}`,
-                  borderRadius: 8,
-                  padding: '10px 14px',
-                  cursor: 'pointer',
-                  fontSize: 14,
-                  color: DANGER,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  fontWeight: 600,
-                }}
-              >
-                <span style={{ width: 10, height: 10, background: DANGER, borderRadius: '50%', display: 'inline-block', animation: 'pulse 1s infinite' }} />
-                🔴 Listening... (tap to stop)
-              </button>
-            ) : (
-              <button
-                disabled
-                style={{
-                  flex: 1,
-                  background: CARD2,
-                  border: `1px solid ${BORDER}`,
-                  borderRadius: 8,
-                  padding: '10px 14px',
-                  cursor: 'not-allowed',
-                  fontSize: 14,
-                  color: MUTED,
-                }}
-              >
-                ⏳ AI responding...
-              </button>
-            )
-          ) : (
-            <>
-              <input
-                ref={inputRef}
-                value={inputText}
-                onChange={(e) => onInputChange(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Type your response..."
-                style={{
-                  flex: 1,
-                  background: CARD2,
-                  border: `1px solid ${BORDER}`,
-                  borderRadius: 8,
-                  padding: '10px 14px',
-                  color: TEXT,
-                  fontSize: 14,
-                  outline: 'none',
-                }}
-              />
-              <button
-                onClick={() => onSend(inputText)}
-                disabled={!inputText.trim()}
-                style={{
-                  background: GOLD,
-                  color: '#0E131B',
-                  border: 'none',
-                  borderRadius: 8,
-                  padding: '10px 16px',
-                  fontWeight: 700,
-                  cursor: inputText.trim() ? 'pointer' : 'not-allowed',
-                  opacity: inputText.trim() ? 1 : 0.5,
-                }}
-              >
-                Send
-              </button>
-            </>
-          )}
+          {/* Hang up */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            <button
+              onClick={onEndSession}
+              style={{
+                width: 64, height: 64, borderRadius: '50%',
+                background: DANGER, border: 'none',
+                cursor: 'pointer', fontSize: 24,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `0 4px 16px ${DANGER}55`,
+              }}
+            >
+              📵
+            </button>
+            <span style={{ fontSize: 10, color: DANGER, fontWeight: 600 }}>Hang Up</span>
+          </div>
 
-          {/* Toggle voice/text — only show when not in voice mode */}
-          {!voiceMode && (
+          {/* Mic toggle */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
             <button
               onClick={onToggleVoice}
-              style={{ background: CARD2, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 12, color: MUTED }}
+              disabled={isTyping}
+              style={{
+                width: 52, height: 52, borderRadius: '50%',
+                background: voiceMode && isListening ? 'rgba(74,222,128,0.15)' : CARD2,
+                border: `2px solid ${voiceMode && isListening ? GREEN : BORDER}`,
+                cursor: isTyping ? 'not-allowed' : 'pointer', fontSize: 20,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                opacity: isTyping ? 0.5 : 1,
+              }}
             >
-              🎙️ Voice
+              {voiceMode && isListening ? '🎙️' : '🎤'}
             </button>
-          )}
+            <span style={{ fontSize: 10, color: voiceMode && isListening ? GREEN : MUTED }}>
+              {isTyping ? 'Wait...' : voiceMode && isListening ? 'Listening' : 'Tap to speak'}
+            </span>
+          </div>
         </div>
       </div>
     </div>
