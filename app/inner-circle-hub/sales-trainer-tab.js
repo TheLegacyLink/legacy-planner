@@ -172,7 +172,6 @@ export default function SalesTrainerTab({ member }) {
 
       const agentMsg = { role: 'agent', content: content.trim() };
       setTranscript((prev) => [...prev, agentMsg]);
-      setInputText('');
       setIsTyping(true);
 
       try {
