@@ -266,36 +266,18 @@ export default function SalesTrainerTab({ member }) {
       setScreen('training');
 
       // Short "Connecting..." pause for realism
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 1500));
       setIsConnecting(false);
 
       // Start call timer
       if (callTimerRef.current) clearInterval(callTimerRef.current);
       callTimerRef.current = setInterval(() => setCallSeconds((s) => s + 1), 1000);
 
-      // AI opens the call
-      setIsTyping(true);
-      try {
-        const res = await fetch('/api/sales-trainer-chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            personaId: persona.id,
-            messages: [{ role: 'agent', content: 'Hello?' }],
-          }),
-        });
-        const data = await res.json();
-        const reply = data.reply || 'Hello?';
-        setTranscript([{ role: 'prospect', content: reply }]);
-        if (!isMuted) await playTTS(reply, persona.id);
-        if (isVoiceActiveRef.current) setTimeout(() => startListeningRef.current?.(), 800);
-      } catch {
-        setTranscript([{ role: 'prospect', content: 'Hello? Who is this?' }]);
-      } finally {
-        setIsTyping(false);
-      }
+      // Agent speaks first — auto-start mic
+      setVoiceMode(true);
+      setTimeout(() => startListeningRef.current?.(), 400);
     },
-    [isMuted, playTTS]
+    []
   );
 
   // Stop call timer when ending session
@@ -491,7 +473,7 @@ export default function SalesTrainerTab({ member }) {
       isConnecting={isConnecting}
       onEndSession={endSession}
       onToggleVoice={() => {
-        if (voiceMode) {
+        if (voiceMode && isListening) {
           setVoiceMode(false);
           stopListening();
         } else {
@@ -679,34 +661,40 @@ function TrainingScreen({
         </div>
       </div>
 
-      {/* Transcript — compact phone call log */}
-      <div style={{ overflowY: 'auto', maxHeight: 260, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {transcript.length === 0 && !isTyping && (
-          <div style={{ color: MUTED, fontSize: 13, textAlign: 'center', marginTop: 20 }}>Call connected — speak when ready.</div>
-        )}
-        {transcript.map((msg, i) => (
-          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-            <span style={{ fontSize: 11, color: msg.role === 'prospect' ? GOLD : MUTED, fontWeight: 600, minWidth: 40, paddingTop: 2 }}>
-              {msg.role === 'prospect' ? persona.name.split(' ')[0] : 'You'}
-            </span>
-            <span style={{ fontSize: 13, color: TEXT, lineHeight: 1.5, flex: 1 }}>{msg.content}</span>
-          </div>
-        ))}
-        {isTyping && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <span style={{ fontSize: 11, color: GOLD, fontWeight: 600, minWidth: 40 }}>{persona.name.split(' ')[0]}</span>
-            <span style={{ fontSize: 13, color: MUTED }}>•••</span>
-          </div>
+      {/* Live call display — no text log, pure voice UI */}
+      <div style={{ flex: 1, minHeight: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '24px 16px' }}>
+        {isTyping ? (
+          <>
+            <div style={{ fontSize: 56, lineHeight: 1 }}>🔊</div>
+            <div style={{ color: GOLD, fontSize: 15, fontWeight: 600 }}>{persona.name.split(' ')[0]} is speaking...</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {[0,1,2].map(i => (
+                <div key={i} style={{
+                  width: 8, height: 8, borderRadius: '50%', background: GOLD,
+                  animation: `pulse${i} 1.2s ease-in-out ${i * 0.2}s infinite`,
+                  opacity: 0.8,
+                }} />
+              ))}
+            </div>
+          </>
+        ) : isListening ? (
+          <>
+            <div style={{ fontSize: 56, lineHeight: 1 }}>🎙️</div>
+            <div style={{ color: GREEN, fontSize: 15, fontWeight: 600 }}>You're speaking...</div>
+            {voiceTranscript && (
+              <div style={{ color: MUTED, fontSize: 12, fontStyle: 'italic', maxWidth: 260, textAlign: 'center' }}>
+                "{voiceTranscript}"
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 56, lineHeight: 1, opacity: 0.4 }}>📞</div>
+            <div style={{ color: MUTED, fontSize: 14 }}>Tap mic to speak</div>
+          </>
         )}
         <div ref={chatEndRef} />
       </div>
-
-      {/* Voice transcript preview */}
-      {isListening && voiceTranscript && (
-        <div style={{ padding: '6px 16px', background: 'rgba(200,169,107,0.08)', borderTop: `1px solid ${BORDER}`, fontSize: 12, color: GOLD, fontStyle: 'italic' }}>
-          "{voiceTranscript}"
-        </div>
-      )}
 
       {/* Bottom call controls */}
       <div style={{ background: CARD, borderTop: `1px solid ${BORDER}`, padding: '16px 20px' }}>
