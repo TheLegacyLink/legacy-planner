@@ -39,61 +39,57 @@ export async function POST(request) {
       return Response.json({ error: 'Unknown persona' }, { status: 400 });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return Response.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });
-    }
-
-    // Map: agent turns = role "user", prospect turns = role "assistant"
-    let mappedMessages = messages.map((m) => ({
+    // Build messages — agent = user, prospect = assistant
+    let msgs = messages.map((m) => ({
       role: m.role === 'agent' ? 'user' : 'assistant',
       content: m.content,
     }));
-
-    // Anthropic requires messages to start with role "user" — strip any leading assistant messages
-    while (mappedMessages.length > 0 && mappedMessages[0].role === 'assistant') {
-      mappedMessages = mappedMessages.slice(1);
-    }
-
-    // Deduplicate consecutive same-role messages (merge content)
+    while (msgs.length > 0 && msgs[0].role === 'assistant') msgs = msgs.slice(1);
     const deduped = [];
-    for (const msg of mappedMessages) {
+    for (const msg of msgs) {
       if (deduped.length > 0 && deduped[deduped.length - 1].role === msg.role) {
         deduped[deduped.length - 1].content += ' ' + msg.content;
-      } else {
-        deduped.push(msg);
+      } else { deduped.push(msg); }
+    }
+    if (deduped.length === 0) return Response.json({ reply: 'Hello?' });
+
+    // Try OpenAI first, fall back to Anthropic
+    const openaiKey = process.env.OPENAI_API_KEY;
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+
+    if (openaiKey) {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          max_tokens: 300,
+          messages: [{ role: 'system', content: persona.systemPrompt }, ...deduped],
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const reply = data.choices?.[0]?.message?.content || 'Hello?';
+        return Response.json({ reply });
       }
     }
-    mappedMessages = deduped;
 
-    if (mappedMessages.length === 0) {
-      return Response.json({ reply: "Hello? I can hear you..." });
-    }
-
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 300,
-        system: persona.systemPrompt,
-        messages: mappedMessages,
-      }),
-    });
-
-    if (!res.ok) {
+    if (anthropicKey) {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-3-haiku-20240307', max_tokens: 300, system: persona.systemPrompt, messages: deduped }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const reply = data.content?.[0]?.text || 'Hello?';
+        return Response.json({ reply });
+      }
       const err = await res.text();
-      console.error('Anthropic API error:', res.status, err);
       return Response.json({ error: err }, { status: 500 });
     }
 
-    const data = await res.json();
-    const reply = data.content?.[0]?.text || `[AI error: empty response from Anthropic. Check ANTHROPIC_API_KEY.]`;
-    return Response.json({ reply });
+    return Response.json({ error: 'No AI API key configured (OPENAI_API_KEY or ANTHROPIC_API_KEY)' }, { status: 500 });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
   }
