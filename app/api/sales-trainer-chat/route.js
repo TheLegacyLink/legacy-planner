@@ -45,10 +45,30 @@ export async function POST(request) {
     }
 
     // Map: agent turns = role "user", prospect turns = role "assistant"
-    const mappedMessages = messages.map((m) => ({
+    let mappedMessages = messages.map((m) => ({
       role: m.role === 'agent' ? 'user' : 'assistant',
       content: m.content,
     }));
+
+    // Anthropic requires messages to start with role "user" — strip any leading assistant messages
+    while (mappedMessages.length > 0 && mappedMessages[0].role === 'assistant') {
+      mappedMessages = mappedMessages.slice(1);
+    }
+
+    // Deduplicate consecutive same-role messages (merge content)
+    const deduped = [];
+    for (const msg of mappedMessages) {
+      if (deduped.length > 0 && deduped[deduped.length - 1].role === msg.role) {
+        deduped[deduped.length - 1].content += ' ' + msg.content;
+      } else {
+        deduped.push(msg);
+      }
+    }
+    mappedMessages = deduped;
+
+    if (mappedMessages.length === 0) {
+      return Response.json({ reply: "Hello? I can hear you..." });
+    }
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
