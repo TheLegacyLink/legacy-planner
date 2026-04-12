@@ -102,7 +102,7 @@ async function sendTriggerEmail({ member = {}, address = {} } = {}) {
   const lastName = clean(member?.name || '').split(' ').slice(1).join(' ') || '';
 
   const text = [
-    `PRELICENSING_REQUEST`,
+    `PRE-LICENSING REQUEST`,
     `First Name: ${firstName || '—'}`,
     `Last Name: ${lastName || '—'}`,
     `Email: ${clean(member?.email) || '—'}`,
