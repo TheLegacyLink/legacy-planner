@@ -138,6 +138,9 @@ export default function SalesTrainerTab({ member }) {
   const audioRef = useRef(null);
   const silenceTimerRef = useRef(null);
   const inputRef = useRef(null);
+  const accumulatedRef = useRef('');
+  const isVoiceActiveRef = useRef(false);
+  const startListeningRef = useRef(null);
 
   const email = member?.email || '';
   const agentName = member?.applicantName || member?.name || 'Agent';
@@ -188,7 +191,12 @@ export default function SalesTrainerTab({ member }) {
         setTranscript((prev) => [...prev, prospectMsg]);
 
         if (!isMuted) {
-          playTTS(reply, selectedPersona.id);
+          await playTTS(reply, selectedPersona.id);
+        }
+
+        // Auto-restart mic if voice mode is still active
+        if (isVoiceActiveRef.current) {
+          setTimeout(() => startListeningRef.current?.(), 800);
         }
       } catch {
         setTranscript((prev) => [
@@ -199,7 +207,7 @@ export default function SalesTrainerTab({ member }) {
         setIsTyping(false);
       }
     },
-    [selectedPersona, transcript, isMuted]
+    [selectedPersona, transcript, isMuted, playTTS]
   );
 
   // Start a training session
@@ -225,7 +233,11 @@ export default function SalesTrainerTab({ member }) {
         const reply = data.reply || 'Hello?';
         setTranscript([{ role: 'prospect', content: reply }]);
         if (!isMuted) {
-          playTTS(reply, persona.id);
+          await playTTS(reply, persona.id);
+        }
+        // Auto-start mic if voice mode is already active
+        if (isVoiceActiveRef.current) {
+          setTimeout(() => startListeningRef.current?.(), 800);
         }
       } catch {
         setTranscript([{ role: 'prospect', content: 'Hello? Who is this?' }]);
@@ -233,7 +245,7 @@ export default function SalesTrainerTab({ member }) {
         setIsTyping(false);
       }
     },
-    [isMuted]
+    [isMuted, playTTS]
   );
 
   // End session → go to review
@@ -343,63 +355,102 @@ export default function SalesTrainerTab({ member }) {
     }
   };
 
-  // Voice input
+  // Voice input — hands-free mode
+  const stopListening = useCallback(() => {
+    isVoiceActiveRef.current = false;
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    silenceTimerRef.current = null;
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+    setVoiceTranscript('');
+    accumulatedRef.current = '';
+  }, []);
+
   const startListening = useCallback(() => {
     if (typeof window === 'undefined') return;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert('Speech recognition not supported in this browser.');
+      alert('Speech recognition not supported. Use Chrome for voice mode.');
       return;
     }
+
+    // Stop any existing session
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+    }
+
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
-    recognitionRef.current = recognition;
+    recognition.maxAlternatives = 1;
 
-    recognition.onresult = (e) => {
+    accumulatedRef.current = '';
+    isVoiceActiveRef.current = true;
+
+    recognition.onresult = (event) => {
+      if (!isVoiceActiveRef.current) return;
       let interim = '';
-      let final = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          final += e.results[i][0].transcript;
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          accumulatedRef.current += t + ' ';
         } else {
-          interim += e.results[i][0].transcript;
+          interim += t;
         }
       }
-      setVoiceTranscript(final || interim);
+      setVoiceTranscript(accumulatedRef.current + interim);
 
-      // Reset silence timer on each result
-      clearTimeout(silenceTimerRef.current);
-      if (final) {
-        silenceTimerRef.current = setTimeout(() => {
-          recognition.stop();
-        }, 1500);
-      }
+      // Reset silence timer — auto-send after 1.5s of silence
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = setTimeout(() => {
+        const text = accumulatedRef.current.trim();
+        if (text && isVoiceActiveRef.current) {
+          accumulatedRef.current = '';
+          setVoiceTranscript('');
+          silenceTimerRef.current = null;
+          // Stop recognition during AI response
+          try { recognition.stop(); } catch {}
+          setIsListening(false);
+          sendMessage(text);
+        }
+      }, 1500);
     };
 
     recognition.onend = () => {
-      setIsListening(false);
-      const text = voiceTranscript || '';
-      setVoiceTranscript('');
-      if (text.trim()) {
-        sendMessage(text);
+      // If voice mode still active and no pending send, restart
+      if (isVoiceActiveRef.current && !silenceTimerRef.current) {
+        setTimeout(() => {
+          if (isVoiceActiveRef.current) startListeningRef.current?.();
+        }, 300);
       }
     };
 
-    recognition.onerror = () => {
-      setIsListening(false);
-      setVoiceTranscript('');
+    recognition.onerror = (e) => {
+      if (e.error === 'no-speech' && isVoiceActiveRef.current) {
+        // Restart on no-speech — just means silence
+        setTimeout(() => {
+          if (isVoiceActiveRef.current) startListeningRef.current?.();
+        }, 500);
+        return;
+      }
+      if (e.error !== 'aborted') {
+        console.error('Speech recognition error:', e.error);
+        setIsListening(false);
+        isVoiceActiveRef.current = false;
+      }
     };
 
-    setIsListening(true);
+    recognitionRef.current = recognition;
     recognition.start();
-  }, [voiceTranscript, sendMessage]);
+    setIsListening(true);
+  }, [sendMessage]);
 
-  const stopListening = useCallback(() => {
-    recognitionRef.current?.stop();
-    setIsListening(false);
-  }, []);
+  // Keep ref in sync so sendMessage can call startListening without circular dep
+  startListeningRef.current = startListening;
 
   // ─── RENDER ────────────────────────────────────────────────────────────────
 
@@ -417,7 +468,15 @@ export default function SalesTrainerTab({ member }) {
       chatEndRef={chatEndRef}
       onSend={sendMessage}
       onEndSession={endSession}
-      onToggleVoice={() => setVoiceMode((v) => !v)}
+      onToggleVoice={() => {
+        if (voiceMode) {
+          setVoiceMode(false);
+          stopListening();
+        } else {
+          setVoiceMode(true);
+          startListening();
+        }
+      }}
       onToggleMute={() => {
         setIsMuted((m) => {
           if (!m && audioRef.current) audioRef.current.pause();
@@ -652,13 +711,13 @@ function TrainingScreen({
       {/* Input */}
       <div style={{ padding: '12px 20px', background: CARD, borderTop: `1px solid ${BORDER}` }}>
         {/* Voice transcript preview */}
-        {isListening && voiceTranscript && (
+        {voiceMode && isListening && voiceTranscript && (
           <div style={{ fontSize: 13, color: GOLD, marginBottom: 8, fontStyle: 'italic' }}>
             "{voiceTranscript}"
           </div>
         )}
-        {isListening && !voiceTranscript && (
-          <div style={{ fontSize: 13, color: MUTED, marginBottom: 8 }}>🎙️ Listening...</div>
+        {voiceMode && isListening && !voiceTranscript && (
+          <div style={{ fontSize: 13, color: MUTED, marginBottom: 8 }}>🎙️ Listening for your voice...</div>
         )}
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -672,23 +731,45 @@ function TrainingScreen({
           </button>
 
           {voiceMode ? (
-            <>
+            isListening ? (
               <button
-                onClick={isListening ? onStopListening : onStartListening}
+                onClick={onToggleVoice}
                 style={{
                   flex: 1,
-                  background: isListening ? DANGER + '22' : GOLD + '22',
-                  border: `1px solid ${isListening ? DANGER : GOLD}`,
+                  background: DANGER + '22',
+                  border: `1px solid ${DANGER}`,
                   borderRadius: 8,
-                  padding: '10px',
+                  padding: '10px 14px',
                   cursor: 'pointer',
-                  fontSize: 22,
-                  color: isListening ? DANGER : GOLD,
+                  fontSize: 14,
+                  color: DANGER,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  fontWeight: 600,
                 }}
               >
-                {isListening ? '⏹ Stop' : '🎙️ Speak'}
+                <span style={{ width: 10, height: 10, background: DANGER, borderRadius: '50%', display: 'inline-block', animation: 'pulse 1s infinite' }} />
+                🔴 Listening... (tap to stop)
               </button>
-            </>
+            ) : (
+              <button
+                disabled
+                style={{
+                  flex: 1,
+                  background: CARD2,
+                  border: `1px solid ${BORDER}`,
+                  borderRadius: 8,
+                  padding: '10px 14px',
+                  cursor: 'not-allowed',
+                  fontSize: 14,
+                  color: MUTED,
+                }}
+              >
+                ⏳ AI responding...
+              </button>
+            )
           ) : (
             <>
               <input
@@ -727,13 +808,15 @@ function TrainingScreen({
             </>
           )}
 
-          {/* Toggle voice/text */}
-          <button
-            onClick={onToggleVoice}
-            style={{ background: CARD2, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 12, color: MUTED }}
-          >
-            {voiceMode ? '⌨️ Text' : '🎙️ Voice'}
-          </button>
+          {/* Toggle voice/text — only show when not in voice mode */}
+          {!voiceMode && (
+            <button
+              onClick={onToggleVoice}
+              style={{ background: CARD2, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 12, color: MUTED }}
+            >
+              🎙️ Voice
+            </button>
+          )}
         </div>
       </div>
     </div>

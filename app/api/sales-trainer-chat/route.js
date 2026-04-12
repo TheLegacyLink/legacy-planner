@@ -67,11 +67,12 @@ export async function POST(request) {
 
     if (!res.ok) {
       const err = await res.text();
+      console.error('Anthropic API error:', res.status, err);
       return Response.json({ error: err }, { status: 500 });
     }
 
     const data = await res.json();
-    const reply = data.content?.[0]?.text || "I'm not sure about that.";
+    const reply = data.content?.[0]?.text || `[AI error: empty response from Anthropic. Check ANTHROPIC_API_KEY.]`;
     return Response.json({ reply });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
