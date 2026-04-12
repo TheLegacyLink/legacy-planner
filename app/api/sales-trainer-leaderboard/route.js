@@ -13,7 +13,7 @@ async function saveScores(data) {
 export async function GET() {
   try {
     const scores = await getScores();
-    const sorted = [...scores].sort((a, b) => Number(b.overallScore || 0) - Number(a.overallScore || 0));
+    const sorted = [...scores].sort((a, b) => Number(b.overall || 0) - Number(a.overall || 0));
     return Response.json({ ok: true, rows: sorted.slice(0, 10) });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
@@ -23,10 +23,10 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, email, overallScore, difficulty, scores, verdict } = body;
+    const { email, name, overall, grade, difficulty, personaName } = body;
 
-    if (!name || overallScore == null) {
-      return Response.json({ error: 'name and overallScore required' }, { status: 400 });
+    if (!name || overall == null) {
+      return Response.json({ error: 'name and overall required' }, { status: 400 });
     }
 
     const allScores = await getScores();
@@ -35,20 +35,19 @@ export async function POST(request) {
       id: Date.now(),
       name: String(name || ''),
       email: String(email || ''),
-      overallScore: Number(overallScore || 0),
+      overall: Number(overall || 0),
+      grade: String(grade || 'F'),
       difficulty: String(difficulty || 'warm'),
-      scores: scores || {},
-      verdict: String(verdict || ''),
-      date: new Date().toISOString()
+      personaName: String(personaName || ''),
+      date: new Date().toISOString(),
     };
 
     allScores.push(newEntry);
-
-    // Keep only last 500 entries to avoid bloat
     const trimmed = allScores.slice(-500);
     await saveScores(trimmed);
 
-    return Response.json({ ok: true, row: newEntry }, { status: 201 });
+    const sorted = [...trimmed].sort((a, b) => Number(b.overall || 0) - Number(a.overall || 0));
+    return Response.json({ ok: true, rows: sorted.slice(0, 10) }, { status: 201 });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
   }
