@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import licensedAgents from '../../data/licensedAgents.json';
 import CommunityServiceTab from './community-service-tab';
 import LinkBlendBuilderTab from './tools-link-blend-builder';
+import SalesTrainerTab from './sales-trainer-tab';
 import DailyDrive from '../../components/DailyDrive';
 
 const SESSION_KEY = 'inner_circle_hub_member_v1';
@@ -230,7 +231,8 @@ function availableTabs(member = {}) {
     { key: 'awards', label: 'Achievement Center' },
     { key: 'links', label: 'My VIP Links' },
     { key: 'library', label: 'PDF Library' },
-    { key: 'licensedstates', label: 'My Licensed States' }
+    { key: 'licensedstates', label: 'My Licensed States' },
+    { key: 'sales-training', label: 'Sales Training' }
   ];
   return all.filter((t) => modules?.[t.key] !== false);
 }
@@ -3349,6 +3351,10 @@ export default function InnerCircleHubPage() {
 
             {tab === 'community' ? (
               <CommunityServiceTab member={member} hubMembers={hubMembers} isAdmin={canManageHierarchy} />
+            ) : null}
+
+            {tab === 'sales-training' ? (
+              <SalesTrainerTab member={member} />
             ) : null}
 
             {tab === 'tools' ? (
