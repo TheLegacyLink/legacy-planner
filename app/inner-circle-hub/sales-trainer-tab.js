@@ -265,6 +265,11 @@ export default function SalesTrainerTab({ member }) {
       setIsConnecting(true);
       setScreen('training');
 
+      // Request mic permission immediately — must be in user gesture context (the click)
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
+        navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => {});
+      }
+
       // Short "Connecting..." pause for realism
       await new Promise((r) => setTimeout(r, 1500));
       setIsConnecting(false);
@@ -273,9 +278,9 @@ export default function SalesTrainerTab({ member }) {
       if (callTimerRef.current) clearInterval(callTimerRef.current);
       callTimerRef.current = setInterval(() => setCallSeconds((s) => s + 1), 1000);
 
-      // Agent speaks first — auto-start mic
+      // Agent speaks first — mic is already permitted, start it now
       setVoiceMode(true);
-      setTimeout(() => startListeningRef.current?.(), 400);
+      startListeningRef.current?.();
     },
     []
   );
