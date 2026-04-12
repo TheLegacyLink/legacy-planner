@@ -21,10 +21,10 @@ const US_STATE_OPTIONS = [
 ];
 
 const STEP_META = [
-  { key: 'backOfficeAccess', title: 'Step 1 — Back Office Access + Welcome Instructions', note: 'Open your welcome email, save your links, and confirm your back office access is active.' },
-  { key: 'communitySkool', title: 'Step 2 — Community + Skool (Training)', note: 'Join Skool and complete assigned onboarding/training tasks.' },
-  { key: 'prelicensingStarted', title: 'Step 3 — Pre-Licensing Onboarding (Jamal Leads This)', note: 'Jamal leads this process for all unlicensed agents. Tap “I’m Ready” so Jamal is notified.' },
-  { key: 'watchedWhateverItTakes', title: 'Step 4 — Required YouTube Task', note: 'Watch https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX and leave a comment to confirm completion.' },
+  { key: 'backOfficeAccess', title: 'Step 1 - Back Office Access + Welcome Instructions', note: 'Open your welcome email, save your links, and confirm your back office access is active.' },
+  { key: 'communitySkool', title: 'Step 2 - Community + Skool (Training)', note: 'Join Skool and complete assigned onboarding/training tasks.' },
+  { key: 'prelicensingStarted', title: 'Step 3 - Start Your Pre-Licensing', note: 'Complete the Pre-Licensing card below to request your course credentials.' },
+  { key: 'watchedWhateverItTakes', title: 'Step 4 - Required YouTube Task', note: 'Watch https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX and leave a comment to confirm completion.' },
 ];
 
 export default function UnlicensedBackofficePage() {
@@ -41,6 +41,7 @@ export default function UnlicensedBackofficePage() {
   const [readySubmitting, setReadySubmitting] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [addrForm, setAddrForm] = useState({ street: '', city: '', state: '', zip: '' });
   const [uplineSupport, setUplineSupport] = useState({ loading: false, error: '', upline: null, rows: [], unreadForViewer: 0 });
   const [uplineDraft, setUplineDraft] = useState('');
   const [uplineSending, setUplineSending] = useState(false);
@@ -72,6 +73,13 @@ export default function UnlicensedBackofficePage() {
         if (!mounted || !res.ok || !data?.ok) return;
         setProfile(data.profile || profile);
         setProgress(data.progress || null);
+        // Pre-fill address state from profile home state
+        if (data.profile?.state) {
+          setAddrForm((f) => ({ ...f, state: f.state || data.profile.state }));
+        }
+        // Pre-fill saved address if already submitted
+        const savedAddr = data.progress?.fields?.prelicensingMailingAddress;
+        if (savedAddr) setAddrForm(savedAddr);
       } catch {}
     })();
     return () => { mounted = false; };
@@ -234,21 +242,21 @@ export default function UnlicensedBackofficePage() {
       const res = await fetch('/api/unlicensed-backoffice/prelicensing-ready', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({})
+        body: JSON.stringify(addrForm)
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        setError(data?.error ? `Request failed: ${data.error}` : 'Unable to notify Jamal right now');
+        setError(data?.error ? `Request failed: ${data.error}` : 'Unable to submit right now. Please try again.');
         return;
       }
       if (data?.progress) setProgress(data.progress);
       if (data?.alreadyRequested) {
-        setNotice('Already sent. Jamal was already notified to help you get started.');
+        setNotice('Already submitted - your pre-licensing credentials are on the way.');
       } else {
-        setNotice('Perfect — Jamal has been notified. He will help you get started within 48 hours.');
+        setNotice('Submitted! Check your email - your pre-licensing credentials will arrive within 24 hours.');
       }
     } catch {
-      setError('Unable to notify Jamal right now');
+      setError('Unable to submit right now. Please try again.');
     } finally {
       setReadySubmitting(false);
     }
@@ -328,6 +336,102 @@ export default function UnlicensedBackofficePage() {
           </div>
         </header>
 
+        {/* ─── Pre-Licensing Card ─── */}
+        <div style={{ border: '1px solid #C8A96B55', borderRadius: 14, background: '#0F172A', padding: 20 }}>
+          <h3 style={{ marginTop: 0, color: '#C8A96B', fontSize: 18 }}>Start Your Pre-Licensing</h3>
+          <p style={{ color: '#94A3B8', marginTop: -8, marginBottom: 18, lineHeight: 1.6 }}>
+            Ready to get your Life insurance license? Enter your full address below and hit confirm.
+            You'll receive your pre-licensing course credentials within 24 hours - <strong style={{ color: '#E2E8F0' }}>fully paid for by The Legacy Link.</strong>
+          </p>
+
+          {steps.prelicensingStarted ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button disabled style={{
+                borderRadius: 12, border: '1px solid #334155',
+                background: '#1e293b', color: '#64748B',
+                padding: '12px 22px', fontWeight: 800, fontSize: 15, cursor: 'not-allowed'
+              }}>
+                Pre-Licensing Requested ✓
+              </button>
+              {progress?.fields?.prelicensingReadyRequestedAt && (
+                <span style={{ color: '#64748B', fontSize: 12 }}>
+                  Submitted {new Date(progress.fields.prelicensingReadyRequestedAt).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 12 }}>
+              <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                <label style={{ display: 'grid', gap: 4, color: '#94A3B8', fontSize: 14, gridColumn: '1 / -1' }}>
+                  Street Address*
+                  <input
+                    value={addrForm.street}
+                    onChange={(e) => setAddrForm((f) => ({ ...f, street: e.target.value }))}
+                    placeholder="123 Main St"
+                    style={{ padding: '11px 14px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#F8FAFC', fontSize: 14 }}
+                  />
+                </label>
+                <label style={{ display: 'grid', gap: 4, color: '#94A3B8', fontSize: 14 }}>
+                  City*
+                  <input
+                    value={addrForm.city}
+                    onChange={(e) => setAddrForm((f) => ({ ...f, city: e.target.value }))}
+                    placeholder="City"
+                    style={{ padding: '11px 14px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#F8FAFC', fontSize: 14 }}
+                  />
+                </label>
+                <label style={{ display: 'grid', gap: 4, color: '#94A3B8', fontSize: 14 }}>
+                  State*
+                  <select
+                    value={addrForm.state}
+                    onChange={(e) => setAddrForm((f) => ({ ...f, state: e.target.value }))}
+                    style={{ padding: '11px 14px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#F8FAFC', fontSize: 14 }}
+                  >
+                    <option value="">Select</option>
+                    {US_STATE_OPTIONS.map(([code, label]) => (
+                      <option key={code} value={code}>{code} - {label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: 'grid', gap: 4, color: '#94A3B8', fontSize: 14 }}>
+                  Zip Code*
+                  <input
+                    value={addrForm.zip}
+                    onChange={(e) => setAddrForm((f) => ({ ...f, zip: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
+                    placeholder="12345"
+                    maxLength={5}
+                    style={{ padding: '11px 14px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#F8FAFC', fontSize: 14 }}
+                  />
+                </label>
+              </div>
+
+              <button
+                type="button"
+                onClick={notifyPrelicensingReady}
+                disabled={readySubmitting || !addrForm.street || !addrForm.city || !addrForm.state || !addrForm.zip}
+                style={{
+                  borderRadius: 12,
+                  border: '1px solid #D6BD8D',
+                  background: (readySubmitting || !addrForm.street || !addrForm.city || !addrForm.state || !addrForm.zip)
+                    ? '#1e293b'
+                    : 'linear-gradient(135deg,#C8A96B 0%,#A78647 100%)',
+                  color: (readySubmitting || !addrForm.street || !addrForm.city || !addrForm.state || !addrForm.zip)
+                    ? '#64748B'
+                    : '#0B1020',
+                  padding: '13px 22px',
+                  fontWeight: 800,
+                  fontSize: 15,
+                  cursor: (readySubmitting || !addrForm.street || !addrForm.city || !addrForm.state || !addrForm.zip) ? 'not-allowed' : 'pointer',
+                  alignSelf: 'start',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {readySubmitting ? 'Submitting...' : "I'm Ready — Start My Pre-Licensing"}
+              </button>
+            </div>
+          )}
+        </div>
+
         <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
           <h3 style={{ marginTop: 0 }}>Required Steps</h3>
           <div style={{ display: 'grid', gap: 10 }}>
@@ -339,14 +443,9 @@ export default function UnlicensedBackofficePage() {
                     <div style={{ color: '#9CA3AF', marginTop: 4 }}>{s.note}</div>
                   </div>
                   {s.key === 'prelicensingStarted' ? (
-                    <button
-                      type="button"
-                      onClick={notifyPrelicensingReady}
-                      disabled={readySubmitting || saving}
-                      style={{ borderRadius: 999, border: '1px solid #334155', padding: '8px 12px', background: steps[s.key] ? '#065F46' : '#1D4ED8', color: '#E5E7EB', fontWeight: 700 }}
-                    >
-                      {readySubmitting ? 'Sending…' : steps[s.key] ? '✅ Request Sent' : "I'm Ready"}
-                    </button>
+                    <span style={{ borderRadius: 999, border: '1px solid #334155', padding: '8px 12px', background: steps[s.key] ? '#065F46' : '#111827', color: '#E5E7EB', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>
+                      {steps[s.key] ? '✅ Requested' : 'See card above ↑'}
+                    </span>
                   ) : (
                     <button
                       type="button"
@@ -359,11 +458,7 @@ export default function UnlicensedBackofficePage() {
                   )}
                 </div>
 
-                {s.key === 'prelicensingStarted' && fields.prelicensingReadyRequestedAt ? (
-                  <div style={{ marginTop: 8, color: '#93C5FD', fontSize: 12 }}>
-                    Request sent: {new Date(fields.prelicensingReadyRequestedAt).toLocaleString()}
-                  </div>
-                ) : null}
+
 
                 {s.key === 'examPassed' ? (
                   <label style={{ display: 'grid', gap: 4, marginTop: 8, color: '#9CA3AF' }}>
@@ -388,7 +483,7 @@ export default function UnlicensedBackofficePage() {
                       >
                         <option value="">Select state</option>
                         {US_STATE_OPTIONS.map(([code, label]) => (
-                          <option key={code} value={code}>{code} — {label}</option>
+                          <option key={code} value={code}>{code} - {label}</option>
                         ))}
                       </select>
                     </label>
@@ -424,7 +519,7 @@ export default function UnlicensedBackofficePage() {
             </div>
           ) : null}
 
-          {uplineSupport?.loading ? <div style={{ color: '#9CA3AF' }}>Loading thread…</div> : null}
+          {uplineSupport?.loading ? <div style={{ color: '#9CA3AF' }}>Loading thread...</div> : null}
           {uplineSupport?.error ? <div style={{ color: '#FCA5A5' }}>{uplineSupport.error}</div> : null}
 
           <div style={{ display: 'grid', gap: 8, maxHeight: 220, overflow: 'auto' }}>
@@ -437,7 +532,7 @@ export default function UnlicensedBackofficePage() {
                   <div key={msg?.id || `${idx}-${msg?.createdAt || 'na'}`} style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: mine ? '#13203A' : '#111827' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
                       <strong>{mine ? 'You' : clean(msg?.fromName || 'Jamal')}</strong>
-                      <span style={{ color: '#9CA3AF', fontSize: 12 }}>{clean(msg?.createdAt) ? new Date(msg.createdAt).toLocaleString() : '—'}</span>
+                      <span style={{ color: '#9CA3AF', fontSize: 12 }}>{clean(msg?.createdAt) ? new Date(msg.createdAt).toLocaleString() : '-'}</span>
                     </div>
                     <div style={{ whiteSpace: 'pre-wrap' }}>{clean(msg?.body || '')}</div>
                   </div>
@@ -455,7 +550,7 @@ export default function UnlicensedBackofficePage() {
           />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button type="button" onClick={sendUplineMessage} disabled={uplineSending} style={{ padding: '10px 14px', borderRadius: 10, border: 0, background: '#1D4ED8', color: '#fff', fontWeight: 800 }}>
-              {uplineSending ? 'Sending…' : 'Send Support Message'}
+              {uplineSending ? 'Sending...' : 'Send Support Message'}
             </button>
             {uplineNotice ? <span style={{ color: uplineNotice.toLowerCase().includes('could not') ? '#FCA5A5' : '#86EFAC' }}>{uplineNotice}</span> : null}
           </div>
