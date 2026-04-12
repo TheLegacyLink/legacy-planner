@@ -265,30 +265,49 @@ export default function SalesTrainerTab({ member }) {
       setIsConnecting(true);
       setScreen('training');
 
-      // Request mic + unlock audio context — must be in user gesture context (the click)
+      // Unlock audio + mic on the user gesture (button click)
       if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
         navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => {});
       }
       if (typeof window !== 'undefined') {
-        try {
-          const ctx = new (window.AudioContext || window.webkitAudioContext)();
-          ctx.resume().catch(() => {});
-        } catch {}
+        try { new (window.AudioContext || window.webkitAudioContext)().resume().catch(() => {}); } catch {}
       }
 
-      // Short "Connecting..." pause for realism
-      await new Promise((r) => setTimeout(r, 1500));
+      // Short connecting pause
+      await new Promise((r) => setTimeout(r, 1200));
       setIsConnecting(false);
 
       // Start call timer
       if (callTimerRef.current) clearInterval(callTimerRef.current);
       callTimerRef.current = setInterval(() => setCallSeconds((s) => s + 1), 1000);
 
-      // Agent speaks first — mic is already permitted, start it now
-      setVoiceMode(true);
-      startListeningRef.current?.();
+      // Tanya picks up — she speaks first
+      setIsTyping(true);
+      try {
+        const res = await fetch('/api/sales-trainer-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            personaId: persona.id,
+            messages: [{ role: 'agent', content: 'Hello?' }],
+          }),
+        });
+        const data = await res.json();
+        const reply = data.reply || 'Hello?';
+        setTranscript([{ role: 'prospect', content: reply }]);
+        if (!isMuted) await playTTS(reply, persona.id);
+        // Auto-start mic after she speaks
+        setVoiceMode(true);
+        setTimeout(() => startListeningRef.current?.(), 600);
+      } catch {
+        setTranscript([{ role: 'prospect', content: 'Hello? Who is this?' }]);
+        setVoiceMode(true);
+        setTimeout(() => startListeningRef.current?.(), 600);
+      } finally {
+        setIsTyping(false);
+      }
     },
-    []
+    [isMuted, playTTS]
   );
 
   // Stop call timer when ending session
@@ -672,8 +691,8 @@ function TrainingScreen({
         </div>
       </div>
 
-      {/* Live call display — no text log, pure voice UI */}
-      <div style={{ flex: 1, minHeight: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '24px 16px' }}>
+      {/* Live call display — voice UI with subtitle */}
+      <div style={{ flex: 1, minHeight: 220, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '24px 16px 48px' }}>
         {isTyping ? (
           <>
             <div style={{
@@ -714,6 +733,12 @@ function TrainingScreen({
             }}>📞</div>
             <div style={{ color: MUTED, fontSize: 14, marginTop: 8 }}>Tap mic to speak</div>
           </>
+        )}
+        {/* Last line spoken — subtitle style */}
+        {transcript.length > 0 && (
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 20px', textAlign: 'center', fontSize: 13, color: MUTED, fontStyle: 'italic', background: 'linear-gradient(transparent, rgba(14,19,27,0.95))' }}>
+            {transcript[transcript.length - 1]?.content?.slice(0, 120)}{transcript[transcript.length - 1]?.content?.length > 120 ? '…' : ''}
+          </div>
         )}
         <div ref={chatEndRef} />
       </div>
