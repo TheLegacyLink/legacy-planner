@@ -135,6 +135,8 @@ export default function SalesTrainerTab({ member }) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [callSeconds, setCallSeconds] = useState(0);
   const callTimerRef = useRef(null);
+  const sessionIdRef = useRef(null);
+  const prospectMsgCountRef = useRef(0);
 
   const chatEndRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -179,13 +181,34 @@ export default function SalesTrainerTab({ member }) {
   // TTS via ElevenLabs or browser fallback — declared before sendMessage/startSession
   const playTTS = useCallback(async (text, personaId) => {
     try {
+      const msgIndex = prospectMsgCountRef.current++;
       const res = await fetch('/api/sales-trainer-tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, personaName: personaId }),
+        body: JSON.stringify({
+          text,
+          personaName: personaId,
+          sessionId: sessionIdRef.current,
+          messageIndex: msgIndex,
+        }),
       });
 
       if (res.headers.get('Content-Type')?.includes('audio')) {
+        // Capture blob recording URL if saved
+        const recordingUrl = res.headers.get('X-Recording-URL');
+        if (recordingUrl) {
+          setTranscript(prev => {
+            const updated = [...prev];
+            // Tag the last prospect message with the recording URL
+            for (let i = updated.length - 1; i >= 0; i--) {
+              if (updated[i].role === 'prospect') {
+                updated[i] = { ...updated[i], audioUrl: recordingUrl };
+                break;
+              }
+            }
+            return updated;
+          });
+        }
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         if (audioRef.current) {
@@ -266,6 +289,9 @@ export default function SalesTrainerTab({ member }) {
       setCallSeconds(0);
       setIsConnecting(true);
       setScreen('training');
+      // Generate unique session ID for this call
+      sessionIdRef.current = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      prospectMsgCountRef.current = 0;
 
       // Unlock audio + mic on the user gesture (button click)
       if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
@@ -979,13 +1005,19 @@ function ReviewScreen({ score, isScoring, persona, progress, leaderboard, transc
 
         {/* TRANSCRIPT TAB */}
         {activeTab === 'transcript' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {(transcript || []).map((msg, i) => (
               <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: msg.role === 'prospect' ? GOLD : MUTED, minWidth: 40, paddingTop: 2 }}>
                   {msg.role === 'prospect' ? persona?.name?.split(' ')[0] : 'You'}
                 </span>
                 <span style={{ fontSize: 13, color: TEXT, lineHeight: 1.5, flex: 1 }}>{msg.content}</span>
+                {msg.audioUrl && (
+                  <button
+                    onClick={() => { const a = new Audio(msg.audioUrl); a.play(); }}
+                    style={{ background: 'rgba(200,169,107,0.15)', border: `1px solid ${GOLD}44`, borderRadius: 20, padding: '3px 10px', cursor: 'pointer', fontSize: 12, color: GOLD, flexShrink: 0 }}
+                  >▶</button>
+                )}
               </div>
             ))}
             {(!transcript || transcript.length === 0) && (

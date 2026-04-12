@@ -1,3 +1,5 @@
+import { put } from '@vercel/blob';
+
 const PERSONA_VOICES = {
   tanya: '21m00Tcm4TlvDq8ikWAM',
   devon: 'TxGEqnHWrfWFTfGW9XjX',
@@ -9,7 +11,7 @@ const PERSONA_VOICES = {
 
 export async function POST(request) {
   try {
-    const { text, personaName } = await request.json();
+    const { text, personaName, sessionId, messageIndex } = await request.json();
 
     const apiKey = process.env.ELEVENLABS_API_KEY;
     if (!apiKey) {
@@ -41,11 +43,28 @@ export async function POST(request) {
     }
 
     const audioBuffer = await res.arrayBuffer();
+
+    // Save to Vercel Blob for replay
+    let recordingUrl = null;
+    if (sessionId && messageIndex !== undefined) {
+      try {
+        const blob = await put(
+          `recordings/${sessionId}/${messageIndex}.mp3`,
+          audioBuffer,
+          { access: 'public', contentType: 'audio/mpeg' }
+        );
+        recordingUrl = blob.url;
+      } catch (e) {
+        console.error('Blob upload failed:', e.message);
+      }
+    }
+
     return new Response(audioBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
         'Cache-Control': 'no-store',
+        ...(recordingUrl ? { 'X-Recording-URL': recordingUrl } : {}),
       },
     });
   } catch (e) {
