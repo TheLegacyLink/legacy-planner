@@ -165,6 +165,46 @@ export default function SalesTrainerTab({ member }) {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcript, isTyping]);
 
+  const browserTTS = useCallback((text) => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.rate = 0.95;
+      window.speechSynthesis.speak(utt);
+    }
+  }, []);
+
+  // TTS via ElevenLabs or browser fallback — declared before sendMessage/startSession
+  const playTTS = useCallback(async (text, personaId) => {
+    try {
+      const res = await fetch('/api/sales-trainer-tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, personaName: personaId }),
+      });
+
+      if (res.headers.get('Content-Type')?.includes('audio')) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        if (audioRef.current) {
+          audioRef.current.pause();
+          URL.revokeObjectURL(audioRef.current.src);
+        }
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        audio.play().catch(() => {});
+        return;
+      }
+
+      const data = await res.json();
+      if (data.fallback) {
+        browserTTS(text);
+      }
+    } catch {
+      browserTTS(text);
+    }
+  }, [browserTTS]);
+
   // Send a message and get AI reply
   const sendMessage = useCallback(
     async (content) => {
@@ -331,45 +371,7 @@ export default function SalesTrainerTab({ member }) {
     }
   }, [transcript, selectedPersona, email, agentName]);
 
-  // TTS via ElevenLabs or browser fallback
-  const playTTS = useCallback(async (text, personaId) => {
-    try {
-      const res = await fetch('/api/sales-trainer-tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, personaName: personaId }),
-      });
-
-      if (res.headers.get('Content-Type')?.includes('audio')) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        if (audioRef.current) {
-          audioRef.current.pause();
-          URL.revokeObjectURL(audioRef.current.src);
-        }
-        const audio = new Audio(url);
-        audioRef.current = audio;
-        audio.play().catch(() => {});
-        return;
-      }
-
-      const data = await res.json();
-      if (data.fallback) {
-        browserTTS(text);
-      }
-    } catch {
-      browserTTS(text);
-    }
-  }, []);
-
-  const browserTTS = (text) => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      const utt = new SpeechSynthesisUtterance(text);
-      utt.rate = 0.95;
-      window.speechSynthesis.speak(utt);
-    }
-  };
+  // (playTTS and browserTTS moved above sendMessage to avoid TDZ)
 
   // Voice input — hands-free mode
   const stopListening = useCallback(() => {
