@@ -142,6 +142,7 @@ export default function SalesTrainerTab({ member }) {
   const accumulatedRef = useRef('');
   const isVoiceActiveRef = useRef(false);
   const startListeningRef = useRef(null);
+  const sendMessageRef = useRef(null);
 
   const email = member?.email || '';
   const agentName = member?.applicantName || member?.name || 'Agent';
@@ -215,7 +216,7 @@ export default function SalesTrainerTab({ member }) {
       setIsTyping(true);
 
       try {
-        // Build message history: interleave agent/prospect
+        // Build message history using functional state update to always get latest
         const history = [...transcript, agentMsg];
         const res = await fetch('/api/sales-trainer-chat', {
           method: 'POST',
@@ -226,11 +227,12 @@ export default function SalesTrainerTab({ member }) {
           }),
         });
         const data = await res.json();
-        const reply = data.reply || "I'm not sure about that.";
+        // Surface real API errors instead of silent fallback
+        const reply = data.reply || (data.error ? `[Error: ${data.error}]` : "I'm not sure about that.");
         const prospectMsg = { role: 'prospect', content: reply };
         setTranscript((prev) => [...prev, prospectMsg]);
 
-        if (!isMuted) {
+        if (!isMuted && data.reply) {
           await playTTS(reply, selectedPersona.id);
         }
 
@@ -238,10 +240,10 @@ export default function SalesTrainerTab({ member }) {
         if (isVoiceActiveRef.current) {
           setTimeout(() => startListeningRef.current?.(), 800);
         }
-      } catch {
+      } catch (err) {
         setTranscript((prev) => [
           ...prev,
-          { role: 'prospect', content: "Sorry, I didn't catch that." },
+          { role: 'prospect', content: `[Network error: ${err?.message || 'unknown'}]` },
         ]);
       } finally {
         setIsTyping(false);
@@ -249,6 +251,9 @@ export default function SalesTrainerTab({ member }) {
     },
     [selectedPersona, transcript, isMuted, playTTS]
   );
+
+  // Keep sendMessageRef in sync so voice recognition always calls the latest version
+  sendMessageRef.current = sendMessage;
 
   // Start a training session
   const startSession = useCallback(
@@ -433,7 +438,7 @@ export default function SalesTrainerTab({ member }) {
           // Stop recognition during AI response
           try { recognition.stop(); } catch {}
           setIsListening(false);
-          sendMessage(text);
+          sendMessageRef.current?.(text);
         }
       }, 1500);
     };
@@ -465,7 +470,7 @@ export default function SalesTrainerTab({ member }) {
     recognitionRef.current = recognition;
     recognition.start();
     setIsListening(true);
-  }, [sendMessage]);
+  }, []);
 
   // Keep ref in sync so sendMessage can call startListening without circular dep
   startListeningRef.current = startListening;
