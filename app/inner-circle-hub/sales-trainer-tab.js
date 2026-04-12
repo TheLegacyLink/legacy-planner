@@ -236,8 +236,9 @@ export default function SalesTrainerTab({ member }) {
           await playTTS(reply, selectedPersona.id);
         }
 
-        // Auto-restart mic if voice mode is still active
-        if (isVoiceActiveRef.current) {
+        // Always restart mic after AI responds (if voice mode is on)
+        if (voiceMode) {
+          isVoiceActiveRef.current = true;
           setTimeout(() => startListeningRef.current?.(), 800);
         }
       } catch (err) {
@@ -439,7 +440,7 @@ export default function SalesTrainerTab({ member }) {
       }
       setVoiceTranscript(accumulatedRef.current + interim);
 
-      // Reset silence timer — auto-send after 1.5s of silence
+      // Reset silence timer — auto-send after 2.5s of silence
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(() => {
         const text = accumulatedRef.current.trim();
@@ -447,12 +448,13 @@ export default function SalesTrainerTab({ member }) {
           accumulatedRef.current = '';
           setVoiceTranscript('');
           silenceTimerRef.current = null;
-          // Stop recognition during AI response
+          // Stop mic fully before sending — prevents AI response from being picked up
+          isVoiceActiveRef.current = false;
           try { recognition.stop(); } catch {}
           setIsListening(false);
           sendMessageRef.current?.(text);
         }
-      }, 1500);
+      }, 2500);
     };
 
     recognition.onend = () => {
