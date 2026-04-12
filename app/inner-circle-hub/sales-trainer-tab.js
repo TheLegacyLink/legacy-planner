@@ -265,9 +265,15 @@ export default function SalesTrainerTab({ member }) {
       setIsConnecting(true);
       setScreen('training');
 
-      // Request mic permission immediately — must be in user gesture context (the click)
+      // Request mic + unlock audio context — must be in user gesture context (the click)
       if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
         navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => {});
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          ctx.resume().catch(() => {});
+        } catch {}
       }
 
       // Short "Connecting..." pause for realism
@@ -670,32 +676,43 @@ function TrainingScreen({
       <div style={{ flex: 1, minHeight: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '24px 16px' }}>
         {isTyping ? (
           <>
-            <div style={{ fontSize: 56, lineHeight: 1 }}>🔊</div>
-            <div style={{ color: GOLD, fontSize: 15, fontWeight: 600 }}>{persona.name.split(' ')[0]} is speaking...</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {[0,1,2].map(i => (
-                <div key={i} style={{
-                  width: 8, height: 8, borderRadius: '50%', background: GOLD,
-                  animation: `pulse${i} 1.2s ease-in-out ${i * 0.2}s infinite`,
-                  opacity: 0.8,
-                }} />
-              ))}
-            </div>
+            <div style={{
+              width: 80, height: 80, borderRadius: '50%',
+              background: `rgba(200,169,107,0.15)`,
+              border: `3px solid ${GOLD}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 36,
+              boxShadow: `0 0 0 12px rgba(200,169,107,0.08), 0 0 0 24px rgba(200,169,107,0.04)`,
+            }}>🔊</div>
+            <div style={{ color: GOLD, fontSize: 15, fontWeight: 600, marginTop: 8 }}>{persona.name.split(' ')[0]} is speaking...</div>
+            {isMuted && <div style={{ color: DANGER, fontSize: 12 }}>🔇 You're muted — tap speaker to hear</div>}
           </>
         ) : isListening ? (
           <>
-            <div style={{ fontSize: 56, lineHeight: 1 }}>🎙️</div>
-            <div style={{ color: GREEN, fontSize: 15, fontWeight: 600 }}>You're speaking...</div>
+            <div style={{
+              width: 80, height: 80, borderRadius: '50%',
+              background: `rgba(74,222,128,0.15)`,
+              border: `3px solid ${GREEN}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 36,
+              boxShadow: `0 0 0 12px rgba(74,222,128,0.08), 0 0 0 24px rgba(74,222,128,0.04)`,
+            }}>🎙️</div>
+            <div style={{ color: GREEN, fontSize: 15, fontWeight: 600, marginTop: 8 }}>You're speaking...</div>
             {voiceTranscript && (
-              <div style={{ color: MUTED, fontSize: 12, fontStyle: 'italic', maxWidth: 260, textAlign: 'center' }}>
+              <div style={{ color: MUTED, fontSize: 12, fontStyle: 'italic', maxWidth: 260, textAlign: 'center', marginTop: 4 }}>
                 "{voiceTranscript}"
               </div>
             )}
           </>
         ) : (
           <>
-            <div style={{ fontSize: 56, lineHeight: 1, opacity: 0.4 }}>📞</div>
-            <div style={{ color: MUTED, fontSize: 14 }}>Tap mic to speak</div>
+            <div style={{
+              width: 80, height: 80, borderRadius: '50%',
+              background: CARD2, border: `2px solid ${BORDER}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 36, opacity: 0.5,
+            }}>📞</div>
+            <div style={{ color: MUTED, fontSize: 14, marginTop: 8 }}>Tap mic to speak</div>
           </>
         )}
         <div ref={chatEndRef} />
@@ -719,7 +736,7 @@ function TrainingScreen({
             >
               {isMuted ? '🔇' : '🔊'}
             </button>
-            <span style={{ fontSize: 10, color: MUTED }}>{isMuted ? 'Unmute' : 'Muted'}</span>
+            <span style={{ fontSize: 10, color: isMuted ? DANGER : MUTED }}>{isMuted ? 'Unmute' : 'Mute'}</span>
           </div>
 
           {/* Hang up */}
