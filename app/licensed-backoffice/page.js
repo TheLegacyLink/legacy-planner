@@ -355,6 +355,10 @@ export default function LicensedBackofficePage() {
     deliveryRequirementNote: ''
   });
   const isAdmin = normalize(session?.role || '') === 'admin';
+  const trainingMode = Boolean(session?.trainingMode);
+  // In training mode, mask all financial figures so numbers stay hidden during class demos
+  // eslint-disable-next-line no-shadow
+  const fmtMoney = trainingMode ? () => '$—' : (n = 0) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
   const requiresContract = useMemo(() => {
     const t = normalize(appForm?.appType || '');
     return t.includes('sponsorship') || t.includes('bonus') || t.includes('inner circle');
@@ -1413,6 +1417,11 @@ export default function LicensedBackofficePage() {
             <div>
               <h2 style={{ margin: 0, fontSize: 28 }}>Licensed Agent Back Office</h2>
               <p style={{ margin: '6px 0 0', color: '#9CA3AF' }}>{session.name} • {session.email} • {session.homeState || 'State Pending'}</p>
+              {trainingMode && (
+                <p style={{ margin: '6px 0 0', color: '#F59E0B', fontWeight: 700, fontSize: 13, background: '#1A1200', padding: '4px 10px', borderRadius: 6, display: 'inline-block' }}>
+                  🎓 Training Mode — Financial figures are hidden
+                </p>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ border: '1px solid #334155', borderRadius: 12, padding: '8px 10px', background: '#0B1220', minWidth: 160, textAlign: 'center' }}>
@@ -1511,8 +1520,8 @@ export default function LicensedBackofficePage() {
                 </div>
                 <div style={{ border: '1px solid #2A3142', borderRadius: 14, background: '#0F172A', padding: 14, minHeight: 136 }}>
                   <div style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 6, letterSpacing: '.2px' }}>Placed AP (Current Month)</div>
-                  <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1.08, marginBottom: 6 }}>${Number(metrics.monthlyAp || 0).toLocaleString()}</div>
-                  <div style={{ color: '#CBD5E1', fontSize: 18, lineHeight: 1.3 }}>Personal production basis • Lifetime placed AP: ${Number(metrics.lifetimePlacedAp || 0).toLocaleString()}</div>
+                  <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1.08, marginBottom: 6 }}>{trainingMode ? '$—' : `$${Number(metrics.monthlyAp || 0).toLocaleString()}`}</div>
+                  <div style={{ color: '#CBD5E1', fontSize: 18, lineHeight: 1.3 }}>Personal production basis • Lifetime placed AP: {trainingMode ? '$—' : `$${Number(metrics.lifetimePlacedAp || 0).toLocaleString()}`}</div>
                 </div>
                 <div style={{ border: '1px solid #2A3142', borderRadius: 14, background: '#0F172A', padding: 14, minHeight: 136 }}>
                   <div style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 6, letterSpacing: '.2px' }}>Sponsorships Brought In</div>
@@ -1526,8 +1535,8 @@ export default function LicensedBackofficePage() {
                 </div>
                 <div style={{ border: '1px solid #2A3142', borderRadius: 14, background: '#0F172A', padding: 14, minHeight: 136 }}>
                   <div style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 6, letterSpacing: '.2px' }}>Estimated Sponsorship Policy Payout (Rolling 30 Days)</div>
-                  <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1.08, marginBottom: 6 }}>${Number(metrics.incentiveEstimate30 || 0).toLocaleString()}</div>
-                  <div style={{ color: '#CBD5E1', fontSize: 18, lineHeight: 1.3 }}>Sponsorship Policies: {metrics.sponsorshipPolicies30} • Flat Rate: ${isInnerCircleName(session?.name || '') ? '500 (Inner Circle)' : '400 (Licensed)'}</div>
+                  <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1.08, marginBottom: 6 }}>{trainingMode ? '$—' : `$${Number(metrics.incentiveEstimate30 || 0).toLocaleString()}`}</div>
+                  <div style={{ color: '#CBD5E1', fontSize: 18, lineHeight: 1.3 }}>Sponsorship Policies: {metrics.sponsorshipPolicies30} • Flat Rate: {trainingMode ? '$—' : `$${isInnerCircleName(session?.name || '') ? '500 (Inner Circle)' : '400 (Licensed)'}`}</div>
                 </div>
                 <div style={{ border: '1px solid #2A3142', borderRadius: 14, background: '#0F172A', padding: 14, minHeight: 136 }}>
                   <div style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 6, letterSpacing: '.2px' }}>Next Tier Progress</div>

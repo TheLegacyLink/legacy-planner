@@ -2623,9 +2623,32 @@ export default function InnerCircleHubPage() {
                           <div style={{ color: '#e2e8f0', fontSize: 14, flex: 1 }}>
                             {row?.name || 'Unknown'}{isAppApproved ? <span title="Application Approved" style={{ marginLeft: 8, color: '#fbbf24', textShadow: '0 0 8px rgba(251,191,36,0.45)', letterSpacing: 1.5 }}>⭐⭐⭐</span> : null}
                           </div>
-                          <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
-                            <small className="muted" style={{ whiteSpace: 'nowrap' }}>Tap for details</small>
-                          </div>
+                          {!isAppApproved ? (
+                            <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {row?.type === 'fng' ? (
+                                <a
+                                  href={fngHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: '#1f2937', color: '#6b7280', border: '1px solid #374151', whiteSpace: 'nowrap', textDecoration: 'none', letterSpacing: 0.3 }}
+                                >
+                                  Resubmit
+                                </a>
+                              ) : (
+                                <a
+                                  href={fngHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: '#d97706', color: '#fff', whiteSpace: 'nowrap', textDecoration: 'none', letterSpacing: 0.3 }}
+                                >
+                                  Submit App
+                                </a>
+                              )}
+                              <small className="muted" style={{ whiteSpace: 'nowrap' }}>Tap for details</small>
+                            </div>
+                          ) : null}
                         </button>
                       );
                     })}

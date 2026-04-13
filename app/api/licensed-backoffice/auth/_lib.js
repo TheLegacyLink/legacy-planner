@@ -142,7 +142,7 @@ export async function sendCodeEmail({ to = '', code = '' } = {}) {
   return { ok: true, messageId: info?.messageId || '' };
 }
 
-export async function issueSession(profile = {}) {
+export async function issueSession(profile = {}, options = {}) {
   const sessions = await loadJsonStore(SESSIONS_PATH, []);
   const list = Array.isArray(sessions) ? sessions : [];
 
@@ -159,6 +159,7 @@ export async function issueSession(profile = {}) {
       agentId: clean(profile?.agentId),
       homeState: clean(profile?.homeState),
       carriersActive: Array.isArray(profile?.carriersActive) ? profile.carriersActive : [],
+      trainingMode: Boolean(options?.trainingMode),
       createdAt: nowIso(),
       expiresAt,
       active: true
@@ -187,6 +188,7 @@ export async function sessionFromToken(rawToken = '') {
     name: clean(row.name),
     agentId: clean(row.agentId),
     homeState: clean(row.homeState),
-    carriersActive: Array.isArray(row.carriersActive) ? row.carriersActive : []
+    carriersActive: Array.isArray(row.carriersActive) ? row.carriersActive : [],
+    trainingMode: Boolean(row.trainingMode)
   };
 }
