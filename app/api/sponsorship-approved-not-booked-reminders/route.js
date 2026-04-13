@@ -401,8 +401,8 @@ export async function POST(req) {
 
     attempted += 1;
 
-    // Upline notifications (all referrers)
-    if (uplineEmail) {
+    // Upline notifications (agents only — owner does not receive stall nudges)
+    if (uplineEmail && !isKimora(uplineName)) {
       if (!record?.uplineApprovedSentAt && ageMs >= 0 && ageMs <= 24 * 60 * 60 * 1000) {
         const subject = `Sponsorship Approved: ${fullName}`;
         const text = [
