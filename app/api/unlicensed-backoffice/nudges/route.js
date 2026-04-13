@@ -76,7 +76,7 @@ export async function POST(req) {
   const sent = [];
   const skipped = [];
 
-  const adminEmail = clean(process.env.ADMIN_PAYOUT_NOTIFY_EMAIL || 'kimora@thelegacylink.com').toLowerCase();
+  const adminEmail = clean(process.env.ADMIN_PAYOUT_NOTIFY_EMAIL || 'investalinkagency@gmail.com').toLowerCase();
 
   for (const p of progressList) {
     const email = clean(p?.email).toLowerCase();
@@ -111,7 +111,7 @@ export async function POST(req) {
         ].join('\n');
 
         if (!dryRun && referrerEmail) {
-          const out = await sendMail({ to: referrerEmail, cc: adminEmail, subject, text });
+          const out = await sendMail({ to: referrerEmail, subject, text });
           if (out?.ok) {
             nudgeList.push({ key, email, checkpoint, sent: true, sentAt: new Date().toISOString(), messageId: out.messageId });
             sent.push({ type: 'checkpoint', checkpoint, email, referrerEmail, messageId: out.messageId });
@@ -143,7 +143,7 @@ export async function POST(req) {
         ].join('\n');
 
         if (!dryRun) {
-          const to = [adminEmail, referrerEmail].filter(Boolean).join(',');
+          const to = [referrerEmail].filter(Boolean).join(',');
           const out = await sendMail({ to, subject, text });
           if (out?.ok) {
             nudgeList.push({ key, email, checkpoint: 'eligible', sent: true, sentAt: new Date().toISOString(), messageId: out.messageId });
