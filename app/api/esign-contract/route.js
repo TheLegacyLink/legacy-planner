@@ -15,7 +15,7 @@ async function sessionFromToken(token = '') {
   if (!t) return null;
   const hash = createHash('sha256').update(t).digest('hex');
 
-  for (const path of [UNLICENSED_SESSIONS_PATH, LICENSED_SESSIONS_PATH]) {
+  for (const [path, defaultTrack] of [[UNLICENSED_SESSIONS_PATH, 'unlicensed'], [LICENSED_SESSIONS_PATH, 'licensed']]) {
     try {
       const rows = await loadJsonStore(path, []);
       const hit = (Array.isArray(rows) ? rows : []).find((r) => String(r?.tokenHash || '') === hash && r?.active !== false);
@@ -27,7 +27,7 @@ async function sessionFromToken(token = '') {
             name: String(hit?.name || '').trim(),
             phone: String(hit?.phone || '').trim(),
             state: String(hit?.state || '').trim(),
-            trackType: String(hit?.trackType || 'unlicensed').trim(),
+            trackType: String(hit?.trackType || defaultTrack).trim(),
             applicationId: String(hit?.applicationId || '').trim(),
             referrerName: String(hit?.referrerName || '').trim(),
           };
