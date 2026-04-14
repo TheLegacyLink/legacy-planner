@@ -195,6 +195,31 @@ export default function CommunityServicePage() {
       setLocationOrg('');
       setFiles([]);
       setMsg('Community service logged successfully.');
+
+      // Auto-complete the communityService sprint step for unlicensed agents
+      if (identity?.source === 'unlicensed') {
+        try {
+          const ut = typeof window !== 'undefined' ? clean(window.localStorage.getItem(UNLICENSED_TOKEN_KEY) || '') : '';
+          if (ut) {
+            // Get current progress first so we don't overwrite existing steps
+            const progRes = await fetch('/api/unlicensed-backoffice/progress', {
+              headers: { Authorization: `Bearer ${ut}` },
+              cache: 'no-store'
+            });
+            const progData = progRes.ok ? await progRes.json().catch(() => ({})) : {};
+            const existingSteps = progData?.progress?.steps || {};
+            const existingFields = progData?.progress?.fields || {};
+            await fetch('/api/unlicensed-backoffice/progress', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ut}` },
+              body: JSON.stringify({
+                steps: { ...existingSteps, communityService: true },
+                fields: existingFields
+              })
+            });
+          }
+        } catch {}
+      }
     } catch {
       setMsg('Could not save entry right now.');
     } finally {

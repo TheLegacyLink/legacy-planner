@@ -25,6 +25,7 @@ const STEP_META = [
   { key: 'communitySkool', title: 'Step 2 - Community + Skool (Training)', note: 'Join Skool and complete assigned onboarding/training tasks.' },
   { key: 'prelicensingStarted', title: 'Step 3 - Start Your Pre-Licensing', note: 'Complete the Pre-Licensing card below to request your course credentials.' },
   { key: 'watchedWhateverItTakes', title: 'Step 4 - Required YouTube Task', note: 'Watch https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX and leave a comment to confirm completion.' },
+  { key: 'communityService', title: 'Step 5 - Community Service', note: 'Log at least one community service entry with photo proof. Auto-completes when submitted.', autoOnly: true },
 ];
 
 export default function UnlicensedBackofficePage() {
@@ -442,9 +443,13 @@ export default function UnlicensedBackofficePage() {
                     <strong>{s.title}</strong>
                     <div style={{ color: '#9CA3AF', marginTop: 4 }}>{s.note}</div>
                   </div>
-                  {s.key === 'prelicensingStarted' ? (
+                  {(s.key === 'prelicensingStarted' || s.autoOnly) ? (
                     <span style={{ borderRadius: 999, border: '1px solid #334155', padding: '8px 12px', background: steps[s.key] ? '#065F46' : '#111827', color: '#E5E7EB', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>
-                      {steps[s.key] ? '✅ Requested' : 'See card above ↑'}
+                      {s.key === 'prelicensingStarted'
+                        ? (steps[s.key] ? '✅ Requested' : 'See card above ↑')
+                        : (steps[s.key] ? '✅ Complete' : (
+                          <a href={`/community-service?home=/unlicensed-backoffice`} style={{ color: '#93C5FD', textDecoration: 'none' }}>Go Submit →</a>
+                        ))}
                     </span>
                   ) : (
                     <button

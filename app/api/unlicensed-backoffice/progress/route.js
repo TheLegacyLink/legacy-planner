@@ -29,6 +29,7 @@ const DEFAULT_STEPS = {
   residentLicenseObtained: false,
   licenseDetailsSubmitted: false,
   readyForContracting: false,
+  communityService: false,
 };
 
 export async function GET(req) {
