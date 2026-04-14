@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { loadJsonStore, saveJsonStore } from '../../../../lib/blobJsonStore';
 import { sessionFromToken } from '../auth/_lib';
+import { sessionFromToken as startAuthSessionFromToken } from '../../start-auth/_lib';
 
 const STORE_PATH = 'stores/unlicensed-backoffice-progress.json';
 
@@ -125,10 +126,28 @@ async function sendTriggerEmail({ member = {}, address = {} } = {}) {
   return { ok: true, messageId: info?.messageId || '' };
 }
 
+async function resolveSession(token = '') {
+  const profile = await sessionFromToken(token);
+  if (profile) return profile;
+  // Fallback: accept start-auth tokens (issued by /start portal)
+  try {
+    const startProfile = await startAuthSessionFromToken(token);
+    if (startProfile) return {
+      email: startProfile.email,
+      name: startProfile.name,
+      phone: startProfile.phone || '',
+      state: startProfile.state || '',
+      applicationId: startProfile.applicationId || '',
+      referrerName: startProfile.referrerName || ''
+    };
+  } catch {}
+  return null;
+}
+
 export async function POST(req) {
   const auth = clean(req.headers.get('authorization'));
   const token = auth.toLowerCase().startsWith('bearer ') ? clean(auth.slice(7)) : '';
-  const profile = await sessionFromToken(token);
+  const profile = await resolveSession(token);
   if (!profile) return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
