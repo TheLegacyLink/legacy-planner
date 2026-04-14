@@ -593,48 +593,115 @@ async function sendBackOfficeGhlSetupEmail(row = {}) {
   return { ok: true, messageId: info?.messageId || '', to: recipients };
 }
 
+function computePayoutSplit(row = {}) {
+  // Determine if referrer is Inner Circle
+  const icReferrer = isInnerCircleName(clean(row?.referredByName || ''));
+  const icWriter = isInnerCircleName(clean(row?.policyWriterName || ''));
+  const roleNorm = normalize(row?.submittedByRole || '');
+  const isIC = icReferrer || icWriter || roleNorm.includes('inner_circle');
+
+  const referrerAmount = Number(row?.payoutAmount || 0) || 0;
+  // Writer bonus: $50 for IC referrals, $100 for all others (when writer differs from referrer)
+  const referrer = normalize(row?.referredByName || '');
+  const writer = normalize(row?.policyWriterName || '');
+  const writerDiffers = writer && referrer && writer !== referrer;
+  const writerAmount = writerDiffers ? (isIC ? 50 : 100) : 0;
+
+  return { referrerAmount, writerAmount, isIC };
+}
+
 async function sendPayoutPaidEmail(row = {}) {
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
   const from = clean(process.env.GMAIL_FROM) || user;
   if (!user || !pass) return { ok: false, error: 'missing_gmail_env' };
 
-  const recipients = [...new Set([
-    findUserEmailByName(clean(row?.referredByName || '')),
-    findUserEmailByName(clean(row?.policyWriterName || '')),
-    ...adminEmails()
-  ].filter(Boolean))];
-  if (!recipients.length) return { ok: false, error: 'no_recipients' };
-
-  const amount = Number(row?.payoutAmount || 0) || 0;
-  const subject = `Payout Paid: ${row.applicantName || 'Applicant'}`;
-  const text = [
-    'Great news — payout has been marked as PAID.',
-    '',
-    `Client: ${row.applicantName || '—'}`,
-    `Referred By: ${row.referredByName || '—'}`,
-    `Policy Writer: ${row.policyWriterName || '—'}`,
-    `Payout Amount: $${amount.toFixed(2)}`,
-    `Paid At: ${row.payoutPaidAt || nowIso()}`,
-    '',
-    '— The Legacy Link Support Team'
-  ].join('\n');
-
-  const html = brandEmailFrame(
-    'Payout Marked Paid',
-    `<p>Great news — payout has been marked as <strong>PAID</strong>.</p>
-     <ul style="padding-left:18px; margin:10px 0;">
-       <li><strong>Client:</strong> ${row.applicantName || '—'}</li>
-       <li><strong>Referred By:</strong> ${row.referredByName || '—'}</li>
-       <li><strong>Policy Writer:</strong> ${row.policyWriterName || '—'}</li>
-       <li><strong>Payout Amount:</strong> $${amount.toFixed(2)}</li>
-       <li><strong>Paid At:</strong> ${row.payoutPaidAt || nowIso()}</li>
-     </ul>`
-  );
-
   const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
-  const info = await tx.sendMail({ from, to: recipients.join(', '), subject, text, html });
-  return { ok: true, messageId: info?.messageId || '', to: recipients };
+  const { referrerAmount, writerAmount } = computePayoutSplit(row);
+  const paidAt = row.payoutPaidAt || nowIso();
+  const client = row.applicantName || '—';
+  const referrer = clean(row?.referredByName || '');
+  const writer = clean(row?.policyWriterName || '');
+  const referrerEmail = findUserEmailByName(referrer);
+  const writerEmail = findUserEmailByName(writer);
+  const subject = `Payout Paid: ${client}`;
+  const results = [];
+
+  // Send to referrer with their amount only
+  if (referrerEmail && referrerAmount > 0) {
+    const html = brandEmailFrame(
+      'Payout Marked Paid',
+      `<p>Great news — your payout has been marked as <strong>PAID</strong>.</p>
+       <ul style="padding-left:18px; margin:10px 0;">
+         <li><strong>Client:</strong> ${client}</li>
+         <li><strong>Referred By:</strong> ${referrer || '—'}</li>
+         <li><strong>Writing Agent:</strong> ${writer || '—'}</li>
+         <li><strong>Your Payout:</strong> $${referrerAmount.toFixed(2)}</li>
+         <li><strong>Paid At:</strong> ${paidAt}</li>
+       </ul>`
+    );
+    const text = [
+      'Great news — your payout has been marked as PAID.',
+      '',
+      `Client: ${client}`,
+      `Referred By: ${referrer || '—'}`,
+      `Writing Agent: ${writer || '—'}`,
+      `Your Payout: $${referrerAmount.toFixed(2)}`,
+      `Paid At: ${paidAt}`,
+      '',
+      '— The Legacy Link Support Team'
+    ].join('\n');
+    const info = await tx.sendMail({ from, to: referrerEmail, subject, text, html });
+    results.push({ to: referrerEmail, messageId: info?.messageId || '' });
+  }
+
+  // Send to writer with their amount only (only if they are a different person)
+  if (writerEmail && writerEmail !== referrerEmail && writerAmount > 0) {
+    const html = brandEmailFrame(
+      'Payout Marked Paid',
+      `<p>Great news — your payout has been marked as <strong>PAID</strong>.</p>
+       <ul style="padding-left:18px; margin:10px 0;">
+         <li><strong>Client:</strong> ${client}</li>
+         <li><strong>Referred By:</strong> ${referrer || '—'}</li>
+         <li><strong>Writing Agent:</strong> ${writer || '—'}</li>
+         <li><strong>Your Payout:</strong> $${writerAmount.toFixed(2)}</li>
+         <li><strong>Paid At:</strong> ${paidAt}</li>
+       </ul>`
+    );
+    const text = [
+      'Great news — your payout has been marked as PAID.',
+      '',
+      `Client: ${client}`,
+      `Referred By: ${referrer || '—'}`,
+      `Writing Agent: ${writer || '—'}`,
+      `Your Payout: $${writerAmount.toFixed(2)}`,
+      `Paid At: ${paidAt}`,
+      '',
+      '— The Legacy Link Support Team'
+    ].join('\n');
+    const info = await tx.sendMail({ from, to: writerEmail, subject, text, html });
+    results.push({ to: writerEmail, messageId: info?.messageId || '' });
+  }
+
+  // Admin copy with full context (internal only)
+  const adminList = adminEmails().filter((e) => e !== referrerEmail && e !== writerEmail);
+  if (adminList.length) {
+    const totalAmount = referrerAmount + (writerAmount || 0);
+    const adminHtml = brandEmailFrame(
+      '[Admin] Payout Marked Paid',
+      `<p>Payout marked paid — admin copy.</p>
+       <ul style="padding-left:18px; margin:10px 0;">
+         <li><strong>Client:</strong> ${client}</li>
+         <li><strong>Referred By:</strong> ${referrer || '—'} — $${referrerAmount.toFixed(2)}</li>
+         <li><strong>Writing Agent:</strong> ${writer || '—'} — $${writerAmount > 0 ? writerAmount.toFixed(2) : '—'}</li>
+         <li><strong>Total Paid Out:</strong> $${totalAmount.toFixed(2)}</li>
+         <li><strong>Paid At:</strong> ${paidAt}</li>
+       </ul>`
+    );
+    await tx.sendMail({ from, to: adminList.join(', '), subject: `[Admin] ${subject}`, text: `Admin copy. Referrer: ${referrer} $${referrerAmount} | Writer: ${writer} $${writerAmount}`, html: adminHtml });
+  }
+
+  return { ok: true, results };
 }
 
 async function sendDeclineEmail(row = {}) {

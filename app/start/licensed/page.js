@@ -184,7 +184,9 @@ const inputStyle = {
   border: '1px solid #334155',
   background: '#0F172A',
   color: '#F8FAFC',
-  padding: '10px 12px'
+  padding: '10px 12px',
+  fontSize: 16,
+  boxSizing: 'border-box'
 };
 
 const primaryBtn = {

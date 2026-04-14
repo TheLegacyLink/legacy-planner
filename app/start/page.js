@@ -216,7 +216,7 @@ const card = {
 const labelStyle = { display: 'grid', gap: 6, fontSize: 14, color: '#CBD5E1', fontWeight: 600 };
 const inputStyle = {
   background: '#0B1220', border: '1px solid #334155', borderRadius: 10,
-  padding: '10px 14px', color: '#F8FAFC', fontSize: 15, outline: 'none', width: '100%', boxSizing: 'border-box'
+  padding: '10px 14px', color: '#F8FAFC', fontSize: 16, outline: 'none', width: '100%', boxSizing: 'border-box'
 };
 const btnPrimary = {
   background: '#1651AE', border: 'none', borderRadius: 10, color: '#fff',
@@ -318,8 +318,17 @@ export default function StartPortalPage() {
         setError(data?.error === 'code_expired' ? 'Code expired. Request a new one.' : 'Invalid code. Try again.');
         return;
       }
-      if (typeof window !== 'undefined') window.localStorage.setItem(TOKEN_KEY, data.token);
-      if (typeof window !== 'undefined') window.localStorage.setItem(PROFILE_KEY, JSON.stringify(data.profile));
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(TOKEN_KEY, data.token);
+        window.localStorage.setItem(PROFILE_KEY, JSON.stringify(data.profile));
+        // Seed the backoffice-specific token key so redirect lands logged in
+        const track = clean(data.profile?.trackType || 'unlicensed');
+        if (track === 'licensed') {
+          window.localStorage.setItem('licensed_backoffice_token', data.token);
+        } else {
+          window.localStorage.setItem('unlicensed_backoffice_token', data.token);
+        }
+      }
       setToken(data.token);
       setProfile(data.profile);
       redirectToBackoffice(data.profile);

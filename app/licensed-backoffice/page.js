@@ -380,6 +380,20 @@ export default function LicensedBackofficePage() {
   }), [session]);
   const filteredAgentOptions = useMemo(() => buildAgentOptionPool(appForm.carrier || ''), [appForm.carrier]);
 
+  // Pre-fill saved credentials on return visits
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = window.localStorage.getItem('licensed_backoffice_creds');
+    if (saved) {
+      try {
+        const { email: e, name: n, phone: p } = JSON.parse(saved);
+        if (e) setEmail(e);
+        if (n) setLoginName(n);
+        if (p) setLoginPhone(p);
+      } catch { /* ignore */ }
+    }
+  }, []);
+
   useEffect(() => {
     const token = typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') : '';
     if (!token) return;
@@ -466,8 +480,8 @@ export default function LicensedBackofficePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        if (res.status === 202 || String(data?.error || '').startsWith('pending_verification')) {
-          setError('Pending verification: we received your request and admin approval is required before access.');
+        if (String(data?.error || '') === 'not_found') {
+          setError('No account found for that email. Complete your sign-up at innercirclelink.com/start/licensed first.');
           return;
         }
         setError(data?.error ? `Login blocked: ${data.error}` : 'Unable to send code right now.');
@@ -499,7 +513,15 @@ export default function LicensedBackofficePage() {
         setError(data?.error ? `Verification failed: ${data.error}` : 'Invalid code.');
         return;
       }
-      if (typeof window !== 'undefined') window.localStorage.setItem('licensed_backoffice_token', data.token);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('licensed_backoffice_token', data.token);
+        // Save credentials for auto-fill on future visits
+        window.localStorage.setItem('licensed_backoffice_creds', JSON.stringify({
+          email: clean(email).toLowerCase(),
+          name: clean(loginName),
+          phone: clean(loginPhone)
+        }));
+      }
       setAuthToken(data.token);
       setSession(data.profile);
     } catch {
@@ -1374,7 +1396,9 @@ export default function LicensedBackofficePage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Your email address"
-              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }}
+              type="email"
+              autoComplete="email"
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff', fontSize: 16, boxSizing: 'border-box' }}
             />
             {!codeRequested ? (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -1391,7 +1415,8 @@ export default function LicensedBackofficePage() {
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="Enter 6-digit code or password"
-                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }}
+                  inputMode="numeric"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff', fontSize: 16, boxSizing: 'border-box' }}
                 />
                 <button onClick={verifyCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
                   Verify & Enter Back Office

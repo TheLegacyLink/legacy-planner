@@ -53,6 +53,69 @@ async function queuePendingVerification({ email = '', fullName = '', phone = '',
   return row;
 }
 
+async function resolveFromSignedIca({ email = '' } = {}) {
+  const e = clean(email).toLowerCase();
+  if (!e) return null;
+  try {
+    const rows = await loadJsonStore('stores/esign-contracts.json', []);
+    const list = Array.isArray(rows) ? rows : [];
+    // Accept any signed ICA (licensed or unlicensed track — contract is what matters)
+    const hit = list.find((r) => clean(r?.email).toLowerCase() === e && r?.candidateSignedAt);
+    if (!hit) return null;
+    return {
+      email: e,
+      name: clean(hit?.name || ''),
+      agentId: clean(hit?.applicationId || ''),
+      homeState: clean(hit?.state || ''),
+      trackType: clean(hit?.trackType || 'licensed'),
+      carriersActive: [],
+    };
+  } catch { return null; }
+}
+
+async function resolveFromStartIntake({ email = '' } = {}) {
+  const e = clean(email).toLowerCase();
+  if (!e) return null;
+  try {
+    // Check start-intake (people who registered via /start/licensed or /start/unlicensed)
+    const rows = await loadJsonStore('stores/start-intake.json', []);
+    const list = Array.isArray(rows) ? rows : [];
+    const hit = list.find((r) => clean(r?.email).toLowerCase() === e);
+    if (!hit) return null;
+    const firstName = clean(hit?.firstName || '');
+    const lastName = clean(hit?.lastName || '');
+    return {
+      email: e,
+      name: clean(`${firstName} ${lastName}`),
+      agentId: clean(hit?.npn || hit?.id || ''),
+      homeState: clean(hit?.homeState || hit?.state || ''),
+      trackType: clean(hit?.trackType || 'licensed'),
+      carriersActive: [],
+    };
+  } catch { return null; }
+}
+
+async function resolveFromSponsorshipApps({ email = '' } = {}) {
+  const e = clean(email).toLowerCase();
+  if (!e) return null;
+  try {
+    const rows = await loadJsonStore('stores/sponsorship-applications.json', []);
+    const list = Array.isArray(rows) ? rows : [];
+    const hit = list.find((r) => clean(r?.email).toLowerCase() === e);
+    if (!hit) return null;
+    const firstName = clean(hit?.firstName || '');
+    const lastName = clean(hit?.lastName || '');
+    return {
+      email: e,
+      name: clean(`${firstName} ${lastName}`),
+      agentId: clean(hit?.npn || hit?.id || ''),
+      homeState: clean(hit?.state || ''),
+      trackType: 'licensed',
+      carriersActive: [],
+    };
+  } catch { return null; }
+}
+
 export async function resolveLicensedProfile({ email = '', fullName = '', phone = '' } = {}) {
   const e = clean(email).toLowerCase();
 
@@ -73,13 +136,40 @@ export async function resolveLicensedProfile({ email = '', fullName = '', phone 
   // 3) Name + phone match flow (for alternate emails)
   const m = matchLicensedAgent({ fullName, phone, email });
   if (!m?.matched || !m?.match) {
-    await queuePendingVerification({ email: e, fullName, phone, reason: 'no_match', candidates: [] });
-    return { ok: false, error: 'pending_verification' };
+    // ICA fallback: signed contract = access granted, no admin approval needed
+    const icaProfile = await resolveFromSignedIca({ email: e });
+    if (icaProfile) return { ok: true, profile: icaProfile, via: 'ica_signed' };
+
+    // Start-intake fallback: registered via /start/licensed or /start/unlicensed
+    const intakeProfile = await resolveFromStartIntake({ email: e });
+    if (intakeProfile) return { ok: true, profile: intakeProfile, via: 'start_intake' };
+
+    // Sponsorship-app fallback
+    const appProfile = await resolveFromSponsorshipApps({ email: e });
+    if (appProfile) return { ok: true, profile: appProfile, via: 'sponsorship_app' };
+
+    // No match anywhere — not found
+    return { ok: false, error: 'not_found' };
   }
 
   if (!isStrongAliasMatch({ fullName, phone }, m.match)) {
-    await queuePendingVerification({ email: e, fullName, phone, reason: 'weak_match', candidates: m.candidates || [] });
-    return { ok: false, error: 'pending_verification', candidates: m.candidates || [] };
+    // Auto-link on weak match instead of queuing for manual review
+    const primaryEmail = clean(m.match.email).toLowerCase();
+    const activeAliasesForPrimary = aliases.filter((a) => clean(a?.primaryEmail).toLowerCase() === primaryEmail && a?.active !== false);
+    const distinctAliasEmails = [...new Set(activeAliasesForPrimary.map((a) => clean(a?.aliasEmail).toLowerCase()).filter(Boolean))];
+    const alreadyLinked = distinctAliasEmails.includes(e);
+    if (!alreadyLinked && distinctAliasEmails.length < 2) {
+      const next = [...aliases];
+      const idx = next.findIndex((a) => clean(a?.aliasEmail).toLowerCase() === e);
+      const row = {
+        aliasEmail: e, primaryEmail, name: clean(m.match.name), phone: clean(m.match.phone),
+        agentId: clean(m.match.agentId), active: true, linkedAt: nowIso(), linkedBy: 'auto_weak_match'
+      };
+      if (idx >= 0) next[idx] = { ...next[idx], ...row };
+      else next.push(row);
+      await saveAliases(next);
+    }
+    return { ok: true, profile: m.match, via: 'weak_match_auto' };
   }
 
   // Alias policy: up to 2 approved alternate emails per primary roster email.
@@ -88,8 +178,8 @@ export async function resolveLicensedProfile({ email = '', fullName = '', phone 
   const distinctAliasEmails = [...new Set(activeAliasesForPrimary.map((a) => clean(a?.aliasEmail).toLowerCase()).filter(Boolean))];
   const alreadyLinked = distinctAliasEmails.includes(e);
   if (!alreadyLinked && distinctAliasEmails.length >= 2) {
-    await queuePendingVerification({ email: e, fullName, phone, reason: 'alias_limit_reached', candidates: [m.match] });
-    return { ok: false, error: 'pending_verification_alias_limit' };
+    // Alias limit reached — still let them in via the matched profile (no approval gate)
+    return { ok: true, profile: m.match, via: 'alias_limit_passthrough' };
   }
 
   // Auto-link alias on strong match

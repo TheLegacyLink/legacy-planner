@@ -1,6 +1,17 @@
 node_modules
 .next
 .vercel
+node_modules/
+apply/node_modules/
+apply/.next/
+*.zip
+ai_sales_trainer_preview/
+ai_sales_trainer_updates/
+legacy-planner-minfix
+legacy-planner-clean
+tmp/
+codex/
+.DS_Store
 .DS_Store
 npm-debug.log*
 yarn-debug.log*

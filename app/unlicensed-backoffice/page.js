@@ -277,14 +277,14 @@ export default function UnlicensedBackofficePage() {
             <p style={{ margin: '8px 0 0', opacity: 0.95 }}>Unlicensed Back Office • License Sprint</p>
           </div>
           <div style={{ padding: 24, display: 'grid', gap: 10 }}>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" type="email" autoComplete="email" style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff', fontSize: 16, boxSizing: 'border-box' }} />
             {!codeRequested ? (
-              <button onClick={requestCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>Send Login Code</button>
+              <button onClick={requestCode} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800, fontSize: 16 }}>Send Login Code</button>
             ) : (
               <>
-                <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Enter your 6-digit code" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} onKeyDown={(e) => e.key === 'Enter' && verifyCode()} />
-                <button onClick={verifyCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>Enter Back Office</button>
-                <small style={{ color: '#9CA3AF', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setCodeRequested(false)}>Resend code</small>
+                <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Enter your 6-digit code" inputMode="numeric" style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff', fontSize: 16, boxSizing: 'border-box', letterSpacing: 4, textAlign: 'center' }} onKeyDown={(e) => e.key === 'Enter' && verifyCode()} />
+                <button onClick={verifyCode} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800, fontSize: 16 }}>Enter Back Office</button>
+                <small style={{ color: '#9CA3AF', cursor: 'pointer', textDecoration: 'underline', textAlign: 'center' }} onClick={() => setCodeRequested(false)}>Resend code</small>
               </>
             )}
             {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Enter your email to receive a login code.</small>}

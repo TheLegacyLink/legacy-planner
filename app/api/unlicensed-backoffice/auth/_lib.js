@@ -62,6 +62,26 @@ async function resolveFromSignedIntake({ email = '' } = {}) {
   };
 }
 
+async function resolveFromSignedIca({ email = '' } = {}) {
+  const e = norm(email);
+  if (!e) return null;
+  try {
+    const { loadJsonStore: load } = await import('../../../../lib/blobJsonStore');
+    const rows = await load('stores/esign-contracts.json', []);
+    const list = Array.isArray(rows) ? rows : [];
+    const hit = list.find((r) => norm(r?.email) === e && r?.candidateSignedAt && norm(r?.trackType) === 'unlicensed');
+    if (!hit) return null;
+    return {
+      email: clean(hit?.email).toLowerCase(),
+      name: clean(hit?.name || ''),
+      phone: clean(hit?.phone || ''),
+      state: clean(hit?.state || ''),
+      applicationId: clean(hit?.applicationId || hit?.envelopeId || ''),
+      referrerName: clean(hit?.referrerName || '')
+    };
+  } catch { return null; }
+}
+
 export async function resolveUnlicensedProfile({ email = '', fullName = '' } = {}) {
   const rows = await loadJsonStore(APPS_PATH, []);
   const list = (Array.isArray(rows) ? rows : []).filter(isUnlicensed);
@@ -102,7 +122,12 @@ export async function resolveUnlicensedProfile({ email = '', fullName = '' } = {
     return re === e && (!n || rn === n);
   }) || null;
 
-  if (!hit) return { ok: false, error: 'not_found' };
+  if (!hit) {
+    // ICA fallback: if this email has a signed unlicensed ICA, let them in directly
+    const icaProfile = await resolveFromSignedIca({ email: e });
+    if (icaProfile) return { ok: true, profile: icaProfile };
+    return { ok: false, error: 'not_found' };
+  }
 
   return {
     ok: true,

@@ -87,6 +87,13 @@
     "active": true
   },
   {
+    "name": "Princess T Smith",
+    "email": "multiplemarket@gmail.com",
+    "role": "submitter",
+    "passwordHash": "97ae26b04999422ef0d6465f1937baabdc6a66907d92fb783d741a2c2fbbe558",
+    "active": true
+  },
+  {
     "name": "Portal Test",
     "email": "portaltest@innercirclelink.com",
     "role": "submitter",

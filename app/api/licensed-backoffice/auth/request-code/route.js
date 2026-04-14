@@ -14,9 +14,8 @@ export async function POST(req) {
 
   const resolved = await resolveLicensedProfile({ email, fullName, phone });
   if (!resolved?.ok || !resolved?.profile) {
-    const err = resolved?.error || 'not_licensed';
-    const status = String(err).startsWith('pending_verification') ? 202 : 403;
-    return Response.json({ ok: false, error: err, candidates: resolved?.candidates || [] }, { status });
+    const err = resolved?.error || 'not_found';
+    return Response.json({ ok: false, error: err, candidates: resolved?.candidates || [] }, { status: 403 });
   }
 
   const code = generateCode();
