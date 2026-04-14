@@ -166,12 +166,18 @@ export async function GET(req) {
   const threadKey = toThreadKey(rootKey, upline.key);
 
   if (mode === 'inbox') {
-    const inboxRows = (Array.isArray(messageRows) ? messageRows : [])
-      .filter((r) => clean(r?.toKey) === rootKey)
-      .sort((a, b) => new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime());
+    // Step 1: find all threadKeys where rootKey is a participant (sender OR recipient)
+    const participantRows = (Array.isArray(messageRows) ? messageRows : [])
+      .filter((r) => clean(r?.toKey) === rootKey || clean(r?.fromKey) === rootKey);
+
+    const participantThreadKeys = new Set(participantRows.map((r) => clean(r?.threadKey)).filter(Boolean));
+
+    // Step 2: load ALL messages in those threads so replies are included in the conversation
+    const allThreadMessages = (Array.isArray(messageRows) ? messageRows : [])
+      .filter((r) => participantThreadKeys.has(clean(r?.threadKey)));
 
     const byThread = new Map();
-    for (const r of inboxRows) {
+    for (const r of allThreadMessages) {
       const tk = clean(r?.threadKey);
       if (!tk) continue;
       if (!byThread.has(tk)) byThread.set(tk, []);
@@ -181,6 +187,7 @@ export async function GET(req) {
     const threads = [...byThread.entries()].map(([tk, items]) => {
       const sorted = items.sort((a, b) => new Date(a?.createdAt || 0).getTime() - new Date(b?.createdAt || 0).getTime());
       const latest = sorted[sorted.length - 1] || null;
+      // Unread = messages sent TO rootKey that haven't been read yet
       const unread = sorted.filter((r) => clean(r?.toKey) === rootKey && !clean(r?.readAt)).length;
       const agentName = clean(latest?.fromRole) === 'agent'
         ? clean(latest?.fromName)
