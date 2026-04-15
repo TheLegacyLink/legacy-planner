@@ -196,8 +196,7 @@ export default function InnerCircleAppSubmitPage() {
   const [session, setSession] = useState(null);
   const [users, setUsers] = useState([]);
   const [contractedAgentNames, setContractedAgentNames] = useState([]);
-  const [referredBySearch, setReferredBySearch] = useState('');
-  const [policyWriterSearch, setPolicyWriterSearch] = useState('');
+  // referredBySearch / policyWriterSearch removed — datalist already filters natively
   const [loginName, setLoginName] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -304,17 +303,8 @@ export default function InnerCircleAppSubmitPage() {
     return merged.sort((a, b) => a.localeCompare(b));
   }, [users, contractedAgentNames]);
 
-  const filteredReferredByOptions = useMemo(() => {
-    const q = String(referredBySearch || '').trim().toLowerCase();
-    if (!q) return agentDirectory;
-    return agentDirectory.filter((n) => n.toLowerCase().includes(q));
-  }, [agentDirectory, referredBySearch]);
-
-  const filteredPolicyWriterOptions = useMemo(() => {
-    const q = String(policyWriterSearch || '').trim().toLowerCase();
-    if (!q) return agentDirectory;
-    return agentDirectory.filter((n) => n.toLowerCase().includes(q));
-  }, [agentDirectory, policyWriterSearch]);
+  const filteredReferredByOptions = agentDirectory;
+  const filteredPolicyWriterOptions = agentDirectory;
 
   const isAdmin = String(session?.role || '').toLowerCase() === 'admin';
   const isInnerCircleType = useMemo(() => String(form.appType || '').toLowerCase().includes('inner circle'), [form.appType]);
@@ -1103,17 +1093,10 @@ export default function InnerCircleAppSubmitPage() {
           <label>
             Referred By *
             <input
-              type="search"
-              value={referredBySearch}
-              onChange={(e) => setReferredBySearch(e.target.value)}
-              placeholder="Search referred-by names"
-              style={{ marginBottom: 6 }}
-            />
-            <input
               list="agentDirectoryReferred"
               value={form.referredByName}
               onChange={(e) => update('referredByName', e.target.value)}
-              placeholder="Type or select name"
+              placeholder="Search referred-by names"
             />
           </label>
 
@@ -1126,17 +1109,10 @@ export default function InnerCircleAppSubmitPage() {
           <label>
             Policy Written By *
             <input
-              type="search"
-              value={policyWriterSearch}
-              onChange={(e) => setPolicyWriterSearch(e.target.value)}
-              placeholder="Search policy writer names"
-              style={{ marginBottom: 6 }}
-            />
-            <input
               list="agentDirectoryWriter"
               value={form.policyWriterName}
               onChange={(e) => update('policyWriterName', e.target.value)}
-              placeholder="Type or select name"
+              placeholder="Search policy writer names"
             />
           </label>
 
