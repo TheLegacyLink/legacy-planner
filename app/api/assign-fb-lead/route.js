@@ -135,8 +135,12 @@ export async function POST(req) {
 
       const caps = (settings?.autoDistributeCaps && typeof settings.autoDistributeCaps === 'object') ? settings.autoDistributeCaps : {};
 
-      if (autoDistribute && agentList.length > 0) {
-        const pickedAgent = pickBalancedAgent(agentList, merged, caps);
+      // Always assign leads — if auto-distribute is off or no agents eligible, overflow to Kimora Link.
+      // This ensures no lead ever lands in GHL without an explicit owner.
+      {
+        const pickedAgent = autoDistribute && agentList.length > 0
+          ? pickBalancedAgent(agentList, merged, caps)
+          : 'Kimora Link';
 
         // Wait 10 seconds before assigning — GHL needs time to fully index the new contact
         await new Promise((resolve) => setTimeout(resolve, 10000));
