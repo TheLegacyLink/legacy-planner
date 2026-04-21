@@ -3,14 +3,32 @@
 import { useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEY = 'legacy-sponsorship-applications-v1';
+const GHL_NEXT_LEVEL_URL = 'https://thelegacylink.com/choose-your-next-level';
 
 export default function SponsorshipThankYouPage() {
   const [id, setId] = useState('');
+  const [nextLevelUrl, setNextLevelUrl] = useState('');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const sp = new URLSearchParams(window.location.search);
     setId(sp.get('id') || '');
+
+    // Generate a page-access token so the GHL page can verify this user came through the form
+    fetch('/api/page-access-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ context: 'choose-your-next-level' })
+    })
+      .then((r) => r.json())
+      .catch(() => ({}))
+      .then((data) => {
+        if (data?.ok && data?.token) {
+          setNextLevelUrl(`${GHL_NEXT_LEVEL_URL}?token=${encodeURIComponent(data.token)}`);
+        } else {
+          setNextLevelUrl(GHL_NEXT_LEVEL_URL);
+        }
+      });
   }, []);
 
   const record = useMemo(() => {
@@ -50,6 +68,13 @@ export default function SponsorshipThankYouPage() {
                   Book Onboarding Call
                 </button>
               )}
+              {nextLevelUrl ? (
+                <a href={nextLevelUrl} target="_blank" rel="noreferrer">
+                  <button type="button" style={{ background: '#0047AB', color: '#fff', border: 'none' }}>
+                    🚀 Choose Your Next Level
+                  </button>
+                </a>
+              ) : null}
             </div>
 
             <div style={{ marginTop: 12, border: '1px solid #bfdbfe', borderRadius: 12, background: '#eff6ff', padding: 12 }}>
