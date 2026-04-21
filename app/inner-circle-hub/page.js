@@ -293,6 +293,11 @@ export default function InnerCircleHubPage() {
   const [onboardingDecisionRows, setOnboardingDecisionRows] = useState([]);
   const [teamHierarchyRows, setTeamHierarchyRows] = useState([]);
   const [teamExpanded, setTeamExpanded] = useState({});
+  const [licenseOverrides, setLicenseOverrides] = useState([]);
+  const [togglingLicense, setTogglingLicense] = useState('');
+  const [removingOwnTree, setRemovingOwnTree] = useState('');
+  const [reassigningOwnTree, setReassigningOwnTree] = useState('');
+  const [ownTreeNotice, setOwnTreeNotice] = useState('');
   const [hubMembers, setHubMembers] = useState([]);
   const [startIntakeRows, setStartIntakeRows] = useState([]);
   const [startIntakeLoading, setStartIntakeLoading] = useState(false);
@@ -759,7 +764,14 @@ export default function InnerCircleHubPage() {
       const fromRoster = (childEmail && licensedEmailSet.has(childEmail)) || licensedNameSigSet.has(nameSig(childName));
       const fromLicensedOverride = LICENSED_NAME_OVERRIDES.has(normName(childName));
 
-      const licenseTag = (fromRoster || fromLicensedOverride) ? 'licensed' : fromPolicy;
+      // Dynamic license override takes highest priority
+      const dynamicOverride = (Array.isArray(licenseOverrides) ? licenseOverrides : []).find((o) =>
+        (childEmail && clean(o?.email).toLowerCase() === childEmail) ||
+        (childName && normName(clean(o?.name)) === normName(childName))
+      );
+      const licenseTag = dynamicOverride?.trackType
+        ? dynamicOverride.trackType
+        : (fromRoster || fromLicensedOverride) ? 'licensed' : fromPolicy;
       const isInnerCircle = (childEmail && innerCircleEmailSet.has(childEmail)) || innerCircleNameSigSet.has(nameSig(childName)) || INNER_CIRCLE_NAME_OVERRIDES.has(normName(childName));
 
       map.set(childKey || `${childName}|${childEmail}`, { licenseTag, isInnerCircle, childPhone });
@@ -1385,7 +1397,13 @@ export default function InnerCircleHubPage() {
 
   const sponsorshipSubmissionsCount = Number(activitySummary?.submitted || 0) || 0;
   const isAdminUser = ['admin', 'manager'].includes(clean(member?.role || '').toLowerCase());
-  const canManageHierarchy = clean(member?.email || '').toLowerCase() === 'kimora@thelegacylink.com';
+  const memberEmail = clean(member?.email || '').toLowerCase();
+  const isKimoraAdmin = memberEmail === 'kimora@thelegacylink.com' || memberEmail === 'investalinkinsurance@gmail.com';
+  // canManageHierarchy: full admin (Kimora) can manage everyone
+  const canManageHierarchy = isKimoraAdmin;
+  // canManageOwnTree: Inner Circle members can manage licensed/unlicensed status,
+  // remove, and reassign — but ONLY within their own team tree
+  const canManageOwnTree = !isKimoraAdmin && Boolean(member?.email);
 
   const vipPdfLinks = useMemo(() => {
     const pathwaysLocked = !isAdminUser && sponsorshipSubmissionsCount < 10;
@@ -1544,6 +1562,12 @@ export default function InnerCircleHubPage() {
         if (!canceled && teamRes.ok && teamData?.ok) {
           setTeamHierarchyRows(Array.isArray(teamData?.rows) ? teamData.rows : []);
         }
+        // Load license overrides for own-tree management
+        try {
+          const ovRes = await fetch('/api/team-member-controls', { cache: 'no-store' });
+          const ovData = await ovRes.json().catch(() => ({}));
+          if (!canceled && ovRes.ok && ovData?.ok) setLicenseOverrides(Array.isArray(ovData?.overrides) ? ovData.overrides : []);
+        } catch {}
         if (!canceled && membersRes.ok && membersData?.ok) {
           setHubMembers(Array.isArray(membersData?.rows) ? membersData.rows : []);
         }
@@ -2086,6 +2110,100 @@ export default function InnerCircleHubPage() {
     const data = await res.json().catch(() => ({}));
     if (res.ok && data?.ok) setTeamHierarchyRows(Array.isArray(data?.rows) ? data.rows : []);
   }
+
+  // ── Own-tree management (Inner Circle members) ──────────────────────────
+  async function ownTreeToggleLicense(card = {}) {
+    const targetEmail = clean(card?.childEmail || '').toLowerCase();
+    const targetName = clean(card?.childName || '');
+    const currentTag = clean(card?.licenseTag || 'unlicensed');
+    const newTrack = currentTag === 'licensed' ? 'unlicensed' : 'licensed';
+    const key = targetEmail || targetName;
+    setTogglingLicense(key);
+    setOwnTreeNotice('');
+    try {
+      const res = await fetch('/api/team-member-controls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'set_license',
+          actorEmail: clean(member?.email || '').toLowerCase(),
+          targetEmail,
+          targetName,
+          trackType: newTrack
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) { setOwnTreeNotice('Failed to update license status.'); return; }
+      const ovRes = await fetch('/api/team-member-controls', { cache: 'no-store' });
+      const ovData = await ovRes.json().catch(() => ({}));
+      if (ovRes.ok && ovData?.ok) setLicenseOverrides(Array.isArray(ovData?.overrides) ? ovData.overrides : []);
+      setOwnTreeNotice(`${targetName || targetEmail} marked as ${newTrack}.`);
+    } finally { setTogglingLicense(''); }
+  }
+
+  async function ownTreeRemoveMember(card = {}) {
+    const childKey = clean(card?.childKey || card?.id || '');
+    if (!childKey) return;
+    if (!window.confirm(`Remove ${card?.childName || 'this member'} from your tree? They will become unassigned.`)) return;
+    setRemovingOwnTree(childKey);
+    setOwnTreeNotice('');
+    try {
+      const res = await fetch('/api/team-member-controls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'remove',
+          actorEmail: clean(member?.email || '').toLowerCase(),
+          childKey,
+          targetEmail: clean(card?.childEmail || '').toLowerCase()
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        if (data?.error === 'target_not_in_tree') setOwnTreeNotice('This member is not in your tree.');
+        else setOwnTreeNotice('Failed to remove member.');
+        return;
+      }
+      await refreshTeamHierarchy();
+      setOwnTreeNotice(`${card?.childName || 'Member'} removed from your tree.`);
+    } finally { setRemovingOwnTree(''); }
+  }
+
+  async function ownTreeReassign(card = {}, newParentKey = '') {
+    const childKey = clean(card?.childKey || card?.id || '');
+    if (!childKey || !newParentKey) return;
+    const newParentRow = teamCards.find((c) => clean(c?.childKey) === newParentKey) ||
+      (teamHierarchyRows || []).find((r) => clean(r?.childKey) === newParentKey);
+    const newParentEmail = clean(newParentRow?.childEmail || '').toLowerCase();
+    const newParentName = clean(newParentRow?.childName || '');
+    if (!newParentEmail) return;
+    setReassigningOwnTree(childKey);
+    setOwnTreeNotice('');
+    try {
+      const res = await fetch('/api/team-member-controls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reassign',
+          actorEmail: clean(member?.email || '').toLowerCase(),
+          childKey,
+          targetEmail: clean(card?.childEmail || '').toLowerCase(),
+          newParentEmail,
+          newParentName
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        if (data?.error === 'target_not_in_tree') setOwnTreeNotice('Cannot move — member not in your tree.');
+        else if (data?.error === 'new_parent_not_in_tree') setOwnTreeNotice('Cannot move — target parent not in your tree.');
+        else setOwnTreeNotice('Reassignment failed.');
+        return;
+      }
+      await refreshTeamHierarchy();
+      setOwnTreeNotice(`${card?.childName || 'Member'} moved under ${newParentName}.`);
+    } finally { setReassigningOwnTree(''); }
+  }
+  // ────────────────────────────────────────────────────────────────────────
 
   async function assignTeamParent(candidate = {}, source = 'admin_manual_assign') {
     if (!canManageHierarchy) return;
@@ -3200,7 +3318,41 @@ export default function InnerCircleHubPage() {
                               {expanded ? 'Hide Downlink' : `View Downlink (${children.length})`}
                             </button>
                           ) : null}
+                          {canManageOwnTree ? (
+                            <>
+                              <button
+                                type="button" className="ghost"
+                                style={{ fontSize: 12, padding: '4px 10px' }}
+                                disabled={togglingLicense === (card.childEmail || card.childName)}
+                                onClick={() => ownTreeToggleLicense(card)}
+                              >
+                                {togglingLicense === (card.childEmail || card.childName) ? '...' : card.licenseTag === 'licensed' ? '→ Mark Unlicensed' : '→ Mark Licensed'}
+                              </button>
+                              <button
+                                type="button" className="ghost"
+                                style={{ fontSize: 12, padding: '4px 10px', color: '#fca5a5', borderColor: '#7f1d1d' }}
+                                disabled={removingOwnTree === clean(card?.childKey || card?.id || '')}
+                                onClick={() => ownTreeRemoveMember(card)}
+                              >
+                                {removingOwnTree === clean(card?.childKey || card?.id || '') ? 'Removing...' : 'Remove'}
+                              </button>
+                              {teamCards.filter((c) => c.childKey !== card.childKey).length > 0 ? (
+                                <select
+                                  style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '4px 8px', fontSize: 12 }}
+                                  defaultValue=""
+                                  disabled={reassigningOwnTree === clean(card?.childKey || '')}
+                                  onChange={(e) => { if (e.target.value) ownTreeReassign(card, e.target.value); e.target.value = ''; }}
+                                >
+                                  <option value="">Move under...</option>
+                                  {teamCards.filter((c) => c.childKey !== card.childKey).map((c) => (
+                                    <option key={c.childKey} value={c.childKey}>{c.childName}</option>
+                                  ))}
+                                </select>
+                              ) : null}
+                            </>
+                          ) : null}
                         </div>
+                        {canManageOwnTree && ownTreeNotice ? <small style={{ color: '#86efac', marginTop: 4, display: 'block' }}>{ownTreeNotice}</small> : null}
 
                         {expanded && children.length ? (
                           <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
@@ -3224,7 +3376,8 @@ export default function InnerCircleHubPage() {
                     );
                   })}
                   {!teamCards.length ? <small className="muted">No team links yet. As referred apps are submitted, your team tree will populate automatically.</small> : null}
-                  {!canManageHierarchy ? <small className="muted">Admin controls are hidden. You can view your downline cards and performance only.</small> : null}
+                  {!canManageHierarchy && !canManageOwnTree ? <small className="muted">Admin controls are hidden. You can view your downline cards and performance only.</small> : null}
+                  {canManageOwnTree ? <small style={{ color: '#93c5fd' }}>You can toggle licensed status, remove, or reassign members within your own tree.</small> : null}
                 </div>
 
                 {canManageHierarchy ? (

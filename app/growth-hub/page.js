@@ -52,10 +52,20 @@ export default function GrowthHubPage() {
         let email = '';
 
         try {
-          const raw = window.localStorage.getItem('inner_hub_member_v1');
+          // Check both storage keys — inner_circle_hub_member_v1 is the active IC hub key
+          const raw = window.localStorage.getItem('inner_circle_hub_member_v1')
+            || window.localStorage.getItem('inner_hub_member_v1');
           const member = raw ? JSON.parse(raw) : null;
           name = String(member?.applicantName || member?.name || '').trim();
           email = String(member?.email || '').trim().toLowerCase();
+          // Inner Circle members always get Growth Hub access — skip the step gate
+          if (email && !cancelled) {
+            setUnlocked(true);
+            setCompletedSteps(requiredSteps);
+            setLoadingGate(false);
+            try { window.localStorage.setItem(UNLOCK_KEY, '1'); } catch {}
+            return;
+          }
         } catch {}
 
         if (!email) {
