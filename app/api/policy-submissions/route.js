@@ -727,11 +727,12 @@ async function sendDeclineEmail(row = {}) {
     `Policy Writer: ${row.policyWriterName || '—'}`,
     '',
     'Next options to present:',
-    '1) JumpStart Program with a qualifying family member',
+    '1) Qualify a family member through the Sponsorship Program',
     '2) Sponsorship Program with spouse (if married)',
     '3) Sponsorship Program with a child age 18+',
+    '4) Inner Circle — for clients who want to accelerate and build faster',
     '',
-    'Please follow up with the prospect and offer the options above.',
+    'Start with options 1–3. If they want a faster path, present Inner Circle.',
     '',
     'Keep up the great work.',
     '',
@@ -748,12 +749,13 @@ async function sendDeclineEmail(row = {}) {
        <li><strong>Policy Writer:</strong> ${row.policyWriterName || '—'}</li>
      </ul>
      <p><strong>Next options to present:</strong></p>
-     <ol style="padding-left:18px; margin:8px 0;">
-       <li>JumpStart Program with a qualifying family member</li>
+     <ol style="padding-left:18px; margin:8px 0; line-height:1.8;">
+       <li>Qualify a family member through the Sponsorship Program</li>
        <li>Sponsorship Program with spouse (if married)</li>
        <li>Sponsorship Program with a child age 18+</li>
+       <li><strong>Inner Circle</strong> — for clients who want to accelerate and build faster</li>
      </ol>
-     <p>Please follow up with the prospect and offer the options above.</p>`
+     <p style="margin-top:10px;">Start with options 1–3. If they want a faster path, present <strong>Inner Circle</strong>.</p>`
   );
 
   const info = await tx.sendMail({ from, to: recipients.join(', '), subject, text, html });
