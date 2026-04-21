@@ -726,13 +726,10 @@ async function sendDeclineEmail(row = {}) {
     `Referred By: ${row.referredByName || '—'}`,
     `Policy Writer: ${row.policyWriterName || '—'}`,
     '',
-    'Next options to present:',
-    '1) Qualify a family member through the Sponsorship Program',
-    '2) Sponsorship Program with spouse (if married)',
-    '3) Sponsorship Program with a child age 18+',
-    '4) Inner Circle — for clients who want to accelerate and build faster',
+    'Next option to present:',
+    'Inner Circle — for clients ready to accelerate and build faster.',
     '',
-    'Start with options 1–3. If they want a faster path, present Inner Circle.',
+    'Please follow up and present Inner Circle as the next step.',
     '',
     'Keep up the great work.',
     '',
@@ -748,14 +745,9 @@ async function sendDeclineEmail(row = {}) {
        <li><strong>Referred By:</strong> ${row.referredByName || '—'}</li>
        <li><strong>Policy Writer:</strong> ${row.policyWriterName || '—'}</li>
      </ul>
-     <p><strong>Next options to present:</strong></p>
-     <ol style="padding-left:18px; margin:8px 0; line-height:1.8;">
-       <li>Qualify a family member through the Sponsorship Program</li>
-       <li>Sponsorship Program with spouse (if married)</li>
-       <li>Sponsorship Program with a child age 18+</li>
-       <li><strong>Inner Circle</strong> — for clients who want to accelerate and build faster</li>
-     </ol>
-     <p style="margin-top:10px;">Start with options 1–3. If they want a faster path, present <strong>Inner Circle</strong>.</p>`
+     <p><strong>Next option to present:</strong></p>
+     <p style="margin:10px 0; font-size:15px;"><strong>Inner Circle</strong> — for clients ready to accelerate and build faster.</p>
+     <p>Please follow up and present Inner Circle as the next step.</p>`
   );
 
   const info = await tx.sendMail({ from, to: recipients.join(', '), subject, text, html });
