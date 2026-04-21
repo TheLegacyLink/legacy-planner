@@ -1,6 +1,10 @@
-import { clean, generateCode, storeCode, sendOtpEmail, resolveProfileByEmail } from '../_lib';
+import { clean, generateCode, storeCode, sendOtpEmail, resolveProfileByEmail, CODES_PATH } from '../_lib';
+import { loadJsonStore } from '../../../../lib/blobJsonStore';
 
 export const dynamic = 'force-dynamic';
+
+// How long an existing unexpired code must be before we allow a re-send (3 minutes)
+const RESEND_COOLDOWN_MS = 3 * 60 * 1000;
 
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
@@ -12,6 +16,25 @@ export async function POST(req) {
   const profile = await resolveProfileByEmail(email);
   if (!profile) {
     return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
+  }
+
+  // Rate-limit: if an unexpired, unused code was issued within the cooldown window,
+  // tell the user to check their email instead of issuing a new code (which would
+  // invalidate the previous one and cause "invalid code" on the first attempt).
+  const existing = await loadJsonStore(CODES_PATH, []);
+  const prev = existing.find((r) => clean(r?.email).toLowerCase() === email && !r?.used);
+  if (prev) {
+    const expiresAt = new Date(prev?.expiresAt || 0).getTime();
+    const createdAt = new Date(prev?.createdAt || 0).getTime();
+    const ageMs = Date.now() - createdAt;
+    if (expiresAt > Date.now() && ageMs < RESEND_COOLDOWN_MS) {
+      // Code is still very fresh — tell them to check email rather than sending a new one
+      return Response.json({
+        ok: true,
+        message: 'Code already sent. Please check your email (including spam). You can request a new code in a few minutes if needed.',
+        rateLimited: true
+      });
+    }
   }
 
   const code = generateCode();
