@@ -104,9 +104,7 @@ function parseCsvRobust(text) {
   }).filter((r) => r.id);
 }
 
-const ACTIVE_AGENTS = DEFAULT_CONFIG.agents.filter(
-  (a) => a !== 'Kimora Link'
-);
+const ACTIVE_AGENTS = DEFAULT_CONFIG.agents;
 
 // Add Andrea Cannon if missing
 const ALL_AGENTS = (() => {
