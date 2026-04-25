@@ -22,6 +22,7 @@ const tabs = [
   { href: '/sponsorship-sop', label: 'Sponsorship SOP' },
   { href: '/sponsorship-sop', label: 'Sponsorship SOP' },
   { href: '/lead-router', label: 'Lead Router' },
+  { href: '/setter-view', label: 'Setter View' },
   { href: '/mission-control/leads', label: 'Lead Hub' },
   { href: '/lead-claims', label: 'Lead Claims' },
   { href: '/linkleads', label: 'Link Leads' },
