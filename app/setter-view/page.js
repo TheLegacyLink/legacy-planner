@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import AppShell from '../../components/AppShell';
 
 function fmt(iso) {
   if (!iso) return '—';
@@ -155,14 +154,22 @@ export default function SetterViewPage() {
 
   if (loading) {
     return (
-      <AppShell title="Setter View">
-        <p className="muted">Loading leads…</p>
-      </AppShell>
+      <div style={{ minHeight: '100vh', background: '#0f172a', color: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#94a3b8' }}>Loading leads…</p>
+      </div>
     );
   }
 
   return (
-    <AppShell title="Setter View">
+    <div style={{ minHeight: '100vh', background: '#0f172a', color: '#f1f5f9' }}>
+
+      {/* Header */}
+      <div style={{ background: '#1e293b', borderBottom: '1px solid #334155', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 12, marginBottom: 0 }}>
+        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b' }} />
+        <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: 0.5 }}>The Legacy Link — Setter View</span>
+      </div>
+
+      <div style={{ padding: '24px' }}>
 
       {/* Month scope toggle */}
       <div className="panelRow" style={{ marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
@@ -335,6 +342,7 @@ export default function SetterViewPage() {
         </table>
       </div>
 
-    </AppShell>
+      </div>{/* end padding */}
+    </div>
   );
 }
