@@ -294,14 +294,15 @@ export default function SetterViewPage() {
           <tbody>
             {filteredLeads.slice(0, 500).map((r) => {
               const submitted = Boolean(r?.submitted);
+              const booked = Boolean(r?.booked);
               const leadId = r?.id;
-                  const currentOwner = resolveAgentName(r?.owner || r?.assignedTo || '');
+              const currentOwner = resolveAgentName(r?.owner || r?.assignedTo || '');
               const dateIn = r?.createdAt || r?.timestamp || '';
               const isAssigning = Boolean(assigning[leadId]);
               const msg = assignMsg[leadId] || '';
 
               return (
-                <tr key={leadId}>
+                <tr key={leadId} style={booked ? { background: 'rgba(234,179,8,0.08)', boxShadow: 'inset 0 0 0 1px rgba(234,179,8,0.3)' } : {}}>
                   <td>
                     <div style={{ fontWeight: 600 }}>{displayLeadName(r)}</div>
                     <small className="muted">{r?.email || r?.phone || '—'}</small>
@@ -309,18 +310,33 @@ export default function SetterViewPage() {
                   <td style={{ fontSize: 13 }}>{fmt(dateIn)}</td>
                   <td style={{ fontSize: 13 }}>{timeAgo(dateIn)}</td>
                   <td>
-                    <span style={{
-                      display: 'inline-block',
-                      padding: '3px 10px',
-                      borderRadius: 999,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      background: submitted ? 'rgba(16,185,129,.15)' : 'rgba(239,68,68,.12)',
-                      color: submitted ? '#059669' : '#dc2626',
-                      border: submitted ? '1px solid rgba(16,185,129,.4)' : '1px solid rgba(239,68,68,.3)',
-                    }}>
-                      {submitted ? 'Yes' : 'No'}
-                    </span>
+                    <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '3px 10px',
+                        borderRadius: 999,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        background: submitted ? 'rgba(16,185,129,.15)' : 'rgba(239,68,68,.12)',
+                        color: submitted ? '#059669' : '#dc2626',
+                        border: submitted ? '1px solid rgba(16,185,129,.4)' : '1px solid rgba(239,68,68,.3)',
+                      }}>
+                        {submitted ? 'Yes' : 'No'}
+                      </span>
+                      {booked && (
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          background: 'rgba(234,179,8,0.18)',
+                          color: '#a16207',
+                          border: '1px solid rgba(234,179,8,0.5)',
+                          letterSpacing: 0.3,
+                        }}>Booked</span>
+                      )}
+                    </div>
                   </td>
                   <td style={{ fontSize: 13 }}>{currentOwner || '—'}</td>
                   <td>
