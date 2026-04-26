@@ -4,26 +4,81 @@ import { useEffect, useMemo, useState } from 'react';
 import AppShell from '../../components/AppShell';
 
 const REF_CODE_TO_SPONSOR = {
+  // Kimora
   kimora_link: 'Kimora Link',
+  kimora: 'Kimora Link',
+  kimora_link_legacy: 'Kimora Link',
+  // Jamal
   jamal_holmes: 'Jamal Holmes',
+  jamal: 'Jamal Holmes',
+  jdholmes: 'Jamal Holmes',
+  // Mahogany
   mahogany_burns: 'Mahogany Burns',
+  mahogany: 'Mahogany Burns',
+  // Madalyn / Madeline
   madalyn_adams: 'Madalyn Adams',
+  madeline_adams: 'Madalyn Adams',
+  madalyn: 'Madalyn Adams',
+  // Kelin
   kelin_brown: 'Kelin Brown',
+  kelin: 'Kelin Brown',
+  kellen_brown: 'Kelin Brown',
+  // Leticia / Latricia
   leticia_wright: 'Leticia Wright',
+  latricia_wright: 'Leticia Wright',
+  letitia_wright: 'Leticia Wright',
+  leticia: 'Leticia Wright',
+  // Breanna
   breanna_james: 'Breanna James',
+  dr_brianna: 'Breanna James',
+  dr_breanna: 'Breanna James',
+  brianna_james: 'Breanna James',
+  breanna: 'Breanna James',
+  // Shannon
   shannon_maxwell: 'Shannon Maxwell',
+  shannon: 'Shannon Maxwell',
+  // Donyell / Danielle
   donyell_richardson: 'Donyell Richardson',
-  dr_brianna: 'Dr. Breanna James',
-  latricia_wright: 'Leticia Wright'
+  danielle_richardson: 'Donyell Richardson',
+  donyell: 'Donyell Richardson',
+  danielle: 'Donyell Richardson',
+  // Andrea
+  andrea_cannon: 'Andrea Cannon',
+  andrea: 'Andrea Cannon',
+  // Angelique / Angelic
+  angelique_lassiter: 'Angelique Lassiter',
+  angelic_lassiter: 'Angelique Lassiter',
+  angelique: 'Angelique Lassiter',
+  angelic: 'Angelique Lassiter',
 };
 
 const EMAIL_LIKE_TO_SPONSOR = {
+  // Shannon
   smaxwell32gmailcom: 'Shannon Maxwell',
+  // Donyell
   donyellrichardson80gmailcom: 'Donyell Richardson',
+  // Kimora
   kimorathelegacylinkcom: 'Kimora Link',
   investalinkinsurancegmailcom: 'Kimora Link',
+  supportthelegacylinkcom: 'Kimora Link',
+  // Leticia
   leticiawright05gmailcom: 'Leticia Wright',
-  drboss637gmailcom: 'Breanna James'
+  // Breanna
+  drboss637gmailcom: 'Breanna James',
+  // Jamal
+  supportjdholmesagencyllccom: 'Jamal Holmes',
+  jdholmesagencyllccom: 'Jamal Holmes',
+  // Mahogany
+  lovelyfloral78gmailcom: 'Mahogany Burns',
+  // Madalyn
+  madalynm13gmailcom: 'Madalyn Adams',
+  // Kelin
+  kelinb63gmailcom: 'Kelin Brown',
+  // Andrea
+  andreadcannonGmailcom: 'Andrea Cannon',
+  andreadcannongmailcom: 'Andrea Cannon',
+  // Angelique
+  shopthreesixteengmailcom: 'Angelique Lassiter',
 };
 
 function clean(v = '') {
@@ -54,6 +109,9 @@ function sponsorNameFromRow(row = {}) {
   if (direct) {
     const directKey = direct.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (EMAIL_LIKE_TO_SPONSOR[directKey]) return EMAIL_LIKE_TO_SPONSOR[directKey];
+    // Also check ref code map for direct names like "kimora_link" stored in name fields
+    const directSlug = direct.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (REF_CODE_TO_SPONSOR[directSlug]) return REF_CODE_TO_SPONSOR[directSlug];
     return direct;
   }
 
