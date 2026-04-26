@@ -437,7 +437,7 @@ export default function SponsorshipApplicationPage() {
             <div style={{ gridColumn: '1 / -1', border: '1px solid #fde68a', borderRadius: 12, background: '#fffbeb', padding: 14 }}>
               <strong style={{ color: '#92400e', display: 'block', marginBottom: 6 }}>⚡ Would you like to accelerate your success?</strong>
               <p style={{ margin: '0 0 10px', color: '#78350f', fontSize: 14 }}>
-                Agents who invest in their launch are significantly more likely to build a team and earn income within their first 30 days of being licensed.
+                I’ve watched people with less than you walk in and change their family’s life in 90 days — because they chose to move with intention from the start.
               </p>
               <div style={{ display: 'flex', gap: 10 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', margin: 0 }}>
