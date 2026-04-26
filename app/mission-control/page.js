@@ -290,17 +290,15 @@ export default function MissionControl() {
     let mounted = true;
 
     async function load() {
-      setLoading(true);
       setError('');
       try {
-        const [leaderboardRes, revenueRes, sponsorshipRes, manualReviewRes, policySubmissionsRes, sponsorshipBookingsRes, unlicensedProgressRes] = await Promise.all([
+        // Wave 1: critical data — leaderboard + revenue + sponsorship apps fire first
+        // Wave 2: secondary data — bookings + unlicensed progress load in parallel but don't block wave 1
+        const [leaderboardRes, revenueRes, manualReviewRes, policySubmissionsRes] = await Promise.all([
           fetch(config.leaderboardUrl, { cache: 'no-store' }),
           fetch(config.revenueUrl, { cache: 'no-store' }),
-          fetch(config.sponsorshipTrackerUrl, { cache: 'no-store' }),
           fetch('/api/sponsorship-applications', { cache: 'no-store' }),
-          fetch('/api/policy-submissions', { cache: 'no-store' }),
-          fetch('/api/sponsorship-bookings', { cache: 'no-store' }),
-          fetch('/api/unlicensed-backoffice/admin/progress', { cache: 'no-store' })
+          fetch('/api/policy-submissions', { cache: 'no-store' })
         ]);
 
         const sourceIssues = [];
@@ -403,11 +401,28 @@ export default function MissionControl() {
           }
         }
 
-        // Keep sponsorship tracker endpoint health check, but referral counts are based on
-        // sponsorship form submissions (not tracker approval dates).
-        if (!sponsorshipRes.ok) {
-          sponsorshipIssue = `Sponsorship tracker HTTP ${sponsorshipRes.status}`;
-        }
+        // Flush wave 1 data to state immediately so the page populates fast
+        if (!mounted) return;
+        setRows(normalizeRows(leaderboardJson));
+        setRevenueRows(normalizeRows(revenueJson));
+        setSponsorshipApprovalsByAgent(monthlyApprovals);
+        setSponsorshipTodayApprovalsByAgent(todayApprovals);
+        setSponsorshipAppsByAgent(monthlyApps);
+        setSponsorshipTodayAppsByAgent(todayApps);
+        setTodaySponsorshipDetails(todayDetails);
+        setTodayApplicationDetails(todayAppDetailsRows);
+        setPayoutPolicyRows(policyRows);
+        setPayoutSponsorshipRows(reviewRows);
+        setManualReviewCount(reviewCount);
+        setError(sourceIssues.length ? `Partial sync: ${sourceIssues.join(' • ')}` : '');
+        setLastSyncAt(new Date().toISOString());
+        setLoading(false);
+
+        // Wave 2: secondary data loads in background without blocking the render
+        const [sponsorshipBookingsRes, unlicensedProgressRes] = await Promise.all([
+          fetch('/api/sponsorship-bookings', { cache: 'no-store' }),
+          fetch('/api/unlicensed-backoffice/admin/progress', { cache: 'no-store' })
+        ]);
 
         let queueRows = [];
         if (sponsorshipBookingsRes.ok) {
@@ -429,24 +444,11 @@ export default function MissionControl() {
         }
 
         if (!mounted) return;
-        setRows(normalizeRows(leaderboardJson));
-        setRevenueRows(normalizeRows(revenueJson));
-        setSponsorshipApprovalsByAgent(monthlyApprovals);
-        setSponsorshipTodayApprovalsByAgent(todayApprovals);
-        setSponsorshipAppsByAgent(monthlyApps);
-        setSponsorshipTodayAppsByAgent(todayApps);
-        setTodaySponsorshipDetails(todayDetails);
-        setTodayApplicationDetails(todayAppDetailsRows);
         setBookingQueue(queueRows);
         setUnlicensedProgressRows(unlicensedRows);
         setUnlicensedStageCounts(unlicensedStages);
         setUnlicensedBonusCounts(unlicensedBonuses);
-        setPayoutPolicyRows(policyRows);
-        setPayoutSponsorshipRows(reviewRows);
-        setSponsorshipSyncIssue(sponsorshipIssue);
-        setManualReviewCount(reviewCount);
-        setError(sourceIssues.length ? `Partial sync: ${sourceIssues.join(' • ')}` : '');
-        setLastSyncAt(new Date().toISOString());
+        setSponsorshipSyncIssue('');
       } catch (err) {
         if (!mounted) return;
         setError(`Could not load sync data (${err.message}).`);
@@ -462,7 +464,7 @@ export default function MissionControl() {
       mounted = false;
       clearInterval(interval);
     };
-  }, [config.leaderboardUrl, config.revenueUrl, config.sponsorshipTrackerUrl, config.refreshIntervalSec, config.agents]);
+  }, [config.leaderboardUrl, config.revenueUrl, config.refreshIntervalSec, config.agents]);
 
   const team = useMemo(() => {
     return config.agents.map((agent) => {
@@ -680,11 +682,11 @@ export default function MissionControl() {
     const rowCoverage = Math.min(1, (rows.length + revenueRows.length + sponsorshipRows) / roster);
     const activityCoverage = team.filter((t) => t.monthReferrals + t.monthApps > 0).length / roster;
     let score = Math.round((rowCoverage * 0.6 + activityCoverage * 0.4) * 100);
-    if (sponsorshipSyncIssue) score = Math.max(30, score - 20);
+    // sponsorshipSyncIssue removed — Google Sheets tracker no longer used
     if (score >= 75) return { label: 'High', tone: 'onpace', score };
     if (score >= 45) return { label: 'Medium', tone: 'atrisk', score };
     return { label: 'Low', tone: 'offpace', score };
-  }, [error, config.agents.length, rows.length, revenueRows.length, sponsorshipApprovalsByAgent, sponsorshipSyncIssue, team]);
+  }, [error, config.agents.length, rows.length, revenueRows.length, sponsorshipApprovalsByAgent, team]);
 
 
   const isWithinPriorityWindow = (booking) => {
@@ -891,13 +893,13 @@ export default function MissionControl() {
       <div className="panel">
         <div className="panelRow">
           <h3>Sync Health</h3>
-          <span className={`pill ${error || sponsorshipSyncIssue ? 'offpace' : 'onpace'}`}>
-            {error || sponsorshipSyncIssue ? 'Issue Detected' : 'Connected'}
+          <span className={`pill ${error ? 'offpace' : 'onpace'}`}>
+            {error ? 'Issue Detected' : 'Connected'}
           </span>
         </div>
         <p className="muted">Last Successful Sync: {lastSyncAt ? toLocalTime(lastSyncAt, config.timezone) : 'No successful sync yet'}</p>
         <p className="muted">Sources: Leaderboard endpoint + Revenue endpoint + Sponsorship tracker endpoint + Correction ledger.</p>
-        {sponsorshipSyncIssue ? <p className="red">Sponsorship Sync: {sponsorshipSyncIssue}</p> : null}
+
         <p className={`pill ${dataConfidence.tone}`} style={{ display: 'inline-block' }}>
           Data Confidence: {dataConfidence.score}% ({dataConfidence.label})
         </p>
