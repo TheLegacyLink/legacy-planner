@@ -1205,6 +1205,7 @@ function buildWeekUnsubmittedLeads(leads = [], submittedBlockLookup = new Set(),
         responded: hasLeadResponded(r),
         submitted,
         booked,
+        bookedAt: clean(r?.bookedAt || r?.appointmentAt || r?.appointmentDate || r?.appointmentDateTime || ''),
         prioritySponsorshipNotBooked,
         releaseEligibleAt: r.releaseEligibleAt || ''
       };

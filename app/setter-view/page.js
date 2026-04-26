@@ -295,6 +295,7 @@ export default function SetterViewPage() {
             {filteredLeads.slice(0, 500).map((r) => {
               const submitted = Boolean(r?.submitted);
               const booked = Boolean(r?.booked);
+              const bookedAt = r?.bookedAt || '';
               const leadId = r?.id;
               const currentOwner = resolveAgentName(r?.owner || r?.assignedTo || '');
               const dateIn = r?.createdAt || r?.timestamp || '';
@@ -324,22 +325,32 @@ export default function SetterViewPage() {
                         {submitted ? 'Yes' : 'No'}
                       </span>
                       {booked && (
-                        <span style={{
-                          display: 'inline-block',
-                          padding: '2px 8px',
-                          borderRadius: 999,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          background: 'rgba(234,179,8,0.18)',
-                          color: '#a16207',
-                          border: '1px solid rgba(234,179,8,0.5)',
-                          letterSpacing: 0.3,
-                        }}>Booked</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '2px 8px',
+                            borderRadius: 999,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            background: 'rgba(234,179,8,0.18)',
+                            color: '#a16207',
+                            border: '1px solid rgba(234,179,8,0.5)',
+                            letterSpacing: 0.3,
+                          }}>Booked</span>
+                          {bookedAt && (
+                            <span style={{ fontSize: 10, color: '#a16207', paddingLeft: 2 }}>
+                              {new Date(bookedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
                   </td>
                   <td style={{ fontSize: 13 }}>{currentOwner || '—'}</td>
                   <td>
+                    {booked ? (
+                      <span style={{ fontSize: 12, color: '#a16207', fontStyle: 'italic' }}>Appointment scheduled</span>
+                    ) : (
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                       <select
                         value={assignTarget[leadId] || ''}
@@ -371,6 +382,7 @@ export default function SetterViewPage() {
                         </span>
                       )}
                     </div>
+                    )}
                   </td>
                 </tr>
               );
