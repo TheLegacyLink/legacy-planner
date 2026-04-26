@@ -360,6 +360,43 @@ export default function InnerCircleHubPage() {
   const [carrierContracts, setCarrierContracts] = useState({});
   const [carrierBusy, setCarrierBusy] = useState(false);
   const [carrierMsg, setCarrierMsg] = useState('');
+  const [teamSopProgress, setTeamSopProgress] = useState({}); // email → sop step data
+  const [teamCommunityService, setTeamCommunityService] = useState({}); // email → community service count
+
+  function SopSteps({ email = '', licenseTag = '' }) {
+    const em = clean(email).toLowerCase();
+    const sop = teamSopProgress[em] || {};
+    const csCount = teamCommunityService[em] || 0;
+    const steps = [
+      { key: 'communityService', label: 'Community Service', done: csCount > 0 },
+      { key: 'prelicensingStarted', label: 'Pre-Licensing Started', done: Boolean(sop?.steps?.prelicensingStarted) },
+      { key: 'watchedWhateverItTakes', label: 'Watched Whatever It Takes', done: Boolean(sop?.steps?.watchedWhateverItTakes) },
+      { key: 'examPassed', label: 'Exam Passed', done: Boolean(sop?.steps?.examPassed) },
+      { key: 'residentLicenseObtained', label: 'Resident License', done: Boolean(sop?.steps?.residentLicenseObtained) },
+      { key: 'licensed', label: 'Licensed & Contracted', done: licenseTag === 'licensed' },
+    ];
+    const doneCount = steps.filter((s) => s.done).length;
+    const pct = Math.round((doneCount / steps.length) * 100);
+    return (
+      <div style={{ marginTop: 10, borderTop: '1px solid #1e3a5f', paddingTop: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#d4af37', letterSpacing: 1, textTransform: 'uppercase' }}>SOP Progress</span>
+          <span style={{ fontSize: 11, color: pct === 100 ? '#4ade80' : '#94a3b8' }}>{doneCount}/{steps.length} — {pct}%</span>
+        </div>
+        <div style={{ height: 4, borderRadius: 999, background: '#1e3a5f', overflow: 'hidden', marginBottom: 8 }}>
+          <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#22c55e' : '#d4af37', borderRadius: 999, transition: 'width .3s' }} />
+        </div>
+        <div style={{ display: 'grid', gap: 3 }}>
+          {steps.map((s) => (
+            <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 13, lineHeight: 1, color: s.done ? '#4ade80' : '#374151' }}>{s.done ? '✅' : '○'}</span>
+              <span style={{ fontSize: 11, color: s.done ? '#cbd5e1' : '#4b5563' }}>{s.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const gate = useMemo(() => onboardingState(member || {}), [member]);
   const unlocked = gate.active;
@@ -1448,35 +1485,22 @@ export default function InnerCircleHubPage() {
         const leadClaimsUrl = `/api/lead-claims?viewer=${encodeURIComponent(member?.applicantName || member?.name || '')}`;
         const mediaUrl = `/api/inner-circle-media-vault?email=${encodeURIComponent(member?.email || '')}&name=${encodeURIComponent(member?.applicantName || member?.name || '')}`;
 
-        const [kpiRes, dailyRes, scriptsRes, vaultRes, activityRes, progressRes, policiesRes, sponsorshipRes, leadClaimsRes, mediaRes, onboardingRes, teamRes, membersRes] = await Promise.all([
+        // Wave 1: personal dashboard data — loads fast, populates the hub immediately
+        const [kpiRes, dailyRes, activityRes, onboardingRes] = await Promise.all([
           fetch(kpiUrl, { cache: 'no-store' }),
           fetch(dailyUrl, { cache: 'no-store' }),
-          fetch('/api/inner-circle-hub-scripts', { cache: 'no-store' }),
-          fetch('/api/inner-circle-hub-vault', { cache: 'no-store' }),
           fetch(activityUrl, { cache: 'no-store' }),
-          fetch('/api/inner-circle-hub-progress', { cache: 'no-store' }),
-          fetch('/api/policy-submissions', { cache: 'no-store' }),
-          fetch('/api/sponsorship-applications', { cache: 'no-store' }),
-          fetch(leadClaimsUrl, { cache: 'no-store' }),
-          fetch(mediaUrl, { cache: 'no-store' }),
-          fetch(onboardingUrl, { cache: 'no-store' }),
-          fetch(teamUrl, { cache: 'no-store' }),
-          fetch('/api/inner-circle-hub-members', { cache: 'no-store' })
+          fetch(onboardingUrl, { cache: 'no-store' })
         ]);
 
+        // Wave 2 placeholders — filled below after wave 1 state is set
+        let scriptsRes, vaultRes, progressRes, policiesRes, sponsorshipRes, leadClaimsRes, mediaRes, teamRes, membersRes;
+
+        // Parse wave 1
         const kpiData = await kpiRes.json().catch(() => ({}));
         const dailyData = await dailyRes.json().catch(() => ({}));
-        const scriptsData = await scriptsRes.json().catch(() => ({}));
-        const vaultData = await vaultRes.json().catch(() => ({}));
         const activityData = await activityRes.json().catch(() => ({}));
-        const progressData = await progressRes.json().catch(() => ({}));
-        const policiesData = await policiesRes.json().catch(() => ({}));
-        const sponsorshipData = await sponsorshipRes.json().catch(() => ({}));
-        const leadClaimsData = await leadClaimsRes.json().catch(() => ({}));
-        const mediaData = await mediaRes.json().catch(() => ({}));
         const onboardingData = await onboardingRes.json().catch(() => ({}));
-        const teamData = await teamRes.json().catch(() => ({}));
-        const membersData = await membersRes.json().catch(() => ({}));
 
         if (!canceled && kpiRes.ok && kpiData?.ok) {
           let nextKpi = kpiData.kpi || null;
@@ -1528,8 +1552,7 @@ export default function InnerCircleHubPage() {
             }));
           }
         }
-        if (!canceled && scriptsRes.ok && scriptsData?.ok) setScripts(Array.isArray(scriptsData.rows) ? scriptsData.rows : []);
-        if (!canceled && vaultRes.ok && vaultData?.ok) setVault(vaultData.vault || { content: [], calls: [], onboarding: [] });
+        // Wave 1 state — activity and onboarding
         if (!canceled && activityRes.ok && activityData?.ok) {
           setActivityRows(Array.isArray(activityData.rows) ? activityData.rows : []);
           setActivitySummary(activityData.summary || { submitted: 0, approved: 0, declined: 0, booked: 0, fng: 0, completed: 0 });
@@ -1539,38 +1562,78 @@ export default function InnerCircleHubPage() {
             monthly: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 }
           });
         }
-        if (!canceled && progressRes.ok && progressData?.ok) {
-          setLeaderboard({ month: clean(progressData?.month), rows: Array.isArray(progressData?.rows) ? progressData.rows : [] });
-        }
-        if (!canceled && policiesRes.ok && policiesData?.ok) {
-          setPolicyRows(Array.isArray(policiesData?.rows) ? policiesData.rows : []);
-        }
-        if (!canceled && sponsorshipRes.ok && sponsorshipData?.ok) {
-          setSponsorshipRows(Array.isArray(sponsorshipData?.rows) ? sponsorshipData.rows : []);
-        }
-        if (!canceled && leadClaimsRes.ok && leadClaimsData?.ok) {
-          setLeadClaimRows(Array.isArray(leadClaimsData?.rows) ? leadClaimsData.rows : []);
-        }
-        if (!canceled && mediaRes.ok && mediaData?.ok) {
-          setMediaItems(Array.isArray(mediaData?.items) ? mediaData.items : []);
-          setMediaProgress(mediaData?.myProgress && typeof mediaData.myProgress === 'object' ? mediaData.myProgress : {});
-          setMediaCommentDrafts(Object.fromEntries(Object.entries(mediaData?.myProgress || {}).map(([k, v]) => [k, clean(v?.comment || '')])));
-        }
         if (!canceled && onboardingRes.ok && onboardingData?.ok) {
           setOnboardingDecisionRows(Array.isArray(onboardingData?.rows) ? onboardingData.rows : []);
         }
-        if (!canceled && teamRes.ok && teamData?.ok) {
-          setTeamHierarchyRows(Array.isArray(teamData?.rows) ? teamData.rows : []);
-        }
-        // Load license overrides for own-tree management
-        try {
-          const ovRes = await fetch('/api/team-member-controls', { cache: 'no-store' });
-          const ovData = await ovRes.json().catch(() => ({}));
-          if (!canceled && ovRes.ok && ovData?.ok) setLicenseOverrides(Array.isArray(ovData?.overrides) ? ovData.overrides : []);
-        } catch {}
-        if (!canceled && membersRes.ok && membersData?.ok) {
-          setHubMembers(Array.isArray(membersData?.rows) ? membersData.rows : []);
-        }
+
+        // Wave 2: fire in background, don't block initial render
+        ;(async () => {
+          try {
+            const [scriptsRes, vaultRes, progressRes, policiesRes, sponsorshipRes, leadClaimsRes, mediaRes, teamRes, membersRes, sopProgressRes, communityRes, ovRes] = await Promise.all([
+              fetch('/api/inner-circle-hub-scripts', { cache: 'no-store' }),
+              fetch('/api/inner-circle-hub-vault', { cache: 'no-store' }),
+              fetch('/api/inner-circle-hub-progress', { cache: 'no-store' }),
+              fetch('/api/policy-submissions', { cache: 'no-store' }),
+              fetch('/api/sponsorship-applications', { cache: 'no-store' }),
+              fetch(leadClaimsUrl, { cache: 'no-store' }),
+              fetch(mediaUrl, { cache: 'no-store' }),
+              fetch(teamUrl, { cache: 'no-store' }),
+              fetch('/api/inner-circle-hub-members', { cache: 'no-store' }),
+              fetch('/api/unlicensed-backoffice/admin/progress', { cache: 'no-store' }),
+              fetch('/api/community-service', { cache: 'no-store' }),
+              fetch('/api/team-member-controls', { cache: 'no-store' })
+            ]);
+
+            const scriptsData = await scriptsRes.json().catch(() => ({}));
+            const vaultData = await vaultRes.json().catch(() => ({}));
+            const progressData = await progressRes.json().catch(() => ({}));
+            const policiesData = await policiesRes.json().catch(() => ({}));
+            const sponsorshipData = await sponsorshipRes.json().catch(() => ({}));
+            const leadClaimsData = await leadClaimsRes.json().catch(() => ({}));
+            const mediaData = await mediaRes.json().catch(() => ({}));
+            const teamData = await teamRes.json().catch(() => ({}));
+            const membersData = await membersRes.json().catch(() => ({}));
+            const sopProgressData = await sopProgressRes.json().catch(() => ({}));
+            const communityData = await communityRes.json().catch(() => ({}));
+            const ovData = await ovRes.json().catch(() => ({}));
+
+            if (canceled) return;
+            if (scriptsRes.ok && scriptsData?.ok) setScripts(Array.isArray(scriptsData.rows) ? scriptsData.rows : []);
+            if (vaultRes.ok && vaultData?.ok) setVault(vaultData.vault || { content: [], calls: [], onboarding: [] });
+            if (progressRes.ok && progressData?.ok) setLeaderboard({ month: clean(progressData?.month), rows: Array.isArray(progressData?.rows) ? progressData.rows : [] });
+            if (policiesRes.ok && policiesData?.ok) setPolicyRows(Array.isArray(policiesData?.rows) ? policiesData.rows : []);
+            if (sponsorshipRes.ok && sponsorshipData?.ok) setSponsorshipRows(Array.isArray(sponsorshipData?.rows) ? sponsorshipData.rows : []);
+            if (leadClaimsRes.ok && leadClaimsData?.ok) setLeadClaimRows(Array.isArray(leadClaimsData?.rows) ? leadClaimsData.rows : []);
+            if (mediaRes.ok && mediaData?.ok) {
+              setMediaItems(Array.isArray(mediaData?.items) ? mediaData.items : []);
+              setMediaProgress(mediaData?.myProgress && typeof mediaData.myProgress === 'object' ? mediaData.myProgress : {});
+              setMediaCommentDrafts(Object.fromEntries(Object.entries(mediaData?.myProgress || {}).map(([k, v]) => [k, clean(v?.comment || '')])));
+            }
+            if (teamRes.ok && teamData?.ok) setTeamHierarchyRows(Array.isArray(teamData?.rows) ? teamData.rows : []);
+            if (membersRes.ok && membersData?.ok) setHubMembers(Array.isArray(membersData?.rows) ? membersData.rows : []);
+            if (ovRes.ok && ovData?.ok) setLicenseOverrides(Array.isArray(ovData?.overrides) ? ovData.overrides : []);
+
+            // SOP progress map by email
+            if (sopProgressRes.ok && sopProgressData?.ok) {
+              const map = {};
+              for (const r of (sopProgressData.rows || [])) {
+                const em = clean(r?.email).toLowerCase();
+                if (em) map[em] = r;
+              }
+              setTeamSopProgress(map);
+            }
+
+            // Community service map by email
+            if (communityRes.ok && communityData?.ok) {
+              const csMap = {};
+              for (const r of (communityData.rows || communityData.submissions || [])) {
+                const em = clean(r?.email || r?.submitterEmail || '').toLowerCase();
+                if (em) csMap[em] = (csMap[em] || 0) + 1;
+              }
+              setTeamCommunityService(csMap);
+            }
+          } catch {}
+        })();
       } catch {
         if (!canceled) {
           setKpi(null);
@@ -3311,6 +3374,7 @@ export default function InnerCircleHubPage() {
                           <span className="pill neutral">30d Apps: {card.submitted30}</span>
                           <span className="pill neutral">Downline: {card.descendants}</span>
                         </div>
+                        <SopSteps email={card.childEmail} licenseTag={card.licenseTag} />
 
                         <div className="panelRow" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                           {children.length ? (
