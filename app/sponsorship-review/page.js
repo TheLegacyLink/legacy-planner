@@ -67,12 +67,36 @@ function sponsorNameFromRow(row = {}) {
   return titleCase(raw.replace(/[_-]+/g, ' '));
 }
 
+const ANNUAL_INCOME_LABELS = {
+  under_30k: 'Under $30,000',
+  '30k_60k': '$30,000 – $60,000',
+  '60k_100k': '$60,000 – $100,000',
+  '100k_plus': '$100,000+'
+};
+
+const CREDIT_SCORE_LABELS = {
+  below_580: 'Below 580',
+  '580_669': '580 – 669',
+  '670_739': '670 – 739',
+  '740_plus': '740+'
+};
+
+function upsellBadge(row = {}) {
+  const tier = String(row.upsell_tier || '');
+  if (tier === 'agency_ownership') return { icon: '🏆', color: '#92400e', bg: '#fef3c7', border: '#fde68a', label: row.upsell_label || '🏆 Agency Ownership Candidate', pitch: row.upsell_pitch || '' };
+  if (tier === 'inner_circle') return { icon: '⭐', color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe', label: row.upsell_label || '⭐ Inner Circle Candidate', pitch: row.upsell_pitch || '' };
+  return null;
+}
+
 function answerFields(row = {}) {
   return [
     ['Birthday', row.birthday || row.dateOfBirth],
     ['Age', row.age],
     ['State', row.state],
     ['Income Source', row.hasIncome === 'yes' ? (row.incomeSource || 'Yes (not specified)') : 'No'],
+    ['Annual Income', ANNUAL_INCOME_LABELS[row.annualIncome] || row.annualIncome || '—'],
+    ['Credit Score', CREDIT_SCORE_LABELS[row.creditScore] || row.creditScore || '—'],
+    ['Wants to Accelerate', row.wantsToAccelerate === 'yes' ? '✅ Yes' : row.wantsToAccelerate === 'no' ? 'No' : '—'],
     ['Licensed', row.isLicensed === 'yes' ? (row.licenseDetails || 'Yes') : 'No'],
     ['Health Status', row.healthStatus],
     ['Motivation', row.motivation],
@@ -319,6 +343,14 @@ export default function SponsorshipReviewPage() {
                   <strong>{booked ? '⭐ ' : submitted ? '💙⭐⭐⭐ ' : ''}{r.firstName} {r.lastName}</strong>
                   {booked ? <small style={{ color: '#a16207', fontWeight: 700 }}>Booked Appointment</small> : null}
                   {!booked && submitted ? <small style={{ color: '#1d4ed8', fontWeight: 700 }}>F&G Application Submitted</small> : null}
+                  {(() => { const u = upsellBadge(r); return u ? (
+                    <div style={{ display: 'inline-flex', alignItems: 'flex-start', gap: 6, marginTop: 2, border: `1px solid ${u.border}`, borderRadius: 8, background: u.bg, padding: '4px 8px' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 12, color: u.color }}>{u.label}</div>
+                        {u.pitch ? <div style={{ fontSize: 11, color: u.color, opacity: 0.85, marginTop: 1 }}>{u.pitch}</div> : null}
+                      </div>
+                    </div>
+                  ) : null; })()}
                   {trackable ? (
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 2 }}>
                       <small style={{ color: '#0f172a', fontWeight: 700 }}>SMS {Number(touch.textCount || 0)}/5</small>

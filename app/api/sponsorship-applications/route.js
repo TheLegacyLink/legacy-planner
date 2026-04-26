@@ -569,6 +569,48 @@ export async function POST(req) {
     }
 
     await writeStore(store);
+
+    // Upsell alert email to Kimora when Agency Ownership or Inner Circle candidate submits
+    const upsellTier = clean(record.upsell_tier || '');
+    if (upsellTier === 'agency_ownership' || upsellTier === 'inner_circle') {
+      try {
+        const user = clean(process.env.GMAIL_APP_USER);
+        const pass = clean(process.env.GMAIL_APP_PASSWORD);
+        const from = clean(process.env.GMAIL_FROM) || user;
+        const ownerEmail = clean(process.env.OWNER_NOTIFY_EMAIL || 'support@thelegacylink.com');
+        if (user && pass && ownerEmail) {
+          const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+          const tierLabel = record.upsell_label || (upsellTier === 'agency_ownership' ? '🏆 Agency Ownership Candidate' : '⭐ Inner Circle Candidate');
+          const pitch = record.upsell_pitch || '';
+          const incomeLabels = { under_30k: 'Under $30K', '30k_60k': '$30K–$60K', '60k_100k': '$60K–$100K', '100k_plus': '$100K+' };
+          const creditLabels = { below_580: 'Below 580', '580_669': '580–669', '670_739': '670–739', '740_plus': '740+' };
+          await tx.sendMail({
+            from,
+            to: ownerEmail,
+            subject: `🚨 Upsell Candidate: ${record.firstName} ${record.lastName} — ${tierLabel}`,
+            html: `
+              <div style="font-family:sans-serif;max-width:560px;">
+                <h2 style="margin:0 0 8px;">${tierLabel}</h2>
+                <p style="margin:0 0 16px;color:#374151;">${pitch}</p>
+                <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                  <tr><td style="padding:6px 12px 6px 0;color:#6b7280;">Name</td><td style="padding:6px 0;"><strong>${record.firstName} ${record.lastName}</strong></td></tr>
+                  <tr><td style="padding:6px 12px 6px 0;color:#6b7280;">Email</td><td style="padding:6px 0;">${record.email || '—'}</td></tr>
+                  <tr><td style="padding:6px 12px 6px 0;color:#6b7280;">Phone</td><td style="padding:6px 0;">${record.phone || '—'}</td></tr>
+                  <tr><td style="padding:6px 12px 6px 0;color:#6b7280;">State</td><td style="padding:6px 0;">${record.state || '—'}</td></tr>
+                  <tr><td style="padding:6px 12px 6px 0;color:#6b7280;">Annual Income</td><td style="padding:6px 0;">${incomeLabels[record.annualIncome] || record.annualIncome || '—'}</td></tr>
+                  <tr><td style="padding:6px 12px 6px 0;color:#6b7280;">Credit Score</td><td style="padding:6px 0;">${creditLabels[record.creditScore] || record.creditScore || '—'}</td></tr>
+                  <tr><td style="padding:6px 12px 6px 0;color:#6b7280;">Has Income</td><td style="padding:6px 0;">${record.hasIncome === 'yes' ? 'Yes — ' + (record.incomeSource || 'not specified') : 'No'}</td></tr>
+                  <tr><td style="padding:6px 12px 6px 0;color:#6b7280;">App Score</td><td style="padding:6px 0;">${record.application_score ?? '—'}/100</td></tr>
+                  <tr><td style="padding:6px 12px 6px 0;color:#6b7280;">Submitted</td><td style="padding:6px 0;">${record.submitted_at || '—'}</td></tr>
+                </table>
+                <p style="margin:20px 0 0;"><a href="https://innercirclelink.com/sponsorship-review" style="background:#1d4ed8;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;">View in Review Queue →</a></p>
+              </div>
+            `
+          });
+        }
+      } catch { /* non-blocking — don't fail the submission */ }
+    }
+
     return Response.json({ ok: true, row: record });
   }
 

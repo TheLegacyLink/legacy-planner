@@ -78,6 +78,58 @@ function determineDecision(score) {
   };
 }
 
+function computeUpsellTier(form) {
+  const income = String(form.annualIncome || '');
+  const credit = String(form.creditScore || '');
+  const accelerate = String(form.wantsToAccelerate || '') === 'yes';
+  const hasIncome = String(form.hasIncome || '') === 'yes';
+
+  if (!accelerate) return { tier: 'standard', label: 'Standard Onboarding', pitch: '' };
+
+  const highIncome = income === '60k_100k' || income === '100k_plus';
+  const midIncome = income === '30k_60k';
+  const goodCredit = credit === '670_739' || credit === '740_plus';
+  const excellentCredit = credit === '740_plus';
+
+  // Agency Ownership: $60K+ income AND 700+ credit
+  if (hasIncome && highIncome && (excellentCredit || credit === '670_739')) {
+    return {
+      tier: 'agency_ownership',
+      label: '🏆 Agency Ownership Candidate',
+      pitch: 'Build your own agency, override your agents, and create 6–7 figure generational income.'
+    };
+  }
+
+  // Inner Circle: good credit (700+) even without income
+  if (!hasIncome && excellentCredit) {
+    return {
+      tier: 'inner_circle',
+      label: '⭐ Inner Circle Candidate',
+      pitch: 'Disciplined financial profile. Fast-track access to Kimora, premium mentorship, and $3K–$12K/month potential.'
+    };
+  }
+
+  // Inner Circle: mid income any credit
+  if (hasIncome && midIncome) {
+    return {
+      tier: 'inner_circle',
+      label: '⭐ Inner Circle Candidate',
+      pitch: 'Strong candidate for accelerated results. Direct mentorship path to $3K–$12K/month extra.'
+    };
+  }
+
+  // Inner Circle: any income + good credit
+  if (hasIncome && goodCredit) {
+    return {
+      tier: 'inner_circle',
+      label: '⭐ Inner Circle Candidate',
+      pitch: 'Strong financial profile. Positioned for $3K–$12K/month with the right mentorship.'
+    };
+  }
+
+  return { tier: 'standard', label: 'Standard Onboarding', pitch: '' };
+}
+
 function scoreApplication(form) {
   let score = 0;
   const breakdown = {};
@@ -148,6 +200,9 @@ export default function SponsorshipApplicationPage() {
     phone: signupSeed?.phone || '',
     hasIncome: 'no',
     incomeSource: '',
+    annualIncome: '',
+    creditScore: '',
+    wantsToAccelerate: '',
     isLicensed: 'no',
     licenseDetails: '',
     healthStatus: '',
@@ -204,6 +259,7 @@ export default function SponsorshipApplicationPage() {
 
     const scoring = scoreApplication(form);
     const decision = determineDecision(scoring.score);
+    const upsellTier = computeUpsellTier(form);
     const id = `sapp_${Date.now()}`;
     const record = {
       id,
@@ -217,6 +273,9 @@ export default function SponsorshipApplicationPage() {
       decision_bucket: decision.decision_bucket,
       application_score: scoring.score,
       score_breakdown: scoring.breakdown,
+      upsell_tier: upsellTier.tier,
+      upsell_label: upsellTier.label,
+      upsell_pitch: upsellTier.pitch,
       submitted_at: new Date().toISOString(),
       approved_at: decision.decision_bucket === 'auto_approved' ? new Date().toISOString() : null,
       onboarding_status: decision.onboarding_status
@@ -350,6 +409,48 @@ export default function SponsorshipApplicationPage() {
             Income Source
             <input className={validationErrors.incomeSource ? 'errorInput' : ''} value={form.incomeSource} onChange={(e) => update('incomeSource', e.target.value)} placeholder="Job, spouse, savings..." />
           </label>
+
+          {/* Upsell qualification questions */}
+          <label>
+            Approximate Annual Income
+            <select value={form.annualIncome} onChange={(e) => update('annualIncome', e.target.value)}>
+              <option value="">Select range (optional)</option>
+              <option value="under_30k">Under $30,000</option>
+              <option value="30k_60k">$30,000 – $60,000</option>
+              <option value="60k_100k">$60,000 – $100,000</option>
+              <option value="100k_plus">$100,000+</option>
+            </select>
+          </label>
+          <label>
+            Credit Score Range
+            <select value={form.creditScore} onChange={(e) => update('creditScore', e.target.value)}>
+              <option value="">Select range (optional)</option>
+              <option value="below_580">Below 580</option>
+              <option value="580_669">580 – 669</option>
+              <option value="670_739">670 – 739</option>
+              <option value="740_plus">740+</option>
+            </select>
+          </label>
+
+          {/* Accelerate upsell prompt */}
+          {(form.annualIncome || form.creditScore) ? (
+            <div style={{ gridColumn: '1 / -1', border: '1px solid #fde68a', borderRadius: 12, background: '#fffbeb', padding: 14 }}>
+              <strong style={{ color: '#92400e', display: 'block', marginBottom: 6 }}>⚡ Would you like to accelerate your success?</strong>
+              <p style={{ margin: '0 0 10px', color: '#78350f', fontSize: 14 }}>
+                Agents who invest in their launch are significantly more likely to build a team and earn income within their first 30 days of being licensed.
+              </p>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', margin: 0 }}>
+                  <input type="radio" name="wantsToAccelerate" value="yes" checked={form.wantsToAccelerate === 'yes'} onChange={() => update('wantsToAccelerate', 'yes')} />
+                  <span style={{ color: '#166534', fontWeight: 600 }}>Yes, I want to learn more on my onboarding call</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', margin: 0 }}>
+                  <input type="radio" name="wantsToAccelerate" value="no" checked={form.wantsToAccelerate === 'no'} onChange={() => update('wantsToAccelerate', 'no')} />
+                  <span style={{ color: '#6b7280' }}>No thanks, standard path</span>
+                </label>
+              </div>
+            </div>
+          ) : null}
 
           <label>
             Currently licensed to sell insurance?
