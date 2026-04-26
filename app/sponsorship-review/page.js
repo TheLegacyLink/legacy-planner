@@ -123,17 +123,14 @@ export default function SponsorshipReviewPage() {
 
   async function load() {
     try {
-      const [appsRes, bookingsRes, policyRes, touchesRes] = await Promise.all([
+      // Wave 1: applications + bookings — populate the table immediately
+      const [appsRes, bookingsRes] = await Promise.all([
         fetch('/api/sponsorship-applications', { cache: 'no-store' }),
-        fetch('/api/sponsorship-bookings', { cache: 'no-store' }),
-        fetch('/api/policy-submissions', { cache: 'no-store' }),
-        fetch('/api/sponsorship-review-touches', { cache: 'no-store' })
+        fetch('/api/sponsorship-bookings', { cache: 'no-store' })
       ]);
 
       const appsData = await appsRes.json().catch(() => ({}));
       const bookingsData = await bookingsRes.json().catch(() => ({}));
-      const policyData = await policyRes.json().catch(() => ({}));
-      const touchesData = await touchesRes.json().catch(() => ({}));
 
       if (appsRes.ok && appsData?.ok) setRows(appsData.rows || []);
 
@@ -153,6 +150,17 @@ export default function SponsorshipReviewPage() {
         }
         setBookedSet(set);
       }
+
+      setLoading(false);
+
+      // Wave 2: policy + touches load in background without blocking the table
+      const [policyRes, touchesRes] = await Promise.all([
+        fetch('/api/policy-submissions', { cache: 'no-store' }),
+        fetch('/api/sponsorship-review-touches', { cache: 'no-store' })
+      ]);
+
+      const policyData = await policyRes.json().catch(() => ({}));
+      const touchesData = await touchesRes.json().catch(() => ({}));
 
       if (policyRes.ok && policyData?.ok) {
         const submitted = new Set();
@@ -177,7 +185,7 @@ export default function SponsorshipReviewPage() {
         }
         setTouchMap(map);
       }
-    } finally {
+    } catch {
       setLoading(false);
     }
   }
