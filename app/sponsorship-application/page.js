@@ -171,7 +171,8 @@ export default function SponsorshipApplicationPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const sp = new URLSearchParams(window.location.search);
-    setRef(normalizeRef(sp.get('ref') || ''));
+    // Default to Kimora Link if no ref code provided
+    setRef(normalizeRef(sp.get('ref') || 'kimora_link'));
   }, []);
 
 
