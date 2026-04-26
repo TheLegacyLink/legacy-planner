@@ -108,6 +108,18 @@
     "ghlUserId": ""
   },
   {
+    "name": "Jen Luis",
+    "email": "jeneluis4you@gmail.com",
+    "role": "submitter",
+    "active": true
+  },
+  {
+    "name": "Tiara Chambers",
+    "email": "tchamberslsw@gmail.com",
+    "role": "submitter",
+    "active": true
+  },
+  {
     "name": "Legacy Link Test",
     "email": "info@thelegacylink.com",
     "role": "admin",
