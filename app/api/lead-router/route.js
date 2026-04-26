@@ -496,12 +496,17 @@ function getDelayedEligibleAgents(settings, counts, minute) {
 
 function withDefaults(raw = {}) {
   const merged = { ...DEFAULT_SETTINGS, ...(raw || {}) };
-  const names = new Set([...(DEFAULT_SETTINGS.agents || []).map((a) => a.name), ...((raw?.agents || []).map((a) => a.name))]);
+  // If saved settings have agents, those are authoritative — don't inject DEFAULT_CONFIG agents on top.
+  // Agents not explicitly saved default to inactive (false) so they can't sneak into routing.
+  const savedAgents = raw?.agents || [];
+  const names = savedAgents.length
+    ? new Set(savedAgents.map((a) => a.name))
+    : new Set(DEFAULT_SETTINGS.agents.map((a) => a.name));
   merged.agents = Array.from(names).map((name) => {
-    const current = (raw?.agents || []).find((a) => a.name === name);
+    const current = savedAgents.find((a) => a.name === name);
     return {
       name,
-      active: current?.active ?? true,
+      active: current?.active ?? false,  // default inactive — admin must explicitly enable
       paused: current?.paused ?? false,
       delayedReleaseEnabled: current?.delayedReleaseEnabled ?? false,
       windowStart: clean(current?.windowStart || '09:00') || '09:00',
