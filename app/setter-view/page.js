@@ -35,6 +35,34 @@ function clean(v = '') {
   return String(v || '').trim();
 }
 
+const AGENT_NAME_MAP = {
+  kimora_link: 'Kimora Link', kimora: 'Kimora Link',
+  jamal_holmes: 'Jamal Holmes', jamal: 'Jamal Holmes',
+  mahogany_burns: 'Mahogany Burns', mahogany: 'Mahogany Burns',
+  madalyn_adams: 'Madalyn Adams', madeline_adams: 'Madalyn Adams', madalyn: 'Madalyn Adams',
+  kelin_brown: 'Kelin Brown', kelin: 'Kelin Brown', kellen_brown: 'Kelin Brown',
+  leticia_wright: 'Leticia Wright', latricia_wright: 'Leticia Wright', letitia_wright: 'Leticia Wright', leticia: 'Leticia Wright',
+  breanna_james: 'Breanna James', dr_brianna: 'Breanna James', dr_breanna: 'Breanna James', breanna: 'Breanna James',
+  shannon_maxwell: 'Shannon Maxwell', shannon: 'Shannon Maxwell',
+  donyell_richardson: 'Donyell Richardson', danielle_richardson: 'Donyell Richardson', donyell: 'Donyell Richardson', danielle: 'Donyell Richardson',
+  andrea_cannon: 'Andrea Cannon', andrea: 'Andrea Cannon',
+  angelique_lassiter: 'Angelique Lassiter', angelic_lassiter: 'Angelique Lassiter', angelique: 'Angelique Lassiter', angelic: 'Angelique Lassiter',
+};
+
+function resolveAgentName(raw = '') {
+  const s = clean(raw);
+  if (!s || s.toLowerCase() === 'unknown') return 'Kimora Link';
+  // Try slug lookup first
+  const slug = s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  if (AGENT_NAME_MAP[slug]) return AGENT_NAME_MAP[slug];
+  // Try direct name match (already a proper name)
+  const lower = s.toLowerCase();
+  for (const val of Object.values(AGENT_NAME_MAP)) {
+    if (val.toLowerCase() === lower) return val;
+  }
+  return s || 'Kimora Link';
+}
+
 const FALLBACK_AGENTS = [
   'Andrea Cannon',
   'Kimora Link',
@@ -267,7 +295,7 @@ export default function SetterViewPage() {
             {filteredLeads.slice(0, 500).map((r) => {
               const submitted = Boolean(r?.submitted);
               const leadId = r?.id;
-              const currentOwner = clean(r?.owner || r?.assignedTo || '');
+                  const currentOwner = resolveAgentName(r?.owner || r?.assignedTo || '');
               const dateIn = r?.createdAt || r?.timestamp || '';
               const isAssigning = Boolean(assigning[leadId]);
               const msg = assignMsg[leadId] || '';
