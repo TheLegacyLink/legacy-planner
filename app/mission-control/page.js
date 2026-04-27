@@ -584,6 +584,24 @@ export default function MissionControl() {
     return { rows, totals };
   }, [payoutPolicyRows, config.agents]);
 
+  // AP Leaderboard — aggregate annualPremium by agent for current month
+  const apLeaderboard = useMemo(() => {
+    const byAgent = {};
+    for (const r of (payoutPolicyRows || [])) {
+      const dt = new Date(r?.submittedAt || r?.updatedAt || r?.createdAt || 0);
+      if (!sameMonthYear(dt)) continue;
+      const agent = clean(r?.policyWriterName || r?.submittedBy || r?.referredByName || '');
+      if (!agent) continue;
+      const ap = Number(r?.annualPremium || 0) || (Number(r?.monthlyPremium || 0) * 12) || 0;
+      if (!byAgent[agent]) byAgent[agent] = { agent, totalAP: 0, policies: 0 };
+      byAgent[agent].totalAP += ap;
+      byAgent[agent].policies += 1;
+    }
+    return Object.values(byAgent)
+      .filter((r) => r.totalAP > 0)
+      .sort((a, b) => b.totalAP - a.totalAP);
+  }, [payoutPolicyRows]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -903,6 +921,49 @@ export default function MissionControl() {
         <p className={`pill ${dataConfidence.tone}`} style={{ display: 'inline-block' }}>
           Data Confidence: {dataConfidence.score}% ({dataConfidence.label})
         </p>
+      </div>
+
+      {/* AP Leaderboard */}
+      <div className="panel">
+        <div className="panelRow" style={{ marginBottom: 12 }}>
+          <div>
+            <h3 style={{ margin: 0 }}>AP Leaderboard — This Month</h3>
+            <span className="muted" style={{ fontSize: 13 }}>Annual Premium from policy submissions, current month</span>
+          </div>
+          {apLeaderboard.length > 0 && (
+            <span className="pill onpace">
+              Total: ${apLeaderboard.reduce((s, r) => s + r.totalAP, 0).toLocaleString()}
+            </span>
+          )}
+        </div>
+        {apLeaderboard.length === 0 ? (
+          <p className="muted">No policy submissions with AP data this month yet.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Agent</th>
+                <th>Policies</th>
+                <th>Total AP</th>
+                <th>Avg AP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {apLeaderboard.map((r, i) => (
+                <tr key={r.agent} style={i === 0 ? { background: 'rgba(212,175,55,0.08)', fontWeight: 700 } : {}}>
+                  <td style={{ color: i === 0 ? '#d4af37' : '#94a3b8', fontWeight: 700 }}>
+                    {i === 0 ? '🏆' : i === 1 ? '🪨' : i === 2 ? '🪩' : `#${i + 1}`}
+                  </td>
+                  <td style={{ fontWeight: i === 0 ? 700 : 400 }}>{r.agent}</td>
+                  <td>{r.policies}</td>
+                  <td style={{ color: '#4ade80', fontWeight: 700 }}>${r.totalAP.toLocaleString()}</td>
+                  <td className="muted">${Math.round(r.totalAP / r.policies).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <div className="panel">
