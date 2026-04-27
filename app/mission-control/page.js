@@ -590,7 +590,7 @@ export default function MissionControl() {
     for (const r of (payoutPolicyRows || [])) {
       const dt = new Date(r?.submittedAt || r?.updatedAt || r?.createdAt || 0);
       if (!sameMonthYear(dt)) continue;
-      const agent = clean(r?.policyWriterName || r?.submittedBy || r?.referredByName || '');
+      const agent = String(r?.policyWriterName || r?.submittedBy || r?.referredByName || '').trim();
       if (!agent) continue;
       const ap = Number(r?.annualPremium || 0) || (Number(r?.monthlyPremium || 0) * 12) || 0;
       if (!byAgent[agent]) byAgent[agent] = { agent, totalAP: 0, policies: 0 };
