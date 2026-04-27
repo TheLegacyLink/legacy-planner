@@ -836,6 +836,7 @@ export default function MissionControl() {
         <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
           <strong>Mission Control Tabs:</strong>
           <button type="button" className={adminTab === 'overview' ? '' : 'ghost'} onClick={() => setAdminTab('overview')}>Overview</button>
+          <button type="button" className={adminTab === 'ap' ? '' : 'ghost'} onClick={() => setAdminTab('ap')}>AP Leaderboard</button>
           <button type="button" className={adminTab === 'payout' ? '' : 'ghost'} onClick={() => setAdminTab('payout')}>Payout Queue</button>
         </div>
       </div>
@@ -921,49 +922,6 @@ export default function MissionControl() {
         <p className={`pill ${dataConfidence.tone}`} style={{ display: 'inline-block' }}>
           Data Confidence: {dataConfidence.score}% ({dataConfidence.label})
         </p>
-      </div>
-
-      {/* AP Leaderboard */}
-      <div className="panel">
-        <div className="panelRow" style={{ marginBottom: 12 }}>
-          <div>
-            <h3 style={{ margin: 0 }}>AP Leaderboard — This Month</h3>
-            <span className="muted" style={{ fontSize: 13 }}>Annual Premium from policy submissions, current month</span>
-          </div>
-          {apLeaderboard.length > 0 && (
-            <span className="pill onpace">
-              Total: ${apLeaderboard.reduce((s, r) => s + r.totalAP, 0).toLocaleString()}
-            </span>
-          )}
-        </div>
-        {apLeaderboard.length === 0 ? (
-          <p className="muted">No policy submissions with AP data this month yet.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Agent</th>
-                <th>Policies</th>
-                <th>Total AP</th>
-                <th>Avg AP</th>
-              </tr>
-            </thead>
-            <tbody>
-              {apLeaderboard.map((r, i) => (
-                <tr key={r.agent} style={i === 0 ? { background: 'rgba(212,175,55,0.08)', fontWeight: 700 } : {}}>
-                  <td style={{ color: i === 0 ? '#d4af37' : '#94a3b8', fontWeight: 700 }}>
-                    {i === 0 ? '🏆' : i === 1 ? '🪨' : i === 2 ? '🪩' : `#${i + 1}`}
-                  </td>
-                  <td style={{ fontWeight: i === 0 ? 700 : 400 }}>{r.agent}</td>
-                  <td>{r.policies}</td>
-                  <td style={{ color: '#4ade80', fontWeight: 700 }}>${r.totalAP.toLocaleString()}</td>
-                  <td className="muted">${Math.round(r.totalAP / r.policies).toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
       </div>
 
       <div className="panel">
@@ -1256,6 +1214,51 @@ export default function MissionControl() {
         )}
       </div>
 
+      </div>
+
+      {/* AP Leaderboard Tab */}
+      <div style={{ display: adminTab === 'ap' ? 'block' : 'none' }}>
+        <div className="panel">
+          <div className="panelRow" style={{ marginBottom: 16 }}>
+            <div>
+              <h3 style={{ margin: 0 }}>AP Leaderboard — This Month</h3>
+              <span className="muted" style={{ fontSize: 13 }}>Annual Premium from policy submissions, current month</span>
+            </div>
+            {apLeaderboard.length > 0 && (
+              <span className="pill onpace" style={{ fontSize: 14, padding: '6px 16px' }}>
+                Total AP: ${apLeaderboard.reduce((s, r) => s + r.totalAP, 0).toLocaleString()}
+              </span>
+            )}
+          </div>
+          {apLeaderboard.length === 0 ? (
+            <p className="muted">No policy submissions with AP data this month yet.</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Agent</th>
+                  <th>Policies</th>
+                  <th>Total AP</th>
+                  <th>Avg AP / Policy</th>
+                </tr>
+              </thead>
+              <tbody>
+                {apLeaderboard.map((r, i) => (
+                  <tr key={r.agent} style={i === 0 ? { background: 'rgba(212,175,55,0.08)' } : {}}>
+                    <td style={{ color: i === 0 ? '#d4af37' : i === 1 ? '#94a3b8' : '#64748b', fontWeight: 700, fontSize: 15 }}>
+                      {i === 0 ? '🏆' : i === 1 ? '🪨' : i === 2 ? '🪩' : `#${i + 1}`}
+                    </td>
+                    <td style={{ fontWeight: i === 0 ? 700 : 400 }}>{r.agent}</td>
+                    <td>{r.policies}</td>
+                    <td style={{ color: '#4ade80', fontWeight: 700, fontSize: 15 }}>${r.totalAP.toLocaleString()}</td>
+                    <td className="muted">${Math.round(r.totalAP / r.policies).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
 
       <div style={{ display: adminTab === 'payout' ? 'block' : 'none' }}>
