@@ -173,6 +173,7 @@ export default function SponsorshipReviewPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reviewRow, setReviewRow] = useState(null);
+  const [upsellAlert, setUpsellAlert] = useState(null); // { name, tier, label, pitch, income, credit }
   const [bookedSet, setBookedSet] = useState(new Set());
   const [fgSubmittedSet, setFgSubmittedSet] = useState(new Set());
   const [bookingRows, setBookingRows] = useState([]);
@@ -249,7 +250,7 @@ export default function SponsorshipReviewPage() {
     return () => clearInterval(id);
   }, []);
 
-  async function review(id, decision) {
+  async function review(id, decision, row = null) {
     const res = await fetch('/api/sponsorship-applications', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -261,12 +262,30 @@ export default function SponsorshipReviewPage() {
       return false;
     }
     load();
+
+    // Show upsell alert if approving a qualified candidate
+    if (decision === 'approve' && row) {
+      const tier = String(row?.upsell_tier || '');
+      if (tier === 'agency_ownership' || tier === 'inner_circle') {
+        const incomeLabels = { under_30k: 'Under $30K', '30k_60k': '$30K–$60K', '60k_100k': '$60K–$100K', '100k_plus': '$100K+' };
+        const creditLabels = { below_580: 'Below 580', '580_669': '580–669', '670_739': '670–739', '740_plus': '740+' };
+        setUpsellAlert({
+          name: `${row.firstName} ${row.lastName}`,
+          tier,
+          label: row.upsell_label || (tier === 'agency_ownership' ? '🏆 Agency Ownership Candidate' : '⭐ Inner Circle Candidate'),
+          pitch: row.upsell_pitch || '',
+          income: incomeLabels[row.annualIncome] || '—',
+          credit: creditLabels[row.creditScore] || '—',
+          wantsToAccelerate: row.wantsToAccelerate === 'yes',
+        });
+      }
+    }
     return true;
   }
 
   async function decideFromModal(decision) {
     if (!reviewRow?.id) return;
-    const ok = await review(reviewRow.id, decision);
+    const ok = await review(reviewRow.id, decision, reviewRow);
     if (ok) setReviewRow(null);
   }
 
@@ -446,7 +465,7 @@ export default function SponsorshipReviewPage() {
               <td>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <button type="button" className="ghost" onClick={() => setReviewRow(r)}>Review Answers</button>
-                  <button type="button" onClick={() => review(r.id, 'approve')}>Approve</button>
+                  <button type="button" onClick={() => review(r.id, 'approve', r)}>Approve</button>
                   <button type="button" className="ghost" onClick={() => review(r.id, 'decline')}>Decline</button>
                 </div>
               </td>
@@ -458,6 +477,52 @@ export default function SponsorshipReviewPage() {
           ) : null}
         </tbody>
       </table>
+
+      {/* Upsell alert modal — fires on approve if candidate qualifies */}
+      {upsellAlert ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => setUpsellAlert(null)}
+        >
+          <div
+            style={{ background: '#0f172a', border: `2px solid ${upsellAlert.tier === 'agency_ownership' ? '#d4af37' : '#3b82f6'}`, borderRadius: 18, width: 'min(520px, 96vw)', padding: 28, boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>{upsellAlert.tier === 'agency_ownership' ? '🏆' : '⭐'}</div>
+              <h2 style={{ margin: '0 0 6px', color: '#f1f5f9', fontSize: 20 }}>{upsellAlert.label}</h2>
+              <p style={{ margin: 0, color: '#94a3b8', fontSize: 14 }}>{upsellAlert.name} was just approved</p>
+            </div>
+
+            <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '14px 18px', marginBottom: 18, border: '1px solid #1e3a5f' }}>
+              <p style={{ margin: '0 0 12px', color: '#cbd5e1', fontSize: 14, lineHeight: 1.6, fontStyle: 'italic' }}>&ldquo;{upsellAlert.pitch}&rdquo;</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 13 }}>
+                <div><span style={{ color: '#64748b' }}>Annual Income</span><br /><strong style={{ color: '#f1f5f9' }}>{upsellAlert.income}</strong></div>
+                <div><span style={{ color: '#64748b' }}>Credit Score</span><br /><strong style={{ color: '#f1f5f9' }}>{upsellAlert.credit}</strong></div>
+                <div style={{ gridColumn: '1 / -1' }}><span style={{ color: '#64748b' }}>Wants to Accelerate</span><br /><strong style={{ color: upsellAlert.wantsToAccelerate ? '#4ade80' : '#f87171' }}>{upsellAlert.wantsToAccelerate ? '✅ Yes — bring it up on the call' : 'No — light touch'}</strong></div>
+              </div>
+            </div>
+
+            <div style={{ background: upsellAlert.tier === 'agency_ownership' ? 'rgba(212,175,55,0.1)' : 'rgba(59,130,246,0.1)', borderRadius: 10, padding: '12px 16px', marginBottom: 20, border: `1px solid ${upsellAlert.tier === 'agency_ownership' ? 'rgba(212,175,55,0.3)' : 'rgba(59,130,246,0.3)'}` }}>
+              <strong style={{ color: upsellAlert.tier === 'agency_ownership' ? '#d4af37' : '#60a5fa', fontSize: 13 }}>
+                {upsellAlert.tier === 'agency_ownership'
+                  ? '💡 Lead with Agency Ownership on the onboarding call. 6–7 figure income potential.'
+                  : '💡 Lead with Inner Circle on the onboarding call. $3K–$12K/month potential.'}
+              </strong>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setUpsellAlert(null)}
+              style={{ width: '100%', padding: '12px', borderRadius: 10, background: upsellAlert.tier === 'agency_ownership' ? 'linear-gradient(135deg,#d4af37,#b8962e)' : 'linear-gradient(135deg,#3b82f6,#1d4ed8)', border: 'none', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
+            >
+              Got it — I’ll bring it up on the call
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {reviewRow ? (
         <div
