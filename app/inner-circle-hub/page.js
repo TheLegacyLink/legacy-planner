@@ -1475,7 +1475,7 @@ export default function InnerCircleHubPage() {
 
     async function loadAll() {
       try {
-        const kpiUrl = `/api/inner-circle-hub-kpi?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}`;
+        const kpiUrl = `/api/inner-circle-hub-kpi?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}&month=${encodeURIComponent(kpiMonth || '')}`;
         const dailyUrl = `/api/inner-circle-hub-daily?memberId=${encodeURIComponent(member?.id || '')}&email=${encodeURIComponent(member?.email || '')}`;
 
         const activityUrl = `/api/inner-circle-hub-activity?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}`;
@@ -1657,6 +1657,20 @@ export default function InnerCircleHubPage() {
     loadAll();
     return () => { canceled = true; };
   }, [member?.id, member?.email, member?.applicantName, member?.name]);
+  // Re-fetch KPI when selected month changes
+  useEffect(() => {
+    if (!member?.email && !member?.applicantName) return;
+    let canceled = false;
+    async function refetchKpiForMonth() {
+      const url = `/api/inner-circle-hub-kpi?name=${encodeURIComponent(member?.applicantName || '')}&email=${encodeURIComponent(member?.email || '')}&month=${encodeURIComponent(kpiMonth || '')}`;
+      const res = await fetch(url, { cache: 'no-store' }).catch(() => null);
+      if (!res?.ok || canceled) return;
+      const data = await res.json().catch(() => ({}));
+      if (!canceled && data?.ok && data?.kpi) setKpi(data.kpi);
+    }
+    refetchKpiForMonth();
+    return () => { canceled = true; };
+  }, [kpiMonth, member?.email, member?.applicantName]);
 
   useEffect(() => {
     if (!tabs.find((t) => t.key === tab) && tabs[0]) setTab(tabs[0].key);

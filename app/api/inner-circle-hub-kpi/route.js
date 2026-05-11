@@ -191,8 +191,12 @@ export async function GET(req) {
       }))
   );
 
-  const currentMonth = monthKey(new Date());
-  const currentDateKey = dateKeyFromIso(new Date().toISOString());
+  // Support ?month=YYYY-MM for historical KPI lookups
+  const monthParam = clean(searchParams.get('month') || '');
+  const currentMonth = (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) ? monthParam : monthKey(new Date());
+  // For "today" stats, only use real today when viewing current month
+  const realToday = monthKey(new Date());
+  const currentDateKey = currentMonth === realToday ? dateKeyFromIso(new Date().toISOString()) : `${currentMonth}-99`;
 
   const assignedThisMonth = (events || []).filter((r) => {
     const type = normalize(r?.type || '');
