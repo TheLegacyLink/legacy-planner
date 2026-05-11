@@ -577,6 +577,7 @@ export default function InnerCircleHubPage() {
   const filteredActivityRows = useMemo(() => {
     if (activityType === 'all') return activityRows;
     if (activityType === 'decision') return (activityRows || []).filter((r) => clean(r?.type) === 'decision');
+    if (activityType === 'new_sponsors') return (activityRows || []).filter((r) => clean(r?.type) === 'decision' && clean(r?.decision) !== 'declined');
     return (activityRows || []).filter((r) => clean(r?.type) === activityType);
   }, [activityRows, activityType]);
 
@@ -2650,6 +2651,17 @@ export default function InnerCircleHubPage() {
                     <button type="button" onClick={prevKpiMonthNav} disabled={!canGoBack} className="ghost" style={{ padding: '4px 12px', fontSize: 18, opacity: canGoBack ? 1 : 0.35 }}>◀</button>
                     <strong style={{ color: '#fff', fontSize: 16, flex: 1 }}>KPI Dashboard — {kpiMonthLabel(kpiMonth)}</strong>
                     <button type="button" onClick={nextKpiMonthNav} disabled={!canGoForward} className="ghost" style={{ padding: '4px 12px', fontSize: 18, opacity: canGoForward ? 1 : 0.35 }}>▶</button>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8, gridColumn: '1 / -1' }}>
+                      {[0, 1, 2].map((offset) => {
+                        const d = new Date();
+                        d.setMonth(d.getMonth() - offset);
+                        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        const label = offset === 0 ? 'This Month' : offset === 1 ? 'Last Month' : '2 Months Ago';
+                        return (
+                          <button key={key} type="button" className={kpiMonth === key ? 'publicPrimaryBtn' : 'ghost'} style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setKpiMonth(key)}>{label}</button>
+                        );
+                      })}
+                    </div>
                   </div>
                   <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
                     <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Completed Sponsorship</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{displayedKpi?.leadsReceived ?? 0}</div></div>
@@ -2754,6 +2766,7 @@ export default function InnerCircleHubPage() {
                     <button type="button" className={activityType === 'decision' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('decision')}>Sponsorship ({(activitySummary.approved || 0) + (activitySummary.declined || 0)})</button>
                     <button type="button" className={activityType === 'fng' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('fng')}>Policy Submitted ({activitySummary.fng || 0})</button>
                     <button type="button" className={activityType === 'completed' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('completed')}>Application Approved ({activitySummary.completed || 0})</button>
+                    <button type="button" className={activityType === 'new_sponsors' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('new_sponsors')}>New Sponsors ({activitySummary.approved || 0})</button>
                   </div>
 
                   <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
