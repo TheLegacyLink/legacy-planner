@@ -772,6 +772,11 @@ export default function SponsorshipSignupPage() {
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
           <img
+            src="/proof/nlg-commission.png"
+            alt="National Life Group commission overview showing $96,654 payable"
+            style={{ width: '100%', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', display: 'block' }}
+          />
+          <img
             src="/proof/fg-commissions-1.png"
             alt="F&G eTrack commission notifications"
             style={{ width: '100%', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', display: 'block' }}
