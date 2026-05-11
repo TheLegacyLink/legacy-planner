@@ -2777,7 +2777,8 @@ export default function InnerCircleHubPage() {
                   <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                     <button type="button" className={activityType === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('all')}>All</button>
                     <button type="button" className={activityType === 'booked' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('booked')}>Booked ({activitySummary.booked || 0})</button>
-                    <button type="button" className={activityType === 'decision' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('decision')}>Sponsorship ({(activitySummary.approved || 0) + (activitySummary.declined || 0)})</button>
+                    <button type="button" className={activityType === 'submitted' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('submitted')}>Sponsorship Pending ({activitySummary.submitted || 0})</button>
+                    <button type="button" className={activityType === 'decision' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('decision')}>Sponsorship Approved ({activitySummary.approved || 0})</button>
                     <button type="button" className={activityType === 'fng' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('fng')}>Policy Submitted ({activitySummary.fng || 0})</button>
                     <button type="button" className={activityType === 'completed' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('completed')}>Application Approved ({activitySummary.completed || 0})</button>
                     <button type="button" className={activityType === 'new_sponsors' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setActivityType('new_sponsors')}>New Sponsors ({activitySummary.approved || 0})</button>
@@ -2829,7 +2830,7 @@ export default function InnerCircleHubPage() {
                         >
                           <span className="pill" style={pillStyle}>{label}</span>
                           <div style={{ color: '#e2e8f0', fontSize: 14, flex: 1 }}>
-                            {row?.name || 'Unknown'}{isAppApproved ? <span title="Application Approved" style={{ marginLeft: 8, color: '#fbbf24', textShadow: '0 0 8px rgba(251,191,36,0.45)', letterSpacing: 1.5 }}>⭐⭐⭐</span> : null}
+                            {row?.name || 'Unknown'}{(isAppApproved || isApproved) ? <span title="Application Approved" style={{ marginLeft: 8, color: '#fbbf24', textShadow: '0 0 8px rgba(251,191,36,0.45)', letterSpacing: 1.5 }}>⭐⭐⭐</span> : null}
                           </div>
                           {!isAppApproved ? (
                             <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
