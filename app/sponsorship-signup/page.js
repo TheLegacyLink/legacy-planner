@@ -762,7 +762,37 @@ export default function SponsorshipSignupPage() {
           <div className="sp-trust-item"><span className="icon">⚡</span> 24h Review Target</div>
         </div>
 
-        {/* ─── EARNINGS SNAPSHOT ─── */}
+        
+      {/* ─── MENTOR PROOF SECTION ─── */}
+      <section className="sp-section" style={{ paddingTop: 48, paddingBottom: 48, background: 'rgba(15,23,42,0.6)', borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="sp-section-label">Proof</div>
+        <h2 className="sp-section-title" style={{ marginBottom: 6 }}>Your Mentor Doesn&apos;t Just Teach It. He Lives It.</h2>
+        <p className="sp-section-sub" style={{ marginBottom: 32 }}>
+          Real F&amp;G eTrack commission notifications — not projections, not someone else&apos;s income. This is what consistent production looks like inside The Legacy Link system.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+          <img
+            src="/proof/fg-commissions-1.png"
+            alt="F&G eTrack commission notifications"
+            style={{ width: '100%', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', display: 'block' }}
+          />
+          <img
+            src="/proof/fg-commissions-2.png"
+            alt="F&G eTrack commission notifications"
+            style={{ width: '100%', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', display: 'block' }}
+          />
+          <img
+            src="/proof/fg-commissions-3.png"
+            alt="F&G eTrack commission notifications"
+            style={{ width: '100%', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', display: 'block' }}
+          />
+        </div>
+        <p style={{ marginTop: 16, fontSize: 12, color: '#475569', textAlign: 'center' }}>
+          Real F&amp;G eTrack commission emails. Address rows redacted. Individual results vary; income is not guaranteed.
+        </p>
+      </section>
+
+{/* ─── EARNINGS SNAPSHOT ─── */}
         <section className="sp-section" style={{ paddingTop: 48, paddingBottom: 48 }}>
           <div className="sp-section-label">Choose Your Path</div>
           <h2 className="sp-section-title">What You Can Earn</h2>
