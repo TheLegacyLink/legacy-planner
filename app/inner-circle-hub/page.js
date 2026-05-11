@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import licensedAgents from '../../data/licensedAgents.json';
 import CommunityServiceTab from './community-service-tab';
 import LinkBlendBuilderTab from './tools-link-blend-builder';
+import SalesTrainerTab from './sales-trainer-tab';
+import DailyDrive from '../../components/DailyDrive';
 
 const SESSION_KEY = 'inner_circle_hub_member_v1';
 const LINK_LEADS_SESSION_KEY = 'legacy_lead_marketplace_user_v1';
@@ -208,6 +210,7 @@ function availableTabs(member = {}) {
   const isKimora = email === 'kimora@thelegacylink.com';
   const all = [
     { key: 'dashboard', label: 'The Lounge' },
+    { key: 'dailydrive', label: 'Daily Drive' },
     { key: 'faststart', label: 'Fast Start' },
     { key: 'growth', label: 'Growth Hub' },
     { key: 'scripts2', label: 'Script Vault 2.0' },
@@ -227,7 +230,9 @@ function availableTabs(member = {}) {
     { key: 'academy', label: 'IUL Academy' },
     { key: 'awards', label: 'Achievement Center' },
     { key: 'links', label: 'My VIP Links' },
-    { key: 'library', label: 'PDF Library' }
+    { key: 'library', label: 'PDF Library' },
+    { key: 'licensedstates', label: 'My Licensed States' },
+    { key: 'sales-training', label: 'Sales Training' }
   ];
   return all.filter((t) => modules?.[t.key] !== false);
 }
@@ -267,7 +272,11 @@ export default function InnerCircleHubPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
 
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+
   const [kpi, setKpi] = useState(null);
+  const [kpiMonth, setKpiMonth] = useState(() => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; });
+  const [kpiHistory, setKpiHistory] = useState({});
   const [scripts, setScripts] = useState([]);
   const [scriptFilter, setScriptFilter] = useState('all');
   const [vault, setVault] = useState({ content: [], calls: [], onboarding: [] });
@@ -284,6 +293,11 @@ export default function InnerCircleHubPage() {
   const [onboardingDecisionRows, setOnboardingDecisionRows] = useState([]);
   const [teamHierarchyRows, setTeamHierarchyRows] = useState([]);
   const [teamExpanded, setTeamExpanded] = useState({});
+  const [licenseOverrides, setLicenseOverrides] = useState([]);
+  const [togglingLicense, setTogglingLicense] = useState('');
+  const [removingOwnTree, setRemovingOwnTree] = useState('');
+  const [reassigningOwnTree, setReassigningOwnTree] = useState('');
+  const [ownTreeNotice, setOwnTreeNotice] = useState('');
   const [hubMembers, setHubMembers] = useState([]);
   const [startIntakeRows, setStartIntakeRows] = useState([]);
   const [startIntakeLoading, setStartIntakeLoading] = useState(false);
@@ -340,6 +354,49 @@ export default function InnerCircleHubPage() {
   const [savingTracker, setSavingTracker] = useState(false);
   const [copiedKey, setCopiedKey] = useState('');
   const [uplineUnreadCount, setUplineUnreadCount] = useState(0);
+  const [licensedStates, setLicensedStates] = useState([]);
+  const [licensedStatesBusy, setLicensedStatesBusy] = useState(false);
+  const [licensedStatesMsg, setLicensedStatesMsg] = useState('');
+  const [carrierContracts, setCarrierContracts] = useState({});
+  const [carrierBusy, setCarrierBusy] = useState(false);
+  const [carrierMsg, setCarrierMsg] = useState('');
+  const [teamSopProgress, setTeamSopProgress] = useState({}); // email → sop step data
+  const [teamCommunityService, setTeamCommunityService] = useState({}); // email → community service count
+
+  function SopSteps({ email = '', licenseTag = '' }) {
+    const em = clean(email).toLowerCase();
+    const sop = teamSopProgress[em] || {};
+    const csCount = teamCommunityService[em] || 0;
+    const steps = [
+      { key: 'communityService', label: 'Community Service', done: csCount > 0 },
+      { key: 'prelicensingStarted', label: 'Pre-Licensing Started', done: Boolean(sop?.steps?.prelicensingStarted) },
+      { key: 'watchedWhateverItTakes', label: 'Watched Whatever It Takes', done: Boolean(sop?.steps?.watchedWhateverItTakes) },
+      { key: 'examPassed', label: 'Exam Passed', done: Boolean(sop?.steps?.examPassed) },
+      { key: 'residentLicenseObtained', label: 'Resident License', done: Boolean(sop?.steps?.residentLicenseObtained) },
+      { key: 'licensed', label: 'Licensed & Contracted', done: licenseTag === 'licensed' },
+    ];
+    const doneCount = steps.filter((s) => s.done).length;
+    const pct = Math.round((doneCount / steps.length) * 100);
+    return (
+      <div style={{ marginTop: 10, borderTop: '1px solid #1e3a5f', paddingTop: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#d4af37', letterSpacing: 1, textTransform: 'uppercase' }}>SOP Progress</span>
+          <span style={{ fontSize: 11, color: pct === 100 ? '#4ade80' : '#94a3b8' }}>{doneCount}/{steps.length} — {pct}%</span>
+        </div>
+        <div style={{ height: 4, borderRadius: 999, background: '#1e3a5f', overflow: 'hidden', marginBottom: 8 }}>
+          <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#22c55e' : '#d4af37', borderRadius: 999, transition: 'width .3s' }} />
+        </div>
+        <div style={{ display: 'grid', gap: 3 }}>
+          {steps.map((s) => (
+            <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 13, lineHeight: 1, color: s.done ? '#4ade80' : '#374151' }}>{s.done ? '✅' : '○'}</span>
+              <span style={{ fontSize: 11, color: s.done ? '#cbd5e1' : '#4b5563' }}>{s.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const gate = useMemo(() => onboardingState(member || {}), [member]);
   const unlocked = gate.active;
@@ -744,7 +801,14 @@ export default function InnerCircleHubPage() {
       const fromRoster = (childEmail && licensedEmailSet.has(childEmail)) || licensedNameSigSet.has(nameSig(childName));
       const fromLicensedOverride = LICENSED_NAME_OVERRIDES.has(normName(childName));
 
-      const licenseTag = (fromRoster || fromLicensedOverride) ? 'licensed' : fromPolicy;
+      // Dynamic license override takes highest priority
+      const dynamicOverride = (Array.isArray(licenseOverrides) ? licenseOverrides : []).find((o) =>
+        (childEmail && clean(o?.email).toLowerCase() === childEmail) ||
+        (childName && normName(clean(o?.name)) === normName(childName))
+      );
+      const licenseTag = dynamicOverride?.trackType
+        ? dynamicOverride.trackType
+        : (fromRoster || fromLicensedOverride) ? 'licensed' : fromPolicy;
       const isInnerCircle = (childEmail && innerCircleEmailSet.has(childEmail)) || innerCircleNameSigSet.has(nameSig(childName)) || INNER_CIRCLE_NAME_OVERRIDES.has(normName(childName));
 
       map.set(childKey || `${childName}|${childEmail}`, { licenseTag, isInnerCircle, childPhone });
@@ -1370,7 +1434,13 @@ export default function InnerCircleHubPage() {
 
   const sponsorshipSubmissionsCount = Number(activitySummary?.submitted || 0) || 0;
   const isAdminUser = ['admin', 'manager'].includes(clean(member?.role || '').toLowerCase());
-  const canManageHierarchy = clean(member?.email || '').toLowerCase() === 'kimora@thelegacylink.com';
+  const memberEmail = clean(member?.email || '').toLowerCase();
+  const isKimoraAdmin = memberEmail === 'kimora@thelegacylink.com' || memberEmail === 'investalinkinsurance@gmail.com';
+  // canManageHierarchy: full admin (Kimora) can manage everyone
+  const canManageHierarchy = isKimoraAdmin;
+  // canManageOwnTree: Inner Circle members can manage licensed/unlicensed status,
+  // remove, and reassign — but ONLY within their own team tree
+  const canManageOwnTree = !isKimoraAdmin && Boolean(member?.email);
 
   const vipPdfLinks = useMemo(() => {
     const pathwaysLocked = !isAdminUser && sponsorshipSubmissionsCount < 10;
@@ -1415,35 +1485,22 @@ export default function InnerCircleHubPage() {
         const leadClaimsUrl = `/api/lead-claims?viewer=${encodeURIComponent(member?.applicantName || member?.name || '')}`;
         const mediaUrl = `/api/inner-circle-media-vault?email=${encodeURIComponent(member?.email || '')}&name=${encodeURIComponent(member?.applicantName || member?.name || '')}`;
 
-        const [kpiRes, dailyRes, scriptsRes, vaultRes, activityRes, progressRes, policiesRes, sponsorshipRes, leadClaimsRes, mediaRes, onboardingRes, teamRes, membersRes] = await Promise.all([
+        // Wave 1: personal dashboard data — loads fast, populates the hub immediately
+        const [kpiRes, dailyRes, activityRes, onboardingRes] = await Promise.all([
           fetch(kpiUrl, { cache: 'no-store' }),
           fetch(dailyUrl, { cache: 'no-store' }),
-          fetch('/api/inner-circle-hub-scripts', { cache: 'no-store' }),
-          fetch('/api/inner-circle-hub-vault', { cache: 'no-store' }),
           fetch(activityUrl, { cache: 'no-store' }),
-          fetch('/api/inner-circle-hub-progress', { cache: 'no-store' }),
-          fetch('/api/policy-submissions', { cache: 'no-store' }),
-          fetch('/api/sponsorship-applications', { cache: 'no-store' }),
-          fetch(leadClaimsUrl, { cache: 'no-store' }),
-          fetch(mediaUrl, { cache: 'no-store' }),
-          fetch(onboardingUrl, { cache: 'no-store' }),
-          fetch(teamUrl, { cache: 'no-store' }),
-          fetch('/api/inner-circle-hub-members', { cache: 'no-store' })
+          fetch(onboardingUrl, { cache: 'no-store' })
         ]);
 
+        // Wave 2 placeholders — filled below after wave 1 state is set
+        let scriptsRes, vaultRes, progressRes, policiesRes, sponsorshipRes, leadClaimsRes, mediaRes, teamRes, membersRes;
+
+        // Parse wave 1
         const kpiData = await kpiRes.json().catch(() => ({}));
         const dailyData = await dailyRes.json().catch(() => ({}));
-        const scriptsData = await scriptsRes.json().catch(() => ({}));
-        const vaultData = await vaultRes.json().catch(() => ({}));
         const activityData = await activityRes.json().catch(() => ({}));
-        const progressData = await progressRes.json().catch(() => ({}));
-        const policiesData = await policiesRes.json().catch(() => ({}));
-        const sponsorshipData = await sponsorshipRes.json().catch(() => ({}));
-        const leadClaimsData = await leadClaimsRes.json().catch(() => ({}));
-        const mediaData = await mediaRes.json().catch(() => ({}));
         const onboardingData = await onboardingRes.json().catch(() => ({}));
-        const teamData = await teamRes.json().catch(() => ({}));
-        const membersData = await membersRes.json().catch(() => ({}));
 
         if (!canceled && kpiRes.ok && kpiData?.ok) {
           let nextKpi = kpiData.kpi || null;
@@ -1465,6 +1522,13 @@ export default function InnerCircleHubPage() {
           }
 
           setKpi(nextKpi);
+          // Build month history map for navigation
+          const history = {};
+          if (kpiData.month && nextKpi) history[kpiData.month] = nextKpi;
+          for (const pm of (Array.isArray(kpiData.prevMonths) ? kpiData.prevMonths : [])) {
+            if (pm?.month && pm?.kpi) history[pm.month] = pm.kpi;
+          }
+          setKpiHistory(history);
         }
         if (!canceled && dailyRes.ok && dailyData?.ok) {
           const rows = Array.isArray(dailyData.rows) ? dailyData.rows : [];
@@ -1488,8 +1552,7 @@ export default function InnerCircleHubPage() {
             }));
           }
         }
-        if (!canceled && scriptsRes.ok && scriptsData?.ok) setScripts(Array.isArray(scriptsData.rows) ? scriptsData.rows : []);
-        if (!canceled && vaultRes.ok && vaultData?.ok) setVault(vaultData.vault || { content: [], calls: [], onboarding: [] });
+        // Wave 1 state — activity and onboarding
         if (!canceled && activityRes.ok && activityData?.ok) {
           setActivityRows(Array.isArray(activityData.rows) ? activityData.rows : []);
           setActivitySummary(activityData.summary || { submitted: 0, approved: 0, declined: 0, booked: 0, fng: 0, completed: 0 });
@@ -1499,32 +1562,78 @@ export default function InnerCircleHubPage() {
             monthly: { bookings: 0, sponsorshipSubmitted: 0, sponsorshipApproved: 0, fngSubmitted: 0 }
           });
         }
-        if (!canceled && progressRes.ok && progressData?.ok) {
-          setLeaderboard({ month: clean(progressData?.month), rows: Array.isArray(progressData?.rows) ? progressData.rows : [] });
-        }
-        if (!canceled && policiesRes.ok && policiesData?.ok) {
-          setPolicyRows(Array.isArray(policiesData?.rows) ? policiesData.rows : []);
-        }
-        if (!canceled && sponsorshipRes.ok && sponsorshipData?.ok) {
-          setSponsorshipRows(Array.isArray(sponsorshipData?.rows) ? sponsorshipData.rows : []);
-        }
-        if (!canceled && leadClaimsRes.ok && leadClaimsData?.ok) {
-          setLeadClaimRows(Array.isArray(leadClaimsData?.rows) ? leadClaimsData.rows : []);
-        }
-        if (!canceled && mediaRes.ok && mediaData?.ok) {
-          setMediaItems(Array.isArray(mediaData?.items) ? mediaData.items : []);
-          setMediaProgress(mediaData?.myProgress && typeof mediaData.myProgress === 'object' ? mediaData.myProgress : {});
-          setMediaCommentDrafts(Object.fromEntries(Object.entries(mediaData?.myProgress || {}).map(([k, v]) => [k, clean(v?.comment || '')])));
-        }
         if (!canceled && onboardingRes.ok && onboardingData?.ok) {
           setOnboardingDecisionRows(Array.isArray(onboardingData?.rows) ? onboardingData.rows : []);
         }
-        if (!canceled && teamRes.ok && teamData?.ok) {
-          setTeamHierarchyRows(Array.isArray(teamData?.rows) ? teamData.rows : []);
-        }
-        if (!canceled && membersRes.ok && membersData?.ok) {
-          setHubMembers(Array.isArray(membersData?.rows) ? membersData.rows : []);
-        }
+
+        // Wave 2: fire in background, don't block initial render
+        ;(async () => {
+          try {
+            const [scriptsRes, vaultRes, progressRes, policiesRes, sponsorshipRes, leadClaimsRes, mediaRes, teamRes, membersRes, sopProgressRes, communityRes, ovRes] = await Promise.all([
+              fetch('/api/inner-circle-hub-scripts', { cache: 'no-store' }),
+              fetch('/api/inner-circle-hub-vault', { cache: 'no-store' }),
+              fetch('/api/inner-circle-hub-progress', { cache: 'no-store' }),
+              fetch('/api/policy-submissions', { cache: 'no-store' }),
+              fetch('/api/sponsorship-applications', { cache: 'no-store' }),
+              fetch(leadClaimsUrl, { cache: 'no-store' }),
+              fetch(mediaUrl, { cache: 'no-store' }),
+              fetch(teamUrl, { cache: 'no-store' }),
+              fetch('/api/inner-circle-hub-members', { cache: 'no-store' }),
+              fetch('/api/unlicensed-backoffice/admin/progress', { cache: 'no-store' }),
+              fetch('/api/community-service', { cache: 'no-store' }),
+              fetch('/api/team-member-controls', { cache: 'no-store' })
+            ]);
+
+            const scriptsData = await scriptsRes.json().catch(() => ({}));
+            const vaultData = await vaultRes.json().catch(() => ({}));
+            const progressData = await progressRes.json().catch(() => ({}));
+            const policiesData = await policiesRes.json().catch(() => ({}));
+            const sponsorshipData = await sponsorshipRes.json().catch(() => ({}));
+            const leadClaimsData = await leadClaimsRes.json().catch(() => ({}));
+            const mediaData = await mediaRes.json().catch(() => ({}));
+            const teamData = await teamRes.json().catch(() => ({}));
+            const membersData = await membersRes.json().catch(() => ({}));
+            const sopProgressData = await sopProgressRes.json().catch(() => ({}));
+            const communityData = await communityRes.json().catch(() => ({}));
+            const ovData = await ovRes.json().catch(() => ({}));
+
+            if (canceled) return;
+            if (scriptsRes.ok && scriptsData?.ok) setScripts(Array.isArray(scriptsData.rows) ? scriptsData.rows : []);
+            if (vaultRes.ok && vaultData?.ok) setVault(vaultData.vault || { content: [], calls: [], onboarding: [] });
+            if (progressRes.ok && progressData?.ok) setLeaderboard({ month: clean(progressData?.month), rows: Array.isArray(progressData?.rows) ? progressData.rows : [] });
+            if (policiesRes.ok && policiesData?.ok) setPolicyRows(Array.isArray(policiesData?.rows) ? policiesData.rows : []);
+            if (sponsorshipRes.ok && sponsorshipData?.ok) setSponsorshipRows(Array.isArray(sponsorshipData?.rows) ? sponsorshipData.rows : []);
+            if (leadClaimsRes.ok && leadClaimsData?.ok) setLeadClaimRows(Array.isArray(leadClaimsData?.rows) ? leadClaimsData.rows : []);
+            if (mediaRes.ok && mediaData?.ok) {
+              setMediaItems(Array.isArray(mediaData?.items) ? mediaData.items : []);
+              setMediaProgress(mediaData?.myProgress && typeof mediaData.myProgress === 'object' ? mediaData.myProgress : {});
+              setMediaCommentDrafts(Object.fromEntries(Object.entries(mediaData?.myProgress || {}).map(([k, v]) => [k, clean(v?.comment || '')])));
+            }
+            if (teamRes.ok && teamData?.ok) setTeamHierarchyRows(Array.isArray(teamData?.rows) ? teamData.rows : []);
+            if (membersRes.ok && membersData?.ok) setHubMembers(Array.isArray(membersData?.rows) ? membersData.rows : []);
+            if (ovRes.ok && ovData?.ok) setLicenseOverrides(Array.isArray(ovData?.overrides) ? ovData.overrides : []);
+
+            // SOP progress map by email
+            if (sopProgressRes.ok && sopProgressData?.ok) {
+              const map = {};
+              for (const r of (sopProgressData.rows || [])) {
+                const em = clean(r?.email).toLowerCase();
+                if (em) map[em] = r;
+              }
+              setTeamSopProgress(map);
+            }
+
+            // Community service map by email
+            if (communityRes.ok && communityData?.ok) {
+              const csMap = {};
+              for (const r of (communityData.rows || communityData.submissions || [])) {
+                const em = clean(r?.email || r?.submitterEmail || '').toLowerCase();
+                if (em) csMap[em] = (csMap[em] || 0) + 1;
+              }
+              setTeamCommunityService(csMap);
+            }
+          } catch {}
+        })();
       } catch {
         if (!canceled) {
           setKpi(null);
@@ -1894,6 +2003,131 @@ export default function InnerCircleHubPage() {
     try { localStorage.removeItem(SESSION_KEY); } catch {}
   }
 
+  // ── Licensed States ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const memberEmail = clean(member?.email || '').toLowerCase();
+    if (!memberEmail) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/agent-licensed-states?email=${encodeURIComponent(memberEmail)}`, { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && res.ok && data?.ok) {
+          setLicensedStates(Array.isArray(data.states) ? data.states : []);
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [member?.email]);
+
+  async function saveLicensedStates() {
+    const memberEmail = clean(member?.email || '').toLowerCase();
+    if (!memberEmail) return;
+    setLicensedStatesBusy(true);
+    setLicensedStatesMsg('');
+    try {
+      const sessionToken = clean(
+        member?.token ||
+        (typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') || '' : '')
+      );
+      // Always call agent-licensed-states directly — API now accepts IC Hub members without bearer token
+      const headers = { 'Content-Type': 'application/json', ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}) };
+      const res = await fetch('/api/agent-licensed-states', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email: memberEmail, states: licensedStates })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setLicensedStatesMsg('Save failed. Please try again.');
+        return;
+      }
+      setLicensedStatesMsg('Licensed states updated ✅');
+      setTimeout(() => setLicensedStatesMsg(''), 3500);
+    } catch {
+      setLicensedStatesMsg('Save failed. Please try again.');
+    } finally {
+      setLicensedStatesBusy(false);
+    }
+  }
+
+  function toggleLicensedState(code) {
+    setLicensedStates((prev) =>
+      prev.includes(code) ? prev.filter((s) => s !== code) : [...prev, code]
+    );
+  }
+
+  // ── Carrier Contracts ────────────────────────────────────────────────────
+  useEffect(() => {
+    const memberEmail = clean(member?.email || '').toLowerCase();
+    if (!memberEmail) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/agent-carrier-contracts?email=${encodeURIComponent(memberEmail)}`, { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && res.ok && data?.ok) {
+          setCarrierContracts(data.contracts || {});
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [member?.email]);
+
+  async function saveCarrierContracts() {
+    const memberEmail = clean(member?.email || '').toLowerCase();
+    if (!memberEmail) return;
+    setCarrierBusy(true);
+    setCarrierMsg('');
+    try {
+      const sessionToken = clean(
+        member?.token ||
+        (typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') || '' : '')
+      );
+      const headers2 = { 'Content-Type': 'application/json', ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}) };
+      const res = await fetch('/api/agent-carrier-contracts', {
+        method: 'POST',
+        headers: headers2,
+        body: JSON.stringify({ email: memberEmail, contracts: carrierContracts })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) { setCarrierMsg('Save failed. Please try again.'); return; }
+      setCarrierMsg('Carrier contracts updated - saved!');
+      setTimeout(() => setCarrierMsg(''), 3500);
+    } catch {
+      setCarrierMsg('Save failed. Please try again.');
+    } finally {
+      setCarrierBusy(false);
+    }
+  }
+
+  function updateCarrier(key, field, value) {
+    setCarrierContracts((prev) => ({
+      ...prev,
+      [key]: { ...(prev[key] || {}), [field]: value }
+    }));
+  }
+
+  function prevKpiMonthNav() {
+    const [y, m] = kpiMonth.split('-').map(Number);
+    const prev = new Date(y, m - 2, 1);
+    setKpiMonth(`${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`);
+  }
+
+  function nextKpiMonthNav() {
+    const [y, m] = kpiMonth.split('-').map(Number);
+    const next = new Date(y, m, 1);
+    setKpiMonth(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`);
+  }
+
+  function kpiMonthLabel(key = '') {
+    if (!key) return '';
+    const [y, m] = key.split('-').map(Number);
+    if (!y || !m) return key;
+    const d = new Date(y, m - 1, 1);
+    return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }
+
   async function copyLink(value = '', key = '') {
     try {
       if (!value) return;
@@ -1939,6 +2173,100 @@ export default function InnerCircleHubPage() {
     const data = await res.json().catch(() => ({}));
     if (res.ok && data?.ok) setTeamHierarchyRows(Array.isArray(data?.rows) ? data.rows : []);
   }
+
+  // ── Own-tree management (Inner Circle members) ──────────────────────────
+  async function ownTreeToggleLicense(card = {}) {
+    const targetEmail = clean(card?.childEmail || '').toLowerCase();
+    const targetName = clean(card?.childName || '');
+    const currentTag = clean(card?.licenseTag || 'unlicensed');
+    const newTrack = currentTag === 'licensed' ? 'unlicensed' : 'licensed';
+    const key = targetEmail || targetName;
+    setTogglingLicense(key);
+    setOwnTreeNotice('');
+    try {
+      const res = await fetch('/api/team-member-controls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'set_license',
+          actorEmail: clean(member?.email || '').toLowerCase(),
+          targetEmail,
+          targetName,
+          trackType: newTrack
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) { setOwnTreeNotice('Failed to update license status.'); return; }
+      const ovRes = await fetch('/api/team-member-controls', { cache: 'no-store' });
+      const ovData = await ovRes.json().catch(() => ({}));
+      if (ovRes.ok && ovData?.ok) setLicenseOverrides(Array.isArray(ovData?.overrides) ? ovData.overrides : []);
+      setOwnTreeNotice(`${targetName || targetEmail} marked as ${newTrack}.`);
+    } finally { setTogglingLicense(''); }
+  }
+
+  async function ownTreeRemoveMember(card = {}) {
+    const childKey = clean(card?.childKey || card?.id || '');
+    if (!childKey) return;
+    if (!window.confirm(`Remove ${card?.childName || 'this member'} from your tree? They will become unassigned.`)) return;
+    setRemovingOwnTree(childKey);
+    setOwnTreeNotice('');
+    try {
+      const res = await fetch('/api/team-member-controls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'remove',
+          actorEmail: clean(member?.email || '').toLowerCase(),
+          childKey,
+          targetEmail: clean(card?.childEmail || '').toLowerCase()
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        if (data?.error === 'target_not_in_tree') setOwnTreeNotice('This member is not in your tree.');
+        else setOwnTreeNotice('Failed to remove member.');
+        return;
+      }
+      await refreshTeamHierarchy();
+      setOwnTreeNotice(`${card?.childName || 'Member'} removed from your tree.`);
+    } finally { setRemovingOwnTree(''); }
+  }
+
+  async function ownTreeReassign(card = {}, newParentKey = '') {
+    const childKey = clean(card?.childKey || card?.id || '');
+    if (!childKey || !newParentKey) return;
+    const newParentRow = teamCards.find((c) => clean(c?.childKey) === newParentKey) ||
+      (teamHierarchyRows || []).find((r) => clean(r?.childKey) === newParentKey);
+    const newParentEmail = clean(newParentRow?.childEmail || '').toLowerCase();
+    const newParentName = clean(newParentRow?.childName || '');
+    if (!newParentEmail) return;
+    setReassigningOwnTree(childKey);
+    setOwnTreeNotice('');
+    try {
+      const res = await fetch('/api/team-member-controls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reassign',
+          actorEmail: clean(member?.email || '').toLowerCase(),
+          childKey,
+          targetEmail: clean(card?.childEmail || '').toLowerCase(),
+          newParentEmail,
+          newParentName
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        if (data?.error === 'target_not_in_tree') setOwnTreeNotice('Cannot move — member not in your tree.');
+        else if (data?.error === 'new_parent_not_in_tree') setOwnTreeNotice('Cannot move — target parent not in your tree.');
+        else setOwnTreeNotice('Reassignment failed.');
+        return;
+      }
+      await refreshTeamHierarchy();
+      setOwnTreeNotice(`${card?.childName || 'Member'} moved under ${newParentName}.`);
+    } finally { setReassigningOwnTree(''); }
+  }
+  // ────────────────────────────────────────────────────────────────────────
 
   async function assignTeamParent(candidate = {}, source = 'admin_manual_assign') {
     if (!canManageHierarchy) return;
@@ -2113,6 +2441,17 @@ export default function InnerCircleHubPage() {
     }
   }
 
+  const _currentMonthKey = (() => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; })();
+  const displayedKpi = kpiHistory[kpiMonth] || kpi;
+  const canGoBack = (() => {
+    if (!kpiMonth) return false;
+    const [y, m] = kpiMonth.split('-').map(Number);
+    const prev = new Date(y, m - 2, 1);
+    const prevKey = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+    return Boolean(kpiHistory[prevKey]);
+  })();
+  const canGoForward = kpiMonth !== _currentMonthKey;
+
   if (!member) {
     return (
       <main className="publicPage" style={{ minHeight: '100vh', background: 'radial-gradient(circle at top,#17120a 0%,#0b1020 42%, #05070f 100%)', color: '#e5e7eb' }}>
@@ -2158,7 +2497,8 @@ export default function InnerCircleHubPage() {
                 </span>
               ) : null}
             </a>
-            <a href={leadMarketplaceHref} target="_blank" rel="noreferrer" className="publicPrimaryBtn" style={{ textDecoration: 'none' }}>Open Lead Marketplace</a>
+            <a href={leadMarketplaceHref} target="_blank" rel="noreferrer" className="publicPrimaryBtn" style={{ textDecoration: 'none' }}>Lead Marketplace</a>
+            <button type="button" className="ghost" onClick={() => setTab('dashboard')} style={{ marginRight: 4 }}>🏠 Home</button>
             <button type="button" className="ghost" onClick={logout}>Logout</button>
           </div>
         </div>
@@ -2191,9 +2531,102 @@ export default function InnerCircleHubPage() {
           </div>
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
-            <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
-              {tabs.map((t) => <button key={t.key} type="button" className={tab === t.key ? 'publicPrimaryBtn' : 'ghost'} onClick={() => { if (t.key === 'incentives') { if (typeof window !== 'undefined') window.open('/champions-circle/inner-circle?home=/inner-circle-hub', '_blank', 'noopener,noreferrer'); return; } if (t.key === 'scripts2') { if (typeof window !== 'undefined') window.open('/inner-circle-scripts?home=/inner-circle-hub', '_blank','noopener,noreferrer'); return; } if (t.key === 'submitapp') { const me = clean(member?.applicantName || member?.name || ''); const href = `/inner-circle-app-submit?referredBy=${encodeURIComponent(me)}&policyWriter=${encodeURIComponent(me)}&source=inner-circle-hub`; if (typeof window !== 'undefined') window.open(href, '_blank', 'noopener,noreferrer'); return; } setTab(t.key); }}>{t.label}</button>)}
-            </div>
+            {(() => {
+              const PINNED_KEYS = ['dashboard', 'dailydrive', 'onboarding', 'production', 'submitapp'];
+              const pinnedTabs = PINNED_KEYS.map((k) => tabs.find((t) => t.key === k)).filter(Boolean);
+              const overflowTabs = tabs.filter((t) => !PINNED_KEYS.includes(t.key)).sort((a, b) => a.label.localeCompare(b.label));
+
+              function handleTabClick(t) {
+                setMoreMenuOpen(false);
+                if (t.key === 'incentives') { if (typeof window !== 'undefined') window.open('/champions-circle/inner-circle?home=/inner-circle-hub', '_blank', 'noopener,noreferrer'); return; }
+                if (t.key === 'scripts2') { if (typeof window !== 'undefined') window.open('/inner-circle-scripts?home=/inner-circle-hub', '_blank', 'noopener,noreferrer'); return; }
+                if (t.key === 'submitapp') { const me = clean(member?.applicantName || member?.name || ''); const href = `/inner-circle-app-submit?referredBy=${encodeURIComponent(me)}&policyWriter=${encodeURIComponent(me)}&source=inner-circle-hub`; if (typeof window !== 'undefined') window.open(href, '_blank', 'noopener,noreferrer'); return; }
+                setTab(t.key);
+              }
+
+              return (
+                <div style={{ position: 'relative' }}>
+                  <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+                    {pinnedTabs.map((t) => (
+                      <button key={t.key} type="button"
+                        className={tab === t.key ? 'publicPrimaryBtn' : 'ghost'}
+                        onClick={() => handleTabClick(t)}
+                      >{t.label}</button>
+                    ))}
+                    {overflowTabs.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setMoreMenuOpen((o) => !o)}
+                        style={{
+                          padding: '8px 14px', borderRadius: 8, border: `1px solid #c8a96b`,
+                          background: moreMenuOpen ? '#c8a96b' : 'rgba(17,24,39,0.55)',
+                          color: moreMenuOpen ? '#0b1020' : '#c8a96b',
+                          fontWeight: 700, cursor: 'pointer', fontSize: 14
+                        }}
+                      >More ›</button>
+                    )}
+                  </div>
+
+                  {/* Overflow popover — desktop dropdown + mobile slide-up */}
+                  {moreMenuOpen && overflowTabs.length > 0 && (
+                    <>
+                      {/* Backdrop */}
+                      <div
+                        onClick={() => setMoreMenuOpen(false)}
+                        style={{ position: 'fixed', inset: 0, zIndex: 50 }}
+                      />
+                      {/* Desktop dropdown */}
+                      <div style={{
+                        position: 'absolute', top: 'calc(100% + 6px)', left: 0,
+                        zIndex: 60, background: '#0f172a',
+                        border: '1px solid #3a2f1a',
+                        borderRadius: 12, padding: '8px 0',
+                        minWidth: 220, boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
+                        display: 'flex', flexDirection: 'column',
+                        maxHeight: '60vh', overflowY: 'auto',
+                        '@media (max-width: 640px)': { display: 'none' }
+                      }} className="more-dropdown">
+                        {overflowTabs.map((t) => (
+                          <button key={t.key} type="button"
+                            onClick={() => handleTabClick(t)}
+                            style={{
+                              padding: '10px 18px', background: tab === t.key ? '#1f2937' : 'transparent',
+                              border: 'none', color: tab === t.key ? '#c8a96b' : '#e2e8f0',
+                              textAlign: 'left', cursor: 'pointer', fontWeight: tab === t.key ? 700 : 500,
+                              fontSize: 14, borderLeft: tab === t.key ? '3px solid #c8a96b' : '3px solid transparent'
+                            }}
+                          >{t.label}</button>
+                        ))}
+                      </div>
+
+                      {/* Mobile slide-up */}
+                      <div style={{
+                        position: 'fixed', bottom: 0, left: 0, right: 0,
+                        zIndex: 60, background: '#0f172a',
+                        borderTop: '2px solid #3a2f1a',
+                        borderRadius: '16px 16px 0 0',
+                        padding: '12px 0 24px',
+                        display: 'flex', flexDirection: 'column',
+                        maxHeight: '60vh', overflowY: 'auto',
+                      }} className="more-slideup">
+                        <div style={{ padding: '4px 18px 10px', color: '#c8a96b', fontWeight: 700, fontSize: 15, borderBottom: '1px solid #1f2937' }}>More tabs</div>
+                        {overflowTabs.map((t) => (
+                          <button key={t.key} type="button"
+                            onClick={() => handleTabClick(t)}
+                            style={{
+                              padding: '13px 18px', background: tab === t.key ? '#1f2937' : 'transparent',
+                              border: 'none', color: tab === t.key ? '#c8a96b' : '#e2e8f0',
+                              textAlign: 'left', cursor: 'pointer', fontWeight: tab === t.key ? 700 : 500,
+                              fontSize: 15, borderLeft: tab === t.key ? '3px solid #c8a96b' : '3px solid transparent'
+                            }}
+                          >{t.label}</button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
             {tab === 'dashboard' ? (
               <div style={{ display: 'grid', gap: 10 }}>
@@ -2213,12 +2646,15 @@ export default function InnerCircleHubPage() {
                 </div>
 
                 <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617' }}>
-                  <strong style={{ color: '#fff', fontSize: 16 }}>KPI Dashboard (This Month)</strong>
-                  <div style={{ display: 'grid', gap: 10, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
-                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Leads</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.leadsReceived ?? 0}</div></div>
-                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Bookings</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.bookingsThisMonth ?? 0}</div></div>
-                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Closes</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{kpi?.closesThisMonth ?? 0}</div><small className="muted">Close Rate: {kpi?.closeRate ?? 0}%</small></div>
-                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Potential</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>${kpi?.potentialEarned ?? kpi?.grossEarned ?? 0}</div></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                    <button type="button" onClick={prevKpiMonthNav} disabled={!canGoBack} className="ghost" style={{ padding: '4px 12px', fontSize: 18, opacity: canGoBack ? 1 : 0.35 }}>◀</button>
+                    <strong style={{ color: '#fff', fontSize: 16, flex: 1 }}>KPI Dashboard — {kpiMonthLabel(kpiMonth)}</strong>
+                    <button type="button" onClick={nextKpiMonthNav} disabled={!canGoForward} className="ghost" style={{ padding: '4px 12px', fontSize: 18, opacity: canGoForward ? 1 : 0.35 }}>▶</button>
+                  </div>
+                  <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
+                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Completed Sponsorship</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{displayedKpi?.leadsReceived ?? 0}</div></div>
+                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Submitted App</small><div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>{displayedKpi?.submittedApps ?? 0}</div><small className="muted">{(displayedKpi?.leadsReceived ?? 0) > 0 ? Math.round(((displayedKpi?.submittedApps ?? 0) / (displayedKpi?.leadsReceived ?? 1)) * 100) : 0}% of completions</small></div>
+                    <div style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 10, background: '#030a17' }}><small className="muted">Potential</small><div style={{ color: '#C8A96B', fontWeight: 800, fontSize: 24 }}>${((displayedKpi?.leadsReceived ?? 0) * 500).toLocaleString()}</div><small className="muted">Completions × $500</small></div>
                   </div>
                 </div>
                 <div style={{ border: '1px solid #3a2f1a', borderRadius: 12, padding: 14, background: '#0f172a' }}>
@@ -2330,25 +2766,26 @@ export default function InnerCircleHubPage() {
 
                   <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
                     {(filteredActivityRows || []).map((row, idx) => {
-                      const label = row?.type === 'booked'
-                        ? 'Booked'
-                        : row?.type === 'decision'
-                          ? (row?.decision === 'declined' ? 'Declined' : 'Sponsorship Approved')
-                          : row?.type === 'completed'
-                            ? 'Application Approved'
-                            : 'Application Submitted';
-
-                      const isBooked = row?.type === 'booked';
-                      const isSponsorDecision = row?.type === 'decision';
-                      const isAppSubmitted = row?.type === 'fng';
+                      const isPending = row?.type === 'submitted';
+                      const isApproved = row?.type === 'decision' && row?.decision !== 'declined';
+                      const isDeclined = row?.type === 'decision' && row?.decision === 'declined';
                       const isAppApproved = row?.type === 'completed';
 
-                      const pillStyle = isBooked
-                        ? { background: '#fef9c3', color: '#854d0e', border: '1px solid #facc15' }
-                        : isSponsorDecision
-                          ? { background: '#7f1d1d', color: '#fee2e2', border: '1px solid #ef4444' }
-                          : isAppSubmitted
-                            ? { background: '#1e3a8a', color: '#dbeafe', border: '1px solid #2563eb' }
+                      const label = isPending
+                        ? 'Sponsorship Pending'
+                        : isApproved
+                          ? 'Sponsorship Approved'
+                          : isDeclined
+                            ? 'Declined'
+                            : 'Application Approved';
+
+                      // Sponsorship Pending = red, Sponsorship Approved = gold, App Approved = green, Declined = dark red
+                      const pillStyle = isPending
+                        ? { background: '#7f1d1d', color: '#fee2e2', border: '1px solid #ef4444' }
+                        : isApproved
+                          ? { background: '#44300a', color: '#fde68a', border: '1px solid #C8A96B' }
+                          : isDeclined
+                            ? { background: '#3b0d0d', color: '#fca5a5', border: '1px solid #b91c1c' }
                             : { background: '#14532d', color: '#dcfce7', border: '1px solid #22c55e' };
 
                       const rowStyle = isAppApproved
@@ -2367,12 +2804,32 @@ export default function InnerCircleHubPage() {
                           <div style={{ color: '#e2e8f0', fontSize: 14, flex: 1 }}>
                             {row?.name || 'Unknown'}{isAppApproved ? <span title="Application Approved" style={{ marginLeft: 8, color: '#fbbf24', textShadow: '0 0 8px rgba(251,191,36,0.45)', letterSpacing: 1.5 }}>⭐⭐⭐</span> : null}
                           </div>
-                          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                            <small className="muted" style={{ whiteSpace: 'nowrap' }}>Tap for details</small>
-                            {row?.showFngButton ? (
-                              <a href={fngHref} onClick={(e) => e.stopPropagation()} className="ghost" style={{ textDecoration: 'none', fontSize: 12, whiteSpace: 'nowrap' }}>Submit App</a>
-                            ) : null}
-                          </div>
+                          {!isAppApproved ? (
+                            <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {row?.type === 'fng' ? (
+                                <a
+                                  href={fngHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: '#1f2937', color: '#6b7280', border: '1px solid #374151', whiteSpace: 'nowrap', textDecoration: 'none', letterSpacing: 0.3 }}
+                                >
+                                  Resubmit
+                                </a>
+                              ) : (
+                                <a
+                                  href={fngHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: '#d97706', color: '#fff', whiteSpace: 'nowrap', textDecoration: 'none', letterSpacing: 0.3 }}
+                                >
+                                  Submit App
+                                </a>
+                              )}
+                              <small className="muted" style={{ whiteSpace: 'nowrap' }}>Tap for details</small>
+                            </div>
+                          ) : null}
                         </button>
                       );
                     })}
@@ -2917,6 +3374,7 @@ export default function InnerCircleHubPage() {
                           <span className="pill neutral">30d Apps: {card.submitted30}</span>
                           <span className="pill neutral">Downline: {card.descendants}</span>
                         </div>
+                        <SopSteps email={card.childEmail} licenseTag={card.licenseTag} />
 
                         <div className="panelRow" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                           {children.length ? (
@@ -2924,7 +3382,41 @@ export default function InnerCircleHubPage() {
                               {expanded ? 'Hide Downlink' : `View Downlink (${children.length})`}
                             </button>
                           ) : null}
+                          {canManageOwnTree ? (
+                            <>
+                              <button
+                                type="button" className="ghost"
+                                style={{ fontSize: 12, padding: '4px 10px' }}
+                                disabled={togglingLicense === (card.childEmail || card.childName)}
+                                onClick={() => ownTreeToggleLicense(card)}
+                              >
+                                {togglingLicense === (card.childEmail || card.childName) ? '...' : card.licenseTag === 'licensed' ? '→ Mark Unlicensed' : '→ Mark Licensed'}
+                              </button>
+                              <button
+                                type="button" className="ghost"
+                                style={{ fontSize: 12, padding: '4px 10px', color: '#fca5a5', borderColor: '#7f1d1d' }}
+                                disabled={removingOwnTree === clean(card?.childKey || card?.id || '')}
+                                onClick={() => ownTreeRemoveMember(card)}
+                              >
+                                {removingOwnTree === clean(card?.childKey || card?.id || '') ? 'Removing...' : 'Remove'}
+                              </button>
+                              {teamCards.filter((c) => c.childKey !== card.childKey).length > 0 ? (
+                                <select
+                                  style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '4px 8px', fontSize: 12 }}
+                                  defaultValue=""
+                                  disabled={reassigningOwnTree === clean(card?.childKey || '')}
+                                  onChange={(e) => { if (e.target.value) ownTreeReassign(card, e.target.value); e.target.value = ''; }}
+                                >
+                                  <option value="">Move under...</option>
+                                  {teamCards.filter((c) => c.childKey !== card.childKey).map((c) => (
+                                    <option key={c.childKey} value={c.childKey}>{c.childName}</option>
+                                  ))}
+                                </select>
+                              ) : null}
+                            </>
+                          ) : null}
                         </div>
+                        {canManageOwnTree && ownTreeNotice ? <small style={{ color: '#86efac', marginTop: 4, display: 'block' }}>{ownTreeNotice}</small> : null}
 
                         {expanded && children.length ? (
                           <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
@@ -2948,7 +3440,8 @@ export default function InnerCircleHubPage() {
                     );
                   })}
                   {!teamCards.length ? <small className="muted">No team links yet. As referred apps are submitted, your team tree will populate automatically.</small> : null}
-                  {!canManageHierarchy ? <small className="muted">Admin controls are hidden. You can view your downline cards and performance only.</small> : null}
+                  {!canManageHierarchy && !canManageOwnTree ? <small className="muted">Admin controls are hidden. You can view your downline cards and performance only.</small> : null}
+                  {canManageOwnTree ? <small style={{ color: '#93c5fd' }}>You can toggle licensed status, remove, or reassign members within your own tree.</small> : null}
                 </div>
 
                 {canManageHierarchy ? (
@@ -3098,6 +3591,10 @@ export default function InnerCircleHubPage() {
 
             {tab === 'community' ? (
               <CommunityServiceTab member={member} hubMembers={hubMembers} isAdmin={canManageHierarchy} />
+            ) : null}
+
+            {tab === 'sales-training' ? (
+              <SalesTrainerTab member={member} />
             ) : null}
 
             {tab === 'tools' ? (
@@ -3494,6 +3991,120 @@ export default function InnerCircleHubPage() {
                 </div>
               </div>
             ) : null}
+
+            {tab === 'dailydrive' ? (
+              <DailyDrive email={member?.email || ''} tier="inner_circle" />
+            ) : null}
+
+            {tab === 'licensedstates' ? (() => {
+              const ALL_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
+              const STATE_NAMES = {AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',CO:'Colorado',CT:'Connecticut',DE:'Delaware',DC:'D.C.',FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hamp.',NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'N. Carolina',ND:'N. Dakota',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Is.',SC:'S. Carolina',SD:'S. Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'W. Virginia',WI:'Wisconsin',WY:'Wyoming'};
+              const CARRIERS = [
+                { ckey: 'fg', label: 'F&G', sub: 'Fidelity & Guaranty Life', logo: '\uD83C\uDFE6' },
+                { ckey: 'national_life', label: 'National Life Group', sub: 'NLG / Sentinel', logo: '\uD83C\uDF33' },
+                { ckey: 'mutual_of_omaha', label: 'Mutual of Omaha', sub: 'MOO', logo: '\uD83D\uDC02' },
+              ];
+              return (
+                <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#071022', padding: 18, display: 'grid', gap: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: 22, color: '#fff' }}>My Licensed States</h3>
+                      <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: 14 }}>Click states where you hold an active license. These update your lead eligibility.</p>
+                    </div>
+                    <span style={{ border: '1px solid #C8A96B', borderRadius: 999, padding: '4px 14px', color: '#C8A96B', fontWeight: 700, fontSize: 14 }}>
+                      {licensedStates.length} selected
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))', gap: 8 }}>
+                    {ALL_STATES.map((code) => {
+                      const selected = licensedStates.includes(code);
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => toggleLicensedState(code)}
+                          style={{
+                            padding: '8px 4px',
+                            borderRadius: 8,
+                            border: '1.5px solid #C8A96B',
+                            background: selected ? '#C8A96B' : '#1F2937',
+                            color: selected ? '#0B1020' : '#C8A96B',
+                            fontWeight: 700,
+                            fontSize: 13,
+                            cursor: 'pointer',
+                            transition: 'all .15s ease',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: 2
+                          }}
+                        >
+                          <span>{code}</span>
+                          <span style={{ fontSize: 9, fontWeight: 400, opacity: 0.8, lineHeight: 1 }}>{STATE_NAMES[code] || ''}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={saveLicensedStates}
+                      disabled={licensedStatesBusy}
+                      style={{ padding: '12px 22px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
+                    >
+                      {licensedStatesBusy ? 'Saving…' : 'Save My Licensed States'}
+                    </button>
+                    {licensedStatesMsg ? (
+                      <span style={{ color: licensedStatesMsg.includes('✅') ? '#86EFAC' : '#FCA5A5', fontWeight: 600 }}>
+                        {licensedStatesMsg}
+                      </span>
+                    ) : null}
+                  </div>
+
+                {/* ── Carrier Contracts ─────────────────────────────────── */}
+                <div style={{ marginTop: 32 }}>
+                  <div style={{ fontWeight: 800, fontSize: 17, color: '#C8A96B', marginBottom: 6 }}>Carrier Contracts</div>
+                  <div style={{ color: '#94A3B8', fontSize: 13, marginBottom: 18 }}>Mark which carriers you are contracted with through Legacy Link and enter your Agent ID.</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {CARRIERS.map(function(c) {
+                      var ck = c.ckey;
+                      var entry = carrierContracts[ck] || {};
+                      var isCon = Boolean(entry.contracted);
+                      return (
+                        <div key={ck} style={{ background: isCon ? 'rgba(134,239,172,0.07)' : 'rgba(255,255,255,0.03)', border: isCon ? '1.5px solid rgba(134,239,172,0.27)' : '1.5px solid #1E2A40', borderRadius: 14, padding: '16px 18px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: isCon ? 12 : 0 }}>
+                            <span style={{ fontSize: 22 }}>{c.logo}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 700, fontSize: 15, color: isCon ? '#86EFAC' : '#CBD5E1' }}>{c.label}</div>
+                              <div style={{ fontSize: 12, color: '#64748B' }}>{c.sub}</div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div onClick={function() { updateCarrier(ck, 'contracted', !isCon); }} style={{ width: 44, height: 24, borderRadius: 12, background: isCon ? '#22C55E' : '#1E293B', border: isCon ? '1.5px solid #16A34A' : '1.5px solid #334155', position: 'relative', cursor: 'pointer' }}>
+                                <div style={{ position: 'absolute', top: 3, left: isCon ? 22 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff' }} />
+                              </div>
+                              <span style={{ fontSize: 13, color: isCon ? '#86EFAC' : '#64748B', fontWeight: 600 }}>{isCon ? 'Contracted' : 'Not Contracted'}</span>
+                            </div>
+                          </div>
+                          {isCon && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ fontSize: 12, color: '#94A3B8', whiteSpace: 'nowrap' }}>Agent ID:</span>
+                              <input type="text" value={entry.agentId || ''} onChange={function(e) { updateCarrier(ck, 'agentId', e.target.value); }} placeholder="e.g. 000576030" style={{ flex: 1, background: '#0B1020', border: '1px solid #1E2A40', borderRadius: 8, padding: '8px 12px', color: '#F1F5F9', fontSize: 14, outline: 'none' }} />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 }}>
+                    <button onClick={saveCarrierContracts} disabled={carrierBusy} style={{ padding: '12px 22px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>{carrierBusy ? 'Saving...' : 'Save Carrier Info'}</button>
+                    {carrierMsg ? <span style={{ color: carrierMsg.includes('OK') ? '#86EFAC' : '#FCA5A5', fontWeight: 600 }}>{carrierMsg}</span> : null}
+                  </div>
+                </div>
+                </div>
+              );
+            })() : null}
           </div>
         )}
       </div>
@@ -3511,6 +4122,13 @@ export default function InnerCircleHubPage() {
           border-color: #5f4a23 !important;
           color: #f3e8d1 !important;
           background: rgba(17, 24, 39, 0.55) !important;
+        }
+        /* More menu: desktop shows dropdown, mobile shows slide-up */
+        @media (min-width: 641px) {
+          .more-slideup { display: none !important; }
+        }
+        @media (max-width: 640px) {
+          .more-dropdown { display: none !important; }
         }
       `}</style>
     </main>
