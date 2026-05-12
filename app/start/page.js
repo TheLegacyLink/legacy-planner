@@ -241,8 +241,7 @@ export default function StartPortalPage() {
   const [profile, setProfile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [suitQ1, setSuitQ1] = useState(''); // good health?
-  const [suitQ2, setSuitQ2] = useState(''); // serious conditions?
+  const [suitAnswers, setSuitAnswers] = useState({}); // {q1:'', q2:[], q3:[], q4:'', q5:''}
   const [policyElect, setPolicyElect] = useState(''); // 'yes' | 'no'
   const [notice, setNotice] = useState('');
   const [signedAt, setSignedAt] = useState('');
@@ -343,10 +342,24 @@ export default function StartPortalPage() {
     } finally { setBusy(false); }
   }
 
+  function computeSuitabilityResult(ans) {
+    const q2 = Array.isArray(ans.q2) ? ans.q2 : [];
+    const q3 = Array.isArray(ans.q3) ? ans.q3 : [];
+    const q4 = ans.q4 || '';
+    const q5 = ans.q5 || '';
+    const noDependents = q2.length === 0 || (q2.length === 1 && q2[0] === 'None');
+    const noObligations = q3.length === 0 || (q3.length === 1 && q3[0] === 'None');
+    const noHardship = q4 === 'No';
+    const noUnderstanding = q5 === 'No';
+    return !((noDependents && noObligations) || (noHardship && noUnderstanding));
+  }
+
   async function submitSignature() {
     setError(''); setNotice('');
     const typed = clean(typedName);
-    if (!suitQ1 || !suitQ2) { setError('Please answer all suitability questions before signing.'); return; }
+    const requiredQs = ['q1','q4','q5'];
+    const allAnswered = requiredQs.every(q => suitAnswers[q]) && Array.isArray(suitAnswers.q2) && Array.isArray(suitAnswers.q3);
+    if (!allAnswered) { setError('Please answer all suitability questions before signing.'); return; }
     if (!policyElect) { setError('Please make your policy election before signing.'); return; }
     if (!typed) { setError('Type your full legal name to sign.'); return; }
     if (!agreed) { setError('You must check the box to confirm your agreement.'); return; }
@@ -359,13 +372,9 @@ export default function StartPortalPage() {
           action: 'candidate_sign',
           signatureType: 'typed',
           typedName: typed,
-          suitable: suitQ1 === 'yes' && suitQ2 === 'no',
+          suitable: computeSuitabilityResult(suitAnswers),
           optInPolicy: policyElect === 'yes',
-          suitabilityAnswers: {
-            goodHealth: suitQ1,
-            seriousConditions: suitQ2,
-            policyElection: policyElect
-          }
+          suitabilityAnswers: { ...suitAnswers, policyElection: policyElect }
         })
       });
       const data = await res.json().catch(() => ({}));
@@ -518,28 +527,81 @@ export default function StartPortalPage() {
 
             {/* ── Suitability Questionnaire ── */}
             <div style={{ background: '#071235', border: '1px solid #1E3A5F', borderRadius: 10, padding: '16px 18px', marginBottom: 4 }}>
-              <p style={{ margin: '0 0 12px', color: '#F8FAFC', fontWeight: 700, fontSize: 14 }}>Suitability Questionnaire <span style={{ color: '#ef4444' }}>*</span></p>
-              <p style={{ margin: '0 0 10px', color: '#94A3B8', fontSize: 13 }}>The following questions are required before your signature can be accepted.</p>
+              <p style={{ margin: '0 0 6px', color: '#F8FAFC', fontWeight: 700, fontSize: 14 }}>Suitability Questionnaire <span style={{ color: '#ef4444' }}>*</span></p>
+              <p style={{ margin: '0 0 14px', color: '#94A3B8', fontSize: 13 }}>Answer honestly — these help determine whether a company-funded life insurance policy is appropriate for you. You can still fully participate in Legacy Link regardless of your answers.</p>
 
+              {/* Q1 — Current life insurance */}
               <div style={{ marginBottom: 14 }}>
-                <p style={{ margin: '0 0 8px', color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>1. Are you currently in good health?</p>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  {['yes', 'no'].map(v => (
-                    <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: suitQ1 === v ? '#F8FAFC' : '#94A3B8', fontSize: 13 }}>
-                      <input type="radio" name="suitQ1" value={v} checked={suitQ1 === v} onChange={() => setSuitQ1(v)} style={{ cursor: 'pointer' }} />
-                      {v === 'yes' ? 'Yes' : 'No'}
+                <p style={{ margin: '0 0 8px', color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>1. Do you currently have any life insurance coverage?</p>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  {['Yes','No'].map(v => (
+                    <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: suitAnswers.q1 === v ? '#F8FAFC' : '#94A3B8', fontSize: 13 }}>
+                      <input type="radio" name="sq1" value={v} checked={suitAnswers.q1 === v} onChange={() => setSuitAnswers(a => ({ ...a, q1: v }))} style={{ cursor: 'pointer' }} />
+                      {v}
                     </label>
                   ))}
                 </div>
               </div>
 
+              {/* Q2 — Dependents (multi) */}
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ margin: '0 0 8px', color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>2. Do you have anyone who relies on you financially? <span style={{ color: '#64748b', fontWeight: 400 }}>(select all that apply)</span></p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+                  {['Spouse/Partner','Children','Family Members','Business Partner','None'].map(v => {
+                    const sel = (suitAnswers.q2 || []).includes(v);
+                    return (
+                      <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: sel ? '#F8FAFC' : '#94A3B8', fontSize: 13 }}>
+                        <input type="checkbox" checked={sel} onChange={() => setSuitAnswers(a => {
+                          const cur = Array.isArray(a.q2) ? a.q2 : [];
+                          return { ...a, q2: sel ? cur.filter(x => x !== v) : [...cur.filter(x => x !== 'None'), ...(v === 'None' ? ['None'] : [v])] };
+                        })} style={{ cursor: 'pointer' }} />
+                        {v}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Q3 — Financial obligations (multi) */}
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ margin: '0 0 8px', color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>3. Do you have financial obligations that could create hardship if something happened to you? <span style={{ color: '#64748b', fontWeight: 400 }}>(select all that apply)</span></p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+                  {['Mortgage/Rent','Personal Debt','Business Obligations','Family Support','None'].map(v => {
+                    const sel = (suitAnswers.q3 || []).includes(v);
+                    return (
+                      <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: sel ? '#F8FAFC' : '#94A3B8', fontSize: 13 }}>
+                        <input type="checkbox" checked={sel} onChange={() => setSuitAnswers(a => {
+                          const cur = Array.isArray(a.q3) ? a.q3 : [];
+                          return { ...a, q3: sel ? cur.filter(x => x !== v) : [...cur.filter(x => x !== 'None'), ...(v === 'None' ? ['None'] : [v])] };
+                        })} style={{ cursor: 'pointer' }} />
+                        {v}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Q4 — Financial hardship */}
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ margin: '0 0 8px', color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>4. Would your family or loved ones experience financial hardship if you passed away unexpectedly?</p>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  {['Yes','No','Unsure'].map(v => (
+                    <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: suitAnswers.q4 === v ? '#F8FAFC' : '#94A3B8', fontSize: 13 }}>
+                      <input type="radio" name="sq4" value={v} checked={suitAnswers.q4 === v} onChange={() => setSuitAnswers(a => ({ ...a, q4: v }))} style={{ cursor: 'pointer' }} />
+                      {v}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Q5 — Understanding */}
               <div style={{ marginBottom: 4 }}>
-                <p style={{ margin: '0 0 8px', color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>2. Do you have any serious medical conditions that would affect your ability to obtain life insurance?</p>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  {['yes', 'no'].map(v => (
-                    <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: suitQ2 === v ? '#F8FAFC' : '#94A3B8', fontSize: 13 }}>
-                      <input type="radio" name="suitQ2" value={v} checked={suitQ2 === v} onChange={() => setSuitQ2(v)} style={{ cursor: 'pointer' }} />
-                      {v === 'yes' ? 'Yes' : 'No'}
+                <p style={{ margin: '0 0 8px', color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>5. Do you understand the purpose of life insurance and how it can protect your family or financial responsibilities?</p>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  {['Yes','No'].map(v => (
+                    <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: suitAnswers.q5 === v ? '#F8FAFC' : '#94A3B8', fontSize: 13 }}>
+                      <input type="radio" name="sq5" value={v} checked={suitAnswers.q5 === v} onChange={() => setSuitAnswers(a => ({ ...a, q5: v }))} style={{ cursor: 'pointer' }} />
+                      {v}
                     </label>
                   ))}
                 </div>
