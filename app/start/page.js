@@ -241,6 +241,9 @@ export default function StartPortalPage() {
   const [profile, setProfile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [suitQ1, setSuitQ1] = useState(''); // good health?
+  const [suitQ2, setSuitQ2] = useState(''); // serious conditions?
+  const [policyElect, setPolicyElect] = useState(''); // 'yes' | 'no'
   const [notice, setNotice] = useState('');
   const [signedAt, setSignedAt] = useState('');
 
@@ -343,6 +346,8 @@ export default function StartPortalPage() {
   async function submitSignature() {
     setError(''); setNotice('');
     const typed = clean(typedName);
+    if (!suitQ1 || !suitQ2) { setError('Please answer all suitability questions before signing.'); return; }
+    if (!policyElect) { setError('Please make your policy election before signing.'); return; }
     if (!typed) { setError('Type your full legal name to sign.'); return; }
     if (!agreed) { setError('You must check the box to confirm your agreement.'); return; }
     setBusy(true);
@@ -350,7 +355,18 @@ export default function StartPortalPage() {
       const res = await fetch('/api/esign-contract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ action: 'candidate_sign', signatureType: 'typed', typedName: typed })
+        body: JSON.stringify({
+          action: 'candidate_sign',
+          signatureType: 'typed',
+          typedName: typed,
+          suitable: suitQ1 === 'yes' && suitQ2 === 'no',
+          optInPolicy: policyElect === 'yes',
+          suitabilityAnswers: {
+            goodHealth: suitQ1,
+            seriousConditions: suitQ2,
+            policyElection: policyElect
+          }
+        })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
@@ -498,6 +514,56 @@ export default function StartPortalPage() {
               fontFamily: 'monospace'
             }}>
               {CONTRACT_TEXT}
+            </div>
+
+            {/* ── Suitability Questionnaire ── */}
+            <div style={{ background: '#071235', border: '1px solid #1E3A5F', borderRadius: 10, padding: '16px 18px', marginBottom: 4 }}>
+              <p style={{ margin: '0 0 12px', color: '#F8FAFC', fontWeight: 700, fontSize: 14 }}>Suitability Questionnaire <span style={{ color: '#ef4444' }}>*</span></p>
+              <p style={{ margin: '0 0 10px', color: '#94A3B8', fontSize: 13 }}>The following questions are required before your signature can be accepted.</p>
+
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ margin: '0 0 8px', color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>1. Are you currently in good health?</p>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {['yes', 'no'].map(v => (
+                    <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: suitQ1 === v ? '#F8FAFC' : '#94A3B8', fontSize: 13 }}>
+                      <input type="radio" name="suitQ1" value={v} checked={suitQ1 === v} onChange={() => setSuitQ1(v)} style={{ cursor: 'pointer' }} />
+                      {v === 'yes' ? 'Yes' : 'No'}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 4 }}>
+                <p style={{ margin: '0 0 8px', color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>2. Do you have any serious medical conditions that would affect your ability to obtain life insurance?</p>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {['yes', 'no'].map(v => (
+                    <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: suitQ2 === v ? '#F8FAFC' : '#94A3B8', fontSize: 13 }}>
+                      <input type="radio" name="suitQ2" value={v} checked={suitQ2 === v} onChange={() => setSuitQ2(v)} style={{ cursor: 'pointer' }} />
+                      {v === 'yes' ? 'Yes' : 'No'}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Policy Election ── */}
+            <div style={{ background: '#071235', border: '1px solid #1E3A5F', borderRadius: 10, padding: '16px 18px', marginBottom: 4 }}>
+              <p style={{ margin: '0 0 8px', color: '#F8FAFC', fontWeight: 700, fontSize: 14 }}>Company Policy Election <span style={{ color: '#ef4444' }}>*</span></p>
+              <p style={{ margin: '0 0 12px', color: '#94A3B8', fontSize: 13 }}>The Legacy Link may elect to cover or advance the cost of an initial life insurance policy as part of onboarding support. Your participation is entirely optional.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                  <input type="radio" name="policyElect" value="yes" checked={policyElect === 'yes'} onChange={() => setPolicyElect('yes')} style={{ marginTop: 3, cursor: 'pointer' }} />
+                  <span style={{ color: policyElect === 'yes' ? '#86EFAC' : '#94A3B8', fontSize: 13, lineHeight: 1.5 }}>
+                    <strong style={{ color: policyElect === 'yes' ? '#F8FAFC' : '#CBD5E1' }}>Yes — I elect to participate</strong> in the company-sponsored life insurance policy option, subject to eligibility, underwriting, and program terms.
+                  </span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                  <input type="radio" name="policyElect" value="no" checked={policyElect === 'no'} onChange={() => setPolicyElect('no')} style={{ marginTop: 3, cursor: 'pointer' }} />
+                  <span style={{ color: policyElect === 'no' ? '#FCA5A5' : '#94A3B8', fontSize: 13, lineHeight: 1.5 }}>
+                    <strong style={{ color: policyElect === 'no' ? '#F8FAFC' : '#CBD5E1' }}>No — I do not elect to participate</strong> in the company-sponsored life insurance policy option at this time.
+                  </span>
+                </label>
+              </div>
             </div>
 
             {/* Typed name sig */}
