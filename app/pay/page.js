@@ -16,9 +16,9 @@ export default function PayPage() {
         if (!data?.ok || !data?.token || canceled) { setStatus('error'); return; }
 
         const iframe = document.createElement('iframe');
-        iframe.src = `https://app.byzly.com/embed?token=${encodeURIComponent(data.token)}&merchant_id=${encodeURIComponent(data.merchantId)}`;
+        iframe.src = `https://app.byzly.com/embed?token=${encodeURIComponent(data.token)}`;
         iframe.style.width = '100%';
-        iframe.style.height = '900px';
+        iframe.style.height = '800px';
         iframe.style.border = 'none';
         iframe.style.maxWidth = '100%';
         iframe.style.borderRadius = '16px';
