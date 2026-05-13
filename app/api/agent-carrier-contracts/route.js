@@ -1,4 +1,4 @@
-import { loadJsonFile, saveJsonFile } from '@/lib/blobJsonStore';
+import { loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 
 const STORE = 'stores/agent-carrier-contracts.json';
 
