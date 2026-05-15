@@ -298,8 +298,7 @@ function fmtMoney(n = 0) {
 
 export default function LicensedBackofficePage() {
   const [email, setEmail] = useState('');
-  const [loginName, setLoginName] = useState('');
-  const [loginPhone, setLoginPhone] = useState('');
+
   const [code, setCode] = useState('');
   const [codeRequested, setCodeRequested] = useState(false);
   const [session, setSession] = useState(null);
@@ -397,8 +396,6 @@ export default function LicensedBackofficePage() {
   async function requestCode() {
     setError('');
     const e = clean(email).toLowerCase();
-    const n = clean(loginName);
-    const p = normalizePhone(loginPhone);
     if (!e) {
       setError('Email is required.');
       return;
@@ -408,7 +405,7 @@ export default function LicensedBackofficePage() {
       const res = await fetch('/api/licensed-backoffice/auth/request-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: e, fullName: n, phone: p })
+        body: JSON.stringify({ email: e })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
@@ -1322,20 +1319,7 @@ export default function LicensedBackofficePage() {
               placeholder="Licensed email or login"
               style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }}
             />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <input
-                value={loginName}
-                onChange={(e) => setLoginName(e.target.value)}
-                placeholder="Full name (fallback)"
-                style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }}
-              />
-              <input
-                value={loginPhone}
-                onChange={(e) => setLoginPhone(e.target.value)}
-                placeholder="Phone (fallback)"
-                style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }}
-              />
-            </div>
+
             {!codeRequested ? (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button onClick={requestCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>

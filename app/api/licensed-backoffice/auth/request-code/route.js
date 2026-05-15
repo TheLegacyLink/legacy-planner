@@ -1,4 +1,4 @@
-import { loadJsonStore, saveJsonStore } from '../../../../../lib/blobJsonStore';
+import { loadJsonStoreDirect, saveJsonStoreDirect } from '../../../../../lib/blobJsonStore';
 import { CODES_PATH, generateCode, nowIso, resolveLicensedProfile, sendCodeEmail, sha256 } from '../_lib';
 import { clean } from '../../../../../lib/licensedAgentMatch';
 
@@ -23,10 +23,11 @@ export async function POST(req) {
   const codeHash = sha256(code);
   const expiresAt = new Date(Date.now() + (10 * 60 * 1000)).toISOString();
 
-  const rows = await loadJsonStore(CODES_PATH, []);
+  const rows = await loadJsonStoreDirect(CODES_PATH, []);
   const list = Array.isArray(rows) ? rows : [];
+  const now = Date.now();
   const next = [
-    ...list.filter((r) => clean(r?.email).toLowerCase() !== email),
+    ...list.filter((r) => clean(r?.email).toLowerCase() !== email && new Date(r?.expiresAt).getTime() > now),
     {
       email,
       codeHash,
@@ -37,7 +38,7 @@ export async function POST(req) {
       used: false
     }
   ];
-  await saveJsonStore(CODES_PATH, next);
+  await saveJsonStoreDirect(CODES_PATH, next);
 
   const sent = await sendCodeEmail({ to: email, code });
   if (!sent?.ok) {
