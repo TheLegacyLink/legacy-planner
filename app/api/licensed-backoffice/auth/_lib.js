@@ -71,26 +71,13 @@ export async function resolveLicensedProfile({ email = '', fullName = '', phone 
   }
 
   // 3) Name + phone match flow (for alternate emails)
+  // Approval gates removed — any match auto-approves immediately
   const m = matchLicensedAgent({ fullName, phone, email });
   if (!m?.matched || !m?.match) {
-    await queuePendingVerification({ email: e, fullName, phone, reason: 'no_match', candidates: [] });
-    return { ok: false, error: 'pending_verification' };
+    return { ok: false, error: 'not_found' };
   }
 
-  if (!isStrongAliasMatch({ fullName, phone }, m.match)) {
-    await queuePendingVerification({ email: e, fullName, phone, reason: 'weak_match', candidates: m.candidates || [] });
-    return { ok: false, error: 'pending_verification', candidates: m.candidates || [] };
-  }
-
-  // Alias policy: up to 2 approved alternate emails per primary roster email.
   const primaryEmail = clean(m.match.email).toLowerCase();
-  const activeAliasesForPrimary = aliases.filter((a) => clean(a?.primaryEmail).toLowerCase() === primaryEmail && a?.active !== false);
-  const distinctAliasEmails = [...new Set(activeAliasesForPrimary.map((a) => clean(a?.aliasEmail).toLowerCase()).filter(Boolean))];
-  const alreadyLinked = distinctAliasEmails.includes(e);
-  if (!alreadyLinked && distinctAliasEmails.length >= 2) {
-    await queuePendingVerification({ email: e, fullName, phone, reason: 'alias_limit_reached', candidates: [m.match] });
-    return { ok: false, error: 'pending_verification_alias_limit' };
-  }
 
   // Auto-link alias on strong match
   if (e) {

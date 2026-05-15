@@ -151,16 +151,18 @@ export default function UnlicensedBackofficePage() {
       const res = await fetch('/api/unlicensed-backoffice/auth/request-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, fullName })
+        body: JSON.stringify({ email })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        setError(data?.error ? `Access blocked: ${data.error}` : 'Unable to send code');
+        setError(data?.error === 'not_found'
+          ? 'No account found for that email. Contact your upline to confirm your info is on file.'
+          : (data?.error ? `Access blocked: ${data.error}` : 'Unable to send code. Try again.'));
         return;
       }
       setCodeRequested(true);
     } catch {
-      setError('Unable to send code');
+      setError('Unable to send code. Try again.');
     }
   }
 
@@ -268,21 +270,55 @@ export default function UnlicensedBackofficePage() {
             <h1 style={{ margin: 0, fontSize: 30 }}>THE LEGACY LINK</h1>
             <p style={{ margin: '8px 0 0', opacity: 0.95 }}>Unlicensed Back Office • License Sprint</p>
           </div>
-          <div style={{ padding: 24, display: 'grid', gap: 10 }}>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email or login" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
-            <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full name (must match your application)" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
+          <div style={{ padding: 24, display: 'grid', gap: 12 }}>
             {!codeRequested ? (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button onClick={requestCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>Send Login Code</button>
-                <button onClick={() => setCodeRequested(true)} style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #475569', background: '#0B1220', color: '#E2E8F0', fontWeight: 700 }}>Use Password Login</button>
-              </div>
+              <>
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && requestCode()}
+                  placeholder="Your email address"
+                  type="email"
+                  autoFocus
+                  style={{ padding: '14px 16px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff', fontSize: 15 }}
+                />
+                <button
+                  onClick={requestCode}
+                  style={{ padding: '14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}
+                >
+                  Send Login Code
+                </button>
+                {error
+                  ? <small style={{ color: '#FCA5A5' }}>{error}</small>
+                  : <small style={{ color: '#9CA3AF' }}>Enter the email address on file from your application.</small>
+                }
+              </>
             ) : (
               <>
-                <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="6-digit code or password" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff' }} />
-                <button onClick={verifyCode} style={{ padding: '12px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>Verify & Enter</button>
+                <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14 }}>A 6-digit code was sent to <strong>{email}</strong>. Enter it below.</p>
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && verifyCode()}
+                  placeholder="6-digit code"
+                  autoFocus
+                  style={{ padding: '14px 16px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff', fontSize: 20, letterSpacing: 4, textAlign: 'center' }}
+                />
+                <button
+                  onClick={verifyCode}
+                  style={{ padding: '14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}
+                >
+                  Verify & Enter
+                </button>
+                <button
+                  onClick={() => { setCodeRequested(false); setCode(''); setError(''); }}
+                  style={{ padding: '10px', borderRadius: 10, border: '1px solid #374151', background: 'transparent', color: '#9CA3AF', fontSize: 13, cursor: 'pointer' }}
+                >
+                  Use a different email
+                </button>
+                {error && <small style={{ color: '#FCA5A5' }}>{error}</small>}
               </>
             )}
-            {error ? <small style={{ color: '#FCA5A5' }}>{error}</small> : <small style={{ color: '#9CA3AF' }}>Use your code flow or hardwired login/password backup.</small>}
           </div>
         </section>
       </main>

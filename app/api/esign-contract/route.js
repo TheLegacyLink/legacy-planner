@@ -102,6 +102,26 @@ export async function POST(req) {
 
     await saveJsonStore(STORE_PATH, list);
 
+    // Sync to contract-signatures store so licensed back office policy submit gate works
+    try {
+      const CONTRACT_SIGS_PATH = 'stores/contract-signatures.json';
+      const sigRows = await loadJsonStore(CONTRACT_SIGS_PATH, []);
+      const sigList = Array.isArray(sigRows) ? sigRows : [];
+      const sigIdx = sigList.findIndex((r) => norm(r?.email) === norm(profile.email));
+      const sigRecord = {
+        email: norm(profile.email),
+        name: clean(profile.name),
+        envelopeId,
+        signedAt,
+        source: 'esign_contract_sync',
+        updatedAt: signedAt,
+        createdAt: sigIdx >= 0 ? clean(sigList[sigIdx]?.createdAt || signedAt) : signedAt
+      };
+      if (sigIdx >= 0) sigList[sigIdx] = sigRecord;
+      else sigList.push(sigRecord);
+      await saveJsonStore(CONTRACT_SIGS_PATH, sigList);
+    } catch { /* non-fatal — ICA still saved above */ }
+
     // Telegram notification
     try {
       const tgToken = clean(process.env.TELEGRAM_BOT_TOKEN || '');

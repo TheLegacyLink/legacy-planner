@@ -93,7 +93,10 @@ export default function InnerCircleProgramPage() {
             ['Scripts + Follow-Up Support', 'Know what to say, how to respond, and how to move conversations toward action.'],
             ['Accountability + Execution Structure', 'Stay focused, stay active, and stay moving with a structure built for consistency.'],
             ['Pipeline Visibility to Track Opportunities and Leaks', 'Quickly identify where opportunities are progressing or leaking.'],
-            ['Appointment-Booking Momentum Support', 'Increase the number of real conversations happening with smarter follow-up.']
+            ['Appointment-Booking Momentum Support', 'Increase the number of real conversations happening with smarter follow-up.'],
+            ['Business Banking Setup', 'Get your money moving through the right channels with a business banking structure built for growth.'],
+            ['LLC Structured to Receive Business Loans', 'Learn how to properly set up your LLC so it can qualify and receive business funding.'],
+            ['Top Tech Secrets of Millionaires', 'Access the tools, systems, and tech strategies that high earners use to automate, scale, and build wealth.']
           ].map(([title, desc]) => (
             <div key={title} style={{ border: '1px solid #1f2937', borderRadius: 10, padding: 12, background: '#030a17' }}>
               <strong style={{ color: '#f8fafc', display: 'block', marginBottom: 4 }}>{title}</strong>
@@ -168,9 +171,10 @@ export default function InnerCircleProgramPage() {
         <h3 style={{ marginTop: 0, color: '#fff' }}>Who This Is For</h3>
         <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 6 }}>
           {[
-            'Action-takers who are ready to execute daily',
-            'People open to structure, coaching, and accountability',
-            'People committed to follow-up, consistency, and growth'
+            'People who are ready to make the transition and stop settling',
+            'People who are tired of money always being the issue',
+            'People who are ready to build a real legacy for their family',
+            'People who want structure, accountability, and a system that actually produces results'
           ].map((line) => <li key={line} style={{ color: '#e2e8f0' }}>{line}</li>)}
         </ul>
 

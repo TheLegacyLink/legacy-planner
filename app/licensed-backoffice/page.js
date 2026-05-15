@@ -412,8 +412,8 @@ export default function LicensedBackofficePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        if (res.status === 202 || String(data?.error || '').startsWith('pending_verification')) {
-          setError('Pending verification: we received your request and admin approval is required before access.');
+        if (String(data?.error || '').startsWith('pending_verification')) {
+          setError('Your email was not found on file. Contact your upline to confirm your information is correct.');
           return;
         }
         setError(data?.error ? `Login blocked: ${data.error}` : 'Unable to send code right now.');

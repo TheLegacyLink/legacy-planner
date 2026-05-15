@@ -777,10 +777,11 @@ function enrichEvents(events = [], sponsorshipMap = new Map()) {
 
 const ASSIGNMENT_EVENT_TYPES = new Set(['assigned', 'delayed_release_assigned', 'reassigned_sla', 'manual_bulk_release_assigned']);
 
-function buildAgentCounts(settings, events, keys) {
+function buildAgentCounts(settings, events, keys, leads = []) {
   const counts = {};
   for (const a of settings.agents) counts[a.name] = { today: 0, week: 0, month: 0 };
 
+  // Count from events (historical)
   for (const e of events) {
     if (!ASSIGNMENT_EVENT_TYPES.has(clean(e?.type || ''))) continue;
     const owner = clean(e?.assignedTo || '');
@@ -788,6 +789,32 @@ function buildAgentCounts(settings, events, keys) {
     if (e?.dateKey === keys.dateKey) counts[owner].today += 1;
     if (e?.weekKey === keys.weekKey) counts[owner].week += 1;
     if (e?.monthKey === keys.monthKey) counts[owner].month += 1;
+  }
+
+  // Also count directly from leads store (catches concurrent assignments events haven't recorded yet)
+  const leadCounts = {};
+  for (const row of leads) {
+    const owner = clean(row?.owner || row?.assignedTo || '');
+    if (!owner) continue;
+    const created = row?.createdAt || '';
+    if (!created) continue;
+    const d = new Date(created);
+    if (Number.isNaN(d.getTime())) continue;
+    const rowDateKey = cstDateKey(d);
+    const rowWeekKey = cstWeekKey(d);
+    const rowMonthKey = cstMonthKey(d);
+    if (!leadCounts[owner]) leadCounts[owner] = { today: 0, week: 0, month: 0 };
+    if (rowDateKey === keys.dateKey) leadCounts[owner].today += 1;
+    if (rowWeekKey === keys.weekKey) leadCounts[owner].week += 1;
+    if (rowMonthKey === keys.monthKey) leadCounts[owner].month += 1;
+  }
+
+  // Use the higher of events vs lead-row counts (more conservative = better cap enforcement)
+  for (const owner of new Set([...Object.keys(counts), ...Object.keys(leadCounts)])) {
+    if (!counts[owner]) counts[owner] = { today: 0, week: 0, month: 0 };
+    counts[owner].today = Math.max(counts[owner].today, leadCounts[owner]?.today || 0);
+    counts[owner].week = Math.max(counts[owner].week, leadCounts[owner]?.week || 0);
+    counts[owner].month = Math.max(counts[owner].month, leadCounts[owner]?.month || 0);
   }
 
   return counts;
@@ -991,7 +1018,7 @@ async function runDelayedReleasePass({ settings, leads, events, submittedBlockLo
   };
   const minute = cstMinuteOfDay(now);
   const yesterdayCounts = computeYesterdayCounts(settings, events, now);
-  const counts = buildAgentCounts(settings, events, keys);
+  const counts = buildAgentCounts(settings, events, keys, leads);
 
   const out = {
     released: 0,
@@ -1250,7 +1277,7 @@ export async function GET(req) {
     monthKey: cstMonthKey()
   };
 
-  const counts = buildAgentCounts(settings, events, keys);
+  const counts = buildAgentCounts(settings, events, keys, leads);
   const yesterdayCounts = computeYesterdayCounts(settings, events, new Date());
 
   const sponsorshipMap = sponsorshipLookup(sponsorship);
@@ -1450,7 +1477,7 @@ export async function PATCH(req) {
       monthKey: cstMonthKey(now)
     };
     const targetMonthKey = distributionMonthScope === 'previous' ? monthKeyWithOffset(now, -1) : keys.monthKey;
-    const counts = buildAgentCounts(settings, events, keys);
+    const counts = buildAgentCounts(settings, events, keys, leads);
 
     const candidates = (leads || [])
       .filter((r) => cstMonthKeyFromIso(r?.createdAt || r?.updatedAt || '') === targetMonthKey)
@@ -1628,7 +1655,7 @@ export async function POST(req) {
   };
   const minute = cstMinuteOfDay(now);
 
-  const counts = buildAgentCounts(settings, events, keys);
+  const counts = buildAgentCounts(settings, events, keys, leads);
   const yesterdayCounts = computeYesterdayCounts(settings, events, now);
   const existingIdx = leads.findIndex((r) => r.externalId && r.externalId === incoming.externalId);
 
