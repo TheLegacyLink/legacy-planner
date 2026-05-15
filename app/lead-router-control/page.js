@@ -164,6 +164,14 @@ export default function LeadRouterControlPage() {
     return Math.max(fromEvents, fromRows);
   }
 
+  // Recent assignments for at-a-glance sidebar — must be before early return
+  const recentAssignments = useMemo(() => {
+    return [...leadRows]
+      .filter((r) => r?.owner || r?.assignedTo)
+      .sort((a, b) => new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime())
+      .slice(0, 25);
+  }, [leadRows]);
+
   if (loading) {
     return (
       <AppShell title="Lead Router Control">
@@ -174,14 +182,6 @@ export default function LeadRouterControlPage() {
 
   const agents = settings?.agents || [];
   const agentNames = agents.map((a) => a.name);
-
-  // Recent assignments for at-a-glance sidebar
-  const recentAssignments = useMemo(() => {
-    return [...leadRows]
-      .filter((r) => r?.owner || r?.assignedTo)
-      .sort((a, b) => new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime())
-      .slice(0, 25);
-  }, [leadRows]);
 
   return (
     <AppShell title="Lead Router Control">
