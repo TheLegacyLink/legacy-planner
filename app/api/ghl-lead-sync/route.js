@@ -1,119 +1,136 @@
-import { loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
-
 export const dynamic = 'force-dynamic';
+
+import { loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 
 const SYNC_STATE_PATH = 'stores/ghl-lead-sync-state.json';
 
 function clean(v = '') { return String(v || '').trim(); }
-
 function nowIso() { return new Date().toISOString(); }
 
-// Fetch contacts from GHL created after a given timestamp
-async function fetchGhlContactsSince(sinceMs) {
+// Try multiple GHL API endpoint formats to fetch recent contacts
+async function fetchGhlContacts(sinceMs) {
   const token = clean(process.env.GHL_API_TOKEN || '');
   if (!token) return { ok: false, error: 'GHL_API_TOKEN not set', contacts: [] };
 
   const locationId = clean(process.env.GHL_LOCATION_ID || '');
-
-  const bases = [
-    clean(process.env.GHL_API_BASE_URL || ''),
-    'https://services.leadconnectorhq.com',
-    'https://rest.gohighlevel.com',
-  ].filter(Boolean);
-
   const headers = {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
     Version: '2021-07-28',
   };
 
-  let lastError = '';
+  const sinceIso = new Date(sinceMs).toISOString();
+  const errors = [];
 
-  for (const base of bases) {
+  // Attempt 1: GHL v2 API (services.leadconnectorhq.com)
+  if (locationId) {
     try {
-      // Use startAfter timestamp + location filter
-      const params = new URLSearchParams({ limit: '100', order: 'desc' });
-      if (locationId) params.set('locationId', locationId);
-      if (sinceMs) params.set('startAfter', String(sinceMs));
-
-      const url = `${base.replace(/\/$/, '')}/contacts/?${params}`;
+      const params = new URLSearchParams({
+        locationId,
+        limit: '100',
+        startAfterDate: sinceIso,
+      });
+      const url = `https://services.leadconnectorhq.com/contacts/?${params}`;
       const res = await fetch(url, { headers, cache: 'no-store' });
-
       if (res.ok) {
         const data = await res.json().catch(() => ({}));
-        const raw = Array.isArray(data?.contacts) ? data.contacts : [];
-        // Filter to only contacts newer than sinceMs
-        const contacts = raw.filter((c) => {
-          const t = new Date(c?.dateAdded || c?.createdAt || 0).getTime();
-          return t > sinceMs;
-        });
-        return { ok: true, contacts, source: base };
+        const contacts = Array.isArray(data?.contacts) ? data.contacts : [];
+        return { ok: true, contacts, source: 'v2' };
       }
-
-      const errText = await res.text().catch(() => '');
-      lastError = `${base} → ${res.status} ${errText.slice(0, 120)}`;
+      const text = await res.text().catch(() => '');
+      errors.push(`v2: ${res.status} ${text.slice(0, 100)}`);
     } catch (e) {
-      lastError = String(e?.message || e);
+      errors.push(`v2: ${e?.message || e}`);
     }
   }
 
-  return { ok: false, error: lastError, contacts: [] };
+  // Attempt 2: GHL v1 API (rest.gohighlevel.com) — pull latest 100, filter in code
+  if (locationId) {
+    try {
+      const params = new URLSearchParams({ locationId, limit: '100', order: 'desc' });
+      const url = `https://rest.gohighlevel.com/v1/contacts/?${params}`;
+      const res = await fetch(url, { headers, cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const all = Array.isArray(data?.contacts) ? data.contacts : [];
+        // Filter to contacts created after sinceMs
+        const contacts = all.filter((c) => {
+          const t = new Date(c?.dateAdded || c?.createdAt || 0).getTime();
+          return t > sinceMs;
+        });
+        return { ok: true, contacts, source: 'v1' };
+      }
+      const text = await res.text().catch(() => '');
+      errors.push(`v1: ${res.status} ${text.slice(0, 100)}`);
+    } catch (e) {
+      errors.push(`v1: ${e?.message || e}`);
+    }
+  }
+
+  // Attempt 3: v1 without locationId (some tokens are location-scoped)
+  try {
+    const params = new URLSearchParams({ limit: '100', order: 'desc' });
+    if (locationId) params.set('locationId', locationId);
+    const url = `https://rest.gohighlevel.com/v1/contacts/?${params}`;
+    const res = await fetch(url, { headers, cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const all = Array.isArray(data?.contacts) ? data.contacts : [];
+      const contacts = all.filter((c) => {
+        const t = new Date(c?.dateAdded || c?.createdAt || 0).getTime();
+        return t > sinceMs;
+      });
+      return { ok: true, contacts, source: 'v1-scoped' };
+    }
+    const text = await res.text().catch(() => '');
+    errors.push(`v1-scoped: ${res.status} ${text.slice(0, 100)}`);
+  } catch (e) {
+    errors.push(`v1-scoped: ${e?.message || e}`);
+  }
+
+  return { ok: false, error: errors.join(' | '), contacts: [] };
 }
 
 async function runSync(host = 'innercirclelink.com') {
-  // Load last sync state
-  const state = await loadJsonFile(SYNC_STATE_PATH, { lastSyncAt: null, lastRunAt: null });
+  const state = await loadJsonFile(SYNC_STATE_PATH, { lastSyncAt: null });
   const lastSyncAt = state?.lastSyncAt || null;
 
-  // Default: go back 30 minutes on first run to catch anything that was missed
+  // First run: go back 2 hours to catch any leads missed; otherwise use last sync time
   const sinceMs = lastSyncAt
     ? new Date(lastSyncAt).getTime()
-    : Date.now() - 30 * 60 * 1000;
+    : Date.now() - 2 * 60 * 60 * 1000;
 
-  const ghlResult = await fetchGhlContactsSince(sinceMs);
+  // Always update lastSyncAt FIRST so parallel runs don't double-process
+  const thisRunAt = nowIso();
+  await saveJsonFile(SYNC_STATE_PATH, { lastSyncAt: thisRunAt, lastRunAt: thisRunAt });
 
-  // Always update lastSyncAt so next run picks up from now
-  await saveJsonFile(SYNC_STATE_PATH, {
-    lastSyncAt: nowIso(),
-    lastRunAt: nowIso(),
-    lastFound: ghlResult.contacts?.length || 0,
-  });
+  const ghlResult = await fetchGhlContacts(sinceMs);
 
   if (!ghlResult.ok) {
+    // Restore last sync time so next run retries from same window
+    await saveJsonFile(SYNC_STATE_PATH, { lastSyncAt, lastRunAt: thisRunAt, lastError: ghlResult.error });
     return { ok: false, error: ghlResult.error, found: 0, distributed: 0, skipped: 0 };
   }
 
   const contacts = ghlResult.contacts || [];
   if (!contacts.length) {
-    return { ok: true, found: 0, distributed: 0, skipped: 0, message: 'No new contacts since last sync' };
+    return { ok: true, found: 0, distributed: 0, skipped: 0, source: ghlResult.source };
   }
 
-  // Push each contact through the lead router
   const intakeToken = clean(process.env.GHL_INTAKE_TOKEN || '');
   const baseUrl = `https://${host}`;
   const results = [];
 
   for (const c of contacts) {
-    const name = `${clean(c.firstName || '')} ${clean(c.lastName || '')}`.trim() || clean(c.name || c.contactName || '') || 'Unknown';
-    const email = clean(c.email || '');
-    const phone = clean(c.phone || '');
     const externalId = clean(c.id || '');
-
     if (!externalId) continue;
 
-    try {
-      const payload = {
-        token: intakeToken,
-        id: externalId,
-        name,
-        firstName: clean(c.firstName || name.split(' ')[0] || ''),
-        lastName: clean(c.lastName || name.split(' ').slice(1).join(' ') || ''),
-        email,
-        phone,
-        source: clean(c.source || c.attributionSource?.medium || 'ghl-lead-sync'),
-        externalId,
-      };
+    const name = [clean(c.firstName || ''), clean(c.lastName || '')].filter(Boolean).join(' ')
+      || clean(c.contactName || c.name || '') || 'Unknown';
+    const email = clean(c.email || '');
+    const phone = clean(c.phone || '');
 
+    try {
       const res = await fetch(`${baseUrl}/api/lead-router`, {
         method: 'POST',
         headers: {
@@ -121,19 +138,30 @@ async function runSync(host = 'innercirclelink.com') {
           'x-intake-token': intakeToken,
           'x-internal-source': 'ghl-lead-sync',
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          token: intakeToken,
+          id: externalId,
+          externalId,
+          name,
+          firstName: clean(c.firstName || ''),
+          lastName: clean(c.lastName || ''),
+          email,
+          phone,
+          source: clean(c.source || c.attributionSource?.medium || 'ghl-sync'),
+        }),
         cache: 'no-store',
       });
 
       const data = await res.json().catch(() => ({}));
+      const skipped = data?.error === 'duplicate' || data?.skipped === true;
 
       results.push({
         name,
         id: externalId,
         ok: !!(res.ok && data?.ok),
         assignedTo: data?.assignedTo || '',
-        skipped: data?.error === 'duplicate' || data?.skipped,
-        error: data?.ok ? '' : (data?.error || `http_${res.status}`),
+        skipped,
+        error: (res.ok && data?.ok) ? '' : (data?.error || `http_${res.status}`),
       });
     } catch (e) {
       results.push({ name, id: externalId, ok: false, error: String(e?.message || e) });
@@ -148,6 +176,7 @@ async function runSync(host = 'innercirclelink.com') {
     found: contacts.length,
     distributed,
     skipped,
+    source: ghlResult.source,
     results,
     checkedSince: new Date(sinceMs).toISOString(),
   };
@@ -159,7 +188,7 @@ export async function GET(req) {
     const result = await runSync(host);
     return Response.json(result);
   } catch (e) {
-    return Response.json({ ok: false, error: String(e?.message || e), found: 0, distributed: 0 }, { status: 500 });
+    return Response.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
   }
 }
 

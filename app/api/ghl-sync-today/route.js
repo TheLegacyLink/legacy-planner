@@ -21,52 +21,49 @@ async function fetchGhlContactsToday() {
 
   const locationId = clean(process.env.GHL_LOCATION_ID || '');
 
-  // Get start of today in UTC
+  // Start of today in CST
   const now = new Date();
   const todayCST = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
   todayCST.setHours(0, 0, 0, 0);
   const startOfDay = new Date(now.getTime() - (now - todayCST));
-
   const startTimestamp = startOfDay.getTime();
-
-  const bases = [
-    clean(process.env.GHL_API_BASE_URL || ''),
-    'https://services.leadconnectorhq.com',
-    'https://rest.gohighlevel.com'
-  ].filter(Boolean);
+  const startIso = startOfDay.toISOString();
 
   const headers = {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
     Version: '2021-07-28'
   };
+  const errors = [];
 
-  let contacts = [];
-  let lastError = '';
-
-  for (const base of bases) {
+  // Attempt 1: v2 API with startAfterDate
+  if (locationId) {
     try {
-      // Try v2 search endpoint
-      const searchUrl = `${base.replace(/\/$/, '')}/contacts/?startAfter=${startTimestamp}&startAfterId=&limit=100`;
-      const res = await fetch(searchUrl, { headers, cache: 'no-store' });
-
+      const params = new URLSearchParams({ locationId, limit: '100', startAfterDate: startIso });
+      const res = await fetch(`https://services.leadconnectorhq.com/contacts/?${params}`, { headers, cache: 'no-store' });
       if (res.ok) {
         const data = await res.json().catch(() => ({}));
-        const raw = data?.contacts || data?.data || [];
-        contacts = raw.filter((c) => {
-          const created = new Date(c?.dateAdded || c?.createdAt || c?.date_added || 0).getTime();
-          return created >= startTimestamp;
-        });
-        return { ok: true, contacts, source: base };
+        const contacts = (Array.isArray(data?.contacts) ? data.contacts : []).filter((c) => new Date(c?.dateAdded || c?.createdAt || 0).getTime() >= startTimestamp);
+        return { ok: true, contacts, source: 'v2' };
       }
-
-      lastError = `${base} → ${res.status}`;
-    } catch (e) {
-      lastError = String(e?.message || e);
-    }
+      errors.push(`v2: ${res.status}`);
+    } catch (e) { errors.push(`v2: ${e?.message}`); }
   }
 
-  return { ok: false, error: lastError, contacts: [] };
+  // Attempt 2: v1 API — pull latest 100 and filter
+  try {
+    const params = new URLSearchParams({ limit: '100', order: 'desc' });
+    if (locationId) params.set('locationId', locationId);
+    const res = await fetch(`https://rest.gohighlevel.com/v1/contacts/?${params}`, { headers, cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const contacts = (Array.isArray(data?.contacts) ? data.contacts : []).filter((c) => new Date(c?.dateAdded || c?.createdAt || 0).getTime() >= startTimestamp);
+      return { ok: true, contacts, source: 'v1' };
+    }
+    errors.push(`v1: ${res.status}`);
+  } catch (e) { errors.push(`v1: ${e?.message}`); }
+
+  return { ok: false, error: errors.join(' | '), contacts: [] };
 }
 
 export async function GET(req) {
