@@ -20,6 +20,39 @@ function cstMonthKey(d = new Date()) {
   return `${y}-${m}`;
 }
 
+function timeAgo(iso = '') {
+  if (!iso) return '';
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+const AGENT_COLORS = {
+  'Kimora Link': '#C8A96B',
+  'Jamal Holmes': '#22d3ee',
+  'Mahogany Burns': '#f472b6',
+  'Leticia Wright': '#a78bfa',
+  'Andrea Cannon': '#34d399',
+  'Kelin Brown': '#fb923c',
+  'Madalyn Adams': '#60a5fa',
+  'Breanna James': '#e879f9',
+  'Donyell Richardson': '#4ade80',
+  'Shannon Maxwell': '#fbbf24',
+  'Angelique Lassiter': '#f87171',
+};
+
+function agentColor(name = '') {
+  return AGENT_COLORS[name] || '#94a3b8';
+}
+
+function shortName(full = '') {
+  const parts = clean(full).split(' ');
+  if (parts.length >= 2) return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+  return full;
+}
+
 export default function LeadRouterControlPage() {
   const [settings, setSettings] = useState(null);
   const [counts, setCounts] = useState({});
@@ -142,9 +175,18 @@ export default function LeadRouterControlPage() {
   const agents = settings?.agents || [];
   const agentNames = agents.map((a) => a.name);
 
+  // Recent assignments for at-a-glance sidebar
+  const recentAssignments = useMemo(() => {
+    return [...leadRows]
+      .filter((r) => r?.owner || r?.assignedTo)
+      .sort((a, b) => new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime())
+      .slice(0, 25);
+  }, [leadRows]);
+
   return (
     <AppShell title="Lead Router Control">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 960 }}>
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', maxWidth: 1240 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, flex: 1, minWidth: 0 }}>
 
         {/* Sync Today Banner */}
         <div style={{ border: `1px solid ${GOLD}55`, borderRadius: 14, background: 'rgba(200,169,107,0.07)', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
@@ -342,7 +384,48 @@ export default function LeadRouterControlPage() {
           Visit <a href="/lead-router" style={{ color: GOLD }}>Lead Router</a> for full routing controls and lead logs.
         </p>
 
+      </div>{/* end main column */}
+
+      {/* At a Glance Sidebar */}
+      <div style={{ width: 230, flexShrink: 0, position: 'sticky', top: 20 }}>
+        <div style={{ border: `1px solid ${PANEL_BORDER}`, borderRadius: 16, background: PANEL_BG, overflow: 'hidden' }}>
+          <div style={{ padding: '13px 15px', borderBottom: `1px solid ${PANEL_BORDER}`, display: 'flex', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>At a Glance</span>
+            <span style={{ marginLeft: 'auto', fontSize: 11, color: '#475569' }}>Latest {recentAssignments.length}</span>
+          </div>
+          <div style={{ maxHeight: 540, overflowY: 'auto' }}>
+            {recentAssignments.length === 0 ? (
+              <p style={{ color: '#475569', fontSize: 12, textAlign: 'center', padding: '20px 14px', margin: 0 }}>No leads yet</p>
+            ) : (
+              recentAssignments.map((row, i) => {
+                const leadName = clean(row?.name || 'Unknown');
+                const agent = clean(row?.owner || row?.assignedTo || '—');
+                const color = agentColor(agent);
+                return (
+                  <div
+                    key={row?.id || i}
+                    style={{
+                      padding: '9px 14px',
+                      borderBottom: i < recentAssignments.length - 1 ? `1px solid ${PANEL_BORDER}55` : 'none',
+                      display: 'flex', flexDirection: 'column', gap: 3,
+                    }}
+                  >
+                    <span style={{ color: '#e2e8f0', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {leadName}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+                      <span style={{ color, fontSize: 11, fontWeight: 700 }}>→ {shortName(agent)}</span>
+                      <span style={{ color: '#334155', fontSize: 10 }}>{timeAgo(row?.createdAt)}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
+
+      </div>{/* end outer flex row */}
     </AppShell>
   );
 }
