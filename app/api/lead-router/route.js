@@ -1615,7 +1615,110 @@ export async function PATCH(req) {
   });
 
   await saveJsonFile(SETTINGS_PATH, next);
-  return Response.json({ ok: true, settings: next });
+
+  // After saving agents, run a catch-up pass to fill gaps for newly-active agents
+  const catchUpResults = [];
+  if (body?.patch?.agents && Array.isArray(body.patch.agents)) {
+    try {
+      const leads = await loadJsonStore(CALLER_PATH, []);
+      const events = await loadJsonStore(EVENTS_PATH, []);
+      const agentOnboarding = await loadJsonStore(AGENT_ONBOARDING_PATH, []);
+      const agentDirectory = buildAgentDirectory(agentOnboarding);
+      const now = new Date();
+      const todayKey = cstDateKey(now);
+      const overflowName = clean(next.overflowAgent || 'Kimora Link');
+
+      // Count today's leads per agent from events
+      const todayCounts = {};
+      for (const e of events) {
+        if (clean(e?.type || '') !== 'assigned') continue;
+        if (clean(e?.dateKey || '') !== todayKey) continue;
+        const a = clean(e?.assignedTo || '');
+        todayCounts[a] = (todayCounts[a] || 0) + 1;
+      }
+
+      // Pool: overflow leads from today (assigned to overflowAgent, no progress)
+      const overflowPool = leads
+        .map((r, idx) => ({ ...r, _idx: idx }))
+        .filter((r) => {
+          if (normalize(clean(r?.owner || '')) !== normalize(overflowName)) return false;
+          if (cstDateKeyFromIso(r?.createdAt || '') !== todayKey) return false;
+          if (r?.calledAt || r?.connectedAt || r?.qualifiedAt) return false; // skip if progressed
+          return true;
+        });
+
+      let poolIdx = 0;
+
+      for (const agent of next.agents) {
+        if (!agent.active) continue;
+        if (normalize(clean(agent.name)) === normalize(overflowName)) continue;
+        const cap = agent.capPerDay ?? next.maxPerDay ?? 0;
+        if (!cap) continue;
+        const current = todayCounts[clean(agent.name)] || 0;
+        const gap = Math.max(0, cap - current);
+        if (!gap) continue;
+
+        for (let i = 0; i < gap && poolIdx < overflowPool.length; i++, poolIdx++) {
+          const lead = overflowPool[poolIdx];
+          const assignedTo = clean(agent.name);
+
+          // Update lead record
+          leads[lead._idx] = {
+            ...leads[lead._idx],
+            owner: assignedTo,
+            updatedAt: nowIso(),
+          };
+
+          // Log event
+          const keys = { dateKey: cstDateKey(now), weekKey: cstWeekKey(now), monthKey: cstMonthKey(now) };
+          events.push({
+            id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            type: 'assigned',
+            timestamp: nowIso(),
+            dateKey: keys.dateKey,
+            weekKey: keys.weekKey,
+            monthKey: keys.monthKey,
+            leadId: clean(lead.id || ''),
+            externalId: clean(lead.externalId || ''),
+            name: clean(lead.name || ''),
+            email: clean(lead.email || ''),
+            phone: clean(lead.phone || ''),
+            assignedTo,
+            reason: 'catch_up_redistribution',
+            mode: next.mode,
+            routingMode: next.routingMode || 'live',
+          });
+
+          // Send email notification
+          const isFirstLead = (todayCounts[assignedTo] || 0) + catchUpResults.filter((r) => r.assignedTo === assignedTo).length === 0;
+          const emailResult = await sendLeadAssignedEmail({
+            assignedTo,
+            previousOwner: overflowName,
+            row: lead,
+            reason: 'catch_up_redistribution',
+            isFirstLead,
+            agentDirectory,
+          });
+
+          catchUpResults.push({ leadId: clean(lead.id || ''), name: clean(lead.name || ''), assignedTo, emailSent: emailResult?.ok === true });
+
+          // Update GHL contact owner
+          syncGhlOwnerForRelease({ row: lead, assignedTo, agentDirectory }).catch(() => {});
+        }
+      }
+
+      if (catchUpResults.length > 0) {
+        await saveJsonStore(CALLER_PATH, leads);
+        const trimmed = events.sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0)).slice(-5000);
+        await saveJsonStore(EVENTS_PATH, trimmed);
+      }
+    } catch (e) {
+      // Non-fatal — settings were already saved
+      catchUpResults.push({ error: String(e?.message || e) });
+    }
+  }
+
+  return Response.json({ ok: true, settings: next, catchUp: { ran: body?.patch?.agents != null, distributed: catchUpResults.filter((r) => !r.error).length, results: catchUpResults } });
 }
 
 export async function POST(req) {

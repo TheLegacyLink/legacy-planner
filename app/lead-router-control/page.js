@@ -60,6 +60,7 @@ export default function LeadRouterControlPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState('');
+  const [catchUpResult, setCatchUpResult] = useState(null);
   const [error, setError] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
@@ -134,7 +135,35 @@ export default function LeadRouterControlPage() {
   }
 
   async function saveAgents() {
-    await patch({ agents: settings?.agents || [] });
+    setSaving(true);
+    setSaved('');
+    setCatchUpResult(null);
+    try {
+      const res = await fetch('/api/lead-router', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patch: { agents: settings?.agents || [] } }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok && d?.ok) {
+        setSaved('Saved ✓');
+        setTimeout(() => setSaved(''), 3000);
+        if (d?.catchUp?.distributed > 0) {
+          setCatchUpResult(d.catchUp);
+          // Reload counts after catch-up
+          setTimeout(() => fetch('/api/lead-router', { cache: 'no-store' }).then((r) => r.json()).then((d2) => {
+            if (d2?.counts) setCounts(d2.counts);
+            if (Array.isArray(d2?.calledLeadRows)) setLeadRows(d2.calledLeadRows);
+          }), 1200);
+        }
+      } else {
+        setError(d?.error || 'Save failed');
+      }
+    } catch (e) {
+      setError(String(e?.message || e));
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function syncToday() {
@@ -219,6 +248,13 @@ export default function LeadRouterControlPage() {
             </div>
           )}
         </div>
+
+        {catchUpResult && catchUpResult.distributed > 0 && (
+          <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(134,239,172,0.08)', border: '1px solid #86efac44', color: '#86efac', fontSize: 13 }}>
+            ⚡ Catch-up complete — <strong>{catchUpResult.distributed}</strong> lead{catchUpResult.distributed !== 1 ? 's' : ''} redistributed and agents notified by email.
+            <button type="button" onClick={() => setCatchUpResult(null)} style={{ marginLeft: 12, background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 12 }}>dismiss</button>
+          </div>
+        )}
 
         {error && (
           <div style={{ padding: '10px 16px', borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid #ef444444', color: '#f87171', fontSize: 13 }}>
