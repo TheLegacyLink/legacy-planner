@@ -143,11 +143,11 @@ export async function POST(req) {
     }
 
     const content = await loadContent();
-    const module  = allModules(content).find(m => m.id === moduleId);
-    if (!module) return Response.json({ ok: false, error: 'module_not_found' }, { status: 404 });
+    const trainingModule = allModules(content).find(m => m.id === moduleId);
+    if (!trainingModule) return Response.json({ ok: false, error: 'module_not_found' }, { status: 404 });
 
-    const questions    = module.quiz?.questions || [];
-    const passingScore = module.quiz?.passingScore ?? 8;
+    const questions    = trainingModule.quiz?.questions || [];
+    const passingScore = trainingModule.quiz?.passingScore ?? 8;
     let correct = 0;
     const results = questions.map(q => {
       const chosen   = Number(answers[q.id] ?? -1);
@@ -193,7 +193,7 @@ export async function POST(req) {
       missed: results
         .filter(r => !r.correct)
         .map(r => ({ id: r.id, text: r.text, correctIndex: r.correctIndex, yourAnswer: r.chosen })),
-      badge: passed ? { moduleId, title: module.title, earnedAt: progress[email][moduleId].passedAt } : null
+      badge: passed ? { moduleId, title: trainingModule.title, earnedAt: progress[email][moduleId].passedAt } : null
     });
   }
 
