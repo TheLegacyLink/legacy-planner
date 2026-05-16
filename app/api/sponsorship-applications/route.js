@@ -470,6 +470,69 @@ export async function GET(req) {
   return Response.json({ ok: true, rows: enriched });
 }
 
+// ─── GHL helpers (same pattern as lead-router) ─────────────────────────────────────
+
+const FIXED_GHL_USER_IDS_SPONSORSHIP = {
+  'donyell richardson': 'lAbJTT3VKc4Zd0PiS7On',
+  'shannon maxwell': 'NdPZIvVsm7PMfIDS1ZkR'
+};
+
+function resolveGhlUserId(agentName = '') {
+  const n = clean(agentName).toLowerCase();
+  const fixed = FIXED_GHL_USER_IDS_SPONSORSHIP[n] || '';
+  if (fixed) return fixed;
+  try {
+    const map = JSON.parse(process.env.GHL_USER_ID_MAP_JSON || '{}');
+    return clean(map[agentName] || map[n] || '');
+  } catch { return ''; }
+}
+
+async function lookupGhlContactByEmail(email = '') {
+  const token = clean(process.env.GHL_API_TOKEN || '');
+  if (!token || !email) return '';
+  const headers = { Authorization: `Bearer ${token}`, Version: '2021-07-28' };
+  const bases = [
+    clean(process.env.GHL_API_BASE_URL || ''),
+    'https://services.leadconnectorhq.com',
+    'https://rest.gohighlevel.com'
+  ].filter(Boolean);
+  for (const base of bases) {
+    try {
+      const url = `${base.replace(/\/$/, '')}/contacts/?email=${encodeURIComponent(email)}`;
+      const res = await fetch(url, { headers, cache: 'no-store' });
+      if (res.ok) {
+        const d = await res.json().catch(() => ({}));
+        const id = clean(d?.contacts?.[0]?.id || d?.contact?.id || '');
+        if (id) return id;
+      }
+    } catch { /* try next */ }
+  }
+  return '';
+}
+
+async function assignGhlContactOwner(contactId = '', assignedUserId = '') {
+  const token = clean(process.env.GHL_API_TOKEN || '');
+  if (!token || !contactId || !assignedUserId) return { ok: false, reason: 'missing_config' };
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Version: '2021-07-28' };
+  const bases = [
+    clean(process.env.GHL_API_BASE_URL || ''),
+    'https://services.leadconnectorhq.com',
+    'https://rest.gohighlevel.com'
+  ].filter(Boolean);
+  for (const base of bases) {
+    for (const path of [`/contacts/${encodeURIComponent(contactId)}`, `/v1/contacts/${encodeURIComponent(contactId)}`]) {
+      try {
+        const res = await fetch(`${base.replace(/\/$/, '')}${path}`, {
+          method: 'PUT', headers, body: JSON.stringify({ assignedTo: assignedUserId }), cache: 'no-store'
+        });
+        if (res.ok) return { ok: true, contactId, assignedUserId };
+      } catch { /* try next */ }
+    }
+  }
+  return { ok: false, reason: 'ghl_update_failed' };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
   const mode = clean(body?.mode || 'submit').toLowerCase();
@@ -621,6 +684,48 @@ export async function POST(req) {
 
     await writeStore(store);
     return Response.json({ ok: true, row: store[idx], sopLink, inviteToken, inviteEmail });
+  }
+
+  // ─── reassign_sponsor ───────────────────────────────────────────────────────────────
+  if (mode === 'reassign_sponsor') {
+    const id          = clean(body?.id || '');
+    const newSponsor  = clean(body?.newSponsorName || '');
+    if (!id || !newSponsor) return Response.json({ ok: false, error: 'missing_id_or_sponsor' }, { status: 400 });
+
+    const store = await getStore();
+    const idx   = store.findIndex((r) => clean(r?.id) === id);
+    if (idx < 0) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
+
+    // Update all sponsor name fields
+    store[idx] = {
+      ...store[idx],
+      referralName:       newSponsor,
+      referredByName:     newSponsor,
+      referred_by:        newSponsor,
+      sponsorDisplayName: newSponsor,
+      sponsorReassignedAt: nowIso(),
+      sponsorReassignedBy: clean(body?.reassignedBy || 'Kimora'),
+      updatedAt: nowIso()
+    };
+    await writeStore(store);
+
+    // Sync GHL contact owner — best-effort, never blocks the response
+    const applicantEmail = clean(store[idx]?.email || '');
+    const ghlUserId      = resolveGhlUserId(newSponsor);
+    let ghlSync = { ok: false, reason: 'skipped' };
+    if (applicantEmail && ghlUserId) {
+      try {
+        const contactId = await lookupGhlContactByEmail(applicantEmail);
+        if (contactId) ghlSync = await assignGhlContactOwner(contactId, ghlUserId);
+        else ghlSync = { ok: false, reason: 'contact_not_found_in_ghl' };
+      } catch (e) {
+        ghlSync = { ok: false, reason: String(e?.message || 'error') };
+      }
+    } else if (!ghlUserId) {
+      ghlSync = { ok: false, reason: 'no_ghl_user_id_for_agent' };
+    }
+
+    return Response.json({ ok: true, row: store[idx], ghlSync });
   }
 
   return Response.json({ ok: false, error: 'unsupported_mode' }, { status: 400 });

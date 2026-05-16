@@ -96,6 +96,9 @@ export default function SponsorshipReviewPage() {
   const [bookingRows, setBookingRows] = useState([]);
   const [touchMap, setTouchMap] = useState({});
   const [savingTouchKey, setSavingTouchKey] = useState('');
+  const [reassignId, setReassignId] = useState('');
+  const [reassignPick, setReassignPick] = useState('');
+  const [reassigning, setReassigning] = useState(false);
 
   async function load() {
     try {
@@ -163,6 +166,34 @@ export default function SponsorshipReviewPage() {
     const id = setInterval(load, 60000);
     return () => clearInterval(id);
   }, []);
+
+  const IC_AGENTS = [
+    'Kimora Link', 'Jamal Holmes', 'Mahogany Burns', 'Madalyn Adams',
+    'Kelin Brown', 'Leticia Wright', 'Breanna James', 'Shannon Maxwell',
+    'Donyell Richardson', 'Angelique Lassiter', 'Andrea Cannon'
+  ];
+
+  async function reassignSponsor(id) {
+    if (!reassignPick) return;
+    setReassigning(true);
+    try {
+      const res = await fetch('/api/sponsorship-applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'reassign_sponsor', id, newSponsorName: reassignPick, reassignedBy: 'Kimora' })
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok && d?.ok) {
+        // Immediately update local state so the name changes on screen
+        setRows(prev => prev.map(r => r.id === id ? { ...r, ...d.row } : r));
+        if (reviewRow?.id === id) setReviewRow(r => ({ ...r, ...d.row }));
+        setReassignId('');
+        setReassignPick('');
+      }
+    } finally {
+      setReassigning(false);
+    }
+  }
 
   async function review(id, decision) {
     const res = await fetch('/api/sponsorship-applications', {
@@ -354,6 +385,26 @@ export default function SponsorshipReviewPage() {
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <button type="button" className="ghost" onClick={() => setReviewRow(r)}>Review Answers</button>
                   <button type="button" onClick={() => review(r.id, 'approve')}>Approve</button>
+                  <button type="button" className="ghost" style={{ borderColor: '#C8A96B', color: '#C8A96B' }}
+                    onClick={() => { setReassignId(r.id); setReassignPick(''); }}>
+                    Reassign Sponsor
+                  </button>
+                  {reassignId === r.id && (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 4, width: '100%' }}>
+                      <select value={reassignPick} onChange={e => setReassignPick(e.target.value)}
+                        style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #334155', background: '#0f172a', color: '#e2e8f0', fontSize: 13 }}>
+                        <option value="">Select IC member…</option>
+                        {IC_AGENTS.map(a => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                      <button type="button" disabled={!reassignPick || reassigning}
+                        style={{ padding: '6px 12px', borderRadius: 8, background: '#C8A96B', color: '#0B1020', border: 'none', fontWeight: 700, fontSize: 13, cursor: reassignPick ? 'pointer' : 'default', opacity: reassignPick ? 1 : .5 }}
+                        onClick={() => reassignSponsor(r.id)}>
+                        {reassigning ? 'Saving…' : 'Confirm'}
+                      </button>
+                      <button type="button" className="ghost" style={{ fontSize: 12, padding: '6px 10px' }}
+                        onClick={() => { setReassignId(''); setReassignPick(''); }}>Cancel</button>
+                    </div>
+                  )}
                   <button type="button" className="ghost" onClick={() => review(r.id, 'decline')}>Decline</button>
                 </div>
               </td>
@@ -412,6 +463,26 @@ export default function SponsorshipReviewPage() {
               <small className="muted">Submitted: {fmt(reviewRow.submitted_at)} • Score: {reviewRow.application_score ?? '—'}</small>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button type="button" onClick={() => decideFromModal('approve')}>Approve</button>
+                <button type="button" className="ghost" style={{ borderColor: '#C8A96B', color: '#C8A96B' }}
+                  onClick={() => { setReassignId(reviewRow.id); setReassignPick(''); }}>
+                  Reassign Sponsor
+                </button>
+                {reassignId === reviewRow?.id && (
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <select value={reassignPick} onChange={e => setReassignPick(e.target.value)}
+                      style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #334155', background: '#f8fbff', color: '#0f172a', fontSize: 13 }}>
+                      <option value="">Select IC member…</option>
+                      {IC_AGENTS.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                    <button type="button" disabled={!reassignPick || reassigning}
+                      style={{ padding: '6px 12px', borderRadius: 8, background: '#C8A96B', color: '#0B1020', border: 'none', fontWeight: 700, fontSize: 13, cursor: reassignPick ? 'pointer' : 'default', opacity: reassignPick ? 1 : .5 }}
+                      onClick={() => reassignSponsor(reviewRow.id)}>
+                      {reassigning ? 'Saving…' : 'Confirm'}
+                    </button>
+                    <button type="button" className="ghost" style={{ fontSize: 12 }}
+                      onClick={() => { setReassignId(''); setReassignPick(''); }}>Cancel</button>
+                  </div>
+                )}
                 <button type="button" className="ghost" onClick={() => decideFromModal('decline')}>Decline</button>
                 <button type="button" className="ghost" onClick={() => setReviewRow(null)}>Close</button>
               </div>
