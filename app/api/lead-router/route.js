@@ -80,6 +80,16 @@ function isUnknownOwnerLabel(owner = '') {
   return !s || s === 'unknown' || s.includes('unknown');
 }
 
+// Returns the best displayable name for a lead record — falls back to email prefix or phone.
+function bestLeadName(row = {}) {
+  const name = clean(row?.name || '');
+  const nameLower = name.toLowerCase();
+  if (name && nameLower !== 'unknown' && nameLower !== 'unknown lead') return name;
+  const email = clean(row?.email || '');
+  if (email.includes('@')) return email.split('@')[0];
+  return clean(row?.phone || '') || 'Unknown Lead';
+}
+
 function isKimoraOwner(owner = '') {
   return normalize(owner) === 'kimora link';
 }
@@ -1110,7 +1120,7 @@ async function runDelayedReleasePass({ settings, leads, events, submittedBlockLo
       monthKey: keys.monthKey,
       leadId: row.id,
       externalId: row.externalId || '',
-      name: row.name || '',
+      name: bestLeadName(row),
       email: row.email || '',
       phone: row.phone || '',
       assignedTo: picked.name,
@@ -1145,7 +1155,7 @@ async function runDelayedReleasePass({ settings, leads, events, submittedBlockLo
       monthKey: keys.monthKey,
       leadId: row.id,
       externalId: row.externalId || '',
-      name: row.name || '',
+      name: bestLeadName(row),
       email: row.email || '',
       phone: row.phone || '',
       assignedTo: picked.name,
@@ -1172,7 +1182,7 @@ async function runDelayedReleasePass({ settings, leads, events, submittedBlockLo
       monthKey: keys.monthKey,
       leadId: row.id,
       externalId: row.externalId || '',
-      name: row.name || '',
+      name: bestLeadName(row),
       email: row.email || '',
       phone: row.phone || '',
       assignedTo: picked.name,
@@ -1524,7 +1534,7 @@ export async function PATCH(req) {
         monthKey: keys.monthKey,
         leadId: row.id,
         externalId: row.externalId || '',
-        name: row.name || '',
+        name: bestLeadName(row),
         email: row.email || '',
         phone: row.phone || '',
         assignedTo: pickedName,
@@ -1544,7 +1554,7 @@ export async function PATCH(req) {
         monthKey: keys.monthKey,
         leadId: row.id,
         externalId: row.externalId || '',
-        name: row.name || '',
+        name: bestLeadName(row),
         email: row.email || '',
         phone: row.phone || '',
         assignedTo: pickedName,
@@ -1586,7 +1596,7 @@ export async function PATCH(req) {
         monthKey: keys.monthKey,
         leadId: row.id,
         externalId: row.externalId || '',
-        name: row.name || '',
+        name: bestLeadName(row),
         email: row.email || '',
         phone: row.phone || '',
         assignedTo: pickedName,
@@ -1833,7 +1843,7 @@ export async function POST(req) {
           monthKey: keys.monthKey,
           leadId: row.id,
           externalId: row.externalId || '',
-          name: row.name || '',
+          name: bestLeadName(row),
           email: row.email || '',
           phone: row.phone || '',
           assignedTo: picked.name,

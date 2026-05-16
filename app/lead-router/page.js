@@ -20,9 +20,14 @@ function secsToClock(sec = 0) {
 
 function displayLeadName(row = {}) {
   const name = String(row?.name || '').trim();
-  if (name && name.toLowerCase() !== 'unknown lead') return name;
+  const nameLower = name.toLowerCase();
+  const nameIsBlank = !name || nameLower === 'unknown lead' || nameLower === 'unknown' || nameLower === 'unknown lead';
+  if (!nameIsBlank) return name;
+  // Fallback: use email prefix or phone
   const email = String(row?.email || '').trim();
   if (email.includes('@')) return email.split('@')[0];
+  const phone = String(row?.phone || '').trim();
+  if (phone) return phone;
   return 'Unknown Lead';
 }
 
@@ -1127,7 +1132,7 @@ export default function LeadRouterPage() {
               <tr key={r.id}>
                 <td>{fmt(r.timestamp)}</td>
                 <td>
-                  <div>{r.name || '—'}</div>
+                  <div>{displayLeadName(r)}</div>
                   <small className="muted">{r.email || r.phone || '—'}</small>
                 </td>
                 <td>{r.assignedTo || '—'}</td>

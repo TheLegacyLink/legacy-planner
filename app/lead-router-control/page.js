@@ -53,6 +53,18 @@ function shortName(full = '') {
   return full;
 }
 
+function displayLeadName(row = {}) {
+  const name = String(row?.name || '').trim();
+  const nameLower = name.toLowerCase();
+  const nameIsBlank = !name || nameLower === 'unknown lead' || nameLower === 'unknown';
+  if (!nameIsBlank) return name;
+  const email = String(row?.email || '').trim();
+  if (email.includes('@')) return email.split('@')[0];
+  const phone = String(row?.phone || '').trim();
+  if (phone) return phone;
+  return 'Unknown Lead';
+}
+
 export default function LeadRouterControlPage() {
   const [settings, setSettings] = useState(null);
   const [counts, setCounts] = useState({});
@@ -434,7 +446,7 @@ export default function LeadRouterControlPage() {
               <p style={{ color: '#475569', fontSize: 12, textAlign: 'center', padding: '20px 14px', margin: 0 }}>No leads yet</p>
             ) : (
               recentAssignments.map((row, i) => {
-                const leadName = clean(row?.name || 'Unknown');
+                const leadName = displayLeadName(row);
                 const agent = clean(row?.owner || row?.assignedTo || '—');
                 const color = agentColor(agent);
                 return (
