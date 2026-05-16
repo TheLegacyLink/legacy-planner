@@ -251,13 +251,44 @@ function resolveOwnerUserId(assignedToName = '', directory = null) {
   return fallback || '';
 }
 
+// Fetch existing GHL contact tags so we can merge rather than overwrite
+async function getGhlContactTags(contactId, token) {
+  const headers = { Authorization: `Bearer ${token}`, Version: '2021-07-28' };
+  const bases = [
+    clean(process.env.GHL_API_BASE_URL || ''),
+    'https://services.leadconnectorhq.com',
+    'https://rest.gohighlevel.com'
+  ].filter(Boolean);
+  const paths = [`/contacts/${encodeURIComponent(contactId)}`, `/v1/contacts/${encodeURIComponent(contactId)}`];
+  for (const base of bases) {
+    for (const path of paths) {
+      try {
+        const res = await fetch(`${base.replace(/\/$/, '')}${path}`, { headers, cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          // v2 returns contact.tags, v1 returns contact.tags as well
+          const tags = data?.contact?.tags || data?.tags || [];
+          return Array.isArray(tags) ? tags.map(String) : [];
+        }
+      } catch { /* try next */ }
+    }
+  }
+  return [];
+}
+
 async function updateGhlContactOwner({ contactId, assignedUserId }) {
   const token = clean(process.env.GHL_API_TOKEN || '');
   if (!token || !contactId || !assignedUserId) {
     return { ok: false, reason: 'missing_ghl_config_or_ids' };
   }
 
-  const body = JSON.stringify({ assignedTo: assignedUserId });
+  // Fetch existing tags, then merge in the 'legacy' tag
+  const LEGACY_TAG = clean(process.env.GHL_LEAD_TAG || 'legacy');
+  let existingTags = [];
+  try { existingTags = await getGhlContactTags(contactId, token); } catch { /* best-effort */ }
+  const mergedTags = existingTags.includes(LEGACY_TAG) ? existingTags : [...existingTags, LEGACY_TAG];
+
+  const body = JSON.stringify({ assignedTo: assignedUserId, tags: mergedTags });
   const headers = {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
@@ -289,7 +320,7 @@ async function updateGhlContactOwner({ contactId, assignedUserId }) {
         });
 
         if (res.ok) {
-          return { ok: true, url, status: res.status };
+          return { ok: true, url, status: res.status, tagApplied: LEGACY_TAG };
         }
 
         const text = await res.text().catch(() => '');
@@ -301,6 +332,35 @@ async function updateGhlContactOwner({ contactId, assignedUserId }) {
   }
 
   return { ok: false, reason: 'ghl_update_failed', detail: lastError };
+}
+
+// Tag a contact even when we don't need to change owner (e.g. on first intake)
+async function applyGhlLegacyTag(contactId) {
+  const token = clean(process.env.GHL_API_TOKEN || '');
+  if (!token || !contactId) return { ok: false, reason: 'missing_token_or_id' };
+  const LEGACY_TAG = clean(process.env.GHL_LEAD_TAG || 'legacy');
+  let existingTags = [];
+  try { existingTags = await getGhlContactTags(contactId, token); } catch { /* best-effort */ }
+  if (existingTags.includes(LEGACY_TAG)) return { ok: true, reason: 'already_tagged' };
+  const mergedTags = [...existingTags, LEGACY_TAG];
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Version: '2021-07-28' };
+  const bases = [
+    clean(process.env.GHL_API_BASE_URL || ''),
+    'https://services.leadconnectorhq.com',
+    'https://rest.gohighlevel.com'
+  ].filter(Boolean);
+  const paths = [`/contacts/${encodeURIComponent(contactId)}`, `/v1/contacts/${encodeURIComponent(contactId)}`];
+  for (const base of bases) {
+    for (const path of paths) {
+      try {
+        const res = await fetch(`${base.replace(/\/$/, '')}${path}`, {
+          method: 'PUT', headers, body: JSON.stringify({ tags: mergedTags }), cache: 'no-store'
+        });
+        if (res.ok) return { ok: true, tag: LEGACY_TAG };
+      } catch { /* try next */ }
+    }
+  }
+  return { ok: false, reason: 'tag_update_failed' };
 }
 
 async function syncGhlOwnerForRelease({ row = {}, assignedTo = '', agentDirectory = null } = {}) {
@@ -1545,6 +1605,9 @@ export async function PATCH(req) {
       });
 
       const ghlSync = await syncGhlOwnerForRelease({ row, assignedTo: pickedName, agentDirectory });
+      // Apply 'legacy' tag — triggers initial email workflow in GHL (best-effort)
+      const bulkContactId = clean(row?.externalId || row?.id || '');
+      if (bulkContactId) applyGhlLegacyTag(bulkContactId).catch(() => {});
       events.push({
         id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         type: 'ghl_owner_sync',
@@ -1712,8 +1775,10 @@ export async function PATCH(req) {
 
           catchUpResults.push({ leadId: clean(lead.id || ''), name: clean(lead.name || ''), assignedTo, emailSent: emailResult?.ok === true });
 
-          // Update GHL contact owner
+          // Update GHL contact owner + apply 'legacy' tag to trigger initial email workflow
           syncGhlOwnerForRelease({ row: lead, assignedTo, agentDirectory }).catch(() => {});
+          const catchUpContactId = clean(lead?.externalId || lead?.id || '');
+          if (catchUpContactId) applyGhlLegacyTag(catchUpContactId).catch(() => {});
         }
       }
 
@@ -1960,6 +2025,13 @@ export async function POST(req) {
       phone: incoming.phone
     }
   });
+
+  // Apply 'legacy' tag on the GHL contact — this triggers the initial email workflow.
+  // Best-effort: fires after response so it never blocks lead assignment.
+  const incomingContactId = clean(incoming.externalId || incoming.id || '');
+  if (incomingContactId) {
+    applyGhlLegacyTag(incomingContactId).catch(() => {});
+  }
 
   return Response.json({ ok: true, assignedTo, reason, row, slaReassigned, routingMode: settings.routingMode || 'live', releaseRun });
 }
