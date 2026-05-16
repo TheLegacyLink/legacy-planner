@@ -18,12 +18,16 @@ function isAdminAuth(req, body = {}) {
   return provided && getAdminSkeletonPasswords().includes(provided);
 }
 
+// Version bump forces a re-seed when content structure changes
+const CONTENT_VERSION = '2';
+
 async function loadContent() {
   const stored = await loadJsonStore(CONTENT_PATH, null);
-  if (stored && stored.stages) return stored;
-  // Seed on first use
-  await saveJsonStore(CONTENT_PATH, TRAINING_SEED);
-  return TRAINING_SEED;
+  // Re-seed if missing OR if version is outdated (e.g. keyPoints format changed)
+  if (stored && stored.stages && stored._version === CONTENT_VERSION) return stored;
+  const seeded = { ...TRAINING_SEED, _version: CONTENT_VERSION };
+  await saveJsonStore(CONTENT_PATH, seeded);
+  return seeded;
 }
 
 async function loadProgress() {

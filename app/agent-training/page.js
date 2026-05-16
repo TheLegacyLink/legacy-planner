@@ -164,6 +164,72 @@ function Quiz({ module, email, onPass }) {
   );
 }
 
+// ─── Study Guide Component ───────────────────────────────────────────────
+// Handles both string keyPoints (legacy) and object keyPoints (expandable)
+function StudyGuide({ module, onQuiz }) {
+  const [expanded, setExpanded] = useState({});
+  const points = module.keyPoints || [];
+
+  function toggle(i) {
+    setExpanded(prev => ({ ...prev, [i]: !prev[i] }));
+  }
+
+  return (
+    <div>
+      <h3 style={{ ...S.h3, color: GOLD, marginBottom: 6 }}>Study Guide — {module.title}</h3>
+      <p style={{ ...S.muted, marginBottom: 20 }}>Click any topic to expand the full lesson. Read through everything before taking the quiz.</p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {points.map((point, i) => {
+          const isObj    = point && typeof point === 'object';
+          const title    = isObj ? point.title   : null;
+          const summary  = isObj ? point.summary : null;
+          const detail   = isObj ? point.content : null;
+          const label    = isObj ? point.title   : point;
+          const isOpen   = Boolean(expanded[i]);
+          const hasDetail = Boolean(detail);
+
+          return (
+            <div key={i} style={{ background: '#0B1020', border: `1px solid ${isOpen ? GOLD + '66' : BORDER}`, borderRadius: 12, overflow: 'hidden', transition: 'border-color .2s' }}>
+              {/* Header row — always visible */}
+              <div
+                onClick={() => hasDetail && toggle(i)}
+                style={{ display: 'flex', gap: 14, padding: '16px 18px', cursor: hasDetail ? 'pointer' : 'default', alignItems: 'flex-start' }}
+              >
+                <span style={{ color: GOLD, fontWeight: 900, fontSize: 15, minWidth: 26, paddingTop: 1 }}>{i + 1}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#f1f5f9', fontWeight: 700, fontSize: 14, lineHeight: 1.5 }}>{label}</div>
+                  {summary && !isOpen && (
+                    <div style={{ color: '#64748b', fontSize: 13, marginTop: 3, lineHeight: 1.5 }}>{summary}</div>
+                  )}
+                </div>
+                {hasDetail && (
+                  <span style={{ color: GOLD, fontSize: 18, lineHeight: 1, flexShrink: 0, marginTop: 2, transition: 'transform .2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>&#8964;</span>
+                )}
+              </div>
+
+              {/* Expanded detail */}
+              {isOpen && detail && (
+                <div style={{ padding: '0 18px 20px 58px', borderTop: `1px solid ${BORDER}` }}>
+                  {detail.split('\n\n').map((para, pi) => (
+                    <p key={pi} style={{ color: '#cbd5e1', fontSize: 14, lineHeight: 1.8, margin: '14px 0 0', whiteSpace: 'pre-line' }}>
+                      {para}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
+        <button style={{ ...S.btn, ...S.btnGold }} onClick={onQuiz}>Ready to Take the Quiz →</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Module Detail ────────────────────────────────────────────────────────────
 function ModuleDetail({ module, email, onBack, onComplete }) {
   const [tab, setTab] = useState('overview');
@@ -253,20 +319,7 @@ function ModuleDetail({ module, email, onBack, onComplete }) {
         )}
 
         {tab === 'study' && (
-          <div>
-            <h3 style={{ ...S.h3, color: GOLD, marginBottom: 16 }}>Key Points — {module.title}</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {(module.keyPoints || []).map((point, i) => (
-                <div key={i} style={{ display: 'flex', gap: 14, padding: '14px 18px', background: '#0B1020', border: `1px solid ${BORDER}`, borderRadius: 10, lineHeight: 1.6 }}>
-                  <span style={{ color: GOLD, fontWeight: 900, fontSize: 16, minWidth: 24 }}>{i + 1}</span>
-                  <span style={{ color: '#cbd5e1', fontSize: 14 }}>{point}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
-              <button style={{ ...S.btn, ...S.btnGold }} onClick={() => setTab('quiz')}>Ready to Take the Quiz →</button>
-            </div>
-          </div>
+          <StudyGuide module={module} onQuiz={() => setTab('quiz')} />
         )}
 
         {tab === 'quiz' && (
