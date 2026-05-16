@@ -216,16 +216,22 @@ function StudyGuide({ module, onQuiz }) {
                       {para}
                     </p>
                   ))}
-                  {point.pdfUrl && (
+                  {(point.pdfUrl || point.listenUrl) && (
                     <div style={{ marginTop: 20 }}>
-                      <a
-                        href={point.pdfUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '12px 22px', background: GOLD, color: '#0B1020', borderRadius: 10, fontWeight: 800, fontSize: 14, textDecoration: 'none' }}
-                      >
-                        📥 Download PDF
-                      </a>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {point.pdfUrl && (
+                          <a href={point.pdfUrl} target="_blank" rel="noreferrer"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 22px', background: GOLD, color: '#0B1020', borderRadius: 10, fontWeight: 800, fontSize: 14, textDecoration: 'none' }}>
+                            📥 Download PDF
+                          </a>
+                        )}
+                        {point.listenUrl && (
+                          <a href={point.listenUrl} target="_blank" rel="noreferrer"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 22px', background: '#FF0000', color: '#fff', borderRadius: 10, fontWeight: 800, fontSize: 14, textDecoration: 'none' }}>
+                            ▶️ Listen on YouTube
+                          </a>
+                        )}
+                      </div>
                       <p style={{ ...S.muted, marginTop: 8, fontSize: 12 }}>Also available free at your local library via the Libby app.</p>
                     </div>
                   )}

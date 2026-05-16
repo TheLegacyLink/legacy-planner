@@ -19,7 +19,7 @@ function isAdminAuth(req, body = {}) {
 }
 
 // Version bump forces a re-seed when content structure changes
-const CONTENT_VERSION = '4';
+const CONTENT_VERSION = '5';
 
 async function loadContent() {
   const stored = await loadJsonStore(CONTENT_PATH, null);
