@@ -16,7 +16,7 @@ function isAdmin(req, body = {}) {
 
 async function loadCatalog() {
   const stored = await loadJsonStore(PRODUCTS_PATH, null);
-  if (stored?._version === STORE_SEED._version && stored?.products?.length) return stored;
+  if (stored?._version === STORE_SEED._version && stored?.products?.length >= 5) return stored;
   await saveJsonStore(PRODUCTS_PATH, STORE_SEED);
   return STORE_SEED;
 }
