@@ -554,15 +554,13 @@ async function spLookupGhlContactByEmail(email = '') {
   return '';
 }
 
-// Exact same logic as lead-router updateGhlContactOwner
+// Sponsorship reassign: update owner ONLY — no tag changes.
+// The 'legacy' tag is reserved for NEW leads entering the system for the first time.
+// These applicants already went through the process; re-tagging triggers automation duplicates.
 async function spUpdateGhlContactOwner({ contactId, assignedUserId }) {
   const token = clean(process.env.GHL_API_TOKEN || '');
   if (!token || !contactId || !assignedUserId) return { ok: false, reason: 'missing_ghl_config_or_ids' };
-  const LEGACY_TAG = clean(process.env.GHL_LEAD_TAG || 'legacy');
-  let existingTags = [];
-  try { existingTags = await spGetGhlContactTags(contactId, token); } catch { /* best-effort */ }
-  const mergedTags = existingTags.includes(LEGACY_TAG) ? existingTags : [...existingTags, LEGACY_TAG];
-  const body = JSON.stringify({ assignedTo: assignedUserId, tags: mergedTags });
+  const body = JSON.stringify({ assignedTo: assignedUserId });
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Version: '2021-07-28' };
   const bases = [clean(process.env.GHL_API_BASE_URL || ''), 'https://services.leadconnectorhq.com', 'https://rest.gohighlevel.com'].filter(Boolean);
   let lastError = 'unknown';
@@ -571,7 +569,7 @@ async function spUpdateGhlContactOwner({ contactId, assignedUserId }) {
       const url = `${base.replace(/\/$/, '')}${p}`;
       try {
         const res = await fetch(url, { method: 'PUT', headers, body, cache: 'no-store' });
-        if (res.ok) return { ok: true, url, tagApplied: LEGACY_TAG };
+        if (res.ok) return { ok: true, url };
         const txt = await res.text().catch(() => '');
         lastError = `${url} -> ${res.status} ${txt.slice(0, 200)}`;
       } catch (err) { lastError = `${url} -> ${String(err?.message || err)}`; }
@@ -587,35 +585,40 @@ async function spSendSponsorReassignEmail({ newSponsor, previousSponsor, applica
   const from = clean(process.env.GMAIL_FROM) || user;
   if (!to || !user || !pass) return { ok: false, error: 'email_not_configured' };
   const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
-  const applicantName = clean(`${applicant.firstName || ''} ${applicant.lastName || ''}`).trim() || 'a new prospect';
-  const subject = `New Sponsorship Assigned: ${applicantName}`;
+  const applicantName = clean(`${applicant.firstName || ''} ${applicant.lastName || ''}`).trim() || 'a prospect';
+  const applicantEmail = clean(applicant.email || '—');
+  const applicantPhone = clean(applicant.phone || '—');
+  const subject = `Sponsorship Assignment: ${applicantName}`;
   const text = [
     `Hi ${newSponsor},`,
     '',
-    `You have been assigned a new sponsorship prospect: ${applicantName}.`,
-    `Email: ${clean(applicant.email || '—')}`,
-    `Phone: ${clean(applicant.phone || '—')}`,
-    `Previous Sponsor: ${previousSponsor || '—'}`,
+    `${applicantName} has been assigned to you.`,
     '',
-    'Please follow up with them as soon as possible.',
+    `They have already been approved for The Legacy Link Sponsorship Program and are ready to move forward with onboarding.`,
     '',
-    '— The Legacy Link Support Team'
+    `Name: ${applicantName}`,
+    `Email: ${applicantEmail}`,
+    `Phone: ${applicantPhone}`,
+    '',
+    'Please reach out to them as soon as possible to complete their onboarding process.',
+    '',
+    'Thank you,',
+    'The Legacy Link Support Team'
   ].join('\n');
   try {
     const info = await tx.sendMail({
       from, to, cc: 'support@thelegacylink.com', subject, text,
-      html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;">
-        <h2>New Sponsorship Assigned</h2>
+      html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;max-width:600px;">
         <p>Hi <strong>${newSponsor}</strong>,</p>
-        <p>You have been assigned a new sponsorship prospect.</p>
-        <ul>
-          <li><strong>Prospect:</strong> ${applicantName}</li>
-          <li><strong>Email:</strong> ${clean(applicant.email || '—')}</li>
-          <li><strong>Phone:</strong> ${clean(applicant.phone || '—')}</li>
-          <li><strong>Previous Sponsor:</strong> ${previousSponsor || '—'}</li>
-        </ul>
-        <p>Please follow up as soon as possible.</p>
-        <p>— The Legacy Link Support Team</p>
+        <p><strong>${applicantName}</strong> has been assigned to you.</p>
+        <p>They have already been approved for <strong>The Legacy Link Sponsorship Program</strong> and are ready to move forward with onboarding.</p>
+        <table style="border-collapse:collapse;width:100%;margin:16px 0;">
+          <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:600;background:#f8fafc;width:120px;">Name</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">${applicantName}</td></tr>
+          <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:600;background:#f8fafc;">Email</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">${applicantEmail}</td></tr>
+          <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:600;background:#f8fafc;">Phone</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">${applicantPhone}</td></tr>
+        </table>
+        <p>Please reach out to them as soon as possible to complete their onboarding process.</p>
+        <p>Thank you,<br/><strong>The Legacy Link Support Team</strong></p>
       </div>`
     });
     return { ok: true, messageId: info?.messageId };
