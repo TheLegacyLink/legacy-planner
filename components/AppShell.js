@@ -40,6 +40,8 @@ const tabs = [
   { href: '/sponsorship-booking', label: 'Booking Hub' },
   { href: '/fng-policies', label: 'F&G Policies' },
   { href: '/badges', label: 'Badges' },
+  { href: '/store', label: '🛒 Store' },
+  { href: '/store/admin', label: 'Store Admin' },
   { href: '/agent-training', label: '🎓 Agent Training' },
   { href: '/agent-training/admin', label: 'Training Admin' },
   { href: '/settings', label: 'Settings' }
