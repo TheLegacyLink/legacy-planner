@@ -211,35 +211,24 @@ function StudyGuide({ module, onQuiz }) {
               {/* Expanded detail */}
               {isOpen && detail && (
                 <div style={{ padding: '0 18px 20px 58px', borderTop: `1px solid ${BORDER}` }}>
-                  {detail.split('\n\n').map((para, pi) => {
-                    // Detect PDF download line and render as a button
-                    if (para.includes('/resources/') && para.includes('.pdf')) {
-                      const lines = para.split('\n');
-                      return (
-                        <div key={pi} style={{ marginTop: 14 }}>
-                          {lines.map((line, li) => {
-                            const pdfMatch = line.match(/([^:]+):\s*((\/resources\/[^\s]+\.pdf))/);
-                            if (pdfMatch) {
-                              return (
-                                <div key={li} style={{ marginBottom: 8 }}>
-                                  <a href={pdfMatch[2]} target="_blank" rel="noreferrer"
-                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: GOLD, color: '#0B1020', borderRadius: 10, fontWeight: 800, fontSize: 14, textDecoration: 'none' }}>
-                                    📥 Download PDF — Rich Dad, Poor Dad
-                                  </a>
-                                </div>
-                              );
-                            }
-                            return <p key={li} style={{ color: '#cbd5e1', fontSize: 14, lineHeight: 1.8, margin: '4px 0 0' }}>{line}</p>;
-                          })}
-                        </div>
-                      );
-                    }
-                    return (
-                      <p key={pi} style={{ color: '#cbd5e1', fontSize: 14, lineHeight: 1.8, margin: '14px 0 0', whiteSpace: 'pre-line' }}>
-                        {para}
-                      </p>
-                    );
-                  })}
+                  {detail.split('\n\n').map((para, pi) => (
+                    <p key={pi} style={{ color: '#cbd5e1', fontSize: 14, lineHeight: 1.8, margin: '14px 0 0', whiteSpace: 'pre-line' }}>
+                      {para}
+                    </p>
+                  ))}
+                  {point.pdfUrl && (
+                    <div style={{ marginTop: 20 }}>
+                      <a
+                        href={point.pdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '12px 22px', background: GOLD, color: '#0B1020', borderRadius: 10, fontWeight: 800, fontSize: 14, textDecoration: 'none' }}
+                      >
+                        📥 Download PDF
+                      </a>
+                      <p style={{ ...S.muted, marginTop: 8, fontSize: 12 }}>Also available free at your local library via the Libby app.</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
