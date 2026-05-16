@@ -649,44 +649,50 @@ async function sendDeclineEmail(row = {}) {
   if (!recipients.length) return { ok: false, error: 'no_recipients' };
 
   const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
-  const subject = `Policy Declined: ${row.applicantName || 'Applicant'} — next options`;
+  const subject = `Policy Update: ${row.applicantName || 'Applicant'}`;
   const text = [
     `Hi ${writer || 'Agent'},`,
     '',
-    'This policy has been marked as declined.',
+    'At this time, the policy was not approved. However, the prospect may still qualify for additional opportunities and benefits through The Legacy Link.',
     '',
     `Client: ${row.applicantName || '—'}`,
     `Referred By: ${row.referredByName || '—'}`,
     `Policy Writer: ${row.policyWriterName || '—'}`,
     '',
-    'Next options to present:',
-    '1) JumpStart Program with a qualifying family member',
-    '2) Sponsorship Program with spouse (if married)',
-    '3) Sponsorship Program with a child age 18+',
+    'Recommended Next Options:',
     '',
-    'Please follow up with the prospect and offer the options above.',
+    '1. If married, explore sponsorship opportunities through a spouse',
+    '2. Ask the prospect for referrals of friends or family members who may be interested in this opportunity',
+    '3. If looking to accelerate growth, mentorship, lead generation, systems, and additional support, present the Inner Circle opportunity',
     '',
-    'Keep up the great work.',
+    'Inner Circle Link:',
+    'https://thelegacylink.com/inner-circle',
+    '',
+    'Please follow up with the prospect and present the options above to help determine the best next step moving forward.',
+    '',
+    'Keep up the great work 💪',
     '',
     'The Legacy Link Support Team'
   ].join('\n');
 
   const html = brandEmailFrame(
-    'Policy Declined — Next Options',
+    'Policy Update',
     `<p>Hi <strong>${writer || 'Agent'}</strong>,</p>
-     <p>This policy has been marked as declined.</p>
+     <p>At this time, the policy was not approved. However, the prospect may still qualify for additional opportunities and benefits through The Legacy Link.</p>
      <ul style="padding-left:18px; margin:10px 0;">
        <li><strong>Client:</strong> ${row.applicantName || '—'}</li>
        <li><strong>Referred By:</strong> ${row.referredByName || '—'}</li>
        <li><strong>Policy Writer:</strong> ${row.policyWriterName || '—'}</li>
      </ul>
-     <p><strong>Next options to present:</strong></p>
-     <ol style="padding-left:18px; margin:8px 0;">
-       <li>JumpStart Program with a qualifying family member</li>
-       <li>Sponsorship Program with spouse (if married)</li>
-       <li>Sponsorship Program with a child age 18+</li>
+     <p><strong>Recommended Next Options:</strong></p>
+     <ol style="padding-left:18px; margin:8px 0; line-height:1.8;">
+       <li>If married, explore sponsorship opportunities through a spouse</li>
+       <li>Ask the prospect for referrals of friends or family members who may be interested in this opportunity</li>
+       <li>If looking to accelerate growth, mentorship, lead generation, systems, and additional support, present the Inner Circle opportunity</li>
      </ol>
-     <p>Please follow up with the prospect and offer the options above.</p>`
+     <p><strong>Inner Circle Link:</strong><br/><a href="https://thelegacylink.com/inner-circle" style="color:#1d4ed8;">https://thelegacylink.com/inner-circle</a></p>
+     <p>Please follow up with the prospect and present the options above to help determine the best next step moving forward.</p>
+     <p>Keep up the great work 💪</p>`
   );
 
   const info = await tx.sendMail({ from, to: recipients.join(', '), subject, text, html });
