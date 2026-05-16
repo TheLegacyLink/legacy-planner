@@ -305,13 +305,16 @@ export default function AgentTrainingPage() {
       }
 
       // 2) Try Inner Circle Hub session (already trusted — stored by IC Hub auth flow)
+      // IC Hub member object uses 'applicantName' for the display name
       try {
         const icRaw = localStorage.getItem('inner_circle_hub_member_v1');
         if (icRaw) {
           const ic = JSON.parse(icRaw);
-          if (ic?.email && ic?.name) {
+          const icName  = clean(ic?.applicantName || ic?.name || '');
+          const icEmail = clean(ic?.email || '');
+          if (icEmail && icName) {
             // IC Hub members are Inner Circle — always licensed
-            setSession({ name: ic.name, email: ic.email, role: 'submitter', _source: 'ic_hub', _icMember: true });
+            setSession({ name: icName, email: icEmail, role: 'submitter', _source: 'ic_hub', _icMember: true });
             setLoading(false);
             return;
           }
