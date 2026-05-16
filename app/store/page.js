@@ -169,7 +169,7 @@ function CartDrawer({ cart, onClose, onUpdate, onRemove, onCheckout }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', justifyContent: 'flex-end' }}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.6)' }} onClick={onClose} />
-      <div style={{ position: 'relative', width: 380, maxWidth: '100vw', background: CARD_BG, borderLeft: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', zIndex: 1 }}>
+      <div className="ll-cart-width" style={{ position: 'relative', width: 380, maxWidth: '100vw', background: CARD_BG, borderLeft: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', zIndex: 1 }}>
         <div style={{ padding: '22px 24px 18px', borderBottom: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ margin: 0, fontFamily: FONT_SERIF, fontSize: 22, color: TEXT }}>Your Cart</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: MUTED, fontSize: 22, cursor: 'pointer' }}>✕</button>
@@ -308,46 +308,77 @@ export default function StorePage() {
         html { scroll-behavior: smooth; }
         body { background: ${BG}; color: ${TEXT}; }
         ::selection { background: ${GOLD}44; color: ${TEXT}; }
-        /* Texture overlay via pseudo-element on a wrapper */
         .ll-store-bg::before {
           content: '';
           position: fixed; inset: 0; pointer-events: none; z-index: 0;
           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
           opacity: .35;
         }
+        /* ── Mobile responsive ── */
+        .ll-nav-links { display: flex; gap: 28px; margin-left: 48px; flex: 1; }
+        .ll-filter-bar { display: none; }
+        .ll-hero { padding: 100px 24px 80px; }
+        .ll-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }
+        .ll-product-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+        .ll-cart-width { width: 380px; max-width: 100vw; }
+        @media (max-width: 680px) {
+          .ll-nav-links { display: none; }
+          .ll-filter-bar { display: flex; gap: 0; overflow-x: auto; padding: 0 16px; border-bottom: 1px solid ${BORDER}; background: rgba(11,11,11,.95); -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+          .ll-filter-bar::-webkit-scrollbar { display: none; }
+          .ll-filter-btn { padding: 10px 16px; background: none; border: none; border-bottom: 2px solid transparent; white-space: nowrap; font-family: ${FONT_SANS}; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; flex-shrink: 0; }
+          .ll-hero { padding: 60px 20px 48px; }
+          .ll-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+          .ll-product-detail { grid-template-columns: 1fr; gap: 32px; }
+          .ll-cart-width { width: 100vw; }
+          .ll-nav-brand { font-size: 16px !important; letter-spacing: 0.5px !important; }
+          .ll-nav-pad { padding: 0 16px !important; }
+          .ll-section-pad { padding: 0 16px 60px !important; }
+          .ll-footer-pad { padding: 32px 16px !important; }
+        }
+        @media (max-width: 400px) {
+          .ll-grid { grid-template-columns: 1fr; }
+        }
       `}</style>
 
       <div className="ll-store-bg" style={{ minHeight: '100vh', background: BG, position: 'relative', zIndex: 1 }}>
 
         {/* ── Nav ───────────────────────────────────────────────────────────── */}
-        <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(11,11,11,.92)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${BORDER}`, padding: '0 32px', display: 'flex', alignItems: 'center', height: 64 }}>
-          <Link href="/store" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontFamily: FONT_SERIF, fontSize: 22, color: GOLD, letterSpacing: 1 }}>THE LEGACY LINK</span>
-          </Link>
-          <div style={{ display: 'flex', gap: 28, marginLeft: 48, flex: 1 }}>
+        <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(11,11,11,.95)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${BORDER}` }}>
+          {/* Main nav row */}
+          <div className="ll-nav-pad" style={{ padding: '0 32px', display: 'flex', alignItems: 'center', height: 64 }}>
+            <Link href="/store" style={{ textDecoration: 'none', flexShrink: 0 }}>
+              <span className="ll-nav-brand" style={{ fontFamily: FONT_SERIF, fontSize: 22, color: GOLD, letterSpacing: 1 }}>THE LEGACY LINK</span>
+            </Link>
+            {/* Desktop filter links */}
+            <div className="ll-nav-links">
+              {[['all', 'Shop All'], ['tees', 'Tees'], ['polos', 'Polos'], ['hoodies', 'Hoodies']].map(([val, label]) => (
+                <button key={val} onClick={() => setActiveFilter(val)}
+                  style={{ background: 'none', border: 'none', fontFamily: FONT_SANS, fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase', color: activeFilter === val ? GOLD : MUTED, cursor: 'pointer', padding: '4px 0', borderBottom: `1px solid ${activeFilter === val ? GOLD : 'transparent'}`, transition: 'color .2s', whiteSpace: 'nowrap' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setCartOpen(true)}
+              style={{ marginLeft: 'auto', flexShrink: 0, background: 'none', border: `1px solid ${BORDER}`, borderRadius: 4, padding: '8px 16px', color: TEXT, cursor: 'pointer', fontFamily: FONT_SANS, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>Cart</span>
+              {cartCount > 0 && (
+                <span style={{ background: GOLD, color: '#0B0B0B', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>{cartCount}</span>
+              )}
+            </button>
+          </div>
+          {/* Mobile filter bar — scrollable row below nav */}
+          <div className="ll-filter-bar">
             {[['all', 'Shop All'], ['tees', 'Tees'], ['polos', 'Polos'], ['hoodies', 'Hoodies']].map(([val, label]) => (
-              <button
-                key={val}
-                onClick={() => setActiveFilter(val)}
-                style={{ background: 'none', border: 'none', fontFamily: FONT_SANS, fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase', color: activeFilter === val ? GOLD : MUTED, cursor: 'pointer', padding: '4px 0', borderBottom: `1px solid ${activeFilter === val ? GOLD : 'transparent'}`, transition: 'color .2s' }}
-              >
+              <button key={val} className="ll-filter-btn" onClick={() => setActiveFilter(val)}
+                style={{ color: activeFilter === val ? GOLD : MUTED, borderBottomColor: activeFilter === val ? GOLD : 'transparent' }}>
                 {label}
               </button>
             ))}
           </div>
-          <button
-            onClick={() => setCartOpen(true)}
-            style={{ position: 'relative', background: 'none', border: `1px solid ${BORDER}`, borderRadius: 4, padding: '8px 16px', color: TEXT, cursor: 'pointer', fontFamily: FONT_SANS, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}
-          >
-            <span>Cart</span>
-            {cartCount > 0 && (
-              <span style={{ background: GOLD, color: '#0B0B0B', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>{cartCount}</span>
-            )}
-          </button>
         </nav>
 
         {/* ── Hero ──────────────────────────────────────────────────────────── */}
-        <section style={{ textAlign: 'center', padding: '100px 24px 80px', position: 'relative' }}>
+        <section style={{ textAlign: 'center', padding: '100px 24px 80px', position: 'relative', className: undefined }}>
           <div style={{ width: 48, height: 1, background: GOLD, margin: '0 auto 32px' }} />
           <h1 style={{ fontFamily: FONT_SERIF, fontSize: 'clamp(42px, 6vw, 80px)', fontWeight: 600, color: TEXT, lineHeight: 1.1, letterSpacing: '-1px', maxWidth: 800, margin: '0 auto 24px', whiteSpace: 'pre-line' }}>
             {hero.headline || 'Build something the world\ncan\'t take back.'}
@@ -364,7 +395,7 @@ export default function StorePage() {
           <div style={{ width: 48, height: 1, background: GOLD, margin: '40px auto 0' }} />
         </section>
 
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 80px' }}>
+        <div className="ll-section-pad" style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 80px' }}>
 
           {/* ── Featured ──────────────────────────────────────────────────── */}
           {activeFilter === 'all' && featured.length > 0 && (
@@ -373,7 +404,7 @@ export default function StorePage() {
                 <div style={{ width: 32, height: 1, background: GOLD }} />
                 <span style={{ fontFamily: FONT_SANS, fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: GOLD }}>Featured</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
+              <div className="ll-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
                 {featured.map(p => <ProductCard key={p.sku} product={p} onAddToCart={addToCart} />)}
               </div>
             </section>
@@ -386,7 +417,7 @@ export default function StorePage() {
                 <div style={{ width: 32, height: 1, background: GOLD }} />
                 <span style={{ fontFamily: FONT_SANS, fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: GOLD }}>New Arrivals</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
+              <div className="ll-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
                 {newItems.map(p => <ProductCard key={p.sku} product={p} onAddToCart={addToCart} />)}
               </div>
             </section>
@@ -403,7 +434,7 @@ export default function StorePage() {
             {loading ? (
               <div style={{ textAlign: 'center', padding: '60px 0', color: MUTED, fontFamily: FONT_SANS }}>Loading collection…</div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
+              <div className="ll-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
                 {filtered.map(p => <ProductCard key={p.sku} product={p} onAddToCart={addToCart} />)}
               </div>
             )}
@@ -411,7 +442,7 @@ export default function StorePage() {
         </div>
 
         {/* ── Footer ────────────────────────────────────────────────────────── */}
-        <footer style={{ borderTop: `1px solid ${BORDER}`, padding: '40px 32px', textAlign: 'center' }}>
+        <footer className="ll-footer-pad" style={{ borderTop: `1px solid ${BORDER}`, padding: '40px 32px', textAlign: 'center' }}>
           <p style={{ fontFamily: FONT_SERIF, fontSize: 20, color: GOLD, marginBottom: 16, letterSpacing: 1 }}>THE LEGACY LINK</p>
           <p style={{ fontFamily: FONT_SANS, fontSize: 11, color: MUTED, letterSpacing: .5, maxWidth: 600, margin: '0 auto' }}>
             {compliance || 'Apparel and merchandise are not affiliated with any insurance carrier.'}

@@ -5,6 +5,20 @@ import Link from 'next/link';
 
 const GOLD='#C8A45A';const BG='#1A1A1A';const CARD='#0B0B0B';const TEXT='#F2F0EA';const MUTED='#9A968D';const BORDER='#2A2A2A';
 const FS='"Cormorant Garamond","Georgia",serif';const SANS='"Inter",system-ui,sans-serif';
+
+function StoreStyles() {
+  return (
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;600;700;800&display=swap');
+      .ll-pd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+      .ll-pd-body { max-width: 1100px; margin: 0 auto; padding: 60px 24px; }
+      @media (max-width: 680px) {
+        .ll-pd-grid { grid-template-columns: 1fr; gap: 28px; }
+        .ll-pd-body { padding: 32px 16px; }
+      }
+    `}</style>
+  );
+}
 const CART_KEY='ll_store_cart_v1';
 function loadCart(){try{return JSON.parse(localStorage.getItem(CART_KEY)||'[]');}catch{return[];}}
 function saveCart(c){try{localStorage.setItem(CART_KEY,JSON.stringify(c));}catch{}}
@@ -43,7 +57,7 @@ export default function ProductPage() {
 
   return (
     <>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;600;700;800&display=swap');`}</style>
+      <StoreStyles />
       <div style={{ minHeight:'100vh', background:BG, color:TEXT }}>
         <nav style={{ padding:'20px 32px', borderBottom:`1px solid ${BORDER}`, display:'flex', alignItems:'center', gap:16 }}>
           <Link href="/store" style={{ fontFamily:SANS, fontSize:11, color:MUTED, textDecoration:'none', letterSpacing:1.5, textTransform:'uppercase' }}>← Store</Link>
@@ -51,7 +65,7 @@ export default function ProductPage() {
           <span style={{ fontFamily:SANS, fontSize:11, color:MUTED, letterSpacing:1 }}>{product.name}</span>
         </nav>
 
-        <div style={{ maxWidth:1100, margin:'0 auto', padding:'60px 24px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:64, alignItems:'start' }}>
+        <div className="ll-pd-body ll-pd-grid" style={{ maxWidth:1100, margin:'0 auto', padding:'60px 24px', display:'grid' }}>
           {/* Image */}
           <div style={{ background:'#111', borderRadius:8, overflow:'hidden', aspectRatio:'3/4' }}>
             {hasImage ? (
