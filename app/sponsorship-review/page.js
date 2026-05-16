@@ -180,7 +180,7 @@ export default function SponsorshipReviewPage() {
       const res = await fetch('/api/sponsorship-applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'reassign_sponsor', id, newSponsorName: reassignPick, reassignedBy: 'Kimora' })
+        body: JSON.stringify({ mode: 'reassign_sponsor', id, newSponsorName: reassignPick, reassignedBy: 'Kimora', previousSponsor: sponsorNameFromRow(rows.find(r => r.id === id) || {}) })
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok && d?.ok) {

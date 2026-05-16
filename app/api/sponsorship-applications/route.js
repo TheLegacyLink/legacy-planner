@@ -470,66 +470,156 @@ export async function GET(req) {
   return Response.json({ ok: true, rows: enriched });
 }
 
-// ─── GHL helpers (same pattern as lead-router) ─────────────────────────────────────
+// ─── GHL helpers — EXACT copy from lead-router (the working logic) ─────────────────────
 
-const FIXED_GHL_USER_IDS_SPONSORSHIP = {
+const SP_AGENT_NAME_ALIASES = {
+  'latricia wright': 'Leticia Wright', 'latrisha wright': 'Leticia Wright', 'letitia wright': 'Leticia Wright',
+  'kellen brown': 'Kelin Brown', 'madeline adams': 'Madalyn Adams',
+  'andrea': 'Andrea Cannon', 'angelica lassiter': 'Angelique Lassiter', 'angelic lassiter': 'Angelique Lassiter',
+  'donyellrichardson': 'Donyell Richardson', 'donyell richardson': 'Donyell Richardson'
+};
+const SP_FIXED_GHL_USER_IDS = {
   'donyell richardson': 'lAbJTT3VKc4Zd0PiS7On',
   'shannon maxwell': 'NdPZIvVsm7PMfIDS1ZkR'
 };
 
-function resolveGhlUserId(agentName = '') {
-  const n = clean(agentName).toLowerCase();
-  const fixed = FIXED_GHL_USER_IDS_SPONSORSHIP[n] || '';
-  if (fixed) return fixed;
+function spNormalizeAgent(name = '') {
+  const nm = clean(name);
+  return SP_AGENT_NAME_ALIASES[nm.toLowerCase()] || nm;
+}
+
+function spFindUserEmail(name = '') {
+  const n = clean(name).toLowerCase().replace(/\s+/g, ' ');
+  const hit = (users || []).find((u) => clean(u?.name || '').toLowerCase().replace(/\s+/g, ' ') === n);
+  if (clean(hit?.email)) return clean(hit.email);
   try {
-    const map = JSON.parse(process.env.GHL_USER_ID_MAP_JSON || '{}');
-    return clean(map[agentName] || map[n] || '');
+    const map = JSON.parse(process.env.LEAD_AGENT_EMAIL_MAP_JSON || '{}');
+    return clean(map[name] || map[n] || '');
   } catch { return ''; }
 }
 
-async function lookupGhlContactByEmail(email = '') {
+function spResolveGhlUserId(agentName = '') {
+  const resolved = spNormalizeAgent(agentName);
+  try {
+    const map = JSON.parse(process.env.GHL_USER_ID_MAP_JSON || '{}');
+    const direct = map[resolved] || map[agentName] || map[resolved.toLowerCase()] || map[agentName.toLowerCase()];
+    if (direct) return String(direct);
+  } catch { /* ignore */ }
+  const fixed = SP_FIXED_GHL_USER_IDS[resolved.toLowerCase()] || SP_FIXED_GHL_USER_IDS[agentName.toLowerCase()] || '';
+  if (fixed) return fixed;
+  return clean(process.env.GHL_FALLBACK_USER_ID || '');
+}
+
+async function spGetGhlContactTags(contactId, token) {
+  const headers = { Authorization: `Bearer ${token}`, Version: '2021-07-28' };
+  const bases = [clean(process.env.GHL_API_BASE_URL || ''), 'https://services.leadconnectorhq.com', 'https://rest.gohighlevel.com'].filter(Boolean);
+  for (const base of bases) {
+    for (const p of [`/contacts/${encodeURIComponent(contactId)}`, `/v1/contacts/${encodeURIComponent(contactId)}`]) {
+      try {
+        const res = await fetch(`${base.replace(/\/$/, '')}${p}`, { headers, cache: 'no-store' });
+        if (res.ok) {
+          const d = await res.json().catch(() => ({}));
+          const tags = d?.contact?.tags || d?.tags || [];
+          return Array.isArray(tags) ? tags.map(String) : [];
+        }
+      } catch { /* try next */ }
+    }
+  }
+  return [];
+}
+
+async function spLookupGhlContactByEmail(email = '') {
   const token = clean(process.env.GHL_API_TOKEN || '');
   if (!token || !email) return '';
   const headers = { Authorization: `Bearer ${token}`, Version: '2021-07-28' };
-  const bases = [
-    clean(process.env.GHL_API_BASE_URL || ''),
-    'https://services.leadconnectorhq.com',
-    'https://rest.gohighlevel.com'
-  ].filter(Boolean);
+  const locationId = clean(process.env.GHL_LOCATION_ID || '');
+  const bases = [clean(process.env.GHL_API_BASE_URL || ''), 'https://services.leadconnectorhq.com', 'https://rest.gohighlevel.com'].filter(Boolean);
+  // Try v2 with locationId, then v1 email search
   for (const base of bases) {
-    try {
-      const url = `${base.replace(/\/$/, '')}/contacts/?email=${encodeURIComponent(email)}`;
-      const res = await fetch(url, { headers, cache: 'no-store' });
-      if (res.ok) {
-        const d = await res.json().catch(() => ({}));
-        const id = clean(d?.contacts?.[0]?.id || d?.contact?.id || '');
-        if (id) return id;
-      }
-    } catch { /* try next */ }
+    const attempts = [];
+    if (locationId) attempts.push(`${base.replace(/\/$/, '')}/contacts/?locationId=${encodeURIComponent(locationId)}&email=${encodeURIComponent(email)}`);
+    attempts.push(`${base.replace(/\/$/, '')}/contacts/?email=${encodeURIComponent(email)}`);
+    attempts.push(`${base.replace(/\/$/, '')}/v1/contacts/?email=${encodeURIComponent(email)}`);
+    for (const url of attempts) {
+      try {
+        const res = await fetch(url, { headers, cache: 'no-store' });
+        if (res.ok) {
+          const d = await res.json().catch(() => ({}));
+          const id = clean(d?.contacts?.[0]?.id || d?.contact?.id || '');
+          if (id) return id;
+        }
+      } catch { /* try next */ }
+    }
   }
   return '';
 }
 
-async function assignGhlContactOwner(contactId = '', assignedUserId = '') {
+// Exact same logic as lead-router updateGhlContactOwner
+async function spUpdateGhlContactOwner({ contactId, assignedUserId }) {
   const token = clean(process.env.GHL_API_TOKEN || '');
-  if (!token || !contactId || !assignedUserId) return { ok: false, reason: 'missing_config' };
+  if (!token || !contactId || !assignedUserId) return { ok: false, reason: 'missing_ghl_config_or_ids' };
+  const LEGACY_TAG = clean(process.env.GHL_LEAD_TAG || 'legacy');
+  let existingTags = [];
+  try { existingTags = await spGetGhlContactTags(contactId, token); } catch { /* best-effort */ }
+  const mergedTags = existingTags.includes(LEGACY_TAG) ? existingTags : [...existingTags, LEGACY_TAG];
+  const body = JSON.stringify({ assignedTo: assignedUserId, tags: mergedTags });
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Version: '2021-07-28' };
-  const bases = [
-    clean(process.env.GHL_API_BASE_URL || ''),
-    'https://services.leadconnectorhq.com',
-    'https://rest.gohighlevel.com'
-  ].filter(Boolean);
+  const bases = [clean(process.env.GHL_API_BASE_URL || ''), 'https://services.leadconnectorhq.com', 'https://rest.gohighlevel.com'].filter(Boolean);
+  let lastError = 'unknown';
   for (const base of bases) {
-    for (const path of [`/contacts/${encodeURIComponent(contactId)}`, `/v1/contacts/${encodeURIComponent(contactId)}`]) {
+    for (const p of [`/contacts/${encodeURIComponent(contactId)}`, `/v1/contacts/${encodeURIComponent(contactId)}`]) {
+      const url = `${base.replace(/\/$/, '')}${p}`;
       try {
-        const res = await fetch(`${base.replace(/\/$/, '')}${path}`, {
-          method: 'PUT', headers, body: JSON.stringify({ assignedTo: assignedUserId }), cache: 'no-store'
-        });
-        if (res.ok) return { ok: true, contactId, assignedUserId };
-      } catch { /* try next */ }
+        const res = await fetch(url, { method: 'PUT', headers, body, cache: 'no-store' });
+        if (res.ok) return { ok: true, url, tagApplied: LEGACY_TAG };
+        const txt = await res.text().catch(() => '');
+        lastError = `${url} -> ${res.status} ${txt.slice(0, 200)}`;
+      } catch (err) { lastError = `${url} -> ${String(err?.message || err)}`; }
     }
   }
-  return { ok: false, reason: 'ghl_update_failed' };
+  return { ok: false, reason: 'ghl_update_failed', detail: lastError };
+}
+
+async function spSendSponsorReassignEmail({ newSponsor, previousSponsor, applicant = {} }) {
+  const to = spFindUserEmail(newSponsor);
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  if (!to || !user || !pass) return { ok: false, error: 'email_not_configured' };
+  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+  const applicantName = clean(`${applicant.firstName || ''} ${applicant.lastName || ''}`).trim() || 'a new prospect';
+  const subject = `New Sponsorship Assigned: ${applicantName}`;
+  const text = [
+    `Hi ${newSponsor},`,
+    '',
+    `You have been assigned a new sponsorship prospect: ${applicantName}.`,
+    `Email: ${clean(applicant.email || '—')}`,
+    `Phone: ${clean(applicant.phone || '—')}`,
+    `Previous Sponsor: ${previousSponsor || '—'}`,
+    '',
+    'Please follow up with them as soon as possible.',
+    '',
+    '— The Legacy Link Support Team'
+  ].join('\n');
+  try {
+    const info = await tx.sendMail({
+      from, to, cc: 'support@thelegacylink.com', subject, text,
+      html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;">
+        <h2>New Sponsorship Assigned</h2>
+        <p>Hi <strong>${newSponsor}</strong>,</p>
+        <p>You have been assigned a new sponsorship prospect.</p>
+        <ul>
+          <li><strong>Prospect:</strong> ${applicantName}</li>
+          <li><strong>Email:</strong> ${clean(applicant.email || '—')}</li>
+          <li><strong>Phone:</strong> ${clean(applicant.phone || '—')}</li>
+          <li><strong>Previous Sponsor:</strong> ${previousSponsor || '—'}</li>
+        </ul>
+        <p>Please follow up as soon as possible.</p>
+        <p>— The Legacy Link Support Team</p>
+      </div>`
+    });
+    return { ok: true, messageId: info?.messageId };
+  } catch (e) { return { ok: false, error: clean(e?.message || 'send_failed') }; }
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -709,23 +799,35 @@ export async function POST(req) {
     };
     await writeStore(store);
 
-    // Sync GHL contact owner — best-effort, never blocks the response
-    const applicantEmail = clean(store[idx]?.email || '');
-    const ghlUserId      = resolveGhlUserId(newSponsor);
+    const applicantEmail   = clean(store[idx]?.email || '');
+    const previousSponsor  = clean(body?.previousSponsor || '');
+    const ghlUserId        = spResolveGhlUserId(newSponsor);
     let ghlSync = { ok: false, reason: 'skipped' };
+
+    // GHL owner update — exact same logic as lead-router bulk release
     if (applicantEmail && ghlUserId) {
       try {
-        const contactId = await lookupGhlContactByEmail(applicantEmail);
-        if (contactId) ghlSync = await assignGhlContactOwner(contactId, ghlUserId);
-        else ghlSync = { ok: false, reason: 'contact_not_found_in_ghl' };
+        const contactId = await spLookupGhlContactByEmail(applicantEmail);
+        if (contactId) {
+          ghlSync = await spUpdateGhlContactOwner({ contactId, assignedUserId: ghlUserId });
+        } else {
+          ghlSync = { ok: false, reason: 'contact_not_found_in_ghl' };
+        }
       } catch (e) {
-        ghlSync = { ok: false, reason: String(e?.message || 'error') };
+        ghlSync = { ok: false, reason: String(e?.message || 'ghl_error') };
       }
-    } else if (!ghlUserId) {
-      ghlSync = { ok: false, reason: 'no_ghl_user_id_for_agent' };
+    } else {
+      ghlSync = { ok: false, reason: ghlUserId ? 'no_applicant_email' : 'no_ghl_user_id_for_agent', agent: newSponsor };
     }
 
-    return Response.json({ ok: true, row: store[idx], ghlSync });
+    // Email notification to new sponsor — same as lead router assignment email
+    const emailResult = await spSendSponsorReassignEmail({
+      newSponsor,
+      previousSponsor,
+      applicant: store[idx]
+    }).catch(() => ({ ok: false, error: 'email_throw' }));
+
+    return Response.json({ ok: true, row: store[idx], ghlSync, email: emailResult });
   }
 
   return Response.json({ ok: false, error: 'unsupported_mode' }, { status: 400 });
