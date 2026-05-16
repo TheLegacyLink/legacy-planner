@@ -2513,6 +2513,7 @@ export default function InnerCircleHubPage() {
               ) : null}
             </a>
             <a href={leadMarketplaceHref} target="_blank" rel="noreferrer" className="publicPrimaryBtn" style={{ textDecoration: 'none' }}>Lead Marketplace</a>
+            <a href="/agent-training" target="_blank" rel="noreferrer" style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid #C8A96B55', background: 'rgba(200,169,107,.1)', color: '#C8A96B', fontWeight: 700, fontSize: 13, textDecoration: 'none', display: 'inline-block' }}>🎓 Agent Training</a>
             <button type="button" className="ghost" onClick={() => setTab('dashboard')} style={{ marginRight: 4 }}>🏠 Home</button>
             <button type="button" className="ghost" onClick={logout}>Logout</button>
           </div>

@@ -1374,6 +1374,7 @@ export default function LicensedBackofficePage() {
                   </a>
                 </div>
               </div>
+              <a href="/agent-training" target="_blank" rel="noreferrer" style={{ borderRadius: 10, border: '1px solid #C8A96B55', padding: '8px 14px', background: 'rgba(200,169,107,.12)', color: '#C8A96B', cursor: 'pointer', fontWeight: 800, fontSize: 13, textDecoration: 'none', display: 'inline-block' }}>🎓 Training</a>
               <button onClick={() => setTab('upline')} style={{ borderRadius: 10, border: '1px solid #FCA5A5', padding: '8px 12px', background: '#B91C1C', color: '#fff', cursor: 'pointer', fontWeight: 800, boxShadow: '0 6px 18px rgba(127,29,29,.35)' }}>
                 Help
               </button>
