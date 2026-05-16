@@ -289,16 +289,38 @@ export default function AgentTrainingPage() {
   const [activeModule, setActive]     = useState(null);
   const [error, setError]             = useState('');
 
-  // Load session from licensed backoffice token
+  // Load session — check Licensed Back Office token first, then IC Hub session
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('licensed_backoffice_token') : '';
-    if (!token) { setLoading(false); return; }
-    fetch('/api/licensed-backoffice/auth/me', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
-      .then(r => r.json()).catch(() => ({}))
-      .then(d => {
-        if (d?.ok && d?.profile) setSession(d.profile);
-        setLoading(false);
-      });
+    async function resolveSession() {
+      if (typeof window === 'undefined') { setLoading(false); return; }
+
+      // 1) Try Licensed Back Office token
+      const boToken = localStorage.getItem('licensed_backoffice_token');
+      if (boToken) {
+        try {
+          const res = await fetch('/api/licensed-backoffice/auth/me', { headers: { Authorization: `Bearer ${boToken}` }, cache: 'no-store' });
+          const d = await res.json().catch(() => ({}));
+          if (d?.ok && d?.profile) { setSession({ ...d.profile, _source: 'backoffice' }); setLoading(false); return; }
+        } catch { /* fall through */ }
+      }
+
+      // 2) Try Inner Circle Hub session (already trusted — stored by IC Hub auth flow)
+      try {
+        const icRaw = localStorage.getItem('inner_circle_hub_member_v1');
+        if (icRaw) {
+          const ic = JSON.parse(icRaw);
+          if (ic?.email && ic?.name) {
+            // IC Hub members are Inner Circle — always licensed
+            setSession({ name: ic.name, email: ic.email, role: 'submitter', _source: 'ic_hub', _icMember: true });
+            setLoading(false);
+            return;
+          }
+        }
+      } catch { /* fall through */ }
+
+      setLoading(false);
+    }
+    resolveSession();
   }, []);
 
   // Load training content + progress
@@ -355,7 +377,8 @@ export default function AgentTrainingPage() {
   }
 
   // ─── Not licensed ─────────────────────────────────────────────────────────
-  const isLicensed = normalize(session?.role || '') !== 'unlicensed';
+  // IC Hub members are always licensed (Inner Circle requires a license)
+  const isLicensed = Boolean(session?._icMember) || normalize(session?.role || '') !== 'unlicensed';
   if (!isLicensed) {
     return (
       <div style={S.page}>
