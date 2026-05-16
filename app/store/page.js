@@ -291,9 +291,13 @@ export default function StorePage() {
   const cartCount = cart.reduce((s, i) => s + (i.quantity || 1), 0);
 
   const filtered = useMemo(() => {
-    if (activeFilter === 'all') return products;
+    // When showing all, exclude items already shown in Featured/New spotlights
+    if (activeFilter === 'all') {
+      const spotlighted = new Set([...featured, ...newItems].map(p => p.sku));
+      return products.filter(p => !spotlighted.has(p.sku));
+    }
     return products.filter(p => p.category === activeFilter);
-  }, [products, activeFilter]);
+  }, [products, activeFilter, featured, newItems]);
 
   return (
     <>
@@ -393,7 +397,7 @@ export default function StorePage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 36 }}>
               <div style={{ width: 32, height: 1, background: GOLD }} />
               <span style={{ fontFamily: FONT_SANS, fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: GOLD }}>
-                {activeFilter === 'all' ? 'All Products' : activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)}
+                {activeFilter === 'all' ? 'The Collection' : activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)}
               </span>
             </div>
             {loading ? (
