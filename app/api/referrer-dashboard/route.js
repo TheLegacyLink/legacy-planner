@@ -291,7 +291,7 @@ export async function GET(req) {
       bucket: approved ? 'on_track' : 'needs_followup',
       submittedAt: clean(app?.submitted_at || app?.submittedAt || ''),
       lastActivityAt: clean(app?.updatedAt || app?.submitted_at || member?.updatedAt || ''),
-      sopUrl: invite?.token ? `${appUrl}/sponsorship-sop?invite=${encodeURIComponent(invite.token)}` : `${appUrl}/sponsorship-sop`
+      sopUrl: `${appUrl}/start`
     });
   }
 
@@ -332,7 +332,7 @@ export async function GET(req) {
         monthlyPremium: Number(p?.monthlyPremium || 0) || 0,
         viewerPayout: Number(payout.payout || 0),
         viewerPayoutRole: payout.role,
-        sopUrl: invite?.token ? `${appUrl}/sponsorship-sop?invite=${encodeURIComponent(invite.token)}` : `${appUrl}/sponsorship-sop`
+        sopUrl: `${appUrl}/start`
       };
     })
     .sort((a, b) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime());

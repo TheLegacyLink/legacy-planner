@@ -750,7 +750,7 @@ export async function POST(req) {
       inviteToken = invite.token;
 
       const appUrl = clean(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
-      sopLink = `${appUrl}/sponsorship-sop?invite=${encodeURIComponent(inviteToken)}`;
+      sopLink = `${appUrl}/start`;
 
       inviteEmail = await sendSopInviteEmail({
         to: clean(member.email),

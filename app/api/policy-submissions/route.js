@@ -997,7 +997,7 @@ async function ensureSopProvisionFromActSubmit(row = {}) {
   const authProvision = upsertAuthUser(authUsers, member);
 
   const appUrl = clean(process.env.NEXT_PUBLIC_APP_URL || 'https://innercirclelink.com').replace(/\/$/, '');
-  const sopLink = `${appUrl}/sponsorship-sop?invite=${encodeURIComponent(invite.token)}`;
+  const sopLink = `${appUrl}/start`;
 
   const isLicensed = isLicensedValue(row?.applicantLicensedStatus);
 

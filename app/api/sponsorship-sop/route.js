@@ -415,7 +415,7 @@ export async function POST(req) {
     await saveJsonFile(INVITES_PATH, invites);
 
     const origin = clean(body?.origin) || clean(process.env.NEXT_PUBLIC_APP_URL) || 'https://innercirclelink.com';
-    const inviteUrl = `${origin.replace(/\/$/, '')}/sponsorship-sop?invite=${encodeURIComponent(invite.token)}`;
+    const inviteUrl = `${origin.replace(/\/$/, '')}/start`;
     return Response.json({ ok: true, invite, inviteUrl });
   }
 
