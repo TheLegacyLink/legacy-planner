@@ -16,10 +16,10 @@ const FONT_SERIF = '"Cormorant Garamond", "Didot", "Georgia", serif';
 const FONT_SANS  = '"Inter", "DM Sans", system-ui, sans-serif';
 
 const TAG_STYLES = {
-  FEATURED:  { background: GOLD,    color: '#0B0B0B', border: 'none' },
-  NEW:       { background: 'transparent', color: GOLD, border: `1px solid ${GOLD}` },
-  EARN_ONLY: { background: '#1a1200', color: GOLD, border: `1px solid ${GOLD}55` },
-  SOLD_OUT:  { background: '#1a1a1a', color: MUTED, border: '1px solid #3a3a3a' }
+  FEATURED:      { background: GOLD,    color: '#0B0B0B', border: 'none' },
+  NEW:           { background: 'transparent', color: GOLD, border: `1px solid ${GOLD}` },
+  'EARN ONLY':   { background: '#1a1200', color: GOLD, border: `1px solid ${GOLD}55` },
+  SOLD_OUT:      { background: '#1a1a1a', color: MUTED, border: '1px solid #3a3a3a' }
 };
 
 /* ─── Cart atom ──────────────────────────────────────────────────────────────── */
@@ -91,7 +91,7 @@ function ProductCard({ product, onAddToCart }) {
           {/* Tag pill — top left */}
           {tagStyle && (
             <div style={{ position: 'absolute', top: 14, left: 14, padding: '5px 12px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', fontFamily: FONT_SANS, ...tagStyle }}>
-              {product.tag === 'FEATURED' ? `— ${product.tag}` : product.tag}
+              {product.tag === 'FEATURED' ? `— ${product.tag}` : product.tag === 'EARN ONLY' ? '★ EARN ONLY' : product.tag}
             </div>
           )}
 
@@ -125,38 +125,29 @@ function ProductCard({ product, onAddToCart }) {
           </p>
         </div>
 
-        {/* Size selector */}
+        {/* Size selector / Earn Only gate */}
         <div style={{ marginTop: 'auto' }}>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-            {product.sizes.map(s => (
-              <button
-                key={s}
-                onClick={() => setSelectedSize(s)}
-                style={{
-                  padding: '5px 10px', borderRadius: 4, fontSize: 11, fontFamily: FONT_SANS, fontWeight: 600,
-                  letterSpacing: .5, border: `1px solid ${selectedSize === s ? GOLD : '#333'}`,
-                  background: selectedSize === s ? GOLD + '18' : 'transparent',
-                  color: selectedSize === s ? GOLD : MUTED, cursor: 'pointer', transition: 'all .15s'
-                }}
-              >
-                {s}
+          {product.earnOnly ? (
+            <div style={{ padding: '14px 16px', borderRadius: 4, border: `1px solid ${GOLD}33`, background: 'rgba(200,164,90,.06)', textAlign: 'center' }}>
+              <p style={{ fontFamily: FONT_SANS, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: GOLD, fontWeight: 700, margin: '0 0 4px' }}>Not For Sale</p>
+              <p style={{ fontFamily: FONT_SANS, fontSize: 12, color: MUTED, margin: 0, lineHeight: 1.5 }}>This piece is earned through the Inner Circle program.</p>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                {product.sizes.map(s => (
+                  <button key={s} onClick={() => setSelectedSize(s)}
+                    style={{ padding: '5px 10px', borderRadius: 4, fontSize: 11, fontFamily: FONT_SANS, fontWeight: 600, letterSpacing: .5, border: `1px solid ${selectedSize === s ? GOLD : '#333'}`, background: selectedSize === s ? GOLD + '18' : 'transparent', color: selectedSize === s ? GOLD : MUTED, cursor: 'pointer', transition: 'all .15s' }}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <button onClick={handleAdd} disabled={!selectedSize}
+                style={{ width: '100%', padding: '11px', borderRadius: 4, border: 'none', background: added ? '#1a3a1a' : selectedSize ? GOLD : '#1e1e1e', color: added ? '#4ade80' : selectedSize ? '#0B0B0B' : '#3a3a3a', fontFamily: FONT_SANS, fontWeight: 700, fontSize: 13, letterSpacing: 1, textTransform: 'uppercase', cursor: selectedSize ? 'pointer' : 'default', transition: 'all .2s' }}>
+                {added ? '✓ Added' : adding ? '...' : selectedSize ? 'Add to Cart' : 'Select a Size'}
               </button>
-            ))}
-          </div>
-          <button
-            onClick={handleAdd}
-            disabled={!selectedSize}
-            style={{
-              width: '100%', padding: '11px', borderRadius: 4, border: 'none',
-              background: added ? '#1a3a1a' : selectedSize ? GOLD : '#1e1e1e',
-              color: added ? '#4ade80' : selectedSize ? '#0B0B0B' : '#3a3a3a',
-              fontFamily: FONT_SANS, fontWeight: 700, fontSize: 13, letterSpacing: 1,
-              textTransform: 'uppercase', cursor: selectedSize ? 'pointer' : 'default',
-              transition: 'all .2s'
-            }}
-          >
-            {added ? '✓ Added' : adding ? '...' : selectedSize ? 'Add to Cart' : 'Select a Size'}
-          </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -291,12 +282,12 @@ export default function StorePage() {
   const cartCount = cart.reduce((s, i) => s + (i.quantity || 1), 0);
 
   const filtered = useMemo(() => {
-    // When showing all, exclude items already shown in Featured/New spotlights
+    // When showing all, exclude items already shown in Featured/New/EarnOnly spotlights
     if (activeFilter === 'all') {
       const spotlighted = new Set([...featured, ...newItems].map(p => p.sku));
-      return products.filter(p => !spotlighted.has(p.sku));
+      return products.filter(p => !spotlighted.has(p.sku) && !p.earnOnly);
     }
-    return products.filter(p => p.category === activeFilter);
+    return products.filter(p => p.category === activeFilter && !p.earnOnly);
   }, [products, activeFilter, featured, newItems]);
 
   return (
@@ -419,6 +410,21 @@ export default function StorePage() {
               </div>
               <div className="ll-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
                 {newItems.map(p => <ProductCard key={p.sku} product={p} onAddToCart={addToCart} />)}
+              </div>
+            </section>
+          )}
+
+
+          {/* ── Earn Only ─────────────────────────────────────────────────── */}
+          {activeFilter === 'all' && products.filter(p => p.earnOnly).length > 0 && (
+            <section style={{ marginBottom: 80 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+                <div style={{ width: 32, height: 1, background: GOLD }} />
+                <span style={{ fontFamily: FONT_SANS, fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: GOLD }}>&#9733; Earn Only</span>
+              </div>
+              <p style={{ fontFamily: FONT_SANS, fontSize: 13, color: MUTED, marginBottom: 28, letterSpacing: .3 }}>These pieces are not for sale. They are earned through the Inner Circle program.</p>
+              <div className="ll-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
+                {products.filter(p => p.earnOnly).map(p => <ProductCard key={p.sku} product={p} onAddToCart={addToCart} />)}
               </div>
             </section>
           )}
