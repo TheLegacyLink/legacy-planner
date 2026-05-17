@@ -372,7 +372,15 @@ export default function StorePage() {
         <section style={{ textAlign: 'center', padding: '100px 24px 80px', position: 'relative', className: undefined }}>
           <div style={{ width: 48, height: 1, background: GOLD, margin: '0 auto 32px' }} />
           <h1 style={{ fontFamily: FONT_SERIF, fontSize: 'clamp(42px, 6vw, 80px)', fontWeight: 600, color: TEXT, lineHeight: 1.1, letterSpacing: '-1px', maxWidth: 800, margin: '0 auto 24px', whiteSpace: 'pre-line' }}>
-            {hero.headline || 'Build something the world\ncan\'t take back.'}
+            {(hero.headline || 'Every Legacy\nNeeds A Link.').split('\n').map((line, li) => (
+              <span key={li} style={{ display: 'block' }}>
+                {line.split(/(Legacy|Link)/g).map((part, pi) =>
+                  (part === 'Legacy' || part === 'Link')
+                    ? <span key={pi} style={{ color: GOLD }}>{part}</span>
+                    : part
+                )}
+              </span>
+            ))}
           </h1>
           <p style={{ fontFamily: FONT_SANS, fontSize: 15, color: MUTED, maxWidth: 480, margin: '0 auto 40px', lineHeight: 1.7, letterSpacing: '.3px' }}>
             {hero.tagline || 'Representing the standard you live by — not just what you wear.'}
