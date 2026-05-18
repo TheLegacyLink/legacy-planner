@@ -386,6 +386,14 @@ export default function UnlicensedBackofficePage() {
                 Help
               </button>
               <a href="/community-service?home=/unlicensed-backoffice" className="ghost" style={{ textDecoration: 'none', borderRadius: 10, border: '1px solid #334155', padding: '8px 12px', background: '#111827', color: '#E5E7EB' }}>Community Service</a>
+              {DEMO_EMAILS.includes(clean(profile?.email || '').toLowerCase()) && (
+                <a
+                  href="/licensed-backoffice"
+                  style={{ borderRadius: 10, border: '1px solid #C8A96B', padding: '8px 14px', background: 'rgba(200,169,107,.12)', color: '#C8A96B', fontWeight: 800, fontSize: 13, textDecoration: 'none', display: 'inline-block' }}
+                >
+                  🎟️ Preview Licensed Demo
+                </a>
+              )}
               <button onClick={logout} style={{ borderRadius: 10, border: '1px solid #334155', padding: '8px 12px', background: '#111827', color: '#E5E7EB' }}>Sign Out</button>
             </div>
           </div>

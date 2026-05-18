@@ -1378,6 +1378,29 @@ export default function LicensedBackofficePage() {
               <button onClick={() => setTab('upline')} style={{ borderRadius: 10, border: '1px solid #FCA5A5', padding: '8px 12px', background: '#B91C1C', color: '#fff', cursor: 'pointer', fontWeight: 800, boxShadow: '0 6px 18px rgba(127,29,29,.35)' }}>
                 Help
               </button>
+              {session?.isDemo && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/unlicensed-backoffice/auth/demo-login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: session.email })
+                      });
+                      const data = await res.json().catch(() => ({}));
+                      if (data?.ok && data?.token) {
+                        if (typeof window !== 'undefined') {
+                          window.localStorage.setItem('unlicensed_backoffice_token', data.token);
+                        }
+                        window.location.href = '/unlicensed-backoffice';
+                      }
+                    } catch {}
+                  }}
+                  style={{ borderRadius: 10, border: '1px solid #3b82f6', padding: '8px 14px', background: '#1d4ed8', color: '#fff', cursor: 'pointer', fontWeight: 800, fontSize: 13 }}
+                >
+                  👥 Preview Unlicensed Demo
+                </button>
+              )}
               <button onClick={logout} style={{ borderRadius: 10, border: '1px solid #334155', padding: '8px 12px', background: '#111827', color: '#E5E7EB', cursor: 'pointer', transition: 'all .18s ease', boxShadow: '0 6px 18px rgba(2,6,23,.25)' }}>Sign Out</button>
             </div>
           </div>
