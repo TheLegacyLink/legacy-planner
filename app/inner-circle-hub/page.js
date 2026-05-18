@@ -1420,15 +1420,14 @@ export default function InnerCircleHubPage() {
   }, [toAbsoluteLink]);
 
   const contractLinks = useMemo(() => {
-    const agentGatewayUrl = toAbsoluteLink(process.env.NEXT_PUBLIC_AGENT_GATEWAY_URL || '/start');
     return [
       {
-        name: 'Contract Agreement Page',
-        url: toAbsoluteLink('/contract-agreement')
+        name: 'Licensed Agent Back Office',
+        url: toAbsoluteLink('/licensed-backoffice')
       },
       {
-        name: 'Agent Gateway (Licensed / Unlicensed)',
-        url: agentGatewayUrl
+        name: 'Unlicensed Agent Back Office',
+        url: toAbsoluteLink('/unlicensed-backoffice')
       }
     ];
   }, [toAbsoluteLink]);
