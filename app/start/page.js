@@ -245,6 +245,7 @@ export default function StartPortalPage() {
   const [policyElect, setPolicyElect] = useState(''); // 'yes' | 'no'
   const [notice, setNotice] = useState('');
   const [signedAt, setSignedAt] = useState('');
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false);
 
   // Typed-name sig state
   const [typedName, setTypedName] = useState('');
@@ -305,7 +306,12 @@ export default function StartPortalPage() {
         setError(msg);
         return;
       }
-      setNotice('Code sent! Check your email (including spam).');
+      setAlreadyRegistered(Boolean(data?.alreadyRegistered));
+      setNotice(
+        data?.alreadyRegistered
+          ? 'Welcome back! A login code was sent to your email.'
+          : 'Code sent! Check your email (including spam).'
+      );
       setStage('otp');
     } finally { setBusy(false); }
   }
@@ -465,6 +471,12 @@ export default function StartPortalPage() {
         {/* ── STAGE: OTP ── */}
         {stage === 'otp' && (
           <>
+            {alreadyRegistered && (
+              <div style={{ background: '#0f2a1a', border: '1px solid #16a34a', borderRadius: 10, padding: '12px 14px', marginBottom: 4 }}>
+                <p style={{ margin: 0, color: '#86efac', fontWeight: 700, fontSize: 14 }}>You already have an account — welcome back!</p>
+                <p style={{ margin: '4px 0 0', color: '#6ee7b7', fontSize: 13 }}>Enter the code sent to your email to log back into your back office.</p>
+              </div>
+            )}
             <label style={labelStyle}>
               6-Digit Code
               <input
