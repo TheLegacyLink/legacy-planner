@@ -53,8 +53,37 @@ async function queuePendingVerification({ email = '', fullName = '', phone = '',
   return row;
 }
 
+// Demo/preview users — Inner Circle members who need access for onboarding demos
+const LICENSED_PREVIEW_USERS = [
+  {
+    email: 'leticiawright05@gmail.com',
+    name: 'Leticia Wright',
+    agentId: 'demo_leticia_wright',
+    homeState: 'GA',
+    carriersActive: ['F&G', 'Mutual of Omaha'],
+    isDemo: true
+  }
+];
+
 export async function resolveLicensedProfile({ email = '', fullName = '', phone = '' } = {}) {
   const e = clean(email).toLowerCase();
+
+  // 0) Demo/preview allowlist (Inner Circle onboarding demos)
+  const preview = LICENSED_PREVIEW_USERS.find((u) => clean(u.email).toLowerCase() === e);
+  if (preview) {
+    return {
+      ok: true,
+      profile: {
+        email: clean(preview.email).toLowerCase(),
+        name: clean(preview.name),
+        agentId: clean(preview.agentId),
+        homeState: clean(preview.homeState),
+        carriersActive: Array.isArray(preview.carriersActive) ? preview.carriersActive : [],
+        isDemo: true
+      },
+      via: 'preview_user'
+    };
+  }
 
   // 1) Exact licensed email
   const byEmail = findLicensedByEmail(e);

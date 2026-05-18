@@ -76,6 +76,7 @@ export default function LeadRouterControlPage() {
   const [error, setError] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
+  const [recentEvents, setRecentEvents] = useState([]);
 
   useEffect(() => {
     fetch('/api/lead-router', { cache: 'no-store' })
@@ -85,6 +86,7 @@ export default function LeadRouterControlPage() {
         else setError('Could not load settings.');
         if (d?.counts) setCounts(d.counts);
         if (Array.isArray(d?.calledLeadRows)) setLeadRows(d.calledLeadRows);
+        if (Array.isArray(d?.recent)) setRecentEvents(d.recent);
       })
       .catch(() => setError('Failed to connect to lead router.'))
       .finally(() => setLoading(false));
@@ -205,13 +207,15 @@ export default function LeadRouterControlPage() {
     return Math.max(fromEvents, fromRows);
   }
 
-  // Recent assignments for at-a-glance sidebar — must be before early return
+  // Recent assignments for at-a-glance sidebar — built from events for accurate timestamps, excludes overflow
+  const overflowAgentName = settings?.overflowAgent || 'Kimora Link';
   const recentAssignments = useMemo(() => {
-    return [...leadRows]
-      .filter((r) => r?.owner || r?.assignedTo)
-      .sort((a, b) => new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime())
-      .slice(0, 25);
-  }, [leadRows]);
+    return recentEvents
+      .filter((e) => e?.type === 'assigned' && e?.assignedTo && e.assignedTo !== overflowAgentName)
+      .sort((a, b) => new Date(b?.timestamp || 0).getTime() - new Date(a?.timestamp || 0).getTime())
+      .slice(0, 25)
+      .map((e) => ({ id: e.leadId || e.id, name: e.name, owner: e.assignedTo, createdAt: e.timestamp }));
+  }, [recentEvents, overflowAgentName]);
 
   if (loading) {
     return (

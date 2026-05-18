@@ -61,8 +61,19 @@ const AGENT_NAME_ALIASES = {
 };
 
 const FIXED_GHL_USER_IDS = {
+  'kimora link': 'iy1WzfhEHXaI5F637U0F',
+  'jamal holmes': 'Gh7J9SiFRpzT1nS1lPFB',
+  'mahogany burns': 'RDEgEcrGxHbqRLuVZ22b',
+  'leticia wright': 'I9nwDZsv0HP0GROoVUBm',
+  'kelin brown': 'IoGkWVZEYwhp41qYa5Am',
+  'madalyn adams': 'FuF9KuVPMBbQdQRHxqkj',
+  'breanna james': 'UDKjqrAVUIuBS9h1NoRl',
+  'dr. breanna james': 'UDKjqrAVUIuBS9h1NoRl',
   'donyell richardson': 'lAbJTT3VKc4Zd0PiS7On',
-  'shannon maxwell': 'NdPZIvVsm7PMfIDS1ZkR'
+  'shannon maxwell': 'NdPZIvVsm7PMfIDS1ZkR',
+  'mirick whaley': 'cQxQQ7YuDN1wLk8f5nhI',
+  'weiner merchant crumbly': 'ETglC9HYN105cxbm6mlx',
+  'deshae ford': '2FGkAJuLhGHN7Sf7aRjo'
 };
 
 function normalizeAgentLabel(name = '') {
@@ -150,7 +161,11 @@ function hadPriorAssignments(events = [], assignedTo = '') {
   return (events || []).some((e) => ASSIGNMENT_EVENT_TYPES.has(clean(e?.type || '')) && normalizeAgentLabel(e?.assignedTo || '').toLowerCase() === target);
 }
 
-async function sendLeadAssignedEmail({ assignedTo = '', previousOwner = '', row = {}, reason = '', isFirstLead = false, agentDirectory = null } = {}) {
+function toTitleCase(str = '') {
+  return clean(str).replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
+async function sendLeadAssignedEmail({ assignedTo = '', row = {}, agentDirectory = null } = {}) {
   const to = findUserEmailByName(assignedTo, agentDirectory);
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
@@ -158,24 +173,9 @@ async function sendLeadAssignedEmail({ assignedTo = '', previousOwner = '', row 
   if (!to || !user || !pass) return { ok: false, error: 'email_not_configured' };
 
   const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
-  const leadName = clean(row?.name || 'Unknown Lead');
+  const leadName = toTitleCase(row?.name || 'Unknown Lead');
   const leadPhone = clean(row?.phone || '—');
   const leadEmail = clean(row?.email || '—');
-
-  const leadConnectorUrl = clean(process.env.LEAD_CONNECTOR_URL || 'https://app.gohighlevel.com');
-  const cred = leadConnectorCredentialForAgent(assignedTo, agentDirectory);
-
-  const onboardingText = isFirstLead ? [
-    '',
-    'First Lead Setup (save this):',
-    `Lead Connector Login: ${leadConnectorUrl}`,
-    cred?.email ? `Login Email: ${cred.email}` : 'Login Email: (use your assigned login)',
-    cred?.password ? `Temporary Password: ${cred.password}` : '',
-    'Back Office: https://innercirclelink.com/referrer-dashboard',
-    '',
-    'Suggested first-contact script:',
-    '“Hi [First Name], this is [Your Name] with The Legacy Link. I saw your request and wanted to connect quickly to answer any questions and help you get started.”'
-  ].filter(Boolean) : [];
 
   const subject = `New Lead Assigned: ${leadName}`;
   const text = [
@@ -186,30 +186,16 @@ async function sendLeadAssignedEmail({ assignedTo = '', previousOwner = '', row 
     `Lead: ${leadName}`,
     `Phone: ${leadPhone}`,
     `Email: ${leadEmail}`,
-    `Previous Owner: ${previousOwner || '—'}`,
-    `Assignment Type: ${reason || 'router_assignment'}`,
-    ...onboardingText,
     '',
     'Please reach out as soon as possible.',
     '',
     '— The Legacy Link Support Team'
   ].join('\n');
 
-  const onboardingHtml = isFirstLead ? `
-    <div style="margin-top:14px;padding:12px;border:1px solid #c7d2fe;border-radius:10px;background:#eef2ff;">
-      <p style="margin:0 0 8px;"><strong>First Lead Setup (save this)</strong></p>
-      <p style="margin:4px 0;"><strong>Lead Connector:</strong> <a href="${leadConnectorUrl}" target="_blank" rel="noreferrer">${leadConnectorUrl}</a></p>
-      <p style="margin:4px 0;"><strong>Login Email:</strong> ${cred?.email || '(use your assigned login)'}</p>
-      ${cred?.password ? `<p style="margin:4px 0;"><strong>Temporary Password:</strong> ${cred.password}</p>` : ''}
-      <p style="margin:4px 0;"><strong>Back Office:</strong> <a href="https://innercirclelink.com/referrer-dashboard" target="_blank" rel="noreferrer">https://innercirclelink.com/referrer-dashboard</a></p>
-      <p style="margin:8px 0 0;"><strong>Suggested first-contact script:</strong><br/>“Hi [First Name], this is [Your Name] with The Legacy Link. I saw your request and wanted to connect quickly to answer any questions and help you get started.”</p>
-    </div>` : '';
-
   try {
     const info = await tx.sendMail({
       from,
       to,
-      cc: 'support@thelegacylink.com',
       subject,
       text,
       html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;">
@@ -220,10 +206,7 @@ async function sendLeadAssignedEmail({ assignedTo = '', previousOwner = '', row 
           <li><strong>Lead:</strong> ${leadName}</li>
           <li><strong>Phone:</strong> ${leadPhone}</li>
           <li><strong>Email:</strong> ${leadEmail}</li>
-          <li><strong>Previous Owner:</strong> ${previousOwner || '—'}</li>
-          <li><strong>Assignment Type:</strong> ${reason || 'router_assignment'}</li>
         </ul>
-        ${onboardingHtml}
         <p>Please reach out as soon as possible.</p>
         <p>— The Legacy Link Support Team</p>
       </div>`
@@ -539,11 +522,13 @@ function agentWithinCapsAndWindow(agent, settings, counts, minute) {
   const capDay = agent.capPerDay == null ? Number(settings.maxPerDay || 0) : Number(agent.capPerDay || 0);
   const capWeek = agent.capPerWeek == null ? Number(settings.maxPerWeek || 0) : Number(agent.capPerWeek || 0);
   const capMonth = agent.capPerMonth == null ? Number(settings.maxPerMonth || 0) : Number(agent.capPerMonth || 0);
+  const capTotal = agent.capTotal == null || agent.capTotal === '' ? 0 : Number(agent.capTotal || 0);
 
-  const count = counts[agent.name] || { today: 0, week: 0, month: 0 };
+  const count = counts[agent.name] || { today: 0, week: 0, month: 0, total: 0 };
   if (capDay > 0 && count.today >= capDay) return false;
   if (capWeek > 0 && count.week >= capWeek) return false;
   if (capMonth > 0 && count.month >= capMonth) return false;
+  if (capTotal > 0 && count.total >= capTotal) return false;
   return true;
 }
 
@@ -576,7 +561,9 @@ function withDefaults(raw = {}) {
       windowEnd: clean(current?.windowEnd || '21:00') || '21:00',
       capPerDay: current?.capPerDay == null || current?.capPerDay === '' ? null : Number(current.capPerDay),
       capPerWeek: current?.capPerWeek == null || current?.capPerWeek === '' ? null : Number(current.capPerWeek),
-      capPerMonth: current?.capPerMonth == null || current?.capPerMonth === '' ? null : Number(current.capPerMonth)
+      capPerMonth: current?.capPerMonth == null || current?.capPerMonth === '' ? null : Number(current.capPerMonth),
+      capTotal: current?.capTotal == null || current?.capTotal === '' ? null : Number(current.capTotal),
+      group: current?.group ?? (DEFAULT_CONFIG?.agentGroups?.[name] || 'sponsorship')
     };
   });
 
@@ -849,16 +836,17 @@ const ASSIGNMENT_EVENT_TYPES = new Set(['assigned', 'delayed_release_assigned', 
 
 function buildAgentCounts(settings, events, keys, leads = []) {
   const counts = {};
-  for (const a of settings.agents) counts[a.name] = { today: 0, week: 0, month: 0 };
+  for (const a of settings.agents) counts[a.name] = { today: 0, week: 0, month: 0, total: 0 };
 
   // Count from events (historical)
   for (const e of events) {
     if (!ASSIGNMENT_EVENT_TYPES.has(clean(e?.type || ''))) continue;
     const owner = clean(e?.assignedTo || '');
-    if (!counts[owner]) counts[owner] = { today: 0, week: 0, month: 0 };
+    if (!counts[owner]) counts[owner] = { today: 0, week: 0, month: 0, total: 0 };
     if (e?.dateKey === keys.dateKey) counts[owner].today += 1;
     if (e?.weekKey === keys.weekKey) counts[owner].week += 1;
     if (e?.monthKey === keys.monthKey) counts[owner].month += 1;
+    counts[owner].total += 1;
   }
 
   // Also count directly from leads store (catches concurrent assignments events haven't recorded yet)
@@ -873,7 +861,7 @@ function buildAgentCounts(settings, events, keys, leads = []) {
     const rowDateKey = cstDateKey(d);
     const rowWeekKey = cstWeekKey(d);
     const rowMonthKey = cstMonthKey(d);
-    if (!leadCounts[owner]) leadCounts[owner] = { today: 0, week: 0, month: 0 };
+    if (!leadCounts[owner]) leadCounts[owner] = { today: 0, week: 0, month: 0, total: 0 };
     if (rowDateKey === keys.dateKey) leadCounts[owner].today += 1;
     if (rowWeekKey === keys.weekKey) leadCounts[owner].week += 1;
     if (rowMonthKey === keys.monthKey) leadCounts[owner].month += 1;
@@ -881,7 +869,7 @@ function buildAgentCounts(settings, events, keys, leads = []) {
 
   // Use the higher of events vs lead-row counts (more conservative = better cap enforcement)
   for (const owner of new Set([...Object.keys(counts), ...Object.keys(leadCounts)])) {
-    if (!counts[owner]) counts[owner] = { today: 0, week: 0, month: 0 };
+    if (!counts[owner]) counts[owner] = { today: 0, week: 0, month: 0, total: 0 };
     counts[owner].today = Math.max(counts[owner].today, leadCounts[owner]?.today || 0);
     counts[owner].week = Math.max(counts[owner].week, leadCounts[owner]?.week || 0);
     counts[owner].month = Math.max(counts[owner].month, leadCounts[owner]?.month || 0);
@@ -1227,10 +1215,7 @@ async function runDelayedReleasePass({ settings, leads, events, submittedBlockLo
 
     const emailNotify = await sendLeadAssignedEmail({
       assignedTo: picked.name,
-      previousOwner,
       row,
-      reason: '24h_no_sponsorship_submit',
-      isFirstLead: isFirstLeadForAgent,
       agentDirectory
     });
     events.push({
@@ -1644,10 +1629,7 @@ export async function PATCH(req) {
 
       const emailNotify = await sendLeadAssignedEmail({
         assignedTo: pickedName,
-        previousOwner,
         row,
-        reason: row.releaseReason,
-        isFirstLead: isFirstLeadForAgent,
         agentDirectory
       });
       events.push({
@@ -1766,10 +1748,7 @@ export async function PATCH(req) {
           const isFirstLead = (todayCounts[assignedTo] || 0) + catchUpResults.filter((r) => r.assignedTo === assignedTo).length === 0;
           const emailResult = await sendLeadAssignedEmail({
             assignedTo,
-            previousOwner: overflowName,
             row: lead,
-            reason: 'catch_up_redistribution',
-            isFirstLead,
             agentDirectory,
           });
 
@@ -1788,7 +1767,7 @@ export async function PATCH(req) {
         await saveJsonStore(EVENTS_PATH, trimmed);
       }
     } catch (e) {
-      // Non-fatal — settings were already saved
+      // Non-fatal - settings were already saved
       catchUpResults.push({ error: String(e?.message || e) });
     }
   }
@@ -1988,6 +1967,7 @@ export async function POST(req) {
     }
   }
 
+  const previousOwnerLive = existingIdx >= 0 ? clean(leads[existingIdx]?.owner || '') : '';
   if (existingIdx >= 0) leads[existingIdx] = row;
   else leads.push(row);
   await saveJsonStore(CALLER_PATH, leads);
@@ -2009,6 +1989,57 @@ export async function POST(req) {
     mode: settings.mode,
     routingMode: settings.routingMode || 'live'
   });
+  // GHL owner sync for ALL live assignments (overflow + agents)
+  // Email notification only for non-overflow agents
+  if (assignedTo) {
+    const isNonOverflow = assignedTo !== (settings.overflowAgent || 'Kimora Link');
+    const isFirstLeadForAgent = isNonOverflow ? !hadPriorAssignments(events, assignedTo) : false;
+
+    const ghlSync = await syncGhlOwnerForRelease({ row, assignedTo, agentDirectory });
+    events.push({
+      id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: 'ghl_owner_sync',
+      timestamp: nowIso(),
+      dateKey: keys.dateKey,
+      weekKey: keys.weekKey,
+      monthKey: keys.monthKey,
+      leadId: row.id,
+      externalId: row.externalId || '',
+      name: row.name || '',
+      email: row.email || '',
+      phone: row.phone || '',
+      assignedTo,
+      ok: Boolean(ghlSync?.ok),
+      reason: clean(ghlSync?.error || ghlSync?.reason || ''),
+      detail: ''
+    });
+
+    if (isNonOverflow) {
+      const emailNotify = await sendLeadAssignedEmail({
+        assignedTo,
+        row,
+        agentDirectory
+      });
+      events.push({
+        id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        type: 'agent_email_notify',
+        timestamp: nowIso(),
+        dateKey: keys.dateKey,
+        weekKey: keys.weekKey,
+        monthKey: keys.monthKey,
+        leadId: row.id,
+        externalId: row.externalId || '',
+        name: row.name || '',
+        email: row.email || '',
+        phone: row.phone || '',
+        assignedTo,
+        ok: Boolean(emailNotify?.ok),
+        reason: clean(emailNotify?.error || ''),
+        detail: clean(emailNotify?.messageId || '')
+      });
+    }
+  }
+
   const trimmed = events.sort((a, b) => new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime()).slice(-5000);
   await saveJsonStore(EVENTS_PATH, trimmed);
 

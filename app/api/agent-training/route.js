@@ -1,4 +1,4 @@
-import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
 import { TRAINING_SEED } from '../../../lib/agentTrainingSeed';
 import { getAdminSkeletonPasswords } from '../../../lib/adminSkeletonAuth';
 
@@ -19,20 +19,20 @@ function isAdminAuth(req, body = {}) {
 }
 
 // Version bump forces a re-seed when content structure changes
-const CONTENT_VERSION = '5';
+const CONTENT_VERSION = '8';
 
 async function loadContent() {
-  const stored = await loadJsonStore(CONTENT_PATH, null);
+  const stored = await loadJsonFile(CONTENT_PATH, null);
   // Re-seed if missing OR if version is outdated (e.g. keyPoints format changed)
   if (stored && stored.stages && stored._version === CONTENT_VERSION) return stored;
   const seeded = { ...TRAINING_SEED, _version: CONTENT_VERSION };
-  await saveJsonStore(CONTENT_PATH, seeded);
+  await saveJsonFile(CONTENT_PATH, seeded);
   return seeded;
 }
 
 async function loadProgress() {
-  const p = await loadJsonStore(PROGRESS_PATH, {});
-  return (p && typeof p === 'object') ? p : {};
+  const p = await loadJsonFile(PROGRESS_PATH, {});
+  return (p && typeof p === 'object' && !Array.isArray(p)) ? p : {};
 }
 
 // Flatten all modules from stages content
@@ -40,16 +40,19 @@ function allModules(content) {
   return (content.stages || []).flatMap(s => s.modules || []);
 }
 
+const STAGE_COOLDOWN_MS = 12 * 60 * 60 * 1000; // 12 hours
+
 // Figure out which modules are accessible for an agent given their progress
+// Returns { unlocked: Set, stageLockInfo: { [stageId]: { lockedUntil: ISO } } }
 function computeUnlocked(content, agentProgress) {
   const stages = content.stages || [];
   const unlocked = new Set();
+  const stageLockInfo = {};
 
   for (const stage of stages) {
     const mods = stage.modules || [];
     if (!mods.length) continue;
 
-    // First module of each stage: unlocked if previous stage fully completed
     const stageIdx = stages.indexOf(stage);
     if (stageIdx === 0) {
       // Stage 1 always unlocked
@@ -57,12 +60,29 @@ function computeUnlocked(content, agentProgress) {
     } else {
       // Previous stage must be fully passed
       const prevStage = stages[stageIdx - 1];
-      const prevAllPassed = (prevStage.modules || []).every(m => agentProgress[m.id]?.completed);
-      if (prevAllPassed) unlocked.add(mods[0].id);
-      else continue;
+      const prevMods = prevStage.modules || [];
+      const prevAllPassed = prevMods.every(m => agentProgress[m.id]?.completed);
+      if (!prevAllPassed) continue;
+
+      // 12-hour cooldown: find latest passedAt in previous stage
+      const lastPassedAt = prevMods.reduce((latest, m) => {
+        const t = agentProgress[m.id]?.passedAt || '';
+        if (!t) return latest;
+        return !latest || new Date(t) > new Date(latest) ? t : latest;
+      }, '');
+
+      if (lastPassedAt) {
+        const unlocksAt = new Date(new Date(lastPassedAt).getTime() + STAGE_COOLDOWN_MS);
+        if (new Date() < unlocksAt) {
+          stageLockInfo[stage.id] = { lockedUntil: unlocksAt.toISOString() };
+          continue; // still in cooldown — skip this stage
+        }
+      }
+
+      unlocked.add(mods[0].id);
     }
 
-    // Within a stage: each module unlocks when the previous one is completed
+    // Within a stage: each module unlocks immediately when the previous one is completed
     for (let i = 1; i < mods.length; i++) {
       if (agentProgress[mods[i - 1].id]?.completed) {
         unlocked.add(mods[i].id);
@@ -70,7 +90,7 @@ function computeUnlocked(content, agentProgress) {
     }
   }
 
-  return unlocked;
+  return { unlocked, stageLockInfo };
 }
 
 // ─── GET: fetch content + agent progress ─────────────────────────────────────
@@ -90,10 +110,11 @@ export async function GET(req) {
   if (!email) return Response.json({ ok: true, content, progress: {} });
 
   const agentProgress = progress[email] || {};
-  const unlocked = computeUnlocked(content, agentProgress);
+  const { unlocked, stageLockInfo } = computeUnlocked(content, agentProgress);
 
   const stages = (content.stages || []).map(stage => ({
     ...stage,
+    lockedUntil: stageLockInfo[stage.id]?.lockedUntil || null,
     modules: (stage.modules || []).map(mod => {
       const prog = agentProgress[mod.id] || {};
       return {
@@ -102,6 +123,7 @@ export async function GET(req) {
         description: mod.description,
         videoUrl: mod.videoUrl || '',
         keyPoints: mod.keyPoints || [],
+        tool: mod.tool ? { label: mod.tool.label, description: mod.tool.description, url: mod.tool.url } : null,
         // Strip correct answers from quiz before sending to client
         quiz: {
           passingScore: mod.quiz?.passingScore ?? 8,
@@ -128,7 +150,7 @@ export async function GET(req) {
   const totalModules   = allModules(content).length;
   const completedCount = Object.values(agentProgress).filter(p => p.completed).length;
 
-  return Response.json({ ok: true, stages, totalModules, completedCount, email });
+  return Response.json({ ok: true, stages, totalModules, completedCount, email, stageLockInfo });
 }
 
 // ─── POST: submit a quiz attempt ─────────────────────────────────────────────
@@ -183,7 +205,7 @@ export async function POST(req) {
       lastAttemptAt: nowIso()
     };
 
-    await saveJsonStore(PROGRESS_PATH, progress);
+    await saveJsonFile(PROGRESS_PATH, progress);
 
     return Response.json({
       ok: true,
@@ -230,7 +252,7 @@ export async function PATCH(req) {
       }
     }
     if (!found) return Response.json({ ok: false, error: 'module_not_found' }, { status: 404 });
-    await saveJsonStore(CONTENT_PATH, content);
+    await saveJsonFile(CONTENT_PATH, content);
     return Response.json({ ok: true, content });
   }
 
@@ -243,12 +265,12 @@ export async function PATCH(req) {
     } else {
       delete progress[email];
     }
-    await saveJsonStore(PROGRESS_PATH, progress);
+    await saveJsonFile(PROGRESS_PATH, progress);
     return Response.json({ ok: true });
   }
 
   if (action === 'reset_content') {
-    await saveJsonStore(CONTENT_PATH, TRAINING_SEED);
+    await saveJsonFile(CONTENT_PATH, TRAINING_SEED);
     return Response.json({ ok: true, message: 'Content reset to seed data' });
   }
 
