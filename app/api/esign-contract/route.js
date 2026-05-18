@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from 'crypto';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
-import { sessionFromToken } from '../start-auth/_lib';
+import { sessionFromToken as startAuthSession } from '../start-auth/_lib';
+import { sessionFromToken as unlicensedSession } from '../unlicensed-backoffice/auth/_lib';
+import { sessionFromToken as licensedSession } from '../licensed-backoffice/auth/_lib';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -8,6 +10,17 @@ export const revalidate = 0;
 const STORE_PATH = 'stores/esign-contracts.json';
 
 function clean(v = '') { return String(v || '').trim(); }
+
+// Resolve a session token across all back office session stores
+async function resolveSession(token = '') {
+  if (!token) return null;
+  // Try each store in order — whichever issued the token
+  const profile =
+    (await startAuthSession(token).catch(() => null)) ||
+    (await unlicensedSession(token).catch(() => null)) ||
+    (await licensedSession(token).catch(() => null));
+  return profile || null;
+}
 function norm(v = '') { return clean(v).toLowerCase().replace(/\s+/g, ' '); }
 function nowIso() { return new Date().toISOString(); }
 function sha256(v = '') { return createHash('sha256').update(String(v || '')).digest('hex'); }
@@ -22,7 +35,7 @@ export async function GET(req) {
   const token = getToken(req);
   if (!token) return Response.json({ ok: false, error: 'missing_token' }, { status: 401 });
 
-  const profile = await sessionFromToken(token);
+  const profile = await resolveSession(token);
   if (!profile) return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
   const rows = await loadJsonStore(STORE_PATH, []);
@@ -42,7 +55,7 @@ export async function POST(req) {
   const token = getToken(req);
   if (!token) return Response.json({ ok: false, error: 'missing_token' }, { status: 401 });
 
-  const profile = await sessionFromToken(token);
+  const profile = await resolveSession(token);
   if (!profile) return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
