@@ -1,4 +1,4 @@
-import { loadJsonStoreDirect, saveJsonStoreDirect } from '../../../../../lib/blobJsonStore';
+import { loadJsonStore, saveJsonStore } from '../../../../../lib/blobJsonStore';
 import { CODES_PATH, generateCode, nowIso, resolveUnlicensedProfile, sendCodeEmail, sha256 } from '../_lib';
 
 function clean(v = '') { return String(v || '').trim(); }
@@ -15,7 +15,7 @@ export async function POST(req) {
   }
 
   const code = generateCode();
-  const rows = await loadJsonStoreDirect(CODES_PATH, []);
+  const rows = await loadJsonStore(CODES_PATH, []);
   const list = Array.isArray(rows) ? rows : [];
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
   const now = Date.now();
@@ -31,7 +31,7 @@ export async function POST(req) {
       expiresAt
     }
   ];
-  await saveJsonStoreDirect(CODES_PATH, next);
+  await saveJsonStore(CODES_PATH, next);
 
   const sent = await sendCodeEmail({ to: email, code });
   if (!sent?.ok) return Response.json({ ok: false, error: sent?.error || 'send_failed' }, { status: 500 });

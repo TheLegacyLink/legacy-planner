@@ -1,4 +1,4 @@
-import { loadJsonStoreDirect, saveJsonStoreDirect } from '../../../../../lib/blobJsonStore';
+import { loadJsonStore, saveJsonStore } from '../../../../../lib/blobJsonStore';
 import { CODES_PATH, issueSession, sha256 } from '../_lib';
 
 function clean(v = '') { return String(v || '').trim(); }
@@ -9,7 +9,7 @@ export async function POST(req) {
   const code = clean(body?.code);
   if (!email || !code) return Response.json({ ok: false, error: 'email_and_code_required' }, { status: 400 });
 
-  const rows = await loadJsonStoreDirect(CODES_PATH, []);
+  const rows = await loadJsonStore(CODES_PATH, []);
   const list = Array.isArray(rows) ? rows : [];
   const idx = list.findIndex((r) => clean(r?.email).toLowerCase() === email && r?.used !== true);
   if (idx < 0) return Response.json({ ok: false, error: 'code_not_found' }, { status: 400 });
@@ -20,7 +20,7 @@ export async function POST(req) {
   if (sha256(code) !== clean(row?.codeHash)) return Response.json({ ok: false, error: 'invalid_code' }, { status: 400 });
 
   list[idx] = { ...row, used: true, usedAt: new Date().toISOString() };
-  await saveJsonStoreDirect(CODES_PATH, list);
+  await saveJsonStore(CODES_PATH, list);
 
   const session = await issueSession(row?.profile || {});
   return Response.json({ ok: true, token: session.token, expiresAt: session.expiresAt, profile: row?.profile || {} });

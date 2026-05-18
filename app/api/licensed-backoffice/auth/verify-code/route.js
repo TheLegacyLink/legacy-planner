@@ -1,4 +1,4 @@
-import { loadJsonStoreDirect, saveJsonStoreDirect } from '../../../../../lib/blobJsonStore';
+import { loadJsonStore, saveJsonStore } from '../../../../../lib/blobJsonStore';
 import { CODES_PATH, issueSession, sha256 } from '../_lib';
 import { clean } from '../../../../../lib/licensedAgentMatch';
 
@@ -10,7 +10,7 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'email_and_code_required' }, { status: 400 });
   }
 
-  const rows = await loadJsonStoreDirect(CODES_PATH, []);
+  const rows = await loadJsonStore(CODES_PATH, []);
   const list = Array.isArray(rows) ? rows : [];
   const idx = list.findIndex((r) => clean(r?.email).toLowerCase() === email && r?.used !== true);
   if (idx < 0) return Response.json({ ok: false, error: 'code_not_found' }, { status: 400 });
@@ -26,7 +26,7 @@ export async function POST(req) {
   }
 
   list[idx] = { ...row, used: true, usedAt: new Date().toISOString() };
-  await saveJsonStoreDirect(CODES_PATH, list);
+  await saveJsonStore(CODES_PATH, list);
 
   const profile = row?.profile || {};
   const session = await issueSession(profile);

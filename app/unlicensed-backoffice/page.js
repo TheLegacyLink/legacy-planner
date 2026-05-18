@@ -33,6 +33,9 @@ export default function UnlicensedBackofficePage() {
   // Phone removed: unlicensed login requires full name + email exact match.
   const [code, setCode] = useState('');
   const [codeRequested, setCodeRequested] = useState(false);
+  const [showDemoSelect, setShowDemoSelect] = useState(false);
+
+  const DEMO_EMAILS = ['leticiawright05@gmail.com'];
   const [token, setToken] = useState('');
   const [icaSigned, setIcaSigned] = useState(false);
   const [profile, setProfile] = useState(null);
@@ -147,11 +150,17 @@ export default function UnlicensedBackofficePage() {
 
   async function requestCode() {
     setError('');
+    const cleanEmail = clean(email).toLowerCase();
+    // Demo users get a back office selector before we send any code
+    if (DEMO_EMAILS.includes(cleanEmail) && !showDemoSelect) {
+      setShowDemoSelect(true);
+      return;
+    }
     try {
       const res = await fetch('/api/unlicensed-backoffice/auth/request-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email: cleanEmail })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
@@ -271,7 +280,30 @@ export default function UnlicensedBackofficePage() {
             <p style={{ margin: '8px 0 0', opacity: 0.95 }}>Unlicensed Back Office • License Sprint</p>
           </div>
           <div style={{ padding: 24, display: 'grid', gap: 12 }}>
-            {!codeRequested ? (
+            {showDemoSelect ? (
+              <>
+                <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, textAlign: 'center' }}>Which back office would you like to access?</p>
+                <button
+                  onClick={requestCode}
+                  style={{ padding: '14px', borderRadius: 10, border: 0, background: '#1651AE', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
+                >
+                  Unlicensed Agent Back Office
+                </button>
+                <a
+                  href="/licensed-backoffice"
+                  style={{ display: 'block', padding: '14px', borderRadius: 10, border: '1px solid #C8A96B', background: 'transparent', color: '#C8A96B', fontWeight: 800, fontSize: 15, cursor: 'pointer', textAlign: 'center', textDecoration: 'none' }}
+                >
+                  Licensed Agent Back Office
+                </a>
+                <button
+                  onClick={() => { setShowDemoSelect(false); setError(''); }}
+                  style={{ padding: '10px', borderRadius: 10, border: '1px solid #374151', background: 'transparent', color: '#9CA3AF', fontSize: 13, cursor: 'pointer' }}
+                >
+                  ← Use a different email
+                </button>
+                {error && <small style={{ color: '#FCA5A5' }}>{error}</small>}
+              </>
+            ) : !codeRequested ? (
               <>
                 <input
                   value={email}

@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import { createHash, randomBytes } from 'crypto';
-import { loadJsonStore, saveJsonStore } from '../../../../lib/blobJsonStore';
+import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../../../lib/blobJsonStore';
 import { normalizePersonName } from '../../../../lib/nameAliases';
 
 const APPS_PATH = 'stores/sponsorship-applications.json';

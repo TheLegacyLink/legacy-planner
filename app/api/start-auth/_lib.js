@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import { createHash, randomBytes } from 'crypto';
-import { loadJsonStore, saveJsonStore, loadJsonStoreDirect, saveJsonStoreDirect } from '../../../lib/blobJsonStore';
+import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 import { normalizePersonName } from '../../../lib/nameAliases';
 
 export const CODES_PATH = 'stores/start-auth-codes.json';
@@ -132,7 +132,7 @@ export async function sendOtpEmail({ to = '', code = '', name = '' } = {}) {
 export async function storeCode({ email = '', code = '' } = {}) {
   const e = norm(email);
   // Use direct (non-versioned) store — versioned accumulation causes list() to miss recent writes
-  const rows = await loadJsonStoreDirect(CODES_PATH, []);
+  const rows = await loadJsonStore(CODES_PATH, []);
   const list = Array.isArray(rows) ? rows : [];
   const now = Date.now();
   // Purge expired entries + any existing code for this email
@@ -144,7 +144,7 @@ export async function storeCode({ email = '', code = '' } = {}) {
     expiresAt: new Date(now + 10 * 60 * 1000).toISOString(),
     used: false
   });
-  await saveJsonStoreDirect(CODES_PATH, filtered);
+  await saveJsonStore(CODES_PATH, filtered);
 }
 
 export async function verifyCode({ email = '', code = '' } = {}) {
@@ -153,7 +153,7 @@ export async function verifyCode({ email = '', code = '' } = {}) {
   if (!e || !c) return { ok: false, error: 'missing_fields' };
 
   // Use direct (non-versioned) store for consistency with storeCode
-  const rows = await loadJsonStoreDirect(CODES_PATH, []);
+  const rows = await loadJsonStore(CODES_PATH, []);
   const list = Array.isArray(rows) ? rows : [];
   const idx = list.findIndex((r) => norm(r?.email) === e);
   if (idx < 0) return { ok: false, error: 'code_not_found' };
@@ -165,7 +165,7 @@ export async function verifyCode({ email = '', code = '' } = {}) {
 
   // Mark used
   list[idx] = { ...row, used: true, usedAt: nowIso() };
-  await saveJsonStoreDirect(CODES_PATH, list);
+  await saveJsonStore(CODES_PATH, list);
   return { ok: true };
 }
 
