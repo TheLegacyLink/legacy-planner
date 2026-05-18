@@ -125,10 +125,15 @@ async function runSync(host = 'innercirclelink.com') {
     const externalId = clean(c.id || '');
     if (!externalId) continue;
 
-    const name = [clean(c.firstName || ''), clean(c.lastName || '')].filter(Boolean).join(' ')
-      || clean(c.contactName || c.name || '') || 'Unknown';
     const email = clean(c.email || '');
     const phone = clean(c.phone || '');
+    const nameRaw = [clean(c.firstName || ''), clean(c.lastName || '')].filter(Boolean).join(' ')
+      || clean(c.contactName || c.name || '');
+    // If GHL has no name, fall back to email prefix or phone so it never stores as 'Unknown'
+    const name = nameRaw
+      || (email.includes('@') ? email.split('@')[0] : '')
+      || phone
+      || 'Unknown';
 
     try {
       const res = await fetch(`${baseUrl}/api/lead-router`, {

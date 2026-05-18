@@ -1339,7 +1339,30 @@ export async function GET(req) {
   const ownerLookup = buildOwnerLookup(events);
   const callMetrics = buildCallMetrics(settings, leads, sponsorshipMap, ownerLookup);
   const calledLeadRows = buildCalledLeadRows(leads, sponsorshipMap, ownerLookup, settings, submittedBlockLookup);
-  const recent = enrichEvents(events, sponsorshipMap).sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()).slice(0, 300);
+  // Build recent events — fill in missing/unknown names from leads store before sending to UI
+  const recent = enrichEvents(events, sponsorshipMap)
+    .map((e) => {
+      const nameBlank = !clean(e?.name) || clean(e?.name).toLowerCase() === 'unknown' || clean(e?.name).toLowerCase() === 'unknown lead';
+      if (!nameBlank) return e;
+      // Try to resolve from leads store by leadId, externalId, email, or phone
+      const byId = leadById.get(clean(e?.leadId || ''));
+      const byExt = leadByExternalId.get(clean(e?.leadId || ''));
+      const byEmail = e?.email ? leadByEmail.get(clean(e.email).toLowerCase()) : null;
+      const byPhone = e?.phone ? leadByPhone.get(normalizePhone(e.phone)) : null;
+      const row = byId || byExt || byEmail || byPhone;
+      if (!row) return e;
+      const resolvedName = clean(row?.name || `${clean(row?.firstName || '')} ${clean(row?.lastName || '')}`.trim());
+      const resolvedEmail = clean(row?.email || e?.email || '');
+      const resolvedPhone = clean(row?.phone || e?.phone || '');
+      // Best display name: resolved name, or email prefix, or phone
+      const bestName = resolvedName && resolvedName.toLowerCase() !== 'unknown'
+        ? resolvedName
+        : resolvedEmail.includes('@') ? resolvedEmail.split('@')[0]
+        : resolvedPhone || clean(e?.name || '');
+      return { ...e, name: bestName, email: resolvedEmail || e?.email || '', phone: resolvedPhone || e?.phone || '' };
+    })
+    .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
+    .slice(0, 300);
 
   const ghlSyncEvents = [...(events || [])]
     .filter((e) => clean(e?.type || '') === 'ghl_owner_sync')
