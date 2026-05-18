@@ -1,7 +1,42 @@
 import nodemailer from 'nodemailer';
 import { createHash, randomBytes } from 'crypto';
-import { loadJsonStore, saveJsonStore } from '../../../../lib/blobJsonStore';
+import { loadJsonStore, saveJsonStore, loadJsonFile } from '../../../../lib/blobJsonStore';
 import { clean, findLicensedByEmail, isStrongAliasMatch, matchLicensedAgent } from '../../../../lib/licensedAgentMatch';
+
+const START_INTAKE_PATH = 'stores/start-intake.json';
+
+// Resolve a licensed-track member from start-intake (signed ICA, licensed track)
+async function resolveFromStartIntake({ email = '', fullName = '', phone = '' } = {}) {
+  const rows = await loadJsonFile(START_INTAKE_PATH, []);
+  const list = Array.isArray(rows) ? rows : [];
+
+  const e = clean(email).toLowerCase();
+  const p = clean(phone).replace(/\D/g, '').slice(-10);
+  const n = clean(fullName).toLowerCase();
+
+  const hit = list.find((r) => {
+    if (clean(r?.trackType).toLowerCase() !== 'licensed') return false;
+    const re = clean(r?.email).toLowerCase();
+    const rp = clean(r?.phone).replace(/\D/g, '').slice(-10);
+    const rn = clean(`${r?.firstName || ''} ${r?.lastName || ''}`).toLowerCase();
+    // Match by email OR (name + phone)
+    if (e && re === e) return true;
+    if (p && n && rp === p && rn.includes(n.split(' ')[0])) return true;
+    return false;
+  });
+
+  if (!hit) return null;
+
+  return {
+    email: clean(hit.email).toLowerCase(),
+    name: clean(`${hit.firstName || ''} ${hit.lastName || ''}`),
+    agentId: clean(hit.npn || hit.id || `intake_${Date.now()}`),
+    homeState: clean(hit.homeState || hit.state || ''),
+    carriersActive: [],
+    trackType: 'licensed',
+    contractSigned: hit.contractStatus === 'signed'
+  };
+}
 
 export const ALIASES_PATH = 'stores/licensed-backoffice-email-aliases.json';
 export const ALIAS_REVIEW_PATH = 'stores/licensed-backoffice-alias-review.json';
@@ -54,6 +89,7 @@ async function queuePendingVerification({ email = '', fullName = '', phone = '',
 }
 
 // Demo/preview users — Inner Circle members who need access for onboarding demos
+// Also used for licensed-track members whose email differs across records
 const LICENSED_PREVIEW_USERS = [
   {
     email: 'leticiawright05@gmail.com',
@@ -62,6 +98,31 @@ const LICENSED_PREVIEW_USERS = [
     homeState: 'GA',
     carriersActive: ['F&G', 'Mutual of Omaha'],
     isDemo: true
+  },
+  // Rashonda Gunn — licensed track, signed ICA; email has typo variants across records
+  {
+    email: 'shondacanee631@gmail.com',
+    name: 'Rashonda Gunn',
+    agentId: 'intake_rashonda_gunn',
+    homeState: 'IN',
+    carriersActive: [],
+    isDemo: false
+  },
+  {
+    email: 'shondacares631@gmail.com',
+    name: 'Rashonda Gunn',
+    agentId: 'intake_rashonda_gunn',
+    homeState: 'IN',
+    carriersActive: [],
+    isDemo: false
+  },
+  {
+    email: 'shondacates631@gmail.com',
+    name: 'Rashonda Gunn',
+    agentId: 'intake_rashonda_gunn',
+    homeState: 'IN',
+    carriersActive: [],
+    isDemo: false
   }
 ];
 
@@ -103,6 +164,10 @@ export async function resolveLicensedProfile({ email = '', fullName = '', phone 
   // Approval gates removed — any match auto-approves immediately
   const m = matchLicensedAgent({ fullName, phone, email });
   if (!m?.matched || !m?.match) {
+    // 4) Start-intake fallback — licensed-track members who signed ICA but aren't contracted yet
+    const intakeProfile = await resolveFromStartIntake({ email, fullName, phone });
+    if (intakeProfile) return { ok: true, profile: intakeProfile, via: 'start_intake' };
+
     return { ok: false, error: 'not_found' };
   }
 
