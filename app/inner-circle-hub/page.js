@@ -2881,6 +2881,17 @@ export default function InnerCircleHubPage() {
                     </div>
                   </div>
                 ) : null}
+
+              <div style={{ border: '1px solid #C8A96B44', borderRadius: 14, background: 'linear-gradient(135deg,#0f172a,#0b1020)', padding: '18px 20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                  <span style={{ fontSize: 24 }}>🎤</span>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: '#f1f5f9' }}>The Legacy Link Podcast</div>
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Hosted by Kimora Link &mdash; on iHeart Radio</div>
+                  </div>
+                </div>
+                <iframe allow="autoplay" width="100%" height="300" src="https://www.iheart.com/podcast/334111550/?embed=true" frameBorder="0" style={{ borderRadius: 10, display: 'block', border: 0 }} title="The Legacy Link Podcast" />
+              </div>
               </div>
             ) : null}
 

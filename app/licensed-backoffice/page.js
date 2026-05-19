@@ -2172,11 +2172,23 @@ export default function LicensedBackofficePage() {
             ) : null}
 
             {tab === 'resources' ? (
-              <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14, display: 'grid', gap: 8 }}>
-                <h3 style={{ marginTop: 0 }}>Resources</h3>
-                <a href="/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Licensed Onboarding Playbook</a>
-                <a href="/docs/onboarding/legacy-link-comp-schedule-bonuses-v2.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Comp Schedule + Bonuses + FAQ</a>
-                <a href="/docs/onboarding/legacy-link-sponsorship-phone-application-sop.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Sponsorship Application Call SOP</a>
+              <div style={{ display: 'grid', gap: 14 }}>
+                <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14, display: 'grid', gap: 8 }}>
+                  <h3 style={{ marginTop: 0 }}>Resources</h3>
+                  <a href="/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Licensed Onboarding Playbook</a>
+                  <a href="/docs/onboarding/legacy-link-comp-schedule-bonuses-v2.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Comp Schedule + Bonuses + FAQ</a>
+                  <a href="/docs/onboarding/legacy-link-sponsorship-phone-application-sop.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Sponsorship Application Call SOP</a>
+                </div>
+                <div style={{ border: '1px solid #C8A96B44', borderRadius: 14, background: 'linear-gradient(135deg,#0f172a,#0b1020)', padding: '18px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                    <span style={{ fontSize: 24 }}>🎤</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: '#f1f5f9' }}>The Legacy Link Podcast</div>
+                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Hosted by Kimora Link &mdash; on iHeart Radio</div>
+                    </div>
+                  </div>
+                  <iframe allow="autoplay" width="100%" height="300" src="https://www.iheart.com/podcast/334111550/?embed=true" frameBorder="0" style={{ borderRadius: 10, display: 'block', border: 0 }} title="The Legacy Link Podcast" />
+                </div>
               </div>
             ) : null}
 
