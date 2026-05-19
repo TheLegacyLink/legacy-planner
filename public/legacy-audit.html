@@ -1,0 +1,1577 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>The Legacy Audit — The Legacy Link</title>
+<meta name="description" content="Find the money. Build the legacy. A live financial needs analysis from The Legacy Link." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root {
+    --bg: #0E0E10;
+    --bg-elev: #15151A;
+    --bg-card: #1A1A20;
+    --bg-card-2: #20202A;
+    --line: #2A2A33;
+    --line-soft: #1F1F27;
+    --text: #F5F5F0;
+    --text-dim: #B8B8B0;
+    --text-mute: #7A7A75;
+    --gold: #B8985A;
+    --gold-bright: #D4B26C;
+    --gold-soft: #8A7240;
+    --red: #C0392B;
+    --red-soft: #E06A5C;
+    --green: #1F8A4C;
+    --green-soft: #4CAF7C;
+    --radius: 14px;
+    --radius-sm: 10px;
+    --shadow-card: 0 1px 0 rgba(255,255,255,0.03) inset, 0 10px 30px -12px rgba(0,0,0,0.6);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(900px 500px at 50% -200px, rgba(184,152,90,0.18), rgba(184,152,90,0) 60%),
+      radial-gradient(600px 400px at 80% 10%, rgba(184,152,90,0.06), rgba(0,0,0,0) 70%),
+      var(--bg);
+    background-attachment: fixed;
+  }
+  h1,h2,h3,h4 { font-family: 'DM Sans', sans-serif; font-weight: 600; letter-spacing: -0.01em; margin: 0; color: var(--text); }
+  .num, .num * { font-feature-settings: "tnum" 1, "lnum" 1; font-variant-numeric: tabular-nums; }
+
+  .container { max-width: 1280px; margin: 0 auto; padding: 28px 24px 140px; }
+  @media (max-width: 640px) { .container { padding: 18px 14px 160px; } }
+
+  /* HEADER */
+  .header {
+    display: flex; align-items: center; justify-content: space-between; gap: 20px;
+    padding: 14px 18px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-card);
+    flex-wrap: wrap;
+  }
+  @media (max-width: 640px) {
+    .header { padding: 14px 14px; gap: 12px; }
+    .brand-text h1 { font-size: 18px; }
+    .brand-text .tag { font-size: 10.5px; letter-spacing: 0.1em; }
+    .agent-field { width: 100%; }
+    .agent-field input { flex: 1; min-width: 0; }
+  }
+  .brand { display: flex; align-items: center; gap: 16px; }
+  .seal {
+    width: 56px; height: 56px; flex: 0 0 56px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 30% 30%, #E6C376, var(--gold) 55%, #6E5829 100%);
+    box-shadow: 0 0 0 2px #2A2118 inset, 0 0 0 3px var(--gold-bright), 0 6px 24px -8px rgba(184,152,90,0.6);
+    display: grid; place-items: center;
+    color: #1B140A;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700; font-size: 20px; letter-spacing: -0.02em;
+  }
+  .brand-text h1 { font-size: 22px; line-height: 1.1; }
+  .brand-text .tag { color: var(--gold); font-family: 'DM Sans'; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; margin-top: 4px; }
+  .agent-field { display: flex; align-items: center; gap: 10px; }
+  .agent-field label { color: var(--text-mute); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .agent-field { flex: 0 0 auto; }
+  .agent-field input {
+    background: var(--bg-elev); border: 1px solid var(--line); color: var(--text);
+    padding: 10px 12px; border-radius: var(--radius-sm); font-family: inherit; font-size: 14px; min-width: 180px; max-width: 100%;
+  }
+  .agent-field input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(184,152,90,0.18); }
+
+  /* LAYOUT */
+  .layout { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(0,1fr); gap: 24px; }
+  @media (max-width: 1024px) { .layout { grid-template-columns: 1fr; } }
+
+  /* CARDS */
+  .card {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-card-2));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+  .card + .card { margin-top: 18px; }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 18px 22px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid transparent;
+    transition: background 180ms ease, border-color 180ms ease;
+  }
+  .card-head:hover { background: rgba(184,152,90,0.04); }
+  .card.open .card-head { border-bottom-color: var(--line-soft); }
+  .card-head h2 { font-size: 17px; }
+  .card-head .sub { color: var(--text-mute); font-size: 13px; margin-top: 3px; font-weight: 400; }
+  .card-head-left { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
+  .leak-glyph {
+    width: 38px; height: 38px; flex: 0 0 38px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(184,152,90,0.18), rgba(184,152,90,0.05));
+    border: 1px solid rgba(184,152,90,0.35);
+    display: grid; place-items: center;
+    color: var(--gold);
+  }
+  .leak-glyph svg { width: 20px; height: 20px; }
+  .chev { width: 22px; height: 22px; color: var(--text-mute); transition: transform 220ms ease; flex: 0 0 22px; }
+  .card.open .chev { transform: rotate(180deg); color: var(--gold); }
+  .card-body { max-height: 0; overflow: hidden; transition: max-height 320ms ease; }
+  .card.open .card-body { max-height: 2200px; }
+  .card-body-inner { padding: 18px 22px 22px; }
+
+  /* FORM */
+  .grid { display: grid; gap: 14px; }
+  .g-2 { grid-template-columns: repeat(2, 1fr); }
+  .g-3 { grid-template-columns: repeat(3, 1fr); }
+  .g-4 { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 640px) { .g-2, .g-3, .g-4 { grid-template-columns: 1fr; } }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { color: var(--text-dim); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 500; }
+  .field .hint { color: var(--text-mute); font-size: 11px; margin-top: 2px; }
+  .input, select.input {
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 11px 13px;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 14px;
+    font-feature-settings: "tnum" 1;
+    transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    width: 100%;
+  }
+  .input:hover { border-color: #3A3A45; }
+  .input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(184,152,90,0.16); background: #18181E; }
+  .input.invalid { border-color: var(--red); }
+  .input-wrap { position: relative; }
+  .input-wrap .adorn { position: absolute; top: 50%; transform: translateY(-50%); color: var(--text-mute); font-size: 13px; pointer-events: none; }
+  .input-wrap .adorn.l { left: 12px; }
+  .input-wrap .adorn.r { right: 12px; }
+  .input-wrap .input.l { padding-left: 26px; }
+  .input-wrap .input.r { padding-right: 26px; }
+
+  /* SUB-DEBT BLOCK */
+  .sub-block { padding: 14px 16px; background: rgba(255,255,255,0.015); border: 1px solid var(--line-soft); border-radius: 10px; }
+  .sub-block + .sub-block { margin-top: 12px; }
+  .sub-block h4 { font-size: 13px; color: var(--gold); margin-bottom: 10px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }
+
+  /* TOGGLE */
+  .toggle { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+  .toggle input { display: none; }
+  .toggle .switch { width: 38px; height: 22px; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 999px; position: relative; transition: background 180ms; }
+  .toggle .switch::after { content: ''; width: 16px; height: 16px; background: var(--text-dim); border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: left 180ms, background 180ms; }
+  .toggle input:checked + .switch { background: rgba(184,152,90,0.25); border-color: var(--gold); }
+  .toggle input:checked + .switch::after { left: 18px; background: var(--gold); }
+
+  /* RESULTS DASH */
+  .dash {
+    position: sticky;
+    top: 18px;
+    align-self: start;
+  }
+  @media (max-width: 1024px) { .dash { position: static; } }
+  .found {
+    padding: 22px 24px 24px;
+    background:
+      radial-gradient(600px 200px at 0% 0%, rgba(184,152,90,0.18), rgba(184,152,90,0) 60%),
+      linear-gradient(180deg, #1C1A14, #15140F);
+    border: 1px solid rgba(184,152,90,0.35);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card), 0 0 0 1px rgba(184,152,90,0.08) inset;
+  }
+  .found .kicker { color: var(--gold); font-family: 'DM Sans'; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; }
+  .found .big {
+    font-family: 'DM Sans';
+    font-size: 56px;
+    line-height: 1.02;
+    color: var(--gold-bright);
+    margin-top: 8px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .found .desc { color: var(--text-dim); font-size: 13px; margin-top: 8px; max-width: 36ch; }
+  @media (max-width: 480px) { .found .big { font-size: 42px; } }
+
+  .leak-results { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 16px; }
+  .leak-result {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    background: linear-gradient(180deg, rgba(192,57,43,0.04), rgba(0,0,0,0));
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 12px;
+    align-items: center;
+  }
+  .leak-result .name { font-family: 'DM Sans'; font-size: 14px; font-weight: 500; color: var(--text); }
+  .leak-result .leak-now { font-size: 12px; color: var(--red-soft); }
+  .leak-result .redirect { font-size: 12px; color: var(--green-soft); }
+  .leak-result .lifetime { font-size: 18px; color: var(--text); font-family: 'DM Sans'; font-weight: 600; text-align: right; }
+  .leak-result .lifetime small { display: block; font-size: 10px; color: var(--text-mute); font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 2px; }
+
+  /* RECOMMENDATION */
+  .rec {
+    margin-top: 18px;
+    padding: 22px 24px;
+    border: 1px solid rgba(184,152,90,0.4);
+    border-radius: var(--radius);
+    background:
+      radial-gradient(800px 240px at 100% 0%, rgba(184,152,90,0.12), rgba(0,0,0,0) 60%),
+      linear-gradient(180deg, #1A1812, #141210);
+  }
+  .rec .label { color: var(--gold); font-family: 'DM Sans'; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; }
+  .rec h3 { font-size: 26px; margin-top: 8px; color: var(--gold-bright); }
+  .rec p { color: var(--text-dim); font-size: 14px; line-height: 1.6; margin-top: 12px; }
+  .rec ul { color: var(--text-dim); font-size: 14px; line-height: 1.6; padding-left: 20px; margin-top: 10px; }
+  .rec li { margin: 4px 0; }
+
+  /* CHART CARD */
+  .chart-card { margin-top: 18px; padding: 22px 22px 18px; }
+  .chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .chart-head h3 { font-size: 17px; }
+  .chart-head .legend { display: flex; gap: 14px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: 12px; }
+  .swatch { width: 14px; height: 3px; border-radius: 2px; }
+  .swatch.gold { background: var(--gold); box-shadow: 0 0 8px rgba(184,152,90,0.5); }
+  .swatch.red { background: var(--red); }
+  .chart-wrap { height: 280px; margin-top: 14px; position: relative; }
+  .legacy-number {
+    margin-top: 14px;
+    padding: 14px 18px;
+    background: linear-gradient(90deg, rgba(31,138,76,0.12), rgba(31,138,76,0) 80%);
+    border: 1px solid rgba(31,138,76,0.4);
+    border-radius: 10px;
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  }
+  .legacy-number .lbl { color: var(--green-soft); font-family: 'DM Sans'; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; }
+  .legacy-number .val { font-family: 'DM Sans'; font-size: 28px; color: var(--text); font-weight: 600; }
+
+  /* ACTION BAR */
+  .actions {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    background: linear-gradient(180deg, rgba(14,14,16,0.7), rgba(14,14,16,0.96));
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line);
+    padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+  }
+  .actions-inner { max-width: 1280px; margin: 0 auto; display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+  .btn {
+    appearance: none; border: 1px solid var(--line); background: var(--bg-elev); color: var(--text);
+    padding: 12px 18px; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 14px; cursor: pointer;
+    transition: transform 120ms ease, border-color 160ms ease, background 160ms ease, color 160ms ease;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { border-color: var(--gold-soft); }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: linear-gradient(180deg, var(--gold-bright), var(--gold)); color: #14110A; border-color: var(--gold); font-weight: 600; }
+  .btn.primary:hover { filter: brightness(1.05); border-color: var(--gold-bright); }
+  .btn.ghost { background: transparent; }
+  .btn svg { width: 16px; height: 16px; }
+
+  /* COMPLIANCE FOOTER */
+  .compliance {
+    margin-top: 22px;
+    padding: 18px 20px 20px;
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    color: var(--text-mute);
+    font-size: 11.5px;
+    line-height: 1.55;
+    background: rgba(255,255,255,0.012);
+  }
+  .compliance strong { color: var(--text-dim); }
+
+  /* Persona quick-fill (subtle dev / agent helper) */
+  .personas { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .persona-pill {
+    background: transparent; border: 1px solid var(--line); color: var(--text-mute);
+    padding: 6px 12px; border-radius: 999px; cursor: pointer; font-size: 11.5px; font-family: 'DM Sans';
+    letter-spacing: 0.04em;
+  }
+  .persona-pill:hover { border-color: var(--gold-soft); color: var(--text-dim); }
+
+  /* PRINT */
+  @media print {
+    body { background: #fff; color: #000; }
+    .actions, .personas, .chev { display: none !important; }
+    .card-body { max-height: none !important; overflow: visible !important; }
+    .card { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="container" id="app">
+
+  <!-- HEADER -->
+  <header class="header" id="brandHeader">
+    <div class="brand">
+      <div class="seal" aria-label="The Legacy Link seal">LL</div>
+      <div class="brand-text">
+        <h1>The Legacy Audit</h1>
+        <div class="tag">Find the money. Build the legacy.</div>
+      </div>
+    </div>
+    <div class="agent-field">
+      <label for="agentName">Agent</label>
+      <input id="agentName" class="num" type="text" value="Kimora Link" autocomplete="off" />
+    </div>
+  </header>
+
+  <div class="personas" aria-label="Quick-fill personas">
+    <button class="persona-pill" data-persona="A" type="button">Demo: Persona A</button>
+    <button class="persona-pill" data-persona="B" type="button">Demo: Persona B</button>
+    <button class="persona-pill" data-persona="C" type="button">Demo: Persona C</button>
+    <button class="persona-pill" id="resetBtnTop" type="button">Clear All</button>
+  </div>
+
+  <div class="layout">
+    <!-- LEFT: FORM -->
+    <div>
+
+      <!-- CLIENT SNAPSHOT -->
+      <section class="card open" id="card-snapshot">
+        <div class="card-head" data-toggle="card-snapshot">
+          <div class="card-head-left">
+            <div class="leak-glyph">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c1.6-3.4 4.1-5 7-5s5.4 1.6 7 5"/></svg>
+            </div>
+            <div>
+              <h2>Client Snapshot</h2>
+              <div class="sub">Who we're building the legacy for.</div>
+            </div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="card-body">
+          <div class="card-body-inner">
+            <div class="grid g-4">
+              <div class="field">
+                <label for="firstName">First name</label>
+                <input id="firstName" class="input" type="text" placeholder="e.g. Marcus" autocomplete="off" />
+              </div>
+              <div class="field">
+                <label for="age">Age</label>
+                <input id="age" class="input num" type="number" min="18" max="75" placeholder="35" />
+              </div>
+              <div class="field">
+                <label for="state">State</label>
+                <select id="state" class="input"></select>
+              </div>
+              <div class="field">
+                <label for="income">Annual household income</label>
+                <div class="input-wrap"><span class="adorn l">$</span><input id="income" class="input l num" type="text" inputmode="numeric" placeholder="80,000" /></div>
+              </div>
+              <div class="field">
+                <label for="yearsToRetire">Years to retirement</label>
+                <input id="yearsToRetire" class="input num" type="number" min="0" max="60" placeholder="30" />
+                <div class="hint">Auto-calculated as 65 − age. Editable.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LEAK 1 — DEBT -->
+      <section class="card" id="card-leak1">
+        <div class="card-head" data-toggle="card-leak1">
+          <div class="card-head-left">
+            <div class="leak-glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg></div>
+            <div>
+              <h2>Leak 1 — Debt Interest</h2>
+              <div class="sub">Every dollar of interest is a dollar not building the legacy.</div>
+            </div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="card-body">
+          <div class="card-body-inner">
+
+            <div class="sub-block">
+              <h4>Credit Card</h4>
+              <div class="grid g-2">
+                <div class="field"><label>Balance</label><div class="input-wrap"><span class="adorn l">$</span><input data-input="cc_balance" class="input l num" type="text" inputmode="numeric" placeholder="0" /></div></div>
+                <div class="field"><label>APR</label><div class="input-wrap"><input data-input="cc_apr" class="input r num" type="number" step="0.1" placeholder="21.5" /><span class="adorn r">%</span></div></div>
+              </div>
+            </div>
+
+            <div class="sub-block">
+              <h4>Auto Loan</h4>
+              <div class="grid g-3">
+                <div class="field"><label>Balance</label><div class="input-wrap"><span class="adorn l">$</span><input data-input="auto_balance" class="input l num" type="text" inputmode="numeric" placeholder="0" /></div></div>
+                <div class="field"><label>APR</label><div class="input-wrap"><input data-input="auto_apr" class="input r num" type="number" step="0.1" placeholder="7.5" /><span class="adorn r">%</span></div></div>
+                <div class="field"><label>Months remaining</label><input data-input="auto_months" class="input num" type="number" placeholder="60" /></div>
+              </div>
+            </div>
+
+            <div class="sub-block">
+              <h4>Student Loan</h4>
+              <div class="grid g-3">
+                <div class="field"><label>Balance</label><div class="input-wrap"><span class="adorn l">$</span><input data-input="student_balance" class="input l num" type="text" inputmode="numeric" placeholder="0" /></div></div>
+                <div class="field"><label>APR</label><div class="input-wrap"><input data-input="student_apr" class="input r num" type="number" step="0.1" placeholder="6.5" /><span class="adorn r">%</span></div></div>
+                <div class="field"><label>Months remaining</label><input data-input="student_months" class="input num" type="number" placeholder="120" /></div>
+              </div>
+            </div>
+
+            <div class="sub-block">
+              <h4>Mortgage</h4>
+              <div class="grid g-3">
+                <div class="field"><label>Balance</label><div class="input-wrap"><span class="adorn l">$</span><input data-input="mortgage_balance" class="input l num" type="text" inputmode="numeric" placeholder="0" /></div></div>
+                <div class="field"><label>APR</label><div class="input-wrap"><input data-input="mortgage_apr" class="input r num" type="number" step="0.1" placeholder="6.5" /><span class="adorn r">%</span></div></div>
+                <div class="field"><label>Years remaining</label><input data-input="mortgage_years" class="input num" type="number" placeholder="28" /></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- LEAK 2 — IDLE CASH -->
+      <section class="card" id="card-leak2">
+        <div class="card-head" data-toggle="card-leak2">
+          <div class="card-head-left">
+            <div class="leak-glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v10H3z"/><circle cx="12" cy="12" r="2.5"/><path d="M7 7v0M17 17v0"/></svg></div>
+            <div>
+              <h2>Leak 2 — Idle Cash</h2>
+              <div class="sub">Money parked at 0.40% is losing ground to inflation every day.</div>
+            </div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="card-body">
+          <div class="card-body-inner">
+            <div class="grid g-3">
+              <div class="field"><label>Checking balance</label><div class="input-wrap"><span class="adorn l">$</span><input data-input="checking" class="input l num" type="text" inputmode="numeric" placeholder="0" /></div></div>
+              <div class="field"><label>Savings balance</label><div class="input-wrap"><span class="adorn l">$</span><input data-input="savings" class="input l num" type="text" inputmode="numeric" placeholder="0" /></div></div>
+              <div class="field"><label>Current APY</label><div class="input-wrap"><input data-input="savings_apy" class="input r num" type="number" step="0.01" placeholder="0.40" /><span class="adorn r">%</span></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LEAK 3 — 401K -->
+      <section class="card" id="card-leak3">
+        <div class="card-head" data-toggle="card-leak3">
+          <div class="card-head-left">
+            <div class="leak-glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v6H4z"/><path d="M4 14h16v6H4z"/><path d="M9 7h6M9 17h6"/></svg></div>
+            <div>
+              <h2>Leak 3 — 401(k) / IRA Tax Drag</h2>
+              <div class="sub">The IRS is the silent partner in every traditional retirement plan.</div>
+            </div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="card-body">
+          <div class="card-body-inner">
+            <div class="grid g-2">
+              <div class="field"><label>Current 401(k) / IRA balance</label><div class="input-wrap"><span class="adorn l">$</span><input data-input="k401_balance" class="input l num" type="text" inputmode="numeric" placeholder="0" /></div></div>
+              <div class="field"><label>Monthly contribution</label><div class="input-wrap"><span class="adorn l">$</span><input data-input="k401_monthly" class="input l num" type="text" inputmode="numeric" placeholder="0" /></div></div>
+              <div class="field"><label>Expected growth rate</label><div class="input-wrap"><input data-input="k401_growth" class="input r num" type="number" step="0.1" placeholder="7" /><span class="adorn r">%</span></div></div>
+              <div class="field"><label>Tax bracket at retirement</label><div class="input-wrap"><input data-input="k401_tax" class="input r num" type="number" step="0.1" placeholder="22" /><span class="adorn r">%</span></div></div>
+            </div>
+            <div style="margin-top: 14px;">
+              <label class="toggle">
+                <input id="k401_rollover" type="checkbox" />
+                <span class="switch"></span>
+                <span style="color: var(--text-dim); font-size: 13px;">Old employer 401(k) eligible for rollover</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LEAK 4 — TERM -->
+      <section class="card" id="card-leak4">
+        <div class="card-head" data-toggle="card-leak4">
+          <div class="card-head-left">
+            <div class="leak-glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg></div>
+            <div>
+              <h2>Leak 4 — Term Life Premium</h2>
+              <div class="sub">Coverage that expires before you do is rent, not equity.</div>
+            </div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="card-body">
+          <div class="card-body-inner">
+            <div class="grid g-3">
+              <div class="field"><label>Monthly term premium</label><div class="input-wrap"><span class="adorn l">$</span><input data-input="term_premium" class="input l num" type="text" inputmode="numeric" placeholder="0" /></div></div>
+              <div class="field"><label>Years remaining on policy</label><input data-input="term_years" class="input num" type="number" placeholder="0" /></div>
+              <div class="field"><label>Coverage amount</label><div class="input-wrap"><span class="adorn l">$</span><input data-input="term_coverage" class="input l num" type="text" inputmode="numeric" placeholder="0" /></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LEAK 5 — LIFESTYLE -->
+      <section class="card" id="card-leak5">
+        <div class="card-head" data-toggle="card-leak5">
+          <div class="card-head-left">
+            <div class="leak-glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg></div>
+            <div>
+              <h2>Leak 5 — Lifestyle Cash Flow</h2>
+              <div class="sub">The quick wins. Small monthly money, massive 20-year impact.</div>
+            </div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="card-body">
+          <div class="card-body-inner">
+            <div class="grid g-3">
+              <div class="field"><label>Subscriptions &amp; streaming</label><div class="input-wrap"><span class="adorn l">$</span><input data-input="ls_subs" class="input l num" type="text" inputmode="numeric" placeholder="0" /></div></div>
+              <div class="field"><label>Dining / coffee / lifestyle</label><div class="input-wrap"><span class="adorn l">$</span><input data-input="ls_dining" class="input l num" type="text" inputmode="numeric" placeholder="0" /></div></div>
+              <div class="field"><label>Other discretionary</label><div class="input-wrap"><span class="adorn l">$</span><input data-input="ls_other" class="input l num" type="text" inputmode="numeric" placeholder="0" /></div></div>
+            </div>
+            <div class="hint" style="margin-top: 10px; color: var(--text-mute);">Assumes 50% can be redirected. Compounded 20 years at 6% IUL illustrated rate.</div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- RIGHT: DASHBOARD -->
+    <aside class="dash">
+      <div class="found" id="foundCard">
+        <div class="kicker">Found Money — Lifetime</div>
+        <div class="big num" id="foundNumber">$0</div>
+        <div class="desc">The dollars currently leaking out of <span id="clientNameInline">your client's</span> financial life, projected forward across the next 20 years.</div>
+      </div>
+
+      <div class="leak-results" id="leakResults">
+        <!-- populated by JS -->
+      </div>
+
+      <div class="rec" id="recCard">
+        <div class="label">Smart Recommendation</div>
+        <h3 id="recTitle">Awaiting inputs…</h3>
+        <p id="recBody">Fill in the client's snapshot and at least one leak section. The engine will surface the highest-leverage move for <span id="clientNameInline2">this client</span>.</p>
+        <ul id="recSteps"></ul>
+      </div>
+
+      <div class="card chart-card">
+        <div class="chart-head">
+          <div>
+            <h3>20-Year Projection</h3>
+            <div class="sub" style="color: var(--text-mute); font-size: 12px; margin-top: 4px;">Status Quo vs. Legacy Plan, redirected leak money compounded.</div>
+          </div>
+          <div class="legend">
+            <div class="legend-item"><span class="swatch red"></span> Status Quo</div>
+            <div class="legend-item"><span class="swatch gold"></span> Legacy Plan</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="projChart"></canvas></div>
+        <div class="legacy-number">
+          <div class="lbl">Your Legacy Number (Year 20 gap)</div>
+          <div class="val num" id="legacyNumber">$0</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- COMPLIANCE -->
+  <footer class="compliance">
+    <strong>Compliance.</strong> This tool provides illustrative projections only. Individual results vary. Income is not guaranteed. The 20% premium bonus referenced is offered through Athene's fixed indexed annuity product line, subject to vesting and surrender schedules. Consult The Legacy Link's licensed agent for product specifics. The Legacy Link, 340 Old River Road, Edgewater, NJ 07020. Not investment, tax, or legal advice.
+  </footer>
+
+</div>
+
+<!-- ACTION BAR -->
+<div class="actions" role="toolbar" aria-label="Audit actions">
+  <div class="actions-inner">
+    <button class="btn ghost" id="resetBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 10 9 10"/></svg>
+      Start Over
+    </button>
+    <button class="btn" id="pdfBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>
+      Download PDF Report
+    </button>
+    <a class="btn primary" href="https://thelegacylink.com/inner-circle" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+      Book Discovery Call
+    </a>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+ * THE LEGACY AUDIT — engine
+ * ========================================================= */
+
+const CONSTANTS = {
+  CC_APR: 0.215,
+  AUTO_APR: 0.075,
+  STUDENT_APR: 0.065,
+  MORTGAGE_APR: 0.065,
+  SAVINGS_APY: 0.004,
+  IUL_RATE: 0.06,
+  FIA_RATE: 0.055,
+  FIA_BONUS: 0.20,
+  TAX_RATE_RETIREMENT: 0.22,
+  INFLATION: 0.03,
+  SP500_HIST: 0.085,
+  TERM_PAYOUT_PROB: 0.02
+};
+
+const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
+
+/* ---------- helpers ---------- */
+const parseDollar = (v) => {
+  if (v === null || v === undefined) return 0;
+  const s = String(v).replace(/[$,\s]/g, '').trim();
+  if (s === '' || s === '-' || s === '.') return 0;
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : 0;
+};
+const parsePct = (v, defaultPct) => {
+  const s = String(v ?? '').replace(/[%\s]/g,'').trim();
+  if (s === '') return defaultPct;
+  const n = parseFloat(s);
+  if (!Number.isFinite(n)) return defaultPct;
+  return n / 100;
+};
+const parseInt0 = (v) => {
+  const s = String(v ?? '').replace(/[,\s]/g,'').trim();
+  if (s === '') return 0;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : 0;
+};
+const fmtMoney = (n, opts = {}) => {
+  if (!Number.isFinite(n)) n = 0;
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(Math.round(n));
+  return sign + '$' + abs.toLocaleString('en-US');
+};
+const fmtMoney0 = fmtMoney;
+
+/* FV of lump sum */
+function FV_lump(P, r, n) {
+  if (!Number.isFinite(P) || P <= 0) return 0;
+  return P * Math.pow(1 + r, n);
+}
+
+/* FV of monthly contributions, annual compounding equivalent */
+function FV_annuity_monthly(PMT_monthly, annual_r, years) {
+  if (!Number.isFinite(PMT_monthly) || PMT_monthly <= 0 || years <= 0) return 0;
+  // monthly compounding for accuracy
+  const r_m = annual_r / 12;
+  const n = Math.round(years * 12);
+  if (r_m === 0) return PMT_monthly * n;
+  return PMT_monthly * (Math.pow(1 + r_m, n) - 1) / r_m;
+}
+
+/* Amortize a known monthly payment until paid off */
+function amortize(balance, apr, monthly_payment) {
+  if (balance <= 0) return { months: 0, totalInterest: 0 };
+  const r = apr / 12;
+  if (monthly_payment <= balance * r) {
+    // negative amortization — cap to a sane illustration window
+    return { months: 600, totalInterest: monthly_payment * 600 - balance };
+  }
+  let bal = balance, months = 0, interest = 0;
+  while (bal > 0.01 && months < 720) {
+    const int = bal * r;
+    const principal = monthly_payment - int;
+    interest += int;
+    bal -= principal;
+    months++;
+  }
+  return { months, totalInterest: Math.max(0, interest) };
+}
+
+/* Minimum payment payoff: 1% of balance + accrued interest, with $25 floor */
+function min_payment_payoff(balance, apr) {
+  if (balance <= 0) return { months: 0, totalInterest: 0, monthly_payment: 0 };
+  const r = apr / 12;
+  let bal = balance, months = 0, interest = 0, lastPmt = 0;
+  while (bal > 0.01 && months < 720) {
+    const int = bal * r;
+    let pmt = Math.max(25, bal * 0.01 + int);
+    if (pmt > bal + int) pmt = bal + int;
+    const principal = pmt - int;
+    interest += int;
+    bal -= principal;
+    months++;
+    lastPmt = pmt;
+  }
+  return { months, totalInterest: Math.max(0, interest), monthly_payment: lastPmt };
+}
+
+/* Given balance + APR + months remaining → derive monthly payment from amortization */
+function paymentFromMonths(balance, apr, months) {
+  if (balance <= 0 || months <= 0) return 0;
+  const r = apr / 12;
+  if (r === 0) return balance / months;
+  return balance * (r * Math.pow(1 + r, months)) / (Math.pow(1 + r, months) - 1);
+}
+
+/* =========================================================
+ * STATE
+ * ========================================================= */
+const state = {
+  agent: 'Kimora Link',
+  firstName: '',
+  age: null,
+  stateCode: '',
+  income: 0,
+  yearsToRetire: null,
+  ytrManual: false,
+  // debts
+  cc_balance: 0, cc_apr: CONSTANTS.CC_APR,
+  auto_balance: 0, auto_apr: CONSTANTS.AUTO_APR, auto_months: 0,
+  student_balance: 0, student_apr: CONSTANTS.STUDENT_APR, student_months: 0,
+  mortgage_balance: 0, mortgage_apr: CONSTANTS.MORTGAGE_APR, mortgage_years: 0,
+  // idle cash
+  checking: 0, savings: 0, savings_apy: CONSTANTS.SAVINGS_APY,
+  // 401k
+  k401_balance: 0, k401_monthly: 0, k401_growth: 0.07, k401_tax: CONSTANTS.TAX_RATE_RETIREMENT,
+  k401_rollover: false,
+  // term
+  term_premium: 0, term_years: 0, term_coverage: 0,
+  // lifestyle
+  ls_subs: 0, ls_dining: 0, ls_other: 0
+};
+
+/* =========================================================
+ * CALC
+ * ========================================================= */
+function calc() {
+  const yrs = Math.max(1, state.yearsToRetire || 1);
+
+  // ---------- LEAK 1: DEBT ----------
+  const debts = [];
+
+  // Credit Card — typically no fixed months; use minimum payment payoff
+  if (state.cc_balance > 0) {
+    const min = min_payment_payoff(state.cc_balance, state.cc_apr);
+    debts.push({ kind:'Credit Card', balance: state.cc_balance, apr: state.cc_apr, months: min.months, interest: min.totalInterest, monthly: min.monthly_payment });
+  }
+
+  // Auto
+  if (state.auto_balance > 0) {
+    if (state.auto_months > 0) {
+      const pmt = paymentFromMonths(state.auto_balance, state.auto_apr, state.auto_months);
+      const interest = pmt * state.auto_months - state.auto_balance;
+      debts.push({ kind:'Auto', balance: state.auto_balance, apr: state.auto_apr, months: state.auto_months, interest: Math.max(0, interest), monthly: pmt });
+    } else {
+      const min = min_payment_payoff(state.auto_balance, state.auto_apr);
+      debts.push({ kind:'Auto', balance: state.auto_balance, apr: state.auto_apr, months: min.months, interest: min.totalInterest, monthly: min.monthly_payment });
+    }
+  }
+
+  // Student
+  if (state.student_balance > 0) {
+    if (state.student_months > 0) {
+      const pmt = paymentFromMonths(state.student_balance, state.student_apr, state.student_months);
+      const interest = pmt * state.student_months - state.student_balance;
+      debts.push({ kind:'Student', balance: state.student_balance, apr: state.student_apr, months: state.student_months, interest: Math.max(0, interest), monthly: pmt });
+    } else {
+      const min = min_payment_payoff(state.student_balance, state.student_apr);
+      debts.push({ kind:'Student', balance: state.student_balance, apr: state.student_apr, months: min.months, interest: min.totalInterest, monthly: min.monthly_payment });
+    }
+  }
+
+  // Mortgage
+  if (state.mortgage_balance > 0) {
+    const months = (state.mortgage_years > 0 ? state.mortgage_years : 30) * 12;
+    const pmt = paymentFromMonths(state.mortgage_balance, state.mortgage_apr, months);
+    const interest = pmt * months - state.mortgage_balance;
+    debts.push({ kind:'Mortgage', balance: state.mortgage_balance, apr: state.mortgage_apr, months, interest: Math.max(0, interest), monthly: pmt });
+  }
+
+  const total_debt_leak = debts.reduce((s,d) => s + d.interest, 0);
+  const total_monthly_debt_payment = debts.reduce((s,d) => s + d.monthly, 0);
+  const monthly_debt_interest = debts.reduce((s,d) => s + (d.balance * d.apr / 12), 0);
+
+  // If we redirected the interest to IUL @ 6% for 20 years (monthly equiv)
+  const debt_redirect_monthly = monthly_debt_interest; // amount of *current* interest each month
+  const debt_redirect_fv = FV_annuity_monthly(debt_redirect_monthly, CONSTANTS.IUL_RATE, 20);
+
+  // ---------- LEAK 2: IDLE CASH ----------
+  const idle_total = (state.checking || 0) + (state.savings || 0);
+  const idle_current = FV_lump(idle_total, state.savings_apy, 20);
+  const idle_alt = FV_lump(idle_total, CONSTANTS.IUL_RATE, 20);
+  const idle_leak = Math.max(0, idle_alt - idle_current);
+
+  // ---------- LEAK 3: 401k ----------
+  const k401_future = FV_lump(state.k401_balance, state.k401_growth, yrs) + FV_annuity_monthly(state.k401_monthly, state.k401_growth, yrs);
+  const k401_tax_drag = k401_future * state.k401_tax;
+
+  // Rollover alternative on existing balance only
+  const rollover_alt = state.k401_rollover
+    ? FV_lump(state.k401_balance * (1 + CONSTANTS.FIA_BONUS), CONSTANTS.FIA_RATE, yrs)
+    : 0;
+
+  // ---------- LEAK 4: TERM ----------
+  const term_total_paid = state.term_premium * 12 * state.term_years;
+  const term_expected_loss = term_total_paid * (1 - CONSTANTS.TERM_PAYOUT_PROB);
+  const term_redirect_fv = FV_annuity_monthly(state.term_premium, CONSTANTS.IUL_RATE, Math.max(state.term_years, 20));
+
+  // ---------- LEAK 5: LIFESTYLE ----------
+  const ls_monthly = state.ls_subs + state.ls_dining + state.ls_other;
+  const ls_redirect_monthly = ls_monthly * 0.5;
+  const ls_redirect_fv = FV_annuity_monthly(ls_redirect_monthly, CONSTANTS.IUL_RATE, 20);
+  const ls_lifetime = ls_monthly * 12 * 20;
+
+  // ---------- FOUND MONEY (lifetime leakage figure) ----------
+  const found_money = total_debt_leak + idle_leak + k401_tax_drag + term_expected_loss + ls_lifetime;
+
+  // ---------- RECOMMENDATION ----------
+  const monthly_income = (state.income || 0) / 12;
+  // Quick estimated monthly fixed expenses ~ 55% of income (housing + food + utilities + transport + insurance baseline)
+  const est_expenses = monthly_income * 0.55;
+  const disposable_income = Math.max(0, monthly_income - total_monthly_debt_payment - est_expenses);
+  const debt_burden_ratio = monthly_income > 0 ? monthly_debt_interest / monthly_income : 0;
+  const age = state.age || 0;
+  const k401b = state.k401_balance || 0;
+  const eligible = !!state.k401_rollover;
+
+  let rec = { title: 'Foundation Plan: Cash Flow Repair First', body: '', steps: [] };
+
+  // Total consumer (non-mortgage) debt vs annual income — "debt-heavy" check
+  const consumer_debt_balance = (state.cc_balance || 0) + (state.auto_balance || 0) + (state.student_balance || 0);
+  const debt_to_income = (state.income || 0) > 0 ? consumer_debt_balance / state.income : 0;
+
+  if (debt_burden_ratio > 0.25 && monthly_debt_interest > 0) {
+    rec.title = 'Debt-First Plan';
+    rec.steps = [
+      'Avalanche payoff: highest-APR debt first (credit card, then auto, then student).',
+      'Hold all permanent insurance commitments for 24 months.',
+      'Once debt-to-interest ratio drops below 10%, glide into a properly funded IUL.'
+    ];
+  } else if (debt_to_income > 0.5 && consumer_debt_balance > 20000 && age <= 40) {
+    // Heavy consumer debt relative to income for a younger client → debt-first with IUL glide path
+    rec.title = 'Debt-First Plan';
+    rec.steps = [
+      'Avalanche the credit card first — every dollar saved at 21.5% APR is a guaranteed 21.5% return.',
+      'Move student loans to standard 10-year repayment; avoid extended terms.',
+      'After 24 months of disciplined payoff, glide into a properly funded IUL with the freed cash flow.'
+    ];
+  } else if (age > 55 && k401b >= 25000 && eligible) {
+    // Older clients near or in retirement window: prioritize rollover for tax-advantaged income
+    rec.title = 'Athene Rollover for Tax-Advantaged Income';
+    rec.steps = [
+      'Roll qualified balance into Athene FIA — 20% premium bonus accelerates the income base.',
+      'Activate income rider for guaranteed lifetime payout.',
+      'Coordinate with Social Security claiming strategy to minimize the tax torpedo.'
+    ];
+  } else if (k401b >= 25000 && eligible) {
+    if (disposable_income >= 300) {
+      rec.title = 'Hybrid Rollover + IUL';
+      rec.steps = [
+        'Roll old employer 401(k) into Athene FIA — captures the 20% premium bonus and locks in floor.',
+        'Redirect monthly contributions to a properly designed IUL — tax-advantaged growth, living benefits.',
+        'Keep current employer match if active; never leave free money on the table.'
+      ];
+    } else {
+      rec.title = 'Athene FIA Rollover Only';
+      rec.steps = [
+        'Roll old employer 401(k) into Athene FIA — 20% premium bonus on transfer.',
+        'Defer new IUL until cash flow improves by $300/mo or more.',
+        'Revisit in 12 months once budget is freed up by debt reduction.'
+      ];
+    }
+  } else if (disposable_income >= 300 && age <= 55) {
+    rec.title = 'IUL Build Plan';
+    rec.steps = [
+      'Open a properly designed IUL funded at minimum non-MEC, max cash value.',
+      'Redirect leak dollars (lifestyle + idle cash interest gap) into the policy.',
+      'Layer in living benefits — chronic, critical, terminal illness riders.'
+    ];
+  } else if (age > 55 && k401b >= 25000) {
+    rec.title = 'Athene Rollover for Tax-Advantaged Income';
+    rec.steps = [
+      'Roll qualified balance into Athene FIA — bonus accelerates near-retirement income.',
+      'Lock in income rider for guaranteed lifetime payout.',
+      'Coordinate with Social Security claiming to minimize tax torpedo.'
+    ];
+  } else {
+    rec.title = 'Foundation Plan: Cash Flow Repair First';
+    rec.steps = [
+      'Capture every dollar leaking from lifestyle and idle cash.',
+      'Stabilize emergency fund at 1 month of expenses in a high-yield account.',
+      'Reassess in 6 months — once cash flow improves, layer in IUL.'
+    ];
+  }
+
+  // Build the narrative
+  const name = state.firstName ? state.firstName : 'this client';
+  rec.body = buildRecNarrative(rec.title, {
+    name,
+    found_money,
+    monthly_debt_interest,
+    debt_burden_ratio,
+    disposable_income,
+    k401b,
+    eligible,
+    age,
+    rollover_alt,
+    ls_redirect_fv,
+    idle_leak
+  });
+
+  // ---------- 20-YEAR PROJECTION ----------
+  const proj = projectionSeries(state, {
+    found_money, ls_redirect_monthly, idle_total, debt_redirect_monthly, rollover_alt, recTitle: rec.title
+  });
+
+  return {
+    debts, total_debt_leak, total_monthly_debt_payment, monthly_debt_interest, debt_redirect_fv,
+    idle_total, idle_leak, idle_current, idle_alt,
+    k401_future, k401_tax_drag, rollover_alt,
+    term_total_paid, term_expected_loss, term_redirect_fv,
+    ls_monthly, ls_lifetime, ls_redirect_fv,
+    found_money, rec, disposable_income, debt_burden_ratio, monthly_income,
+    proj
+  };
+}
+
+function buildRecNarrative(title, ctx) {
+  const dl = fmtMoney(ctx.found_money);
+  const burden = (ctx.debt_burden_ratio * 100).toFixed(1);
+  const disp = fmtMoney(ctx.disposable_income);
+  const name = ctx.name;
+  switch (title) {
+    case 'Debt-First Plan':
+      return `${name}'s debt interest is consuming ${burden}% of monthly gross income — above the 25% threshold where new insurance commitments do more harm than good. The fastest path to legacy here is interest elimination: redirect ${fmtMoney(ctx.monthly_debt_interest)}/month of current interest into an avalanche payoff. Once the burden ratio drops below 10% (typically 18–30 months), glide the freed-up cash flow into a properly funded IUL.`;
+    case 'Hybrid Rollover + IUL':
+      return `${name} has two leverage points working in their favor: ${fmtMoney(ctx.k401b)} in a rollover-eligible 401(k) and ${disp}/month of true disposable cash flow. Athene's 20% premium bonus on the rollover instantly grows the qualified balance to ${fmtMoney(ctx.k401b * 1.20)}. Layered with a properly designed IUL for ongoing contributions, ${name} compounds two tax-advantaged engines simultaneously — and recovers ${dl} of lifetime leakage along the way.`;
+    case 'Athene FIA Rollover Only':
+      return `${name} qualifies for the Athene rollover (balance of ${fmtMoney(ctx.k401b)}) but cash flow is tight today — disposable income at ${disp}/month doesn't yet support a properly funded IUL. Capture the 20% bonus now on the rollover; revisit the IUL once cash flow improves through debt or lifestyle reduction.`;
+    case 'IUL Build Plan':
+      return `${name}'s strongest move is starting an IUL today. At age ${ctx.age} with ${disp}/month of disposable cash flow, a properly designed policy generates tax-advantaged growth, living-benefit protection, and a death benefit that converts term-style premium spend into permanent equity. Found-money potential: ${dl} over 20 years.`;
+    case 'Athene Rollover for Tax-Advantaged Income':
+      return `${name} is positioned for the income phase. With ${fmtMoney(ctx.k401b)} in qualified balance and age ${ctx.age}, a rollover into an Athene FIA with income rider locks in guaranteed lifetime income — and the 20% premium bonus front-loads the income base. This converts ${dl} of projected leakage into structured, tax-efficient retirement income.`;
+    default:
+      return `${name}'s priority is foundation work first. ${dl} is currently leaking across the five categories; even half of that redirected — ${fmtMoney(ctx.found_money * 0.5)} — funds a meaningful legacy over 20 years. Start with the lifestyle leak (fastest recovery), stabilize an emergency fund, and re-audit in six months.`;
+  }
+}
+
+/* =========================================================
+ * PROJECTION
+ * ========================================================= */
+function projectionSeries(s, ctx) {
+  const yrs = 20;
+  const status = [], legacy = [];
+
+  // STATUS QUO: existing 401k + current contributions at growth rate (8.5% for status quo) MINUS taxes at end
+  // + idle cash at savings APY
+  // + ongoing lifestyle leak (lost forever, so this is wealth NOT built)
+  // We'll project: 401k pre-tax balance, taxed at 22% at year of withdrawal; idle cash at SAVINGS_APY.
+  // Status quo doesn't recover the leaks.
+
+  // LEGACY PLAN: depends on recTitle
+  const rec = ctx.recTitle;
+
+  const monthlyToIUL = (() => {
+    let m = 0;
+    if (rec === 'Hybrid Rollover + IUL' || rec === 'IUL Build Plan') {
+      m += ctx.ls_redirect_monthly;
+      m += s.k401_monthly; // redirect new contributions to IUL
+    } else if (rec === 'Debt-First Plan') {
+      m += ctx.ls_redirect_monthly;
+    } else if (rec === 'Athene FIA Rollover Only' || rec === 'Athene Rollover for Tax-Advantaged Income') {
+      m += ctx.ls_redirect_monthly;
+    } else {
+      m += ctx.ls_redirect_monthly;
+    }
+    return m;
+  })();
+
+  const rolloverInitial = (rec.includes('Rollover') || rec.includes('Hybrid')) ? s.k401_balance * (1 + CONSTANTS.FIA_BONUS) : 0;
+  const fiaRate = CONSTANTS.FIA_RATE;
+  const iulRate = CONSTANTS.IUL_RATE;
+
+  // existing 401k untouched in status quo grows at user growth (default 7%)
+  const k401Growth = s.k401_growth;
+
+  for (let y = 0; y <= yrs; y++) {
+    // STATUS QUO
+    const k401_balance = FV_lump(s.k401_balance, k401Growth, y) + FV_annuity_monthly(s.k401_monthly, k401Growth, y);
+    const k401_aftertax = k401_balance * (1 - s.k401_tax);
+    const idleSQ = FV_lump((s.checking + s.savings), s.savings_apy, y);
+    // status quo also still pays the term premiums (cost, treated as negative or just not built)
+    status.push(k401_aftertax + idleSQ);
+
+    // LEGACY PLAN
+    let legacyVal = 0;
+    if (rolloverInitial > 0) {
+      legacyVal += FV_lump(rolloverInitial, fiaRate, y);
+    } else {
+      // if not rolling, keep existing 401k path but include contribution path
+      legacyVal += FV_lump(s.k401_balance, k401Growth, y) * (rec === 'Foundation Plan: Cash Flow Repair First' || rec === 'Debt-First Plan' ? (1 - s.k401_tax * 0.5) : (1 - s.k401_tax));
+    }
+    // Idle cash redeployed to IUL @ 6%
+    legacyVal += FV_lump((s.checking + s.savings), iulRate, y);
+    // Redirected monthly money into IUL
+    legacyVal += FV_annuity_monthly(monthlyToIUL, iulRate, y);
+
+    legacy.push(legacyVal);
+  }
+
+  const legacyNumber = Math.max(0, legacy[yrs] - status[yrs]);
+  return { years: Array.from({length:yrs+1}, (_,i)=>i), status, legacy, legacyNumber };
+}
+
+/* =========================================================
+ * RENDER
+ * ========================================================= */
+let chart;
+let animatingTo = 0;
+let animFrom = 0;
+let animStart = 0;
+
+function animateFound(to) {
+  const el = document.getElementById('foundNumber');
+  animFrom = animatingTo;
+  animatingTo = to;
+  animStart = performance.now();
+  const dur = 600;
+  function tick(now) {
+    const t = Math.min(1, (now - animStart) / dur);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const v = animFrom + (animatingTo - animFrom) * eased;
+    el.textContent = fmtMoney(v);
+    if (t < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function render(r) {
+  // Found money
+  animateFound(r.found_money);
+
+  // Inline name
+  const a = document.getElementById('clientNameInline');
+  if (a) a.textContent = state.firstName ? state.firstName + "'s" : "your client's";
+  const b = document.getElementById('clientNameInline2');
+  if (b) b.textContent = state.firstName || 'this client';
+
+  // Leak result cards
+  const leakCards = [
+    {
+      name: 'Debt Interest',
+      leakNow: r.monthly_debt_interest > 0 ? fmtMoney(r.monthly_debt_interest) + '/mo in interest' : 'No debts entered',
+      lifetime: r.total_debt_leak,
+      redirect: r.debt_redirect_fv,
+      redirectLabel: 'If redirected to IUL @ 6% × 20 yrs'
+    },
+    {
+      name: 'Idle Cash',
+      leakNow: r.idle_total > 0 ? fmtMoney(r.idle_total) + ' at ' + (state.savings_apy*100).toFixed(2) + '% APY' : 'No idle cash entered',
+      lifetime: r.idle_leak,
+      redirect: r.idle_alt,
+      redirectLabel: 'FV at 6% IUL over 20 yrs'
+    },
+    {
+      name: '401(k) Tax Drag',
+      leakNow: r.k401_future > 0 ? fmtMoney(r.k401_future) + ' future balance' : 'No 401(k) entered',
+      lifetime: r.k401_tax_drag,
+      redirect: r.rollover_alt,
+      redirectLabel: state.k401_rollover ? 'Athene rollover @ 5.5% + 20% bonus' : 'Rollover toggle off'
+    },
+    {
+      name: 'Term Premium',
+      leakNow: r.term_total_paid > 0 ? fmtMoney(r.term_total_paid) + ' total premium paid' : 'No term policy entered',
+      lifetime: r.term_expected_loss,
+      redirect: r.term_redirect_fv,
+      redirectLabel: 'Same premium into IUL'
+    },
+    {
+      name: 'Lifestyle Cash Flow',
+      leakNow: r.ls_monthly > 0 ? fmtMoney(r.ls_monthly) + '/mo current spend' : 'No lifestyle leak entered',
+      lifetime: r.ls_lifetime,
+      redirect: r.ls_redirect_fv,
+      redirectLabel: '50% redirected to IUL × 20 yrs'
+    }
+  ];
+  const lr = document.getElementById('leakResults');
+  lr.innerHTML = leakCards.map(c => `
+    <div class="leak-result">
+      <div>
+        <div class="name">${c.name}</div>
+        <div class="leak-now">${c.leakNow}</div>
+        <div class="redirect">→ ${fmtMoney(c.redirect)} ${c.redirectLabel ? '— ' + c.redirectLabel.toLowerCase() : ''}</div>
+      </div>
+      <div class="lifetime num"><small>Lifetime</small>${fmtMoney(c.lifetime)}</div>
+    </div>
+  `).join('');
+
+  // Recommendation
+  document.getElementById('recTitle').textContent = r.rec.title;
+  document.getElementById('recBody').innerHTML = r.rec.body;
+  const stepsEl = document.getElementById('recSteps');
+  stepsEl.innerHTML = r.rec.steps.map(s => `<li>${s}</li>`).join('');
+
+  // Chart
+  drawChart(r.proj);
+  document.getElementById('legacyNumber').textContent = fmtMoney(r.proj.legacyNumber);
+}
+
+function drawChart(proj) {
+  const ctx = document.getElementById('projChart').getContext('2d');
+  if (chart) {
+    chart.data.labels = proj.years.map(y => 'Yr ' + y);
+    chart.data.datasets[0].data = proj.status;
+    chart.data.datasets[1].data = proj.legacy;
+    chart.update();
+    return;
+  }
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: proj.years.map(y => 'Yr ' + y),
+      datasets: [
+        { label:'Status Quo', data: proj.status, borderColor:'#C0392B', backgroundColor:'rgba(192,57,43,0.08)', borderWidth:2, tension:0.25, pointRadius:0, fill:true },
+        { label:'Legacy Plan', data: proj.legacy, borderColor:'#B8985A', backgroundColor:'rgba(184,152,90,0.10)', borderWidth:2.5, tension:0.25, pointRadius:0, fill:true }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor:'#15151A', borderColor:'#2A2A33', borderWidth:1, titleColor:'#F5F5F0', bodyColor:'#F5F5F0',
+          callbacks: {
+            label: (c) => c.dataset.label + ': ' + fmtMoney(c.raw)
+          }
+        }
+      },
+      scales: {
+        x: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#7A7A75', font:{ family:'DM Sans', size:11 } } },
+        y: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#7A7A75', font:{ family:'Inter', size:11 }, callback:(v) => fmtMoney(v) } }
+      }
+    }
+  });
+}
+
+/* =========================================================
+ * BINDINGS
+ * ========================================================= */
+function populateStates() {
+  const sel = document.getElementById('state');
+  sel.innerHTML = '<option value="">—</option>' + STATES.map(s => `<option value="${s}">${s}</option>`).join('');
+}
+
+function getDollarInput(name) {
+  const el = document.querySelector(`[data-input="${name}"]`);
+  return el ? parseDollar(el.value) : 0;
+}
+function getIntInput(name) {
+  const el = document.querySelector(`[data-input="${name}"]`);
+  return el ? parseInt0(el.value) : 0;
+}
+function getPctInput(name, defaultPct) {
+  const el = document.querySelector(`[data-input="${name}"]`);
+  return el ? parsePct(el.value, defaultPct) : defaultPct;
+}
+
+function readState() {
+  state.agent = document.getElementById('agentName').value.trim() || 'Kimora Link';
+  state.firstName = document.getElementById('firstName').value.trim();
+  const ageRaw = document.getElementById('age').value.trim();
+  state.age = ageRaw === '' ? null : Math.max(18, Math.min(75, parseInt(ageRaw,10) || 0));
+  state.stateCode = document.getElementById('state').value;
+  state.income = parseDollar(document.getElementById('income').value);
+
+  const ytrEl = document.getElementById('yearsToRetire');
+  if (!state.ytrManual && state.age) {
+    ytrEl.value = Math.max(0, 65 - state.age);
+  }
+  state.yearsToRetire = ytrEl.value === '' ? (state.age ? Math.max(1, 65 - state.age) : 20) : parseInt(ytrEl.value, 10);
+
+  state.cc_balance = getDollarInput('cc_balance');
+  state.cc_apr = getPctInput('cc_apr', CONSTANTS.CC_APR);
+
+  state.auto_balance = getDollarInput('auto_balance');
+  state.auto_apr = getPctInput('auto_apr', CONSTANTS.AUTO_APR);
+  state.auto_months = getIntInput('auto_months');
+
+  state.student_balance = getDollarInput('student_balance');
+  state.student_apr = getPctInput('student_apr', CONSTANTS.STUDENT_APR);
+  state.student_months = getIntInput('student_months');
+
+  state.mortgage_balance = getDollarInput('mortgage_balance');
+  state.mortgage_apr = getPctInput('mortgage_apr', CONSTANTS.MORTGAGE_APR);
+  state.mortgage_years = getIntInput('mortgage_years');
+
+  state.checking = getDollarInput('checking');
+  state.savings = getDollarInput('savings');
+  state.savings_apy = getPctInput('savings_apy', CONSTANTS.SAVINGS_APY);
+
+  state.k401_balance = getDollarInput('k401_balance');
+  state.k401_monthly = getDollarInput('k401_monthly');
+  state.k401_growth = getPctInput('k401_growth', 0.07);
+  state.k401_tax = getPctInput('k401_tax', CONSTANTS.TAX_RATE_RETIREMENT);
+  state.k401_rollover = document.getElementById('k401_rollover').checked;
+
+  state.term_premium = getDollarInput('term_premium');
+  state.term_years = getIntInput('term_years');
+  state.term_coverage = getDollarInput('term_coverage');
+
+  state.ls_subs = getDollarInput('ls_subs');
+  state.ls_dining = getDollarInput('ls_dining');
+  state.ls_other = getDollarInput('ls_other');
+}
+
+let debounceT;
+function scheduleCalc() {
+  clearTimeout(debounceT);
+  debounceT = setTimeout(() => {
+    readState();
+    const r = calc();
+    render(r);
+  }, 300);
+}
+
+/* Currency formatter on dollar inputs: format on blur */
+function attachDollarFormat(el) {
+  el.addEventListener('blur', () => {
+    const v = parseDollar(el.value);
+    if (v > 0) el.value = v.toLocaleString('en-US');
+  });
+  el.addEventListener('focus', () => {
+    el.value = el.value.replace(/[$,\s]/g,'');
+  });
+}
+
+function bind() {
+  // Toggles
+  document.querySelectorAll('[data-toggle]').forEach(h => {
+    h.addEventListener('click', () => {
+      const id = h.getAttribute('data-toggle');
+      document.getElementById(id).classList.toggle('open');
+    });
+  });
+
+  // Dollar fields
+  document.querySelectorAll('input[inputmode="numeric"]').forEach(attachDollarFormat);
+
+  // Listen to all inputs
+  document.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', scheduleCalc);
+    el.addEventListener('change', scheduleCalc);
+  });
+
+  // Years to retirement manual override flag
+  document.getElementById('yearsToRetire').addEventListener('input', (e) => {
+    if (e.target.value !== '') state.ytrManual = true;
+  });
+
+  // Reset
+  document.getElementById('resetBtn').addEventListener('click', resetAll);
+  document.getElementById('resetBtnTop').addEventListener('click', resetAll);
+
+  // Personas
+  document.querySelectorAll('.persona-pill[data-persona]').forEach(p => {
+    p.addEventListener('click', () => loadPersona(p.dataset.persona));
+  });
+
+  // PDF
+  document.getElementById('pdfBtn').addEventListener('click', exportPDF);
+}
+
+function resetAll() {
+  document.querySelectorAll('input[type="text"], input[type="number"]').forEach(el => {
+    if (el.id === 'agentName') return; // keep agent
+    el.value = '';
+  });
+  document.getElementById('k401_rollover').checked = false;
+  document.getElementById('state').value = '';
+  state.ytrManual = false;
+  // close all leak cards
+  ['card-leak1','card-leak2','card-leak3','card-leak4','card-leak5'].forEach(id => document.getElementById(id).classList.remove('open'));
+  document.getElementById('card-snapshot').classList.add('open');
+  scheduleCalc();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* =========================================================
+ * PERSONAS
+ * ========================================================= */
+function setVal(id, v) {
+  const el = document.getElementById(id) || document.querySelector(`[data-input="${id}"]`);
+  if (!el) return;
+  if (el.type === 'checkbox') el.checked = !!v;
+  else el.value = v;
+}
+function loadPersona(p) {
+  resetAll();
+  // Open all leak cards
+  ['card-leak1','card-leak2','card-leak3','card-leak4','card-leak5'].forEach(id => document.getElementById(id).classList.add('open'));
+
+  if (p === 'A') {
+    // 32, $80k, $15k CC, $30k old 401k w/ $200/mo, $400 disposable. Expected: Hybrid.
+    setVal('firstName','Marcus');
+    setVal('age', 32);
+    setVal('state','NJ');
+    setVal('income','80,000');
+    setVal('cc_balance','15,000');
+    setVal('cc_apr','21.5');
+    setVal('k401_balance','30,000');
+    setVal('k401_monthly','200');
+    setVal('k401_growth','7');
+    setVal('k401_tax','22');
+    setVal('k401_rollover', true);
+    setVal('ls_dining','150');
+    setVal('ls_subs','60');
+    setVal('checking','3,000');
+    setVal('savings','5,000');
+  } else if (p === 'B') {
+    // 58, $120k, $250k old 401k, no consumer debt, $50/mo lifestyle. Expected: Athene Rollover.
+    setVal('firstName','Diane');
+    setVal('age', 58);
+    setVal('state','FL');
+    setVal('income','120,000');
+    setVal('k401_balance','250,000');
+    setVal('k401_monthly','0');
+    setVal('k401_growth','7');
+    setVal('k401_tax','22');
+    setVal('k401_rollover', true);
+    setVal('ls_subs','50');
+    setVal('checking','15,000');
+    setVal('savings','40,000');
+    setVal('mortgage_balance','180,000');
+    setVal('mortgage_apr','5.5');
+    setVal('mortgage_years','12');
+  } else if (p === 'C') {
+    // 28, $45k, $25k CC, $35k student. Expected: Debt-First.
+    setVal('firstName','Jordan');
+    setVal('age', 28);
+    setVal('state','TX');
+    setVal('income','45,000');
+    setVal('cc_balance','25,000');
+    setVal('cc_apr','21.5');
+    setVal('student_balance','35,000');
+    setVal('student_apr','6.5');
+    setVal('student_months','120');
+    setVal('ls_subs','40');
+    setVal('ls_dining','120');
+  }
+
+  // Force re-format
+  document.querySelectorAll('input[inputmode="numeric"]').forEach(el => {
+    const v = parseDollar(el.value);
+    if (v > 0) el.value = v.toLocaleString('en-US');
+  });
+  state.ytrManual = false;
+  scheduleCalc();
+}
+
+/* =========================================================
+ * PDF EXPORT
+ * ========================================================= */
+async function exportPDF() {
+  const btn = document.getElementById('pdfBtn');
+  const prev = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = 'Generating…';
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'pt', format: 'letter', orientation: 'portrait' });
+    const W = pdf.internal.pageSize.getWidth();
+    const H = pdf.internal.pageSize.getHeight();
+    const M = 40;
+
+    const r = calc();
+    const today = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+    const name = state.firstName || 'Prospective Client';
+
+    // ---- COVER ----
+    pdf.setFillColor(14,14,16); pdf.rect(0,0,W,H,'F');
+    // Gold glow
+    pdf.setFillColor(184,152,90); pdf.setGState(new pdf.GState({opacity:0.08}));
+    pdf.circle(W/2, -60, 220, 'F');
+    pdf.setGState(new pdf.GState({opacity:1}));
+    // Seal
+    pdf.setFillColor(184,152,90); pdf.circle(W/2, 180, 38, 'F');
+    pdf.setFillColor(20,17,10); pdf.setFont('helvetica','bold'); pdf.setFontSize(22);
+    pdf.text('LL', W/2, 188, { align:'center' });
+    // Title
+    pdf.setTextColor(245,245,240); pdf.setFont('helvetica','bold'); pdf.setFontSize(34);
+    pdf.text('The Legacy Audit', W/2, 270, { align:'center' });
+    pdf.setTextColor(184,152,90); pdf.setFont('helvetica','normal'); pdf.setFontSize(12);
+    pdf.text('FIND THE MONEY.  BUILD THE LEGACY.', W/2, 295, { align:'center' });
+    // Client info
+    pdf.setDrawColor(184,152,90); pdf.setLineWidth(0.5); pdf.line(W/2-80, 330, W/2+80, 330);
+    pdf.setTextColor(245,245,240); pdf.setFontSize(16); pdf.setFont('helvetica','bold');
+    pdf.text('Prepared for ' + name, W/2, 370, { align:'center' });
+    pdf.setFont('helvetica','normal'); pdf.setFontSize(11); pdf.setTextColor(184,184,176);
+    pdf.text(today, W/2, 392, { align:'center' });
+    pdf.text('Agent: ' + state.agent, W/2, 410, { align:'center' });
+    if (state.stateCode) pdf.text('State: ' + state.stateCode, W/2, 428, { align:'center' });
+    // Found money
+    pdf.setFont('helvetica','bold'); pdf.setFontSize(11); pdf.setTextColor(184,152,90);
+    pdf.text('FOUND MONEY — LIFETIME', W/2, 510, { align:'center' });
+    pdf.setFontSize(46); pdf.setTextColor(212,178,108);
+    pdf.text(fmtMoney(r.found_money), W/2, 560, { align:'center' });
+    // Footer
+    footerLine(pdf, W, H);
+
+    // ---- PAGE 2: LEAK SNAPSHOT ----
+    pdf.addPage();
+    pageHeader(pdf, W, 'The 5 Leaks');
+    let y = 100;
+    pdf.setFontSize(11); pdf.setTextColor(35,35,40); pdf.setFont('helvetica','normal');
+    const leakRows = [
+      { name: 'Debt Interest', lifetime: r.total_debt_leak, redirect: r.debt_redirect_fv, detail: r.monthly_debt_interest > 0 ? fmtMoney(r.monthly_debt_interest) + '/mo current interest' : 'No debts entered' },
+      { name: 'Idle Cash', lifetime: r.idle_leak, redirect: r.idle_alt, detail: r.idle_total > 0 ? fmtMoney(r.idle_total) + ' at ' + (state.savings_apy*100).toFixed(2) + '% APY' : 'No idle cash' },
+      { name: '401(k) Tax Drag', lifetime: r.k401_tax_drag, redirect: r.rollover_alt, detail: r.k401_future > 0 ? fmtMoney(r.k401_future) + ' projected future balance' : 'No 401(k) entered' },
+      { name: 'Term Premium', lifetime: r.term_expected_loss, redirect: r.term_redirect_fv, detail: r.term_total_paid > 0 ? fmtMoney(r.term_total_paid) + ' total premium' : 'No term policy' },
+      { name: 'Lifestyle Cash Flow', lifetime: r.ls_lifetime, redirect: r.ls_redirect_fv, detail: r.ls_monthly > 0 ? fmtMoney(r.ls_monthly) + '/month' : 'None entered' }
+    ];
+    leakRows.forEach((row) => {
+      pdf.setFillColor(247,246,242); pdf.rect(M, y, W - M*2, 70, 'F');
+      pdf.setFont('helvetica','bold'); pdf.setFontSize(13); pdf.setTextColor(20,20,24);
+      pdf.text(row.name, M + 14, y + 22);
+      pdf.setFont('helvetica','normal'); pdf.setFontSize(10); pdf.setTextColor(100,100,100);
+      pdf.text(row.detail, M + 14, y + 40);
+      pdf.setFont('helvetica','bold'); pdf.setFontSize(13); pdf.setTextColor(192,57,43);
+      pdf.text('Lifetime: ' + fmtMoney(row.lifetime), W - M - 14, y + 22, { align:'right' });
+      pdf.setTextColor(31,138,76); pdf.setFontSize(11);
+      pdf.text('Redirected: ' + fmtMoney(row.redirect), W - M - 14, y + 40, { align:'right' });
+      y += 82;
+    });
+    footerLine(pdf, W, H);
+
+    // ---- PAGE 3: RECOMMENDATION ----
+    pdf.addPage();
+    pageHeader(pdf, W, 'Smart Recommendation');
+    y = 100;
+    pdf.setFillColor(20,17,10); pdf.rect(M, y, W - M*2, 70, 'F');
+    pdf.setFontSize(10); pdf.setTextColor(184,152,90); pdf.setFont('helvetica','bold');
+    pdf.text('RECOMMENDED PLAN', M + 14, y + 22);
+    pdf.setFontSize(18); pdf.setTextColor(212,178,108);
+    pdf.text(r.rec.title, M + 14, y + 50);
+    y += 90;
+    pdf.setFont('helvetica','normal'); pdf.setFontSize(11); pdf.setTextColor(35,35,40);
+    const bodyText = stripTags(r.rec.body);
+    const wrapped = pdf.splitTextToSize(bodyText, W - M*2);
+    pdf.text(wrapped, M, y); y += wrapped.length * 14 + 16;
+    pdf.setFont('helvetica','bold'); pdf.setFontSize(12); pdf.text('Next Steps', M, y); y += 18;
+    pdf.setFont('helvetica','normal'); pdf.setFontSize(11);
+    r.rec.steps.forEach((s, i) => {
+      const wlines = pdf.splitTextToSize((i+1) + '.  ' + s, W - M*2 - 10);
+      pdf.text(wlines, M + 4, y); y += wlines.length * 14 + 4;
+    });
+    footerLine(pdf, W, H);
+
+    // ---- PAGE 4: 20-YEAR PROJECTION ----
+    pdf.addPage();
+    pageHeader(pdf, W, '20-Year Projection');
+    y = 100;
+    // Capture chart canvas
+    try {
+      const canvas = document.getElementById('projChart');
+      const dataUrl = canvas.toDataURL('image/png', 1.0);
+      pdf.addImage(dataUrl, 'PNG', M, y, W - M*2, 220);
+      y += 240;
+    } catch(e){ /* skip */ }
+    // Legacy number
+    pdf.setFillColor(20,40,28); pdf.rect(M, y, W - M*2, 50, 'F');
+    pdf.setFontSize(10); pdf.setTextColor(76,175,124); pdf.setFont('helvetica','bold');
+    pdf.text('YOUR LEGACY NUMBER — Year 20 Gap', M + 14, y + 20);
+    pdf.setFontSize(20); pdf.setTextColor(245,245,240);
+    pdf.text(fmtMoney(r.proj.legacyNumber), W - M - 14, y + 32, { align:'right' });
+    y += 70;
+    // Table - select years
+    pdf.setFont('helvetica','bold'); pdf.setFontSize(10); pdf.setTextColor(120,120,120);
+    pdf.text('YEAR', M, y); pdf.text('STATUS QUO', M + 100, y); pdf.text('LEGACY PLAN', M + 240, y); pdf.text('DIFFERENCE', M + 380, y);
+    y += 10; pdf.setDrawColor(220,220,220); pdf.line(M, y, W - M, y); y += 14;
+    pdf.setFont('helvetica','normal'); pdf.setFontSize(10); pdf.setTextColor(35,35,40);
+    [0,5,10,15,20].forEach(yr => {
+      pdf.text('Year ' + yr, M, y);
+      pdf.text(fmtMoney(r.proj.status[yr]), M + 100, y);
+      pdf.text(fmtMoney(r.proj.legacy[yr]), M + 240, y);
+      pdf.setTextColor(31,138,76);
+      pdf.text(fmtMoney(r.proj.legacy[yr] - r.proj.status[yr]), M + 380, y);
+      pdf.setTextColor(35,35,40);
+      y += 18;
+    });
+    footerLine(pdf, W, H);
+
+    // ---- PAGE 5: NEXT STEPS + CONTACT ----
+    pdf.addPage();
+    pageHeader(pdf, W, 'Next Steps');
+    y = 110;
+    pdf.setFont('helvetica','normal'); pdf.setFontSize(12); pdf.setTextColor(35,35,40);
+    const intro = `${name}, this audit identified ${fmtMoney(r.found_money)} of lifetime money currently leaking from your financial life. The recommended plan above is built around your specific situation — your age, your debts, your retirement timeline, and your cash flow.`;
+    const introLines = pdf.splitTextToSize(intro, W - M*2);
+    pdf.text(introLines, M, y); y += introLines.length * 16 + 20;
+
+    pdf.setFont('helvetica','bold'); pdf.setFontSize(13); pdf.text('Your 3-Step Action Plan', M, y); y += 22;
+    const actions = [
+      'Book a 30-minute Discovery Call with your agent to walk through the numbers in this report.',
+      'Bring statements: last 401(k) statement, current insurance declarations, monthly budget.',
+      'Walk away with a written, signed plan — or zero pressure to proceed.'
+    ];
+    pdf.setFont('helvetica','normal'); pdf.setFontSize(11);
+    actions.forEach((s, i) => {
+      const lines = pdf.splitTextToSize((i+1) + '.  ' + s, W - M*2 - 10);
+      pdf.text(lines, M + 4, y); y += lines.length * 14 + 8;
+    });
+
+    y += 12;
+    pdf.setFillColor(20,17,10); pdf.rect(M, y, W - M*2, 90, 'F');
+    pdf.setFontSize(10); pdf.setTextColor(184,152,90); pdf.setFont('helvetica','bold');
+    pdf.text('YOUR AGENT', M + 14, y + 20);
+    pdf.setFontSize(16); pdf.setTextColor(245,245,240);
+    pdf.text(state.agent, M + 14, y + 44);
+    pdf.setFontSize(10); pdf.setTextColor(184,184,176); pdf.setFont('helvetica','normal');
+    pdf.text('The Legacy Link', M + 14, y + 62);
+    pdf.text('340 Old River Road, Edgewater, NJ 07020', M + 14, y + 76);
+    pdf.setFont('helvetica','bold'); pdf.setTextColor(184,152,90);
+    pdf.text('thelegacylink.com/inner-circle', W - M - 14, y + 62, { align:'right' });
+    footerLine(pdf, W, H);
+
+    const fname = `Legacy_Audit_${(state.firstName || 'Client').replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.pdf`;
+    pdf.save(fname);
+  } catch (err) {
+    console.error(err);
+    alert('PDF export error. ' + (err && err.message ? err.message : ''));
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = prev;
+  }
+}
+
+function pageHeader(pdf, W, title) {
+  pdf.setFillColor(14,14,16); pdf.rect(0, 0, W, 60, 'F');
+  pdf.setFillColor(184,152,90); pdf.circle(40, 30, 14, 'F');
+  pdf.setFont('helvetica','bold'); pdf.setFontSize(11); pdf.setTextColor(20,17,10);
+  pdf.text('LL', 40, 34, { align:'center' });
+  pdf.setTextColor(245,245,240); pdf.setFontSize(11);
+  pdf.text('THE LEGACY AUDIT', 64, 26);
+  pdf.setFont('helvetica','normal'); pdf.setFontSize(9); pdf.setTextColor(184,152,90);
+  pdf.text(title.toUpperCase(), 64, 42);
+}
+function footerLine(pdf, W, H) {
+  pdf.setFontSize(7); pdf.setTextColor(140,140,140); pdf.setFont('helvetica','normal');
+  const txt = 'Individual results vary. Income is not guaranteed. The Legacy Link, 340 Old River Road, Edgewater, NJ 07020. Not investment advice. Consult a licensed agent.';
+  const lines = pdf.splitTextToSize(txt, W - 80);
+  pdf.text(lines, 40, H - 26);
+}
+function stripTags(s) { return String(s).replace(/<[^>]+>/g,''); }
+
+/* =========================================================
+ * BOOT
+ * ========================================================= */
+populateStates();
+bind();
+scheduleCalc();
+</script>
+</body>
+</html>
