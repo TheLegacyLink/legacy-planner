@@ -251,11 +251,16 @@ function StudyGuide({ module, onQuiz }) {
 
 // ─── Module Detail ────────────────────────────────────────────────────────────
 function ModuleDetail({ module, email, onBack, onComplete }) {
-  const [tab, setTab] = useState('overview');
+  const [tab, setTab]                   = useState('overview');
+  const [showUnlockModal, setUnlockModal] = useState(false);
 
   function handlePass(result) {
     onComplete(module.id, result);
-    setTab('overview');
+    if (module.toolUrl) {
+      setUnlockModal(true); // show congrats popup if this module has a tool
+    } else {
+      setTab('overview');
+    }
   }
 
   const hasTool    = Boolean(module.toolUrl);
@@ -303,13 +308,20 @@ function ModuleDetail({ module, email, onBack, onComplete }) {
                 { icon: '📺', label: 'Video Lesson', action: () => setTab('video') },
                 { icon: '📝', label: 'Study Guide', action: () => setTab('study') },
                 { icon: '✅', label: module.progress?.completed ? 'Retake Quiz' : 'Take Quiz', action: () => setTab('quiz') },
-                ...(hasTool ? [{ icon: toolPassed ? '🛠️' : '🔒', label: toolPassed ? (module.toolLabel || 'Needs Analysis Tool') : 'Tool (Locked)', action: () => setTab('tool') }] : []),
+                ...(hasTool ? [{ icon: toolPassed ? '🛠️' : '🔒', label: toolPassed ? (module.toolLabel || 'Needs Analysis Tool') : 'Tool (Locked)', action: () => setTab('tool'), unlocked: toolPassed }] : []),
               ].map(item => (
-                <button key={item.label} onClick={item.action} style={{ ...S.card, padding: '18px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, border: `1px solid ${BORDER}`, background: '#0B1020', transition: 'border-color .2s' }}
+                <button key={item.label} onClick={item.action}
+                  style={{ ...S.card, padding: '18px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                    border: item.unlocked ? `1px solid ${GOLD}88` : `1px solid ${BORDER}`,
+                    background: item.unlocked ? `rgba(200,169,107,0.08)` : '#0B1020',
+                    transition: 'border-color .2s, background .2s',
+                    position: 'relative'
+                  }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = GOLD}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = BORDER}>
+                  onMouseLeave={e => e.currentTarget.style.borderColor = item.unlocked ? `${GOLD}88` : BORDER}>
+                  {item.unlocked && <span style={{ position: 'absolute', top: 8, right: 10, fontSize: 10, fontWeight: 800, color: GOLD, letterSpacing: '.06em' }}>UNLOCKED</span>}
                   <span style={{ fontSize: 28 }}>{item.icon}</span>
-                  <span style={{ fontWeight: 700, fontSize: 13, color: '#e2e8f0' }}>{item.label}</span>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: item.unlocked ? GOLD : '#e2e8f0' }}>{item.label}</span>
                 </button>
               ))}
             </div>
@@ -349,6 +361,37 @@ function ModuleDetail({ module, email, onBack, onComplete }) {
         {tab === 'quiz' && (
           <div>
             <Quiz module={module} email={email} onPass={handlePass} />
+          </div>
+        )}
+
+        {/* Tool Unlock Congratulations Modal */}
+        {showUnlockModal && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 16px', backdropFilter: 'blur(4px)' }}>
+            <div style={{ width: '100%', maxWidth: 460, background: 'linear-gradient(160deg,#0f172a,#0b1020)', border: `1px solid ${GOLD}66`, borderRadius: 20, padding: '32px 28px', textAlign: 'center', boxShadow: `0 24px 60px rgba(0,0,0,.8), 0 0 0 1px ${GOLD}18 inset` }}>
+              <div style={{ fontSize: 52, marginBottom: 12 }}>🎉</div>
+              <h2 style={{ margin: '0 0 8px', fontSize: 22, color: '#f1f5f9', fontWeight: 800 }}>You Passed!</h2>
+              <p style={{ color: '#94a3b8', margin: '0 0 6px', fontSize: 15, lineHeight: 1.6 }}>
+                Congratulations — you&apos;ve unlocked the
+              </p>
+              <p style={{ color: GOLD, fontWeight: 800, fontSize: 18, margin: '0 0 24px' }}>🛠️ {module.toolLabel || 'Needs Analysis Tool'}</p>
+              <p style={{ color: '#64748b', fontSize: 13, margin: '0 0 24px', lineHeight: 1.6 }}>
+                Use it in every client conversation to find the money, show the need, and close with confidence.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <button
+                  style={{ ...S.btn, ...S.btnGold, fontSize: 15, padding: '14px 24px' }}
+                  onClick={() => { setUnlockModal(false); setTab('tool'); }}
+                >
+                  Open the Tool Now →
+                </button>
+                <button
+                  style={{ ...S.btn, ...S.btnGhost, fontSize: 14 }}
+                  onClick={() => { setUnlockModal(false); setTab('overview'); }}
+                >
+                  Go to Overview
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
