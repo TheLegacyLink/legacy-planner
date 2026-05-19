@@ -855,7 +855,7 @@ function calc() {
   const total_monthly_debt_payment = debts.reduce((s,d) => s + d.monthly, 0);
   const monthly_debt_interest = debts.reduce((s,d) => s + (d.balance * d.apr / 12), 0);
 
-  // If we redirected the interest to IUL @ 6% for 20 years (monthly equiv)
+  // If we redirected the interest to IUL @ 8% for 20 years (monthly equiv)
   const debt_redirect_monthly = monthly_debt_interest; // amount of *current* interest each month
   const debt_redirect_fv = FV_annuity_monthly(debt_redirect_monthly, CONSTANTS.IUL_RATE, 20);
 
@@ -1078,7 +1078,7 @@ function projectionSeries(s, ctx) {
       // if not rolling, keep existing 401k path but include contribution path
       legacyVal += FV_lump(s.k401_balance, k401Growth, y) * (rec === 'Foundation Plan: Cash Flow Repair First' || rec === 'Debt-First Plan' ? (1 - s.k401_tax * 0.5) : (1 - s.k401_tax));
     }
-    // Idle cash redeployed to IUL @ 6%
+    // Idle cash redeployed to IUL @ 8%
     legacyVal += FV_lump((s.checking + s.savings), iulRate, y);
     // Redirected monthly money into IUL
     legacyVal += FV_annuity_monthly(monthlyToIUL, iulRate, y);
@@ -1131,14 +1131,14 @@ function render(r) {
       leakNow: r.monthly_debt_interest > 0 ? fmtMoney(r.monthly_debt_interest) + '/mo in interest' : 'No debts entered',
       lifetime: r.total_debt_leak,
       redirect: r.debt_redirect_fv,
-      redirectLabel: 'If redirected to IUL @ 6% × 20 yrs'
+      redirectLabel: 'If redirected to IUL @ 8% × 20 yrs'
     },
     {
       name: 'Idle Cash',
       leakNow: r.idle_total > 0 ? fmtMoney(r.idle_total) + ' at ' + (state.savings_apy*100).toFixed(2) + '% APY' : 'No idle cash entered',
       lifetime: r.idle_leak,
       redirect: r.idle_alt,
-      redirectLabel: 'FV at 6% IUL over 20 yrs'
+      redirectLabel: 'FV at 8% IUL over 20 yrs'
     },
     {
       name: '401(k) Tax Drag',
