@@ -615,6 +615,29 @@ function randomPick(arr = []) {
   return arr[i];
 }
 
+// True sequential round-robin: advances a pointer through the active agent list.
+// Returns { agent, nextPointer } so the caller can persist the new pointer.
+function pickRoundRobin(settings = {}, counts = {}, minute = 0) {
+  const active = (settings.agents || []).filter((a) => a.active && !a.paused);
+  if (!active.length) return { agent: null, nextPointer: 0 };
+
+  const ptr = Number(settings.rrPointer || 0);
+  const len = active.length;
+
+  // Walk from the current pointer, skipping anyone who is over their caps or outside window
+  for (let i = 0; i < len; i++) {
+    const idx = (ptr + i) % len;
+    const candidate = active[idx];
+    if (!agentWithinCapsAndWindow(candidate, settings, counts, minute)) continue;
+    // Found eligible — advance pointer past this agent for next call
+    const nextPointer = (idx + 1) % len;
+    return { agent: candidate, nextPointer };
+  }
+
+  // All agents are capped/outside window — fall through to overflow
+  return { agent: null, nextPointer: ptr };
+}
+
 function pickBalancedEligible(eligible = [], counts = {}, events = [], yesterdayCounts = {}) {
   if (!eligible.length) return null;
 
@@ -1860,6 +1883,15 @@ export async function POST(req) {
       } else {
         assignedTo = settings.overflowAgent || 'Kimora Link';
         reason = 'delayed_owner_window';
+      }
+    } else if (settings.mode === 'round_robin') {
+      const { agent: picked, nextPointer } = pickRoundRobin(settings, counts, minute);
+      if (picked?.name) {
+        assignedTo = picked.name;
+        reason = 'round_robin';
+        // Persist the advanced pointer back into settings so the next lead picks up where we left off
+        settings.rrPointer = nextPointer;
+        saveJsonFile(SETTINGS_PATH, settings).catch(() => {});
       }
     } else {
       const eligible = getEligibleAgents(settings, counts, minute);
