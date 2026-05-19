@@ -380,10 +380,40 @@ export default function LeadRouterControlPage() {
                   {agent.active ? 'ON' : 'OFF'}
                 </button>
 
-                {/* Name */}
-                <span style={{ color: agent.active ? '#e2e8f0' : '#64748b', fontWeight: 700, fontSize: 15, flex: '1 1 140px', minWidth: 140 }}>
-                  {agent.name}
-                </span>
+                {/* Name + track badge */}
+                <div style={{ flex: '1 1 140px', minWidth: 140, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <span style={{ color: agent.active ? '#e2e8f0' : '#64748b', fontWeight: 700, fontSize: 15 }}>
+                    {agent.name}
+                  </span>
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {agent.track === 'sponsorship' && (
+                      <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 999, background: 'rgba(249,115,22,0.15)', color: '#fb923c', border: '1px solid #f9731655', letterSpacing: '.3px' }}>SPONSORSHIP</span>
+                    )}
+                    {agent.track === 'inner_circle' && (
+                      <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 999, background: 'rgba(200,169,107,0.15)', color: '#C8A96B', border: '1px solid #C8A96B55', letterSpacing: '.3px' }}>INNER CIRCLE</span>
+                    )}
+                    {agent.capTotal > 0 && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: getCount(agent.name, 'total') >= agent.capTotal ? '#ef4444' : '#64748b' }}>
+                        {getCount(agent.name, 'total')}/{agent.capTotal} lifetime
+                        {getCount(agent.name, 'total') >= agent.capTotal ? ' — CAPPED 🔒' : ''}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Track badge */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                  <label style={{ color: '#475569', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.4px' }}>Track</label>
+                  <select
+                    value={agent.track || ''}
+                    onChange={(e) => updateAgent(agent.name, 'track', e.target.value || null)}
+                    style={{ padding: '7px 8px', borderRadius: 8, border: `1px solid ${agent.track === 'sponsorship' ? '#f97316aa' : agent.track === 'inner_circle' ? '#C8A96Baa' : PANEL_BORDER}`, background: '#111827', color: agent.track === 'sponsorship' ? '#fb923c' : agent.track === 'inner_circle' ? '#C8A96B' : '#64748b', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    <option value="">— None —</option>
+                    <option value="sponsorship">Sponsorship</option>
+                    <option value="inner_circle">Inner Circle</option>
+                  </select>
+                </div>
 
                 {/* Caps */}
                 {[['Day', 'capPerDay', 70], ['Week', 'capPerWeek', 70], ['Month', 'capPerMonth', 80]].map(([label, field, width]) => (
@@ -400,6 +430,20 @@ export default function LeadRouterControlPage() {
                     />
                   </div>
                 ))}
+
+                {/* Total (lifetime) cap */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                  <label style={{ color: agent.track === 'sponsorship' ? '#fb923c' : '#475569', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: agent.track === 'sponsorship' ? 800 : 400 }}>Total Cap</label>
+                  <input
+                    type="number" min="0" placeholder="—"
+                    value={agent.capTotal ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      updateAgent(agent.name, 'capTotal', v === '' ? null : Number(v));
+                    }}
+                    style={{ width: 70, padding: '7px 10px', borderRadius: 8, border: `1px solid ${agent.track === 'sponsorship' ? '#f97316aa' : PANEL_BORDER}`, background: '#111827', color: agent.track === 'sponsorship' ? '#fb923c' : '#e2e8f0', fontSize: 14, textAlign: 'center', fontWeight: agent.track === 'sponsorship' ? 800 : 400 }}
+                  />
+                </div>
 
                 {/* Today's Counts */}
                 <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginLeft: 'auto' }}>
@@ -451,8 +495,10 @@ export default function LeadRouterControlPage() {
             ) : (
               recentAssignments.map((row, i) => {
                 const leadName = displayLeadName(row);
-                const agent = clean(row?.owner || row?.assignedTo || '—');
-                const color = agentColor(agent);
+                const agentName = clean(row?.owner || row?.assignedTo || '—');
+                const color = agentColor(agentName);
+                const agentObj = agents.find((a) => a.name === agentName);
+                const agentTrack = agentObj?.track || '';
                 return (
                   <div
                     key={row?.id || i}
@@ -465,8 +511,12 @@ export default function LeadRouterControlPage() {
                     <span style={{ color: '#e2e8f0', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {leadName}
                     </span>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
-                      <span style={{ color, fontSize: 11, fontWeight: 700 }}>→ {shortName(agent)}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ color, fontSize: 11, fontWeight: 700 }}>→ {shortName(agentName)}</span>
+                        {agentTrack === 'sponsorship' && <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 999, background: 'rgba(249,115,22,0.15)', color: '#fb923c', border: '1px solid #f9731644' }}>SP</span>}
+                        {agentTrack === 'inner_circle' && <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 999, background: 'rgba(200,169,107,0.15)', color: '#C8A96B', border: '1px solid #C8A96B44' }}>IC</span>}
+                      </div>
                       <span style={{ color: '#334155', fontSize: 10 }}>{timeAgo(row?.createdAt)}</span>
                     </div>
                   </div>
