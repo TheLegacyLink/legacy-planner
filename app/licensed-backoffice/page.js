@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import ICAContractGate from '../../components/ICAContractGate';
 import licensedAgents from '../../data/licensedAgents.json';
+import PodcastPopup from '../../components/PodcastPopup';
 import innerCircleUsers from '../../data/innerCircleUsers.json';
 
 function clean(v = '') { return String(v || '').trim(); }
@@ -2246,6 +2247,7 @@ export default function LicensedBackofficePage() {
         ) : null}
       </section>
     </main>
+    <PodcastPopup />
     </>
   );
 }

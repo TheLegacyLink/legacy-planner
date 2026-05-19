@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import licensedAgents from '../../data/licensedAgents.json';
 import CommunityServiceTab from './community-service-tab';
+import PodcastPopup from '../../components/PodcastPopup';
 import LinkBlendBuilderTab from './tools-link-blend-builder';
 import SalesTrainerTab from './sales-trainer-tab';
 import DailyDrive from '../../components/DailyDrive';
@@ -4170,6 +4171,7 @@ export default function InnerCircleHubPage() {
           .more-dropdown { display: none !important; }
         }
       `}</style>
+    <PodcastPopup />
     </main>
   );
 }

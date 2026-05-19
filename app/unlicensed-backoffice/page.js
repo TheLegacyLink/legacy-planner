@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import ICAContractGate from '../../components/ICAContractGate';
+import PodcastPopup from '../../components/PodcastPopup';
 
 function clean(v = '') { return String(v || '').trim(); }
 function pct(done = 0, total = 1) { return Math.round((done / Math.max(1, total)) * 100); }
@@ -552,6 +553,7 @@ export default function UnlicensedBackofficePage() {
         </div>
       </section>
     </main>
+    <PodcastPopup />
     </>
   );
 }
