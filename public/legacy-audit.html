@@ -607,6 +607,32 @@
 
 <script>
 /* =========================================================
+ * CLIENT-SIDE AUTH GATE
+ * Checks localStorage for a valid back office or IC Hub session.
+ * Redirects to login if neither is found.
+ * ========================================================= */
+(function() {
+  try {
+    // Skip auth check when embedded inside the agent training portal (iframe)
+    if (window.self !== window.top) return;
+    var boToken = localStorage.getItem('licensed_backoffice_token');
+    if (boToken) return; // Licensed back office — allow
+    var icRaw = localStorage.getItem('inner_circle_hub_member_v1');
+    if (icRaw) {
+      var ic = JSON.parse(icRaw);
+      if (ic && (ic.email || ic.applicantName)) return; // IC Hub — allow
+    }
+    // Not authenticated — show gate overlay instead of hard redirect
+    document.addEventListener('DOMContentLoaded', function() {
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:#0E0E10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:99999;font-family:Inter,sans-serif;';
+      overlay.innerHTML = '<div style="font-size:52px;">🔒</div><h2 style="color:#F5F5F0;font-size:22px;margin:0;">Licensed Agents Only</h2><p style="color:#7A7A75;margin:0;font-size:15px;">Sign in to access the Legacy Audit tool.</p><div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;"><a href="/licensed-backoffice" style="background:#B8985A;color:#0E0E10;font-weight:700;padding:13px 26px;border-radius:10px;text-decoration:none;font-size:14px;">Back Office Login</a><a href="/inner-circle-hub" style="border:1px solid #B8985A;color:#B8985A;font-weight:700;padding:13px 26px;border-radius:10px;text-decoration:none;font-size:14px;">Inner Circle Hub</a></div>';
+      document.body.appendChild(overlay);
+    });
+  } catch(e) { /* fail open — don\'t block legitimate users */ }
+})();
+
+/* =========================================================
  * THE LEGACY AUDIT — engine
  * ========================================================= */
 

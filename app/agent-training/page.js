@@ -258,11 +258,15 @@ function ModuleDetail({ module, email, onBack, onComplete }) {
     setTab('overview');
   }
 
+  const hasTool    = Boolean(module.toolUrl);
+  const toolPassed  = Boolean(module.progress?.completed);
+
   const tabs = [
     { id: 'overview', label: '📋 Overview' },
     { id: 'video',    label: '📺 Video' },
     { id: 'study',    label: '📝 Study Guide' },
     { id: 'quiz',     label: '✅ Quiz' },
+    ...(hasTool ? [{ id: 'tool', label: toolPassed ? '🛠️ Tool' : '🔒 Tool' }] : []),
   ];
 
   return (
@@ -299,6 +303,7 @@ function ModuleDetail({ module, email, onBack, onComplete }) {
                 { icon: '📺', label: 'Video Lesson', action: () => setTab('video') },
                 { icon: '📝', label: 'Study Guide', action: () => setTab('study') },
                 { icon: '✅', label: module.progress?.completed ? 'Retake Quiz' : 'Take Quiz', action: () => setTab('quiz') },
+                ...(hasTool ? [{ icon: toolPassed ? '🛠️' : '🔒', label: toolPassed ? (module.toolLabel || 'Needs Analysis Tool') : 'Tool (Locked)', action: () => setTab('tool') }] : []),
               ].map(item => (
                 <button key={item.label} onClick={item.action} style={{ ...S.card, padding: '18px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, border: `1px solid ${BORDER}`, background: '#0B1020', transition: 'border-color .2s' }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = GOLD}
@@ -344,6 +349,39 @@ function ModuleDetail({ module, email, onBack, onComplete }) {
         {tab === 'quiz' && (
           <div>
             <Quiz module={module} email={email} onPass={handlePass} />
+          </div>
+        )}
+
+        {tab === 'tool' && hasTool && (
+          <div>
+            {toolPassed ? (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+                  <div>
+                    <h3 style={{ ...S.h3, color: GOLD, margin: 0 }}>{module.toolLabel || 'Training Tool'}</h3>
+                    <p style={{ ...S.muted, margin: '4px 0 0' }}>Quiz passed — full access unlocked.</p>
+                  </div>
+                  <a href={module.toolUrl} target="_blank" rel="noreferrer" style={{ ...S.btn, ...S.btnGhost, textDecoration: 'none', fontSize: 12 }}>Open in New Tab ↗</a>
+                </div>
+                <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${BORDER}`, background: '#000', height: 820 }}>
+                  <iframe
+                    src={module.toolUrl}
+                    style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                    title={module.toolLabel || 'Training Tool'}
+                    allow="clipboard-write"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                <div style={{ fontSize: 56, marginBottom: 16 }}>🔒</div>
+                <h3 style={{ ...S.h3, fontSize: 20, marginBottom: 8 }}>Tool Locked</h3>
+                <p style={{ color: '#64748b', maxWidth: 400, margin: '0 auto 24px', lineHeight: 1.7 }}>
+                  Pass the <strong style={{ color: '#f1f5f9' }}>Needs Analysis & Finding the “Why”</strong> quiz with an <strong style={{ color: GOLD }}>80% or higher</strong> to unlock the {module.toolLabel || 'Needs Analysis Tool'}.
+                </p>
+                <button style={{ ...S.btn, ...S.btnGold }} onClick={() => setTab('quiz')}>Take the Quiz →</button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -478,13 +516,24 @@ export default function AgentTrainingPage() {
   }
 
   // ─── Module detail view ───────────────────────────────────────────────────
+  // Collect any tool-unlocked modules for the header badge
+  const unlockedTools = stages.flatMap(s => s.modules).filter(m => m.toolUrl && m.progress?.completed);
+
   if (activeModule) {
     return (
       <div style={S.page}>
         <div style={S.header}>
           <span style={S.logo}>The Legacy Link</span>
           <span style={{ color: '#475569', fontSize: 13 }}>Agent Training Portal</span>
-          <span style={{ marginLeft: 'auto', ...S.muted }}>{session.name}</span>
+          <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {unlockedTools.map(m => (
+              <a key={m.id} href={m.toolUrl} target="_blank" rel="noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: 'rgba(200,169,107,.12)', border: `1px solid ${GOLD}55`, borderRadius: 999, color: GOLD, fontWeight: 700, fontSize: 12, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                🛠️ {m.toolLabel || 'Tool'} ↗
+              </a>
+            ))}
+            <span style={{ ...S.muted }}>{session.name}</span>
+          </span>
         </div>
         <div style={S.body}>
           <ModuleDetail
@@ -508,7 +557,15 @@ export default function AgentTrainingPage() {
       <div style={S.header}>
         <span style={S.logo}>The Legacy Link</span>
         <span style={{ color: '#475569', fontSize: 13 }}>Agent Training Portal</span>
-        <span style={{ marginLeft: 'auto', ...S.muted }}>{session.name}</span>
+        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {unlockedTools.map(m => (
+            <a key={m.id} href={m.toolUrl} target="_blank" rel="noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: 'rgba(200,169,107,.12)', border: `1px solid ${GOLD}55`, borderRadius: 999, color: GOLD, fontWeight: 700, fontSize: 12, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+              🛠️ {m.toolLabel || 'Tool'} ↗
+            </a>
+          ))}
+          <span style={{ ...S.muted }}>{session.name}</span>
+        </span>
       </div>
 
       <div style={S.body}>
