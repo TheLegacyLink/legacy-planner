@@ -99,6 +99,15 @@ const LICENSED_PREVIEW_USERS = [
     carriersActive: ['F&G', 'Mutual of Omaha'],
     isDemo: true
   },
+  // Knakita Jones — licensed track agent
+  {
+    email: 'insurancejfb@gmail.com',
+    name: 'Knakita Jones',
+    agentId: 'intake_knakita_jones',
+    homeState: '',
+    carriersActive: [],
+    isDemo: false
+  },
   // Rashonda Gunn — licensed track, signed ICA; email has typo variants across records
   {
     email: 'shondacanee631@gmail.com',

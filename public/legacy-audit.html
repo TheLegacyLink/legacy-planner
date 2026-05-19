@@ -71,13 +71,10 @@
   .seal {
     width: 56px; height: 56px; flex: 0 0 56px;
     border-radius: 50%;
-    background:
-      radial-gradient(circle at 30% 30%, #E6C376, var(--gold) 55%, #6E5829 100%);
-    box-shadow: 0 0 0 2px #2A2118 inset, 0 0 0 3px var(--gold-bright), 0 6px 24px -8px rgba(184,152,90,0.6);
+    background: transparent;
+    box-shadow: 0 0 0 3px var(--gold-bright), 0 6px 24px -8px rgba(184,152,90,0.6);
     display: grid; place-items: center;
-    color: #1B140A;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 700; font-size: 20px; letter-spacing: -0.02em;
+    overflow: hidden;
   }
   .brand-text h1 { font-size: 22px; line-height: 1.1; }
   .brand-text .tag { color: var(--gold); font-family: 'DM Sans'; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; margin-top: 4px; }
@@ -318,7 +315,7 @@
   <!-- HEADER -->
   <header class="header" id="brandHeader">
     <div class="brand">
-      <div class="seal" aria-label="The Legacy Link seal">LL</div>
+      <div class="seal" aria-label="The Legacy Link seal"><img src="/legacy-link-seal.png" alt="The Legacy Link" style="width:52px;height:52px;border-radius:50%;display:block;" /></div>
       <div class="brand-text">
         <h1>The Legacy Audit</h1>
         <div class="tag">Find the money. Build the legacy.</div>
@@ -534,7 +531,7 @@
               <div class="field"><label>Dining / coffee / lifestyle</label><div class="input-wrap"><span class="adorn l">$</span><input data-input="ls_dining" class="input l num" type="text" inputmode="numeric" placeholder="0" /></div></div>
               <div class="field"><label>Other discretionary</label><div class="input-wrap"><span class="adorn l">$</span><input data-input="ls_other" class="input l num" type="text" inputmode="numeric" placeholder="0" /></div></div>
             </div>
-            <div class="hint" style="margin-top: 10px; color: var(--text-mute);">Assumes 50% can be redirected. Compounded 20 years at 6% IUL illustrated rate.</div>
+            <div class="hint" style="margin-top: 10px; color: var(--text-mute);">Assumes 50% can be redirected. Compounded 20 years at 8% IUL illustrated rate.</div>
           </div>
         </div>
       </section>
@@ -568,7 +565,8 @@
           </div>
           <div class="legend">
             <div class="legend-item"><span class="swatch red"></span> Status Quo</div>
-            <div class="legend-item"><span class="swatch gold"></span> Legacy Plan</div>
+            <div class="legend-item"><span class="swatch gold"></span> Legacy Plan (IUL 8%)</div>
+            <div class="legend-item"><span class="swatch" style="background:#3B82F6;"></span> S&amp;P 500 (10%)</div>
           </div>
         </div>
         <div class="chart-wrap"><canvas id="projChart"></canvas></div>
@@ -576,6 +574,42 @@
           <div class="lbl">Your Legacy Number (Year 20 gap)</div>
           <div class="val num" id="legacyNumber">$0</div>
         </div>
+      </div>
+
+      <!-- Diversification Education Card -->
+      <div class="card" style="margin-top:20px;border-color:rgba(59,130,246,0.25);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <span style="font-size:22px;">📊</span>
+          <h3 style="margin:0;font-size:16px;color:#f1f5f9;font-family:'DM Sans',sans-serif;">Diversification &amp; the S&amp;P 500</h3>
+        </div>
+        <p style="color:#94a3b8;font-size:13px;line-height:1.75;margin:0 0 14px;">
+          The S&amp;P 500 has averaged approximately <strong style="color:#3B82F6;">10% annually</strong> over the long term — strong growth, but with <strong style="color:#f1f5f9;">no floor, no living benefits, and full tax exposure at withdrawal.</strong>
+        </p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px;">
+          <div style="background:#0B1020;border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:14px 16px;">
+            <div style="color:#3B82F6;font-weight:700;font-size:13px;margin-bottom:6px;">📈 S&amp;P 500</div>
+            <ul style="color:#94a3b8;font-size:12px;margin:0;padding-left:16px;line-height:1.9;">
+              <li>~10% avg historical return</li>
+              <li>Market risk — can lose 30–50%</li>
+              <li>No death benefit</li>
+              <li>No living benefits</li>
+              <li>Taxed at withdrawal (401k)</li>
+            </ul>
+          </div>
+          <div style="background:#0B1020;border:1px solid rgba(184,152,90,0.25);border-radius:10px;padding:14px 16px;">
+            <div style="color:#B8985A;font-weight:700;font-size:13px;margin-bottom:6px;">🛡️ IUL (8% illustrated)</div>
+            <ul style="color:#94a3b8;font-size:12px;margin:0;padding-left:16px;line-height:1.9;">
+              <li>0% floor — never loses in down markets</li>
+              <li>Death benefit for the family</li>
+              <li>Living benefits (chronic/critical illness)</li>
+              <li>Tax-free policy loans in retirement</li>
+              <li>Not correlated to market crashes</li>
+            </ul>
+          </div>
+        </div>
+        <p style="color:#64748b;font-size:12px;margin:0;line-height:1.6;">
+          <strong style="color:#94a3b8;">The smart play:</strong> Diversify across both. Use the S&amp;P 500 for market upside inside qualified accounts, and layer an IUL for tax-free income, protection, and a guaranteed floor. Two engines are stronger than one.
+        </p>
       </div>
     </aside>
   </div>
@@ -642,12 +676,12 @@ const CONSTANTS = {
   STUDENT_APR: 0.065,
   MORTGAGE_APR: 0.065,
   SAVINGS_APY: 0.004,
-  IUL_RATE: 0.06,
+  IUL_RATE: 0.08,
   FIA_RATE: 0.055,
   FIA_BONUS: 0.20,
   TAX_RATE_RETIREMENT: 0.22,
   INFLATION: 0.03,
-  SP500_HIST: 0.085,
+  SP500_HIST: 0.10,
   TERM_PAYOUT_PROB: 0.02
 };
 
@@ -990,7 +1024,7 @@ function buildRecNarrative(title, ctx) {
  * ========================================================= */
 function projectionSeries(s, ctx) {
   const yrs = 20;
-  const status = [], legacy = [];
+  const status = [], legacy = [], sp500 = [];
 
   // STATUS QUO: existing 401k + current contributions at growth rate (8.5% for status quo) MINUS taxes at end
   // + idle cash at savings APY
@@ -1028,8 +1062,13 @@ function projectionSeries(s, ctx) {
     const k401_balance = FV_lump(s.k401_balance, k401Growth, y) + FV_annuity_monthly(s.k401_monthly, k401Growth, y);
     const k401_aftertax = k401_balance * (1 - s.k401_tax);
     const idleSQ = FV_lump((s.checking + s.savings), s.savings_apy, y);
-    // status quo also still pays the term premiums (cost, treated as negative or just not built)
     status.push(k401_aftertax + idleSQ);
+
+    // S&P 500 DIVERSIFICATION — 10% historical average (pre-tax at withdrawal)
+    const sp_k401 = FV_lump(s.k401_balance, CONSTANTS.SP500_HIST, y) + FV_annuity_monthly(s.k401_monthly, CONSTANTS.SP500_HIST, y);
+    const sp_aftertax = sp_k401 * (1 - s.k401_tax);
+    const sp_idle = FV_lump((s.checking + s.savings), CONSTANTS.SP500_HIST, y);
+    sp500.push(sp_aftertax + sp_idle);
 
     // LEGACY PLAN
     let legacyVal = 0;
@@ -1048,7 +1087,7 @@ function projectionSeries(s, ctx) {
   }
 
   const legacyNumber = Math.max(0, legacy[yrs] - status[yrs]);
-  return { years: Array.from({length:yrs+1}, (_,i)=>i), status, legacy, legacyNumber };
+  return { years: Array.from({length:yrs+1}, (_,i)=>i), status, legacy, sp500, legacyNumber };
 }
 
 /* =========================================================
@@ -1152,6 +1191,7 @@ function drawChart(proj) {
     chart.data.labels = proj.years.map(y => 'Yr ' + y);
     chart.data.datasets[0].data = proj.status;
     chart.data.datasets[1].data = proj.legacy;
+    chart.data.datasets[2].data = proj.sp500;
     chart.update();
     return;
   }
@@ -1161,7 +1201,8 @@ function drawChart(proj) {
       labels: proj.years.map(y => 'Yr ' + y),
       datasets: [
         { label:'Status Quo', data: proj.status, borderColor:'#C0392B', backgroundColor:'rgba(192,57,43,0.08)', borderWidth:2, tension:0.25, pointRadius:0, fill:true },
-        { label:'Legacy Plan', data: proj.legacy, borderColor:'#B8985A', backgroundColor:'rgba(184,152,90,0.10)', borderWidth:2.5, tension:0.25, pointRadius:0, fill:true }
+        { label:'Legacy Plan (IUL 8%)', data: proj.legacy, borderColor:'#B8985A', backgroundColor:'rgba(184,152,90,0.10)', borderWidth:2.5, tension:0.25, pointRadius:0, fill:true },
+        { label:'S&P 500 (10% avg)', data: proj.sp500, borderColor:'#3B82F6', backgroundColor:'rgba(59,130,246,0.07)', borderWidth:2, tension:0.25, pointRadius:0, fill:true, borderDash:[6,3] }
       ]
     },
     options: {
