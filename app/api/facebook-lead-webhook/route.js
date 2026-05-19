@@ -66,9 +66,14 @@ export async function POST(req) {
         }
 
         const fieldData = Array.isArray(fbLead?.field_data) ? fbLead.field_data : [];
-        const fullName = extractField(fieldData, 'full_name', 'name', 'first_name') || 'Unknown';
+        const rawFullName = extractField(fieldData, 'full_name', 'name', 'first_name');
         const email = extractField(fieldData, 'email');
         const phone = extractField(fieldData, 'phone_number', 'phone', 'mobile_number');
+        // Fall back to email prefix → phone → short leadgen ID rather than storing 'Unknown'
+        const fullName = rawFullName
+          || (email.includes('@') ? email.split('@')[0] : '')
+          || phone
+          || `FB Lead ${leadgenId.slice(-6)}`;
 
         // Push through lead router for distribution
         try {

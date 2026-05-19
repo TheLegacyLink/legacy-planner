@@ -25,9 +25,12 @@ function timeAgo(iso = '') {
 
 function displayLeadName(row = {}) {
   const name = String(row?.name || '').trim();
-  if (name && name.toLowerCase() !== 'unknown lead') return name;
+  const nameLower = name.toLowerCase();
+  if (name && nameLower !== 'unknown lead' && nameLower !== 'unknown') return name;
   const email = String(row?.email || '').trim();
   if (email.includes('@')) return email.split('@')[0];
+  const phone = String(row?.phone || '').trim();
+  if (phone) return phone;
   return 'Unknown Lead';
 }
 

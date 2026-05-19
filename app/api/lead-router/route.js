@@ -578,7 +578,16 @@ function parseLeadPayload(body = {}) {
   const candidate = body?.lead || body?.contact || body || {};
   const first = clean(candidate.firstName || candidate.first_name);
   const last = clean(candidate.lastName || candidate.last_name);
-  const fullName = clean(candidate.name) || clean(`${first} ${last}`) || 'Unknown Lead';
+  // Treat placeholder values as blank — fall through to email/phone instead of storing 'Unknown'
+  const rawName = clean(candidate.name);
+  const nameIsPlaceholder = !rawName || rawName.toLowerCase() === 'unknown' || rawName.toLowerCase() === 'unknown lead';
+  const email = clean(candidate.email || '').toLowerCase();
+  const phone = clean(candidate.phone || candidate.phoneNumber || candidate.phone_number || '');
+  const fullName = (!nameIsPlaceholder ? rawName : null)
+    || clean(`${first} ${last}`)
+    || (email.includes('@') ? email.split('@')[0] : '')
+    || phone
+    || 'Unknown Lead';
 
   return {
     id: clean(candidate.id) || clean(candidate.contactId) || clean(candidate.contact_id) || `ghl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
