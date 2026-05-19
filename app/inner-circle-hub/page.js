@@ -233,7 +233,8 @@ function availableTabs(member = {}) {
     { key: 'links', label: 'My VIP Links' },
     { key: 'library', label: 'PDF Library' },
     { key: 'licensedstates', label: 'My Licensed States' },
-    { key: 'sales-training', label: 'Sales Training' }
+    { key: 'sales-training', label: 'Sales Training' },
+    { key: 'podcast', label: '🎤 Podcast' },
   ];
   return all.filter((t) => modules?.[t.key] !== false);
 }
@@ -2548,7 +2549,7 @@ export default function InnerCircleHubPage() {
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
             {(() => {
-              const PINNED_KEYS = ['dashboard', 'dailydrive', 'onboarding', 'production', 'submitapp'];
+              const PINNED_KEYS = ['dashboard', 'dailydrive', 'onboarding', 'production', 'submitapp', 'podcast'];
               const pinnedTabs = PINNED_KEYS.map((k) => tabs.find((t) => t.key === k)).filter(Boolean);
               const overflowTabs = tabs.filter((t) => !PINNED_KEYS.includes(t.key)).sort((a, b) => a.label.localeCompare(b.label));
 
@@ -2893,6 +2894,19 @@ export default function InnerCircleHubPage() {
                 </div>
                 <iframe allow="autoplay" width="100%" height="300" src="https://www.iheart.com/podcast/334111550/?embed=true" frameBorder="0" style={{ borderRadius: 10, display: 'block', border: 0 }} title="The Legacy Link Podcast" />
               </div>
+              </div>
+            ) : null}
+
+            {tab === 'podcast' ? (
+              <div style={{ border: '1px solid #C8A96B44', borderRadius: 16, background: 'linear-gradient(160deg,#0f172a,#0b1020)', padding: '24px 22px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+                  <span style={{ fontSize: 30 }}>🎤</span>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 18, color: '#f1f5f9' }}>The Legacy Link Podcast</h3>
+                    <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Hosted by Kimora Link &mdash; on iHeart Radio</p>
+                  </div>
+                </div>
+                <iframe allow="autoplay" width="100%" height="352" src="https://www.iheart.com/podcast/334111550/?embed=true" frameBorder="0" style={{ borderRadius: 12, display: 'block', border: 0 }} title="The Legacy Link Podcast" />
               </div>
             ) : null}
 

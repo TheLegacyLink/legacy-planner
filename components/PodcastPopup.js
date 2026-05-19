@@ -70,12 +70,7 @@ export default function PodcastPopup() {
     return () => clearInterval(timerRef.current);
   }, [phase]);
 
-  // Auto-close 2s after done
-  useEffect(() => {
-    if (phase !== 'done') return;
-    const t = setTimeout(() => setVisible(false), 2200);
-    return () => clearTimeout(t);
-  }, [phase]);
+  // No auto-close — user picks Continue Listening or Listen Later
 
   function skipForNow() {
     // Closes but DOES NOT save — will show again on next refresh
@@ -163,15 +158,25 @@ export default function PodcastPopup() {
               )}
             </div>
 
-            {!isDone && (
+            {isDone ? (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setVisible(false)}
+                  style={{ background: GOLD, border: 'none', color: DARK, borderRadius: 8, padding: '8px 18px', fontSize: 13, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  🎧 Continue Listening
+                </button>
+                <button
+                  onClick={() => setVisible(false)}
+                  style={{ background: 'none', border: '1px solid #334155', color: '#94a3b8', borderRadius: 8, padding: '8px 14px', fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  Listen Later
+                </button>
+              </div>
+            ) : (
               <button
                 onClick={skipForNow}
-                style={{
-                  background: 'none', border: `1px solid #334155`,
-                  color: '#475569', borderRadius: 8,
-                  padding: '6px 14px', fontSize: 12, cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
+                style={{ background: 'none', border: '1px solid #334155', color: '#475569', borderRadius: 8, padding: '6px 14px', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
               >
                 Skip for now
               </button>
