@@ -1339,12 +1339,24 @@ export async function GET(req) {
   const ownerLookup = buildOwnerLookup(events);
   const callMetrics = buildCallMetrics(settings, leads, sponsorshipMap, ownerLookup);
   const calledLeadRows = buildCalledLeadRows(leads, sponsorshipMap, ownerLookup, settings, submittedBlockLookup);
+
+  // Build lead lookup maps (must come before recent events enrichment)
+  const leadById = new Map();
+  const leadByExternalId = new Map();
+  const leadByEmail = new Map();
+  const leadByPhone = new Map();
+  for (const row of leads || []) {
+    if (clean(row?.id)) leadById.set(clean(row.id), row);
+    if (clean(row?.externalId)) leadByExternalId.set(clean(row.externalId), row);
+    if (clean(row?.email)) leadByEmail.set(clean(row.email).toLowerCase(), row);
+    if (clean(row?.phone)) leadByPhone.set(normalizePhone(row.phone), row);
+  }
+
   // Build recent events — fill in missing/unknown names from leads store before sending to UI
   const recent = enrichEvents(events, sponsorshipMap)
     .map((e) => {
       const nameBlank = !clean(e?.name) || clean(e?.name).toLowerCase() === 'unknown' || clean(e?.name).toLowerCase() === 'unknown lead';
       if (!nameBlank) return e;
-      // Try to resolve from leads store by leadId, externalId, email, or phone
       const byId = leadById.get(clean(e?.leadId || ''));
       const byExt = leadByExternalId.get(clean(e?.leadId || ''));
       const byEmail = e?.email ? leadByEmail.get(clean(e.email).toLowerCase()) : null;
@@ -1354,7 +1366,6 @@ export async function GET(req) {
       const resolvedName = clean(row?.name || `${clean(row?.firstName || '')} ${clean(row?.lastName || '')}`.trim());
       const resolvedEmail = clean(row?.email || e?.email || '');
       const resolvedPhone = clean(row?.phone || e?.phone || '');
-      // Best display name: resolved name, or email prefix, or phone
       const bestName = resolvedName && resolvedName.toLowerCase() !== 'unknown'
         ? resolvedName
         : resolvedEmail.includes('@') ? resolvedEmail.split('@')[0]
@@ -1367,17 +1378,6 @@ export async function GET(req) {
   const ghlSyncEvents = [...(events || [])]
     .filter((e) => clean(e?.type || '') === 'ghl_owner_sync')
     .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
-
-  const leadById = new Map();
-  const leadByExternalId = new Map();
-  const leadByEmail = new Map();
-  const leadByPhone = new Map();
-  for (const row of leads || []) {
-    if (clean(row?.id)) leadById.set(clean(row.id), row);
-    if (clean(row?.externalId)) leadByExternalId.set(clean(row.externalId), row);
-    if (clean(row?.email)) leadByEmail.set(clean(row.email).toLowerCase(), row);
-    if (clean(row?.phone)) leadByPhone.set(normalizePhone(row.phone), row);
-  }
 
   const resolveLeadForSyncEvent = (e = {}) => {
     const byId = leadById.get(clean(e?.leadId || ''));
