@@ -39,7 +39,7 @@ async function fetchGhlContactsToday() {
   // Attempt 1: v2 API with startAfterDate
   if (locationId) {
     try {
-      const params = new URLSearchParams({ locationId, limit: '100', startAfterDate: startIso });
+      const params = new URLSearchParams({ locationId, limit: '100', startAfter: String(startTimestamp) });
       const res = await fetch(`https://services.leadconnectorhq.com/contacts/?${params}`, { headers, cache: 'no-store' });
       if (res.ok) {
         const data = await res.json().catch(() => ({}));
