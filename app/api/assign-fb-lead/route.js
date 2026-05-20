@@ -1,3 +1,7 @@
+import { loadJsonStore } from '../../../lib/blobJsonStore';
+
+const ONBOARDING_PATH = 'stores/agent-onboarding.json';
+
 function clean(v = '') {
   return String(v || '').trim();
 }
@@ -10,11 +14,24 @@ function safeJsonParse(raw, fallback = {}) {
   }
 }
 
-function resolveOwnerUserId(assignedToName = '') {
+async function resolveOwnerUserId(assignedToName = '') {
+  const name = clean(assignedToName);
+
+  // 1. Agent-onboarding store — source of truth
+  try {
+    const rows = await loadJsonStore(ONBOARDING_PATH, []);
+    const agent = (Array.isArray(rows) ? rows : []).find(
+      (r) => clean(r?.name).toLowerCase() === name.toLowerCase()
+    );
+    if (agent?.ghlUserId) return String(agent.ghlUserId);
+  } catch {}
+
+  // 2. Env variable map — fallback for aliases / legacy entries
   const map = safeJsonParse(process.env.GHL_USER_ID_MAP_JSON || '{}', {});
   const direct = map?.[assignedToName];
   if (direct) return String(direct);
 
+  // 3. Hard fallback
   const fallback = clean(process.env.GHL_FALLBACK_USER_ID || '');
   return fallback || '';
 }
@@ -129,7 +146,7 @@ export async function POST(req) {
   }
 
   const assignedToName = clean(router.data?.assignedTo || '');
-  const assignedUserId = clean(body?.assignedUserId || resolveOwnerUserId(assignedToName));
+  const assignedUserId = clean(body?.assignedUserId || await resolveOwnerUserId(assignedToName));
 
   const ghlUpdate = await updateGhlContactOwner({ contactId, assignedUserId });
 
