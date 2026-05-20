@@ -28,7 +28,7 @@ async function fetchGhlContacts(sinceMs) {
       const params = new URLSearchParams({
         locationId,
         limit: '100',
-        startAfterDate: sinceIso,
+        startAfter: String(sinceMs),
       });
       const url = `https://services.leadconnectorhq.com/contacts/?${params}`;
       const res = await fetch(url, { headers, cache: 'no-store' });
