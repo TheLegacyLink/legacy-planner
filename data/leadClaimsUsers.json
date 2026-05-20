@@ -60,6 +60,7 @@
     "email": "donyellrichardson80@gmail.com",
     "role": "submitter",
     "active": true,
+    "ghlUserId": "lAbJTT3VKc4Zd0PiS7On",
     "passwordHash": "97ae26b04999422ef0d6465f1937baabdc6a66907d92fb783d741a2c2fbbe558"
   },
   {
@@ -67,6 +68,31 @@
     "email": "smaxwell32@gmail.com",
     "role": "submitter",
     "active": true,
+    "ghlUserId": "NdPZIvVsm7PMfIDS1ZkR",
+    "passwordHash": "97ae26b04999422ef0d6465f1937baabdc6a66907d92fb783d741a2c2fbbe558"
+  },
+  {
+    "name": "Mirick Whaley",
+    "email": "mirickw@gmail.com",
+    "role": "submitter",
+    "active": true,
+    "ghlUserId": "cQxQQ7YuDN1wLk8f5nhI",
+    "passwordHash": "97ae26b04999422ef0d6465f1937baabdc6a66907d92fb783d741a2c2fbbe558"
+  },
+  {
+    "name": "Weiner Merchant Crumbly",
+    "email": "herstoinspire@gmail.com",
+    "role": "submitter",
+    "active": true,
+    "ghlUserId": "ETglC9HYN105cxbm6mlx",
+    "passwordHash": "97ae26b04999422ef0d6465f1937baabdc6a66907d92fb783d741a2c2fbbe558"
+  },
+  {
+    "name": "Deshae Ford",
+    "email": "laquar125@yahoo.com",
+    "role": "submitter",
+    "active": true,
+    "ghlUserId": "2FGkAJuLhGHN7Sf7aRjo",
     "passwordHash": "97ae26b04999422ef0d6465f1937baabdc6a66907d92fb783d741a2c2fbbe558"
   },
   {
