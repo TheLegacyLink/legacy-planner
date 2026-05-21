@@ -45,6 +45,16 @@ function clean(v = '') {
   return String(v || '').trim();
 }
 
+// Agents permanently blocked from receiving any routed leads.
+// This is a code-level override — the settings UI cannot re-activate these agents.
+// Agents permanently blocked from receiving any routed leads.
+// Code-level override — the settings UI cannot re-activate these agents.
+// Per Kimora Link directive (2026-05-21): Andrea was receiving all leads due to
+// a stale-UI race condition that kept overwriting her active flag back to true.
+const ROUTING_BLOCKED_AGENTS = new Set([
+  'Andrea Cannon',
+]);
+
 const AGENT_NAME_ALIASES = {
   'latricia wright': 'Leticia Wright',
   'latrisha wright': 'Leticia Wright',
@@ -534,6 +544,7 @@ function agentWithinCapsAndWindow(agent, settings, counts, minute) {
 
 function getEligibleAgents(settings, counts, minute) {
   return settings.agents.filter((a) => {
+    if (ROUTING_BLOCKED_AGENTS.has(clean(a.name))) return false;
     if (!a.active || a.paused) return false;
     return agentWithinCapsAndWindow(a, settings, counts, minute);
   });
@@ -541,6 +552,7 @@ function getEligibleAgents(settings, counts, minute) {
 
 function getDelayedEligibleAgents(settings, counts, minute) {
   return settings.agents.filter((a) => {
+    if (ROUTING_BLOCKED_AGENTS.has(clean(a.name))) return false;
     if (!a.active) return false;
     if (!Boolean(a.delayedReleaseEnabled)) return false;
     return agentWithinCapsAndWindow(a, settings, counts, minute);
@@ -552,10 +564,11 @@ function withDefaults(raw = {}) {
   const names = new Set([...(DEFAULT_SETTINGS.agents || []).map((a) => a.name), ...((raw?.agents || []).map((a) => a.name))]);
   merged.agents = Array.from(names).map((name) => {
     const current = (raw?.agents || []).find((a) => a.name === name);
+    const isBlocked = ROUTING_BLOCKED_AGENTS.has(clean(name));
     return {
       name,
-      active: current?.active ?? true,
-      paused: current?.paused ?? false,
+      active: isBlocked ? false : (current?.active ?? true),
+      paused: isBlocked ? true : (current?.paused ?? false),
       delayedReleaseEnabled: current?.delayedReleaseEnabled ?? false,
       windowStart: clean(current?.windowStart || '09:00') || '09:00',
       windowEnd: clean(current?.windowEnd || '21:00') || '21:00',
