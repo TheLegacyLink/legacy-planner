@@ -11,9 +11,15 @@ const REF_CODE_TO_SPONSOR = {
   kelin_brown: 'Kelin Brown',
   leticia_wright: 'Leticia Wright',
   breanna_james: 'Breanna James',
+  dr_breanna_james: 'Breanna James',
   shannon_maxwell: 'Shannon Maxwell',
   donyell_richardson: 'Donyell Richardson',
-  dr_brianna: 'Dr. Breanna James',
+  angelique_lassiter: 'Angelique Lassiter',
+  andrea_cannon: 'Andrea Cannon',
+  mirick_whaley: 'Mirick Whaley',
+  weiner_merchant_crumbly: 'Weiner Merchant Crumbly',
+  deshae_ford: 'Deshae Ford',
+  dr_brianna: 'Breanna James',
   latricia_wright: 'Leticia Wright'
 };
 
@@ -23,7 +29,16 @@ const EMAIL_LIKE_TO_SPONSOR = {
   kimorathelegacylinkcom: 'Kimora Link',
   investalinkinsurancegmailcom: 'Kimora Link',
   leticiawright05gmailcom: 'Leticia Wright',
-  drboss637gmailcom: 'Breanna James'
+  drboss637gmailcom: 'Breanna James',
+  shopthreesixteengmailcom: 'Angelique Lassiter',
+  andreadcannongmailcom: 'Andrea Cannon',
+  mirickwgmailcom: 'Mirick Whaley',
+  herstoinspairegmailcom: 'Weiner Merchant Crumbly',
+  laquar125yahocom: 'Deshae Ford',
+  supportjdholmesagencyllccom: 'Jamal Holmes',
+  lovelyfloral78gmailcom: 'Mahogany Burns',
+  madalynm13gmailcom: 'Madalyn Adams',
+  kelinb63gmailcom: 'Kelin Brown'
 };
 
 function clean(v = '') {

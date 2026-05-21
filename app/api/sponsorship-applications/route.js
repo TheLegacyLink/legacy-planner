@@ -8,6 +8,7 @@ const STORE_PATH = 'stores/sponsorship-applications.json';
 const MEMBERS_PATH = 'stores/sponsorship-program-members.json';
 const INVITES_PATH = 'stores/sponsorship-sop-invites.json';
 const AUTH_USERS_PATH = 'stores/sponsorship-sop-auth-users.json';
+const CALLER_LEADS_PATH = 'stores/caller-leads.json';
 
 const DEFAULT_SKOOL_URL = 'https://www.skool.com/legacylink/about';
 const DEFAULT_YOUTUBE_URL = 'https://youtu.be/SVvU9SvCH9o?si=H9BNtEDzglTuvJaI';
@@ -70,7 +71,32 @@ function mapEmailLikeToName(value = '') {
   return '';
 }
 
-function resolveSponsorDisplayName(row = {}) {
+async function resolveAssignedAgentByContact(email = '', phone = '') {
+  // Look up who the lead was assigned to in the lead router store.
+  // Assignment always supersedes referral code — per business rule.
+  try {
+    const leads = await loadJsonStore(CALLER_LEADS_PATH, []);
+    const normEmail = normalize(email);
+    const normPhone = clean(phone).replace(/\D/g, '');
+    const match = (Array.isArray(leads) ? leads : []).find((r) => {
+      if (normEmail && normalize(r?.email || '') === normEmail) return true;
+      if (normPhone && clean(r?.phone || '').replace(/\D/g, '') === normPhone) return true;
+      return false;
+    });
+    const assignedTo = clean(match?.assignedTo || match?.owner || '');
+    if (assignedTo && assignedTo.toLowerCase() !== 'unassigned') return assignedTo;
+  } catch { /* non-fatal */ }
+  return '';
+}
+
+async function resolveSponsorDisplayName(row = {}) {
+  // 1. Lead router assignment always wins
+  const email = clean(row?.email || '');
+  const phone = clean(row?.phone || '');
+  const assignedAgent = await resolveAssignedAgentByContact(email, phone);
+  if (assignedAgent) return assignedAgent;
+
+  // 2. Explicit referral name on the form
   const direct = clean(row?.referralName || row?.referredByName || row?.referred_by || '');
   const directNorm = normalize(direct);
   if (directNorm) {
@@ -81,6 +107,7 @@ function resolveSponsorDisplayName(row = {}) {
   const fromEmailLike = mapEmailLikeToName(direct);
   if (fromEmailLike) return fromEmailLike;
 
+  // 3. Ref code from URL
   const fromRefCode = mapRefCodeToName(row?.refCode || row?.referral_code || '');
   if (fromRefCode) return fromRefCode;
 
@@ -462,10 +489,10 @@ export async function GET(req) {
   const rows = status ? store.filter((r) => String(r.status || '').toLowerCase() === status) : store;
   rows.sort((a, b) => new Date(b.submitted_at || b.createdAt || 0).getTime() - new Date(a.submitted_at || a.createdAt || 0).getTime());
 
-  const enriched = rows.map((r) => ({
+  const enriched = await Promise.all(rows.map(async (r) => ({
     ...r,
-    sponsorDisplayName: resolveSponsorDisplayName(r)
-  }));
+    sponsorDisplayName: await resolveSponsorDisplayName(r)
+  })));
 
   return Response.json({ ok: true, rows: enriched });
 }
@@ -652,7 +679,7 @@ export async function POST(req) {
       if (derivedAge > 0) record.age = derivedAge;
     }
 
-    const sponsorName = resolveSponsorDisplayName(record);
+    const sponsorName = await resolveSponsorDisplayName(record);
     if (sponsorName && sponsorName !== 'Unattributed') {
       record.referralName = sponsorName;
       if (!clean(record.referredByName)) record.referredByName = sponsorName;
