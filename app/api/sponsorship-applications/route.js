@@ -71,14 +71,14 @@ function mapEmailLikeToName(value = '') {
   return '';
 }
 
-async function resolveAssignedAgentByContact(email = '', phone = '') {
+function resolveAssignedAgentByContact(email = '', phone = '', callerLeads = []) {
   // Look up who the lead was assigned to in the lead router store.
   // Assignment always supersedes referral code — per business rule.
+  // callerLeads is pre-loaded once and passed in to avoid N+1 blob reads.
   try {
-    const leads = await loadJsonStore(CALLER_LEADS_PATH, []);
     const normEmail = normalize(email);
     const normPhone = clean(phone).replace(/\D/g, '');
-    const match = (Array.isArray(leads) ? leads : []).find((r) => {
+    const match = (Array.isArray(callerLeads) ? callerLeads : []).find((r) => {
       if (normEmail && normalize(r?.email || '') === normEmail) return true;
       if (normPhone && clean(r?.phone || '').replace(/\D/g, '') === normPhone) return true;
       return false;
@@ -89,11 +89,11 @@ async function resolveAssignedAgentByContact(email = '', phone = '') {
   return '';
 }
 
-async function resolveSponsorDisplayName(row = {}) {
+function resolveSponsorDisplayName(row = {}, callerLeads = []) {
   // 1. Lead router assignment always wins
   const email = clean(row?.email || '');
   const phone = clean(row?.phone || '');
-  const assignedAgent = await resolveAssignedAgentByContact(email, phone);
+  const assignedAgent = resolveAssignedAgentByContact(email, phone, callerLeads);
   if (assignedAgent) return assignedAgent;
 
   // 2. Explicit referral name on the form
@@ -489,10 +489,14 @@ export async function GET(req) {
   const rows = status ? store.filter((r) => String(r.status || '').toLowerCase() === status) : store;
   rows.sort((a, b) => new Date(b.submitted_at || b.createdAt || 0).getTime() - new Date(a.submitted_at || a.createdAt || 0).getTime());
 
-  const enriched = await Promise.all(rows.map(async (r) => ({
+  // Load caller-leads once — reused across all rows to avoid N+1 blob reads
+  let callerLeads = [];
+  try { callerLeads = await loadJsonStore(CALLER_LEADS_PATH, []); } catch { /* non-fatal */ }
+
+  const enriched = rows.map((r) => ({
     ...r,
-    sponsorDisplayName: await resolveSponsorDisplayName(r)
-  })));
+    sponsorDisplayName: resolveSponsorDisplayName(r, callerLeads)
+  }));
 
   return Response.json({ ok: true, rows: enriched });
 }
@@ -679,7 +683,9 @@ export async function POST(req) {
       if (derivedAge > 0) record.age = derivedAge;
     }
 
-    const sponsorName = await resolveSponsorDisplayName(record);
+    let callerLeadsForRecord = [];
+    try { callerLeadsForRecord = await loadJsonStore(CALLER_LEADS_PATH, []); } catch { /* non-fatal */ }
+    const sponsorName = resolveSponsorDisplayName(record, callerLeadsForRecord);
     if (sponsorName && sponsorName !== 'Unattributed') {
       record.referralName = sponsorName;
       if (!clean(record.referredByName)) record.referredByName = sponsorName;
