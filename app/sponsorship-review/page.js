@@ -8,6 +8,7 @@ const REF_CODE_TO_SPONSOR = {
   jamal_holmes: 'Jamal Holmes',
   mahogany_burns: 'Mahogany Burns',
   madalyn_adams: 'Madalyn Adams',
+  madalynadams: 'Madalyn Adams',
   kelin_brown: 'Kelin Brown',
   leticia_wright: 'Leticia Wright',
   breanna_james: 'Breanna James',
