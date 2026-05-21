@@ -17,6 +17,7 @@ const REF_CODE_TO_SPONSOR = {
   angelique_lassiter: 'Angelique Lassiter',
   andrea_cannon: 'Andrea Cannon',
   mirick_whaley: 'Mirick Whaley',
+  mirick_j_whaley: 'Mirick Whaley',
   weiner_merchant_crumbly: 'Weiner Merchant Crumbly',
   deshae_ford: 'Deshae Ford',
   dr_brianna: 'Breanna James',
