@@ -1,12 +1,24 @@
 import { DEFAULT_CONFIG } from '../../../lib/runtimeConfig';
-import { loadJsonFile, saveJsonFile, loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import { loadJsonFile, saveJsonFile, loadJsonStore, saveJsonStore, loadJsonStoreDirect, saveJsonStoreDirect } from '../../../lib/blobJsonStore';
 import ownerOverrides from '../../../data/callerOwnerOverrides.json';
 import users from '../../../data/innerCircleUsers.json';
 import nodemailer from 'nodemailer';
 
 const SETTINGS_PATH = 'stores/lead-router-settings.json';
+const RR_POINTER_PATH = 'stores/lead-router-rr-pointer.json'; // direct overwrite, never versioned
 const EVENTS_PATH = 'stores/lead-router-events.json';
 const CALLER_PATH = 'stores/caller-leads.json';
+
+// Save round-robin pointer using direct (non-versioned) write so it never accumulates blob versions
+async function saveRrPointer(ptr = 0) {
+  try { await saveJsonStoreDirect(RR_POINTER_PATH, [ptr]); } catch { /* non-fatal */ }
+}
+async function loadRrPointer() {
+  try {
+    const val = await loadJsonStoreDirect(RR_POINTER_PATH, [0]);
+    return Number(Array.isArray(val) ? val[0] : val) || 0;
+  } catch { return 0; }
+}
 const SPONSORSHIP_PATH = 'stores/sponsorship-applications.json';
 const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
 const AGENT_ONBOARDING_PATH = 'stores/agent-onboarding.json';
@@ -631,10 +643,12 @@ function randomPick(arr = []) {
 // True sequential round-robin: advances a pointer through the active agent list.
 // Returns { agent, nextPointer } so the caller can persist the new pointer.
 function pickRoundRobin(settings = {}, counts = {}, minute = 0) {
-  const active = (settings.agents || []).filter((a) => a.active && !a.paused);
+  // Exclude overflow agent from round-robin pool — they only receive overflow leads
+  const overflowName = clean(settings.overflowAgent || 'Kimora Link');
+  const active = (settings.agents || []).filter((a) => a.active && !a.paused && clean(a.name) !== overflowName);
   if (!active.length) return { agent: null, nextPointer: 0 };
 
-  const ptr = Number(settings.rrPointer || 0);
+  const ptr = Number(settings.rrPointer || 0) % active.length;
   const len = active.length;
 
   // Walk from the current pointer, skipping anyone who is over their caps or outside window
@@ -1354,7 +1368,8 @@ export async function GET(req) {
   const runRelease = clean(searchParams.get('runRelease')).toLowerCase() === '1';
   const distributionMonthScope = clean(searchParams.get('distributionMonthScope')).toLowerCase() === 'previous' ? 'previous' : 'current';
 
-  const settings = withDefaults(await loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS));
+  const [rawSettings, rrPointer] = await Promise.all([loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS), loadRrPointer()]);
+  const settings = withDefaults({ ...rawSettings, rrPointer });
   const events = await loadJsonStore(EVENTS_PATH, []);
   const leads = await loadJsonStore(CALLER_PATH, []);
   const sponsorship = await loadJsonStore(SPONSORSHIP_PATH, []);
@@ -1853,7 +1868,8 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
 
-  const settings = withDefaults(await loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS));
+  const [rawSettings, rrPointer] = await Promise.all([loadJsonFile(SETTINGS_PATH, DEFAULT_SETTINGS), loadRrPointer()]);
+  const settings = withDefaults({ ...rawSettings, rrPointer });
   const events = await loadJsonStore(EVENTS_PATH, []);
   const leads = await loadJsonStore(CALLER_PATH, []);
   const sponsorship = await loadJsonStore(SPONSORSHIP_PATH, []);
@@ -1925,9 +1941,9 @@ export async function POST(req) {
       if (picked?.name) {
         assignedTo = picked.name;
         reason = 'round_robin';
-        // Persist the advanced pointer back into settings so the next lead picks up where we left off
+        // Persist the advanced pointer — use direct overwrite (not versioned) to avoid blob accumulation
         settings.rrPointer = nextPointer;
-        saveJsonFile(SETTINGS_PATH, settings).catch(() => {});
+        await saveRrPointer(nextPointer);
       }
     } else {
       const eligible = getEligibleAgents(settings, counts, minute);
