@@ -140,8 +140,8 @@ function upsertByCanonical(map = new Map(), canonical = '', candidate = {}) {
       ? prev.licensedStates
       : (Array.isArray(candidate?.licensedStates) && candidate.licensedStates.length ? candidate.licensedStates : statesForInnerCircleName(canonical)),
     weeklyCapByState: { ...(prev?.weeklyCapByState || {}), ...(candidate?.weeklyCapByState || {}) },
-    active: candidate?.active === false && canonical !== 'Andrea Cannon' ? false : true,
-    unavailable: candidate?.unavailable === true && canonical !== 'Andrea Cannon'
+    active: candidate?.active !== false,
+    unavailable: candidate?.unavailable === true
   };
   map.set(canonical, next);
 }
@@ -197,8 +197,8 @@ function syncAgentsWithInnerCircle(store = {}) {
       email: clean(row?.email || '').toLowerCase(),
       licensedStates: [...new Set((Array.isArray(row?.licensedStates) ? row.licensedStates : []).map((s) => stateCodeFromAny(s)).filter(Boolean))].sort(),
       weeklyCapByState: { ...(row?.weeklyCapByState || {}) },
-      active: row?.name === 'Andrea Cannon' ? true : row?.active !== false,
-      unavailable: row?.name === 'Andrea Cannon' ? false : row?.unavailable === true
+      active: row?.active !== false,
+      unavailable: row?.unavailable === true
     }));
 
   const prevJson = JSON.stringify((Array.isArray(store?.agents) ? store.agents : []).map((a) => ({
