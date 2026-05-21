@@ -27,7 +27,7 @@ const REF_CODE_TO_SPONSOR = {
   latricia_wright: 'Leticia Wright'
 };
 
-// Inner Circle members — sponsors NOT in this list will show their upline in red
+// Inner Circle members — sponsors IN this list show clean (no upline tag)
 const INNER_CIRCLE_MEMBERS = new Set([
   'Kimora Link', 'Jamal Holmes', 'Mahogany Burns', 'Madalyn Adams', 'Kelin Brown',
   'Leticia Wright', 'Breanna James', 'Shannon Maxwell', 'Donyell Richardson',
@@ -35,15 +35,44 @@ const INNER_CIRCLE_MEMBERS = new Set([
   'Deshae Ford'
 ]);
 
-// Upline map — who brought each non-IC sponsor in
-const SPONSOR_UPLINE = {
-  'Rashonda Gunn': 'Leticia Wright',
-  'Akiami Byrd': 'Kimora Link',
-};
+// Build a name → IC upline map from all application rows automatically.
+// Walks the sponsor chain until it hits an Inner Circle member.
+function buildUplineMap(rows = []) {
+  // name (lowercase) → their direct sponsor
+  const directMap = new Map();
+  for (const r of rows) {
+    const name = `${r.firstName || ''} ${r.lastName || ''}`.trim().toLowerCase();
+    const sponsor = clean(r.sponsorDisplayName || r.referralName || r.referredByName || r.referred_by || '');
+    if (name && sponsor) directMap.set(name, sponsor);
+  }
 
-function getUpline(sponsorName = '') {
+  // Walk up to find the nearest IC member in the chain
+  function resolveIcUpline(sponsorName, depth = 0) {
+    if (!sponsorName || depth > 6) return '';
+    if (INNER_CIRCLE_MEMBERS.has(sponsorName)) return sponsorName;
+    const next = directMap.get(sponsorName.toLowerCase());
+    if (!next || next === sponsorName) return '';
+    if (INNER_CIRCLE_MEMBERS.has(next)) return next;
+    return resolveIcUpline(next, depth + 1);
+  }
+
+  // Final map: any non-IC name → their IC upline
+  const uplineMap = new Map();
+  for (const [name, sponsor] of directMap.entries()) {
+    if (!INNER_CIRCLE_MEMBERS.has(sponsor)) {
+      const icUpline = resolveIcUpline(sponsor);
+      if (icUpline) uplineMap.set(name, { direct: sponsor, icUpline });
+    }
+  }
+  return uplineMap;
+}
+
+function getUpline(sponsorName = '', uplineMap = new Map()) {
   if (!sponsorName || INNER_CIRCLE_MEMBERS.has(sponsorName)) return '';
-  return SPONSOR_UPLINE[sponsorName] || '';
+  // Check if this sponsor's name is in the upline map
+  const entry = uplineMap.get(sponsorName.toLowerCase());
+  if (entry) return entry.icUpline || entry.direct || '';
+  return '';
 }
 
 const EMAIL_LIKE_TO_SPONSOR = {
@@ -127,6 +156,7 @@ function normalizePhone(v = '') {
 
 export default function SponsorshipReviewPage() {
   const [rows, setRows] = useState([]);
+  const [uplineMap, setUplineMap] = useState(new Map());
   const [loading, setLoading] = useState(true);
   const [reviewRow, setReviewRow] = useState(null);
   const [bookedSet, setBookedSet] = useState(new Set());
@@ -152,7 +182,11 @@ export default function SponsorshipReviewPage() {
       const policyData = await policyRes.json().catch(() => ({}));
       const touchesData = await touchesRes.json().catch(() => ({}));
 
-      if (appsRes.ok && appsData?.ok) setRows(appsData.rows || []);
+      if (appsRes.ok && appsData?.ok) {
+        const appRows = appsData.rows || [];
+        setRows(appRows);
+        setUplineMap(buildUplineMap(appRows));
+      }
 
       if (bookingsRes.ok && bookingsData?.ok) {
         const rows = Array.isArray(bookingsData.rows) ? bookingsData.rows : [];
@@ -386,9 +420,9 @@ export default function SponsorshipReviewPage() {
                 <div style={{ display: 'grid', gap: 3 }}>
                   <small className="muted">
                     Sponsor: {sponsorNameFromRow(r)}
-                    {getUpline(sponsorNameFromRow(r)) ? (
+                    {getUpline(sponsorNameFromRow(r), uplineMap) ? (
                       <span style={{ color: '#dc2626', marginLeft: 6, fontSize: 11, fontWeight: 600 }}>
-                        via {getUpline(sponsorNameFromRow(r))}
+                        via {getUpline(sponsorNameFromRow(r), uplineMap)}
                       </span>
                     ) : null}
                   </small>
@@ -494,9 +528,9 @@ export default function SponsorshipReviewPage() {
               <h3 style={{ margin: 0 }}>Review Answers — {reviewRow.firstName} {reviewRow.lastName}</h3>
               <span className="pill">
               Sponsor: {sponsorNameFromRow(reviewRow)}
-              {getUpline(sponsorNameFromRow(reviewRow)) ? (
+              {getUpline(sponsorNameFromRow(reviewRow), uplineMap) ? (
                 <span style={{ color: '#dc2626', marginLeft: 6, fontSize: 11, fontWeight: 600 }}>
-                  via {getUpline(sponsorNameFromRow(reviewRow))}
+                  via {getUpline(sponsorNameFromRow(reviewRow), uplineMap)}
                 </span>
               ) : null}
             </span>
