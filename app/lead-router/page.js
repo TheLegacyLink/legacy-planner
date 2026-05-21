@@ -893,11 +893,15 @@ export default function LeadRouterPage() {
               <th>Day Cap</th>
               <th>Week Cap</th>
               <th>Month Cap</th>
+              <th>Received (Lifetime)</th>
+              <th>Lifetime Cap</th>
             </tr>
           </thead>
           <tbody>
             {agentRows.map((a) => {
-              const c = counts[a.name] || { today: 0, week: 0, month: 0 };
+              const c = counts[a.name] || { today: 0, week: 0, month: 0, total: 0 };
+              const lifetimeCap = a.capTotal ?? '';
+              const nearCap = lifetimeCap !== '' && Number(lifetimeCap) > 0 && c.total >= Number(lifetimeCap) * 0.9;
               return (
                 <tr key={a.name}>
                   <td>{a.name}</td>
@@ -993,6 +997,26 @@ export default function LeadRouterPage() {
                         setIsDirty(true);
                       }}
                       style={{ width: 105 }}
+                    />
+                  </td>
+                  <td>
+                    <span className="pill" style={{ background: nearCap ? '#7f1d1d' : undefined, color: nearCap ? '#fca5a5' : undefined, fontWeight: nearCap ? 700 : undefined }}>
+                      {c.total}
+                    </span>
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      placeholder="none"
+                      value={a.capTotal ?? ''}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const agents = agentRows.map((x) => x.name === a.name ? { ...x, capTotal: v === '' ? null : Number(v) } : x);
+                        setSettings((s) => ({ ...s, agents }));
+                        setIsDirty(true);
+                      }}
+                      onBlur={() => savePatch({ agents: settings?.agents || [] })}
+                      style={{ width: 90 }}
                     />
                   </td>
                 </tr>

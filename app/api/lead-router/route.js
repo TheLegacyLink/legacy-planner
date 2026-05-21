@@ -894,7 +894,7 @@ function buildAgentCounts(settings, events, keys, leads = []) {
     counts[owner].total += 1;
   }
 
-  // Also count directly from leads store (catches concurrent assignments events haven't recorded yet)
+  // Also count directly from leads store (catches concurrent assignments and fills total when events are pruned)
   const leadCounts = {};
   for (const row of leads) {
     const owner = clean(row?.owner || row?.assignedTo || '');
@@ -910,6 +910,8 @@ function buildAgentCounts(settings, events, keys, leads = []) {
     if (rowDateKey === keys.dateKey) leadCounts[owner].today += 1;
     if (rowWeekKey === keys.weekKey) leadCounts[owner].week += 1;
     if (rowMonthKey === keys.monthKey) leadCounts[owner].month += 1;
+    // Always count total from leads store — events get trimmed so this is the accurate lifetime count
+    leadCounts[owner].total += 1;
   }
 
   // Use the higher of events vs lead-row counts (more conservative = better cap enforcement)
@@ -918,6 +920,8 @@ function buildAgentCounts(settings, events, keys, leads = []) {
     counts[owner].today = Math.max(counts[owner].today, leadCounts[owner]?.today || 0);
     counts[owner].week = Math.max(counts[owner].week, leadCounts[owner]?.week || 0);
     counts[owner].month = Math.max(counts[owner].month, leadCounts[owner]?.month || 0);
+    // Lifetime total: always use leads store count as it's more reliable than trimmed events
+    counts[owner].total = Math.max(counts[owner].total, leadCounts[owner]?.total || 0);
   }
 
   return counts;
