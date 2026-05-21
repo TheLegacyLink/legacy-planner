@@ -21,9 +21,30 @@ const REF_CODE_TO_SPONSOR = {
   mirick_j_whaley: 'Mirick Whaley',
   weiner_merchant_crumbly: 'Weiner Merchant Crumbly',
   deshae_ford: 'Deshae Ford',
+  rashonda_gunn: 'Rashonda Gunn',
+  akiami_byrd: 'Akiami Byrd',
   dr_brianna: 'Breanna James',
   latricia_wright: 'Leticia Wright'
 };
+
+// Inner Circle members — sponsors NOT in this list will show their upline in red
+const INNER_CIRCLE_MEMBERS = new Set([
+  'Kimora Link', 'Jamal Holmes', 'Mahogany Burns', 'Madalyn Adams', 'Kelin Brown',
+  'Leticia Wright', 'Breanna James', 'Shannon Maxwell', 'Donyell Richardson',
+  'Angelique Lassiter', 'Andrea Cannon', 'Mirick Whaley', 'Weiner Merchant Crumbly',
+  'Deshae Ford'
+]);
+
+// Upline map — who brought each non-IC sponsor in
+const SPONSOR_UPLINE = {
+  'Rashonda Gunn': 'Leticia Wright',
+  'Akiami Byrd': 'Kimora Link',
+};
+
+function getUpline(sponsorName = '') {
+  if (!sponsorName || INNER_CIRCLE_MEMBERS.has(sponsorName)) return '';
+  return SPONSOR_UPLINE[sponsorName] || '';
+}
 
 const EMAIL_LIKE_TO_SPONSOR = {
   smaxwell32gmailcom: 'Shannon Maxwell',
@@ -363,7 +384,14 @@ export default function SponsorshipReviewPage() {
             <tr key={r.id} style={{ ...approvedBg, ...(booked ? bookedGlow : submittedGlow) }}>
               <td>
                 <div style={{ display: 'grid', gap: 3 }}>
-                  <small className="muted">Sponsor: {sponsorNameFromRow(r)}</small>
+                  <small className="muted">
+                    Sponsor: {sponsorNameFromRow(r)}
+                    {getUpline(sponsorNameFromRow(r)) ? (
+                      <span style={{ color: '#dc2626', marginLeft: 6, fontSize: 11, fontWeight: 600 }}>
+                        via {getUpline(sponsorNameFromRow(r))}
+                      </span>
+                    ) : null}
+                  </small>
                   <strong>{booked ? '⭐ ' : submitted ? '💙⭐⭐⭐ ' : ''}{r.firstName} {r.lastName}</strong>
                   {booked ? <small style={{ color: '#a16207', fontWeight: 700 }}>Booked Appointment</small> : null}
                   {!booked && submitted ? <small style={{ color: '#1d4ed8', fontWeight: 700 }}>F&G Application Submitted</small> : null}
@@ -464,7 +492,14 @@ export default function SponsorshipReviewPage() {
           >
             <div className="panelRow" style={{ marginBottom: 8 }}>
               <h3 style={{ margin: 0 }}>Review Answers — {reviewRow.firstName} {reviewRow.lastName}</h3>
-              <span className="pill">Sponsor: {sponsorNameFromRow(reviewRow)}</span>
+              <span className="pill">
+              Sponsor: {sponsorNameFromRow(reviewRow)}
+              {getUpline(sponsorNameFromRow(reviewRow)) ? (
+                <span style={{ color: '#dc2626', marginLeft: 6, fontSize: 11, fontWeight: 600 }}>
+                  via {getUpline(sponsorNameFromRow(reviewRow))}
+                </span>
+              ) : null}
+            </span>
             </div>
 
             <div style={{ display: 'grid', gap: 10 }}>
