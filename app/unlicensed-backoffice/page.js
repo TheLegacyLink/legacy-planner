@@ -51,7 +51,12 @@ export default function UnlicensedBackofficePage() {
   const [uplineNotice, setUplineNotice] = useState('');
 
   useEffect(() => {
-    const t = typeof window !== 'undefined' ? window.localStorage.getItem('unlicensed_backoffice_token') : '';
+    // Read token from localStorage first, fall back to cookie
+    let t = typeof window !== 'undefined' ? window.localStorage.getItem('unlicensed_backoffice_token') : '';
+    if (!t && typeof document !== 'undefined') {
+      const match = document.cookie.match(/(?:^|;\s*)unlicensed_bo_token=([^;]+)/);
+      if (match) { t = match[1]; try { window.localStorage.setItem('unlicensed_backoffice_token', t); } catch {} }
+    }
     if (!t) return;
     let mounted = true;
     (async () => {
@@ -189,7 +194,11 @@ export default function UnlicensedBackofficePage() {
         setError(data?.error ? `Verify failed: ${data.error}` : 'Invalid code/password');
         return;
       }
-      if (typeof window !== 'undefined') window.localStorage.setItem('unlicensed_backoffice_token', data.token);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('unlicensed_backoffice_token', data.token);
+        // Also write to cookie so progress persists through localStorage clears
+        try { document.cookie = `unlicensed_bo_token=${data.token};path=/;max-age=2592000;SameSite=Lax`; } catch {}
+      }
       setToken(data.token);
       setProfile(data.profile || null);
     } catch {
@@ -232,6 +241,8 @@ export default function UnlicensedBackofficePage() {
         return;
       }
       setProgress(data.progress || progress);
+      setNotice('✓ Progress saved to your account — accessible from any browser after sign-in.');
+      setTimeout(() => setNotice(''), 4000);
     } finally {
       setSaving(false);
     }

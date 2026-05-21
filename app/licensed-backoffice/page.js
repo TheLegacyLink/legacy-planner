@@ -373,7 +373,11 @@ export default function LicensedBackofficePage() {
   const filteredAgentOptions = useMemo(() => buildAgentOptionPool(appForm.carrier || ''), [appForm.carrier]);
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') : '';
+    let token = typeof window !== 'undefined' ? window.localStorage.getItem('licensed_backoffice_token') : '';
+    if (!token && typeof document !== 'undefined') {
+      const match = document.cookie.match(/(?:^|;\s*)licensed_bo_token=([^;]+)/);
+      if (match) { token = match[1]; try { window.localStorage.setItem('licensed_backoffice_token', token); } catch {} }
+    }
     if (!token) return;
     let cancelled = false;
     (async () => {
@@ -443,7 +447,10 @@ export default function LicensedBackofficePage() {
         setError(data?.error ? `Verification failed: ${data.error}` : 'Invalid code.');
         return;
       }
-      if (typeof window !== 'undefined') window.localStorage.setItem('licensed_backoffice_token', data.token);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('licensed_backoffice_token', data.token);
+        try { document.cookie = `licensed_bo_token=${data.token};path=/;max-age=2592000;SameSite=Lax`; } catch {}
+      }
       setAuthToken(data.token);
       setSession(data.profile);
     } catch {
