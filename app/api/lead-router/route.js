@@ -36,9 +36,9 @@ const DEFAULT_SETTINGS = {
   outboundWebhookUrl: '',
   outboundToken: '',
   outboundEnabled: false,
-  slaEnabled: true,
+  slaEnabled: false,
   slaMinutes: 10,
-  slaAction: 'reassign'
+  slaAction: 'none'
 };
 
 function clean(v = '') {
@@ -1884,6 +1884,25 @@ export async function POST(req) {
   const yesterdayCounts = computeYesterdayCounts(settings, events, now);
   const existingIdx = leads.findIndex((r) => r.externalId && r.externalId === incoming.externalId);
 
+  // ─── Owner Lock: once a lead has a valid assigned owner, NEVER auto-reassign it.
+  // The only way to change a lead's owner is manually through the UI.
+  // This prevents GHL sync re-processing or any other trigger from bouncing leads between agents.
+  if (existingIdx >= 0) {
+    const existingOwner = clean(leads[existingIdx]?.owner || '');
+    if (existingOwner && !isUnknownOwnerLabel(existingOwner)) {
+      // Update contact info only (name/email/phone may have improved from GHL), preserve owner
+      leads[existingIdx] = {
+        ...leads[existingIdx],
+        name: isUnknownOwnerLabel(leads[existingIdx]?.name || '') && !isUnknownOwnerLabel(incoming.name) ? incoming.name : leads[existingIdx].name,
+        email: incoming.email || leads[existingIdx].email,
+        phone: incoming.phone || leads[existingIdx].phone,
+        updatedAt: nowIso()
+      };
+      await saveJsonStore(CALLER_PATH, leads);
+      return Response.json({ ok: true, assignedTo: existingOwner, reason: 'existing_owner_preserved', skipped: true, row: leads[existingIdx] });
+    }
+  }
+
   let assignedTo = settings.overflowAgent || 'Kimora Link';
   let reason = 'overflow';
 
@@ -1921,81 +1940,9 @@ export async function POST(req) {
   }
 
 
-  let slaReassigned = 0;
-  if (settings.enabled && settings.slaEnabled) {
-    const stale = leads
-      .filter((r) => {
-        const stage = clean(r?.stage || 'New').toLowerCase();
-        if (stage !== 'new') return false;
-        if (clean(r?.calledAt)) return false;
-        if (!clean(r?.owner)) return false;
-        const ageMin = minutesSince(r?.createdAt || r?.updatedAt || '');
-        return ageMin >= Number(settings.slaMinutes || 10);
-      })
-      .sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime())
-      .slice(0, 5);
-
-    for (const row of stale) {
-      const currentOwner = clean(row.owner || '');
-      const eligibleNow = getEligibleAgents(settings, counts, minute).filter((a) => a.name !== currentOwner);
-      if (!eligibleNow.length) continue;
-
-      if (settings.slaAction === 'reassign') {
-        const picked = pickBalancedEligible(eligibleNow, counts, events, yesterdayCounts);
-        if (!picked?.name) continue;
-
-        row.owner = picked.name;
-        row.updatedAt = nowIso();
-        row.reassignedAt = nowIso();
-        row.reassignCount = Number(row.reassignCount || 0) + 1;
-
-        const toCount = counts[picked.name] || { today: 0, week: 0, month: 0 };
-        toCount.today += 1;
-        toCount.week += 1;
-        toCount.month += 1;
-        counts[picked.name] = toCount;
-
-        events.push({
-          id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          type: 'reassigned_sla',
-          timestamp: nowIso(),
-          dateKey: keys.dateKey,
-          weekKey: keys.weekKey,
-          monthKey: keys.monthKey,
-          leadId: row.id,
-          externalId: row.externalId || '',
-          name: bestLeadName(row),
-          email: row.email || '',
-          phone: row.phone || '',
-          assignedTo: picked.name,
-          previousOwner: currentOwner,
-          reason: 'sla_reassign',
-          mode: settings.mode
-        });
-
-        await postOutboundAssignment(settings, {
-          event: 'sla_reassign',
-          assignedTo: picked.name,
-          previousOwner: currentOwner,
-          reason: 'sla_reassign',
-          timestamp: nowIso(),
-          message: `SLA reassigned lead to ${picked.name}: ${row.name} (${row.phone || row.email || 'no contact'})`,
-          lead: {
-            id: row.externalId || row.id,
-            name: row.name,
-            email: row.email,
-            phone: row.phone
-          }
-        });
-
-        slaReassigned += 1;
-      }
-    }
-
-    if (slaReassigned > 0) {
-      await saveJsonStore(CALLER_PATH, leads);
-    }
-  }
+  // SLA speed-to-lead auto-reassign is DISABLED.
+  // Leads are never automatically moved between agents — only manual reassignment is allowed.
+  const slaReassigned = 0;
 
   const row = {
     id: existingIdx >= 0 ? leads[existingIdx].id : `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
