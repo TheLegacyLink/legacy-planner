@@ -908,34 +908,16 @@ function buildAgentCounts(settings, events, keys, leads = []) {
     counts[owner].total += 1;
   }
 
-  // Also count directly from leads store (catches concurrent assignments and fills total when events are pruned)
-  const leadCounts = {};
+  // Count lifetime total directly from leads store — events get trimmed to 5000 so they can undercount.
+  // IMPORTANT: only use leads store for .total — NOT for today/week/month.
+  // Using leads store for time-bucketed counts inflates caps because GHL-created leads
+  // can have today's createdAt even when assigned via a different path, making agents
+  // appear capped when they aren’t and routing everything to overflow.
   for (const row of leads) {
     const owner = clean(row?.owner || row?.assignedTo || '');
     if (!owner) continue;
-    const created = row?.createdAt || '';
-    if (!created) continue;
-    const d = new Date(created);
-    if (Number.isNaN(d.getTime())) continue;
-    const rowDateKey = cstDateKey(d);
-    const rowWeekKey = cstWeekKey(d);
-    const rowMonthKey = cstMonthKey(d);
-    if (!leadCounts[owner]) leadCounts[owner] = { today: 0, week: 0, month: 0, total: 0 };
-    if (rowDateKey === keys.dateKey) leadCounts[owner].today += 1;
-    if (rowWeekKey === keys.weekKey) leadCounts[owner].week += 1;
-    if (rowMonthKey === keys.monthKey) leadCounts[owner].month += 1;
-    // Always count total from leads store — events get trimmed so this is the accurate lifetime count
-    leadCounts[owner].total += 1;
-  }
-
-  // Use the higher of events vs lead-row counts (more conservative = better cap enforcement)
-  for (const owner of new Set([...Object.keys(counts), ...Object.keys(leadCounts)])) {
     if (!counts[owner]) counts[owner] = { today: 0, week: 0, month: 0, total: 0 };
-    counts[owner].today = Math.max(counts[owner].today, leadCounts[owner]?.today || 0);
-    counts[owner].week = Math.max(counts[owner].week, leadCounts[owner]?.week || 0);
-    counts[owner].month = Math.max(counts[owner].month, leadCounts[owner]?.month || 0);
-    // Lifetime total: always use leads store count as it's more reliable than trimmed events
-    counts[owner].total = Math.max(counts[owner].total, leadCounts[owner]?.total || 0);
+    counts[owner].total += 1;
   }
 
   return counts;

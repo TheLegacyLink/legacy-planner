@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-import { loadJsonFile, saveJsonFile, loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
+import { loadJsonFile, saveJsonFile, loadJsonStore, saveJsonStore, loadJsonStoreDirect, saveJsonStoreDirect } from '../../../lib/blobJsonStore';
 
 const SYNC_STATE_PATH = 'stores/ghl-lead-sync-state.json';
 
@@ -92,8 +92,10 @@ async function fetchGhlContacts(sinceMs) {
 }
 
 async function runSync(host = 'innercirclelink.com') {
-  const state = await loadJsonFile(SYNC_STATE_PATH, { lastSyncAt: null });
-  const lastSyncAt = state?.lastSyncAt || null;
+  // Use direct (non-versioned) read/write for sync state to prevent blob accumulation
+  const state = await loadJsonStoreDirect(SYNC_STATE_PATH, [{ lastSyncAt: null }]);
+  const stateObj = Array.isArray(state) ? (state[0] || {}) : state;
+  const lastSyncAt = stateObj?.lastSyncAt || null;
 
   // First run: go back 2 hours to catch any leads missed; otherwise use last sync time
   const sinceMs = lastSyncAt
@@ -102,47 +104,20 @@ async function runSync(host = 'innercirclelink.com') {
 
   // Always update lastSyncAt FIRST so parallel runs don't double-process
   const thisRunAt = nowIso();
-  await saveJsonFile(SYNC_STATE_PATH, { lastSyncAt: thisRunAt, lastRunAt: thisRunAt });
+  await saveJsonStoreDirect(SYNC_STATE_PATH, [{ lastSyncAt: thisRunAt, lastRunAt: thisRunAt }]);
 
   const ghlResult = await fetchGhlContacts(sinceMs);
 
   if (!ghlResult.ok) {
     // Restore last sync time so next run retries from same window
-    await saveJsonFile(SYNC_STATE_PATH, { lastSyncAt, lastRunAt: thisRunAt, lastError: ghlResult.error });
+    await saveJsonStoreDirect(SYNC_STATE_PATH, [{ lastSyncAt, lastRunAt: thisRunAt, lastError: ghlResult.error }]);
     return { ok: false, error: ghlResult.error, found: 0, distributed: 0, skipped: 0 };
   }
 
   const contacts = ghlResult.contacts || [];
 
-  // ——— Re-resolve pass ———
-  // For any leads already stored as 'Unknown' / 'Unknown Lead', check if GHL now
-  // has a real name (e.g. because the Facebook field mapping was delayed) and patch them.
-  let reResolved = 0;
-  try {
-    const CALLER_PATH = 'stores/caller-leads.json';
-    const storedLeads = await loadJsonStore(CALLER_PATH, []);
-    let changed = false;
-    for (const c of contacts) {
-      const externalId = clean(c.id || '');
-      if (!externalId) continue;
-      const nameRaw = [clean(c.firstName || ''), clean(c.lastName || '')].filter(Boolean).join(' ')
-        || clean(c.contactName || c.name || '');
-      if (!nameRaw || nameRaw.toLowerCase() === 'unknown') continue; // GHL still has no name
-      const idx = storedLeads.findIndex((r) => clean(r?.externalId || '') === externalId);
-      if (idx < 0) continue;
-      const stored = storedLeads[idx];
-      const storedNameLower = clean(stored?.name || '').toLowerCase();
-      if (storedNameLower && storedNameLower !== 'unknown' && storedNameLower !== 'unknown lead') continue;
-      // GHL now has a real name — update the stored lead
-      storedLeads[idx] = { ...stored, name: nameRaw, email: clean(c.email || '') || stored.email || '', phone: clean(c.phone || '') || stored.phone || '', updatedAt: nowIso() };
-      changed = true;
-      reResolved++;
-    }
-    if (changed) await saveJsonStore(CALLER_PATH, storedLeads);
-  } catch { /* non-fatal */ }
-
   if (!contacts.length) {
-    return { ok: true, found: 0, distributed: 0, skipped: 0, reResolved, source: ghlResult.source };
+    return { ok: true, found: 0, distributed: 0, skipped: 0, source: ghlResult.source };
   }
 
   const intakeToken = clean(process.env.GHL_INTAKE_TOKEN || '');
@@ -209,7 +184,6 @@ async function runSync(host = 'innercirclelink.com') {
     found: contacts.length,
     distributed,
     skipped,
-    reResolved,
     source: ghlResult.source,
     results,
     checkedSince: new Date(sinceMs).toISOString(),
