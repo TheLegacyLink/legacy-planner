@@ -47,6 +47,7 @@ export default function UnlicensedBackofficePage() {
   const [error, setError] = useState('');
   const [uplineSupport, setUplineSupport] = useState({ loading: false, error: '', upline: null, rows: [], unreadForViewer: 0 });
   const [uplineDraft, setUplineDraft] = useState('');
+  const [tab, setTab] = useState('steps');
   const [uplineSending, setUplineSending] = useState(false);
   const [uplineNotice, setUplineNotice] = useState('');
 
@@ -371,7 +372,6 @@ export default function UnlicensedBackofficePage() {
 
   const steps = progress?.steps || {};
   const fields = progress?.fields || {};
-  const [tab, setTab] = useState('steps');
 
   return (
     <>
@@ -440,7 +440,8 @@ export default function UnlicensedBackofficePage() {
           </div>
         ) : null}
 
-        {tab === 'steps' ? <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
+        {tab === 'steps' ? (
+          <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
           <h3 style={{ marginTop: 0 }}>Required Steps</h3>
           <div style={{ display: 'grid', gap: 10 }}>
             {STEP_META.map((s) => (
@@ -521,7 +522,7 @@ export default function UnlicensedBackofficePage() {
               </div>
             ))}
           </div>
-        </div> {/* end steps tab */}
+        </div>
         ) : null}
 
         <div id="upline-help-section" style={{ border: '1px solid #7F1D1D', borderRadius: 12, background: '#0F172A', padding: 14, display: 'grid', gap: 10 }}>
