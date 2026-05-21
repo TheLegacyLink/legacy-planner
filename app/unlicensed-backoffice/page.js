@@ -371,6 +371,7 @@ export default function UnlicensedBackofficePage() {
 
   const steps = progress?.steps || {};
   const fields = progress?.fields || {};
+  const [tab, setTab] = useState('steps');
 
   return (
     <>
@@ -419,7 +420,27 @@ export default function UnlicensedBackofficePage() {
           </div>
         </header>
 
-        <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
+        {/* Tab navigation */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[['steps', '📋 Steps'], ['podcast', '🎤 Podcast']].map(([k, label]) => (
+            <button key={k} onClick={() => setTab(k)} style={{ padding: '10px 16px', borderRadius: 999, border: '1px solid #334155', background: tab === k ? '#1D428A' : '#0B1220', color: '#E5E7EB', cursor: 'pointer', fontWeight: 700, fontSize: 14, transition: 'all .18s ease', boxShadow: '0 4px 14px rgba(2,6,23,.25)' }}>{label}</button>
+          ))}
+        </div>
+
+        {tab === 'podcast' ? (
+          <div style={{ border: '1px solid #C8A96B44', borderRadius: 16, background: 'linear-gradient(160deg,#0f172a,#0b1020)', padding: '24px 22px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+              <span style={{ fontSize: 30 }}>🎤</span>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 18, color: '#f1f5f9' }}>The Legacy Link Podcast</h3>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Hosted by Kimora Link &mdash; on iHeart Radio</p>
+              </div>
+            </div>
+            <iframe allow="autoplay" width="100%" height="352" src="https://www.iheart.com/podcast/334111550/?embed=true" frameBorder="0" style={{ borderRadius: 12, display: 'block', border: 0 }} title="The Legacy Link Podcast" />
+          </div>
+        ) : null}
+
+        {tab === 'steps' ? <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
           <h3 style={{ marginTop: 0 }}>Required Steps</h3>
           <div style={{ display: 'grid', gap: 10 }}>
             {STEP_META.map((s) => (
@@ -500,18 +521,8 @@ export default function UnlicensedBackofficePage() {
               </div>
             ))}
           </div>
-        </div>
-
-        <div style={{ border: '1px solid #C8A96B44', borderRadius: 14, background: 'linear-gradient(135deg,#0f172a,#0b1020)', padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-            <span style={{ fontSize: 24 }}>🎤</span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 15, color: '#f1f5f9' }}>The Legacy Link Podcast</div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Hosted by Kimora Link &mdash; on iHeart Radio</div>
-            </div>
-          </div>
-          <iframe allow="autoplay" width="100%" height="300" src="https://www.iheart.com/podcast/334111550/?embed=true" frameBorder="0" style={{ borderRadius: 10, display: 'block', border: 0 }} title="The Legacy Link Podcast" />
-        </div>
+        </div> {/* end steps tab */}
+        ) : null}
 
         <div id="upline-help-section" style={{ border: '1px solid #7F1D1D', borderRadius: 12, background: '#0F172A', padding: 14, display: 'grid', gap: 10 }}>
           <h3 style={{ margin: 0 }}>Upline Support</h3>
