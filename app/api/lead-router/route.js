@@ -199,7 +199,17 @@ async function sendLeadAssignedEmail({ assignedTo = '', row = {}, agentDirectory
   const leadPhone = clean(row?.phone || '—');
   const leadEmail = clean(row?.email || '—');
 
+  const isUnknown = !leadName || leadName.toLowerCase() === 'unknown lead' || leadName.toLowerCase() === 'unknown';
   const subject = `New Lead Assigned: ${leadName}`;
+
+  const unknownNote = isUnknown ? [
+    '',
+    'NOTE: This lead\'s name is showing as Unknown in our system.',
+    'Not to worry — the full name, phone number, and email address are in Lead Connector.',
+    `Search Lead Connector using this email: ${leadEmail !== '—' ? leadEmail : '(see Lead Connector)'}`,
+    'The full contact details will pull right up and you can make the call from there.',
+  ].join('\n') : '';
+
   const text = [
     `Hi ${assignedTo},`,
     '',
@@ -208,11 +218,19 @@ async function sendLeadAssignedEmail({ assignedTo = '', row = {}, agentDirectory
     `Lead: ${leadName}`,
     `Phone: ${leadPhone}`,
     `Email: ${leadEmail}`,
+    unknownNote,
     '',
     'Please reach out as soon as possible.',
     '',
     '— The Legacy Link Support Team'
-  ].join('\n');
+  ].filter(v => v !== undefined).join('\n');
+
+  const unknownHtml = isUnknown ? `
+    <div style="margin:14px 0;padding:12px 16px;background:#fefce8;border:1px solid #fde68a;border-radius:8px;">
+      <p style="margin:0 0 6px;font-weight:700;color:#92400e;">&#9432; Lead Showing as Unknown?</p>
+      <p style="margin:0 0 6px;color:#78350f;font-size:14px;">No worries — the full name, phone number, and email address are already in <strong>Lead Connector</strong>.</p>
+      <p style="margin:0;color:#78350f;font-size:14px;">Search Lead Connector using the email address below and the full contact will pull right up. Make your call from there.</p>
+    </div>` : '';
 
   try {
     const info = await tx.sendMail({
@@ -229,6 +247,7 @@ async function sendLeadAssignedEmail({ assignedTo = '', row = {}, agentDirectory
           <li><strong>Phone:</strong> ${leadPhone}</li>
           <li><strong>Email:</strong> ${leadEmail}</li>
         </ul>
+        ${unknownHtml}
         <p>Please reach out as soon as possible.</p>
         <p>— The Legacy Link Support Team</p>
       </div>`
