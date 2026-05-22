@@ -342,7 +342,7 @@ export default function StorePage() {
             </Link>
             {/* Desktop filter links */}
             <div className="ll-nav-links">
-              {[['all', 'Shop All'], ['tees', 'Tees'], ['polos', 'Polos'], ['hoodies', 'Hoodies']].map(([val, label]) => (
+              {[['all', 'Shop All'], ['tees', 'Tees'], ['hoodies', 'Hoodies'], ['sweatsuits', 'Sweatsuits'], ['polos', 'Polos'], ['hats', 'Hats'], ['outerwear', 'Outerwear']].map(([val, label]) => (
                 <button key={val} onClick={() => setActiveFilter(val)}
                   style={{ background: 'none', border: 'none', fontFamily: FONT_SANS, fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase', color: activeFilter === val ? GOLD : MUTED, cursor: 'pointer', padding: '4px 0', borderBottom: `1px solid ${activeFilter === val ? GOLD : 'transparent'}`, transition: 'color .2s', whiteSpace: 'nowrap' }}>
                   {label}
@@ -359,8 +359,8 @@ export default function StorePage() {
           </div>
           {/* Mobile filter bar — scrollable row below nav */}
           <div className="ll-filter-bar">
-            {[['all', 'Shop All'], ['tees', 'Tees'], ['polos', 'Polos'], ['hoodies', 'Hoodies']].map(([val, label]) => (
-              <button key={val} className="ll-filter-btn" onClick={() => setActiveFilter(val)}
+            {[['all', 'Shop All'], ['tees', 'Tees'], ['hoodies', 'Hoodies'], ['sweatsuits', 'Sweatsuits'], ['polos', 'Polos'], ['hats', 'Hats'], ['outerwear', 'Outerwear']].map(([val, label]) => (
+              <button key={val} className="ll-filter-btn" onClick={() => setActiveFilter(val))
                 style={{ color: activeFilter === val ? GOLD : MUTED, borderBottomColor: activeFilter === val ? GOLD : 'transparent' }}>
                 {label}
               </button>
