@@ -77,6 +77,7 @@ export default function LeadRouterControlPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
   const [recentEvents, setRecentEvents] = useState([]);
+  const [drillDown, setDrillDown] = useState(null); // { agentName, period, leads }
 
   useEffect(() => {
     fetch('/api/lead-router', { cache: 'no-store' })
@@ -199,6 +200,30 @@ export default function LeadRouterControlPage() {
     } finally {
       setSyncing(false);
     }
+  }
+
+  function getPeriodLeads(agentName, period) {
+    const now = new Date();
+    const todayKey = cstDateKey(now);
+    const monthKey = cstMonthKey(now);
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    return leadRows.filter((row) => {
+      const owner = String(row?.owner || row?.assignedTo || '').trim();
+      if (owner !== agentName) return false;
+      const d = row?.createdAt ? new Date(row.createdAt) : null;
+      if (!d || Number.isNaN(d.getTime())) return false;
+      if (period === 'today') return cstDateKey(d) === todayKey;
+      if (period === 'week') return d >= weekStart;
+      if (period === 'month') return cstMonthKey(d) === monthKey;
+      return false;
+    }).sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0));
+  }
+
+  function openDrillDown(agentName, period) {
+    const leads = getPeriodLeads(agentName, period);
+    setDrillDown({ agentName, period, leads });
   }
 
   function getCount(agentName, period) {
@@ -445,14 +470,30 @@ export default function LeadRouterControlPage() {
                   />
                 </div>
 
-                {/* Today's Counts */}
+                {/* Today's Counts — clickable drill-down */}
                 <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginLeft: 'auto' }}>
-                  {[['Today', 'today', '#22d3ee'], ['Week', 'week', '#a78bfa'], ['Month', 'month', GOLD]].map(([label, period, color]) => (
-                    <div key={period} style={{ textAlign: 'center' }}>
-                      <div style={{ color: '#475569', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.4px' }}>{label}</div>
-                      <div style={{ color, fontWeight: 800, fontSize: 18, lineHeight: 1.1 }}>{getCount(agent.name, period)}</div>
-                    </div>
-                  ))}
+                  {[['Today', 'today', '#22d3ee'], ['Week', 'week', '#a78bfa'], ['Month', 'month', GOLD]].map(([label, period, color]) => {
+                    const cnt = getCount(agent.name, period);
+                    return (
+                      <div key={period} style={{ textAlign: 'center' }}>
+                        <div style={{ color: '#475569', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.4px' }}>{label}</div>
+                        <button
+                          type="button"
+                          onClick={() => openDrillDown(agent.name, period)}
+                          title={`View ${label.toLowerCase()} leads for ${agent.name}`}
+                          style={{
+                            background: 'none', border: 'none', padding: '2px 4px', borderRadius: 6,
+                            color, fontWeight: 800, fontSize: 18, lineHeight: 1.1,
+                            cursor: cnt > 0 ? 'pointer' : 'default',
+                            textDecoration: cnt > 0 ? 'underline dotted' : 'none',
+                            textUnderlineOffset: 3,
+                          }}
+                        >
+                          {cnt}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Window */}
@@ -479,6 +520,111 @@ export default function LeadRouterControlPage() {
           Global cap changes save on blur. Click <strong style={{ color: '#e2e8f0' }}>Save Agents</strong> to apply agent-level changes.
           Visit <a href="/lead-router" style={{ color: GOLD }}>Lead Router</a> for full routing controls and lead logs.
         </p>
+
+      {/* Drill-down Modal */}
+      {drillDown && (
+        <div
+          onClick={() => setDrillDown(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999, padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#0f172a', border: `1px solid ${PANEL_BORDER}`,
+              borderRadius: 18, width: '100%', maxWidth: 620,
+              maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ padding: '18px 24px', borderBottom: `1px solid ${PANEL_BORDER}`, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: agentColor(drillDown.agentName), fontWeight: 800, fontSize: 16 }}>
+                  {drillDown.agentName}
+                </div>
+                <div style={{ color: '#64748b', fontSize: 13, marginTop: 2 }}>
+                  {drillDown.period === 'today' ? "Today's" : drillDown.period === 'week' ? "This Week's" : "This Month's"} Leads
+                  {' '}— <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{drillDown.leads.length}</span> total
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDrillDown(null)}
+                style={{ background: 'none', border: 'none', color: '#475569', fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: '4px 8px' }}
+              >✕</button>
+            </div>
+
+            {/* Lead List */}
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {drillDown.leads.length === 0 ? (
+                <div style={{ padding: '32px 24px', textAlign: 'center', color: '#475569', fontSize: 14 }}>
+                  No leads found for this period.
+                </div>
+              ) : (
+                drillDown.leads.map((row, i) => {
+                  const name = displayLeadName(row);
+                  const email = String(row?.email || '').trim();
+                  const phone = String(row?.phone || '').trim();
+                  const isUnknown = !String(row?.name || '').trim() || String(row?.name || '').toLowerCase() === 'unknown lead';
+                  const timeStr = row?.createdAt
+                    ? new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(row.createdAt))
+                    : '—';
+                  return (
+                    <div
+                      key={row?.id || i}
+                      style={{
+                        padding: '14px 24px',
+                        borderBottom: i < drillDown.leads.length - 1 ? `1px solid ${PANEL_BORDER}55` : 'none',
+                        display: 'flex', alignItems: 'center', gap: 14,
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ color: isUnknown ? '#64748b' : '#e2e8f0', fontWeight: 700, fontSize: 14 }}>
+                            {name}
+                          </span>
+                          {isUnknown && (
+                            <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 999, background: 'rgba(239,68,68,0.12)', color: '#f87171', border: '1px solid #ef444444' }}>UNKNOWN</span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', gap: 16, marginTop: 4, flexWrap: 'wrap' }}>
+                          {email && (
+                            <span style={{ color: '#64748b', fontSize: 12 }}>✉ {email}</span>
+                          )}
+                          {phone && (
+                            <span style={{ color: '#64748b', fontSize: 12 }}>📞 {phone}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ color: '#475569', fontSize: 11 }}>{timeStr}</div>
+                        {row?.source && (
+                          <div style={{ color: '#334155', fontSize: 10, marginTop: 2 }}>{row.source}</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '12px 24px', borderTop: `1px solid ${PANEL_BORDER}`, display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setDrillDown(null)}
+                style={{ padding: '9px 22px', borderRadius: 999, background: '#1e293b', border: `1px solid ${PANEL_BORDER}`, color: '#94a3b8', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>{/* end main column */}
 
