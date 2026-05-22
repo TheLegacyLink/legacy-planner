@@ -57,7 +57,7 @@ function getFieldErrors(form, termsViewed, referralLocked = false) {
 
 
 function determineDecision(score) {
-  if (score >= 70) {
+  if (score >= 50) {
     return {
       decision_bucket: 'auto_approved',
       status: 'Approved – Onboarding Pending',

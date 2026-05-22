@@ -23,7 +23,7 @@ export default function SponsorshipThankYouPage() {
     }
   }, [id]);
 
-  const bookingUrl = record?.id ? `/sponsorship-booking?id=${encodeURIComponent(record.id)}` : '';
+  const bookingUrl = 'https://thelegacylink.com/booking-page-sponsorship';
 
   return (
     <main className="publicPage">
@@ -41,15 +41,9 @@ export default function SponsorshipThankYouPage() {
             </p>
 
             <div className="rowActions" style={{ flexWrap: 'wrap' }}>
-              {bookingUrl ? (
-                <a href={bookingUrl}>
-                  <button type="button">Book Onboarding Call</button>
-                </a>
-              ) : (
-                <button type="button" disabled title="Open from the original device or use your personal booking link">
-                  Book Onboarding Call
-                </button>
-              )}
+              <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
+                <button type="button">Book Your Activation Call &rarr;</button>
+              </a>
             </div>
 
             <div style={{ marginTop: 12, border: '1px solid #bfdbfe', borderRadius: 12, background: '#eff6ff', padding: 12 }}>

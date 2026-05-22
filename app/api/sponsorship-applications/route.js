@@ -656,6 +656,88 @@ async function spSendSponsorReassignEmail({ newSponsor, previousSponsor, applica
   } catch (e) { return { ok: false, error: clean(e?.message || 'send_failed') }; }
 }
 
+// ─── Approval + Booking Email (sent immediately on auto-approval) ─────────────
+async function sendApprovalBookingEmail({ to = '', firstName = '' } = {}) {
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  if (!to || !user || !pass) return { ok: false, error: 'email_not_configured' };
+
+  const bookingUrl = 'https://thelegacylink.com/booking-page-sponsorship';
+  const name = firstName || 'Applicant';
+  const subject = `You're Approved — Book Your Activation Call | The Legacy Link`;
+
+  const text = [
+    `Hi ${name},`,
+    '',
+    `Congratulations — your application to The Legacy Link Sponsorship Program has been approved.`,
+    '',
+    `Your next step is to book your Activation Call. This is a required step before your onboarding begins. During this call we will confirm your track, walk you through your first 30 days, and get you set up and ready to move.`,
+    '',
+    `Book your Activation Call here:`,
+    bookingUrl,
+    '',
+    `What to have ready for your call:`,
+    `- Government-issued ID`,
+    `- Your licensing status (licensed or unlicensed)`,
+    `- Your schedule availability for the next 30 days`,
+    `- Any questions about the program or getting started`,
+    '',
+    `Please book within the next 48 hours to secure your spot.`,
+    '',
+    `We look forward to working with you.`,
+    '',
+    `The Legacy Link Support Team`,
+    `Support: support@thelegacylink.com`,
+    `Phone: 201-862-7040`,
+  ].join('\n');
+
+  const html = `
+<div style="font-family:Arial,sans-serif;line-height:1.65;color:#1e293b;max-width:600px;margin:0 auto;">
+  <div style="background:#06090f;padding:28px 32px 18px;border-bottom:3px solid #C8A96B;">
+    <div style="color:#C8A96B;font-size:22px;font-weight:800;letter-spacing:.5px;">The Legacy Link</div>
+    <div style="color:#64748b;font-size:13px;margin-top:4px;">Sponsorship Program</div>
+  </div>
+  <div style="padding:32px;background:#ffffff;">
+    <h2 style="margin:0 0 8px;color:#0f172a;font-size:22px;font-weight:800;">🎉 Congratulations, ${name}!</h2>
+    <p style="margin:0 0 20px;color:#334155;font-size:15px;">Your application to <strong>The Legacy Link Sponsorship Program</strong> has been approved. You're one step away from getting started.</p>
+
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:16px 20px;margin-bottom:28px;">
+      <div style="font-weight:700;color:#15803d;font-size:14px;margin-bottom:4px;">✅ Application Status: Approved</div>
+      <div style="color:#166534;font-size:13px;">Your next required step is to book your Activation Call.</div>
+    </div>
+
+    <p style="margin:0 0 8px;color:#334155;font-size:15px;">Your Activation Call is where we'll:</p>
+    <ul style="margin:0 0 24px;padding-left:20px;color:#475569;font-size:14px;line-height:2;">
+      <li>Confirm your licensing track (licensed or unlicensed)</li>
+      <li>Walk you through your first 30-day action plan</li>
+      <li>Get your back office and training access set up</li>
+      <li>Answer any questions before you start</li>
+    </ul>
+
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${bookingUrl}" style="display:inline-block;background:#C8A96B;color:#06090f;font-weight:800;font-size:16px;padding:16px 40px;border-radius:999px;text-decoration:none;letter-spacing:.3px;">Book Your Activation Call &rarr;</a>
+    </div>
+
+    <p style="margin:0 0 6px;color:#64748b;font-size:13px;text-align:center;">Please book within the <strong>next 48 hours</strong> to secure your spot.</p>
+    <p style="margin:0 0 6px;color:#64748b;font-size:13px;text-align:center;">Or copy this link: <a href="${bookingUrl}" style="color:#C8A96B;">${bookingUrl}</a></p>
+  </div>
+  <div style="background:#f8fafc;padding:20px 32px;border-top:1px solid #e2e8f0;">
+    <p style="margin:0 0 4px;font-weight:700;color:#0f172a;font-size:13px;">The Legacy Link Support Team</p>
+    <p style="margin:0;color:#64748b;font-size:12px;">support@thelegacylink.com &nbsp;|&nbsp; 201-862-7040</p>
+    <p style="margin:6px 0 0;color:#94a3b8;font-size:11px;">340 Old River Road, Edgewater NJ 07020</p>
+  </div>
+</div>`;
+
+  try {
+    const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+    const info = await tx.sendMail({ from, to, bcc: 'support@thelegacylink.com', subject, text, html });
+    return { ok: true, messageId: clean(info?.messageId) };
+  } catch (e) {
+    return { ok: false, error: clean(e?.message || 'send_failed') };
+  }
+}
+
 // ───────────────────────────────────────────────────────────────────────────
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
@@ -727,7 +809,17 @@ export async function POST(req) {
     }
 
     await writeStore(store);
-    return Response.json({ ok: true, row: record });
+
+    // Send approval + booking email immediately for auto-approved submissions
+    let approvalEmail = { ok: false, error: 'not_sent' };
+    if (clean(record.decision_bucket) === 'auto_approved' && clean(record.email)) {
+      approvalEmail = await sendApprovalBookingEmail({
+        to: clean(record.email),
+        firstName: clean(record.firstName)
+      });
+    }
+
+    return Response.json({ ok: true, row: record, approvalEmail });
   }
 
   if (mode === 'dedupe') {
