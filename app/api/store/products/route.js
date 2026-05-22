@@ -16,7 +16,13 @@ function isAdmin(req, body = {}) {
 
 async function loadCatalog() {
   const stored = await loadJsonStore(PRODUCTS_PATH, null);
-  if (stored?._version === STORE_SEED._version && stored?.products?.length >= 5) return stored;
+
+  // NEVER auto-reset: if we have products saved, always use them regardless of version.
+  // The only way to reset is via an explicit admin action=reset call.
+  // This prevents seed version bumps or blob operations from wiping customer-facing products.
+  if (stored?.products?.length >= 1) return stored;
+
+  // First-time seed only (no products exist at all)
   await saveJsonStore(PRODUCTS_PATH, STORE_SEED);
   return STORE_SEED;
 }
@@ -50,6 +56,19 @@ export async function PATCH(req) {
   if (action === 'reset') {
     await saveJsonStore(PRODUCTS_PATH, STORE_SEED);
     return Response.json({ ok: true, message: 'Reset to seed data' });
+  }
+
+  // Sync: merge new seed products in without removing existing customizations.
+  // Adds any SKUs from seed that don’t exist yet; never overwrites existing products.
+  if (action === 'sync_new_products') {
+    const catalog = await loadCatalog();
+    const existingSkus = new Set((catalog.products || []).map(p => p.sku));
+    const newProducts = (STORE_SEED.products || []).filter(p => !existingSkus.has(p.sku));
+    if (newProducts.length > 0) {
+      catalog.products = [...(catalog.products || []), ...newProducts];
+      await saveJsonStore(PRODUCTS_PATH, catalog);
+    }
+    return Response.json({ ok: true, added: newProducts.length, message: `Added ${newProducts.length} new product(s)` });
   }
 
   return Response.json({ ok: false, error: 'unknown_action' }, { status: 400 });
