@@ -1903,7 +1903,28 @@ export async function POST(req) {
 
   const counts = buildAgentCounts(settings, events, keys, leads);
   const yesterdayCounts = computeYesterdayCounts(settings, events, now);
-  const existingIdx = leads.findIndex((r) => r.externalId && r.externalId === incoming.externalId);
+  // Primary match by externalId
+  let existingIdx = incoming.externalId
+    ? leads.findIndex((r) => r.externalId && r.externalId === incoming.externalId)
+    : -1;
+
+  // Fallback: match by email or phone so the GHL sync never creates a duplicate record
+  // for a lead that was originally submitted via form (no externalId).
+  // Without this, the sync creates a new record assigned to Kimora (outside window/overflow),
+  // making the lead appear to "switch" away from the agent who was assigned first.
+  if (existingIdx < 0 && (incoming.email || incoming.phone)) {
+    const inEmail = incoming.email ? incoming.email.toLowerCase().trim() : '';
+    const inPhone = incoming.phone ? incoming.phone.replace(/\D/g, '') : '';
+    existingIdx = leads.findIndex((r) => {
+      if (inEmail && r.email && r.email.toLowerCase().trim() === inEmail) return true;
+      if (inPhone && inPhone.length >= 10 && r.phone && r.phone.replace(/\D/g, '') === inPhone) return true;
+      return false;
+    });
+    // Backfill the externalId so future syncs match directly without needing this fallback
+    if (existingIdx >= 0 && incoming.externalId && !leads[existingIdx].externalId) {
+      leads[existingIdx] = { ...leads[existingIdx], externalId: incoming.externalId };
+    }
+  }
 
   // ─── Owner Lock: once a lead has a valid assigned owner, NEVER auto-reassign it.
   // The only way to change a lead's owner is manually through the UI.
