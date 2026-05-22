@@ -360,7 +360,7 @@ export default function StorePage() {
           {/* Mobile filter bar — scrollable row below nav */}
           <div className="ll-filter-bar">
             {[['all', 'Shop All'], ['tees', 'Tees'], ['hoodies', 'Hoodies'], ['sweatsuits', 'Sweatsuits'], ['polos', 'Polos'], ['hats', 'Hats'], ['outerwear', 'Outerwear']].map(([val, label]) => (
-              <button key={val} className="ll-filter-btn" onClick={() => setActiveFilter(val))
+              <button key={val} className="ll-filter-btn" onClick={() => setActiveFilter(val)}
                 style={{ color: activeFilter === val ? GOLD : MUTED, borderBottomColor: activeFilter === val ? GOLD : 'transparent' }}>
                 {label}
               </button>
