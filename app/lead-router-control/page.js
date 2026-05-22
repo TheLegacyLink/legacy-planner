@@ -202,6 +202,8 @@ export default function LeadRouterControlPage() {
     }
   }
 
+  const ASSIGNMENT_TYPES = new Set(['assigned', 'delayed_release_assigned', 'reassigned_sla', 'manual_bulk_release_assigned']);
+
   function getPeriodLeads(agentName, period) {
     const now = new Date();
     const todayKey = cstDateKey(now);
@@ -209,16 +211,21 @@ export default function LeadRouterControlPage() {
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - now.getDay());
     weekStart.setHours(0, 0, 0, 0);
-    return leadRows.filter((row) => {
-      const owner = String(row?.owner || row?.assignedTo || '').trim();
-      if (owner !== agentName) return false;
-      const d = row?.createdAt ? new Date(row.createdAt) : null;
-      if (!d || Number.isNaN(d.getTime())) return false;
-      if (period === 'today') return cstDateKey(d) === todayKey;
-      if (period === 'week') return d >= weekStart;
-      if (period === 'month') return cstMonthKey(d) === monthKey;
-      return false;
-    }).sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0));
+
+    // Use assignment events — these exist for every lead assigned, called or not
+    return recentEvents
+      .filter((e) => {
+        if (!ASSIGNMENT_TYPES.has(String(e?.type || ''))) return false;
+        if (String(e?.assignedTo || '').trim() !== agentName) return false;
+        if (period === 'today') return e?.dateKey === todayKey;
+        if (period === 'week') {
+          const d = e?.timestamp ? new Date(e.timestamp) : null;
+          return d && !Number.isNaN(d.getTime()) && d >= weekStart;
+        }
+        if (period === 'month') return e?.monthKey === monthKey;
+        return false;
+      })
+      .sort((a, b) => new Date(b?.timestamp || 0) - new Date(a?.timestamp || 0));
   }
 
   function openDrillDown(agentName, period) {
@@ -569,9 +576,10 @@ export default function LeadRouterControlPage() {
                   const name = displayLeadName(row);
                   const email = String(row?.email || '').trim();
                   const phone = String(row?.phone || '').trim();
-                  const isUnknown = !String(row?.name || '').trim() || String(row?.name || '').toLowerCase() === 'unknown lead';
-                  const timeStr = row?.createdAt
-                    ? new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(row.createdAt))
+                  const isUnknown = !String(row?.name || '').trim() || String(row?.name || '').toLowerCase() === 'unknown lead' || String(row?.name || '').toLowerCase() === 'unknown';
+                  const ts = row?.timestamp || row?.createdAt || '';
+                  const timeStr = ts
+                    ? new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(ts))
                     : '—';
                   return (
                     <div
