@@ -77,6 +77,7 @@ export default function LeadRouterControlPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
   const [recentEvents, setRecentEvents] = useState([]);
+  const [assignmentEvents, setAssignmentEvents] = useState([]);
   const [drillDown, setDrillDown] = useState(null); // { agentName, period, leads }
 
   useEffect(() => {
@@ -88,6 +89,7 @@ export default function LeadRouterControlPage() {
         if (d?.counts) setCounts(d.counts);
         if (Array.isArray(d?.calledLeadRows)) setLeadRows(d.calledLeadRows);
         if (Array.isArray(d?.recent)) setRecentEvents(d.recent);
+        if (Array.isArray(d?.assignmentEvents)) setAssignmentEvents(d.assignmentEvents);
       })
       .catch(() => setError('Failed to connect to lead router.'))
       .finally(() => setLoading(false));
@@ -202,8 +204,6 @@ export default function LeadRouterControlPage() {
     }
   }
 
-  const ASSIGNMENT_TYPES = new Set(['assigned', 'delayed_release_assigned', 'reassigned_sla', 'manual_bulk_release_assigned']);
-
   function getPeriodLeads(agentName, period) {
     const now = new Date();
     const todayKey = cstDateKey(now);
@@ -212,10 +212,10 @@ export default function LeadRouterControlPage() {
     weekStart.setDate(now.getDate() - now.getDay());
     weekStart.setHours(0, 0, 0, 0);
 
-    // Use assignment events — these exist for every lead assigned, called or not
-    return recentEvents
+    // assignmentEvents is a clean, deduplicated list of only assignment-type events (up to 1000)
+    // so it stays in sync with the counts shown in the UI
+    return assignmentEvents
       .filter((e) => {
-        if (!ASSIGNMENT_TYPES.has(String(e?.type || ''))) return false;
         if (String(e?.assignedTo || '').trim() !== agentName) return false;
         if (period === 'today') return e?.dateKey === todayKey;
         if (period === 'week') {

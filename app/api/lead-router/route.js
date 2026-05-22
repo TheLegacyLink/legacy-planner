@@ -1531,7 +1531,34 @@ export async function GET(req) {
       yesterday: Number(yesterdayCounts[a.name] || 0)
     }));
 
-  return Response.json({ ok: true, settings, counts, recent, keys, tomorrowStartOrder, callMetrics, calledLeadRows, delayedQueue, weekUnsubmittedLeads, distributionMonthScope, distributionMonthKey, releaseRun, ghlSyncSummary });
+  // Build a deduplicated assignment-only event list for drill-down in the UI.
+  // Keeps the 1000 most recent assignment events so counts and drill-down data stay in sync.
+  const ASSIGNMENT_EVENT_TYPES_SET = new Set(['assigned', 'delayed_release_assigned', 'reassigned_sla', 'manual_bulk_release_assigned']);
+  const assignmentEvents = [...(events || [])]
+    .filter((e) => ASSIGNMENT_EVENT_TYPES_SET.has(clean(e?.type || '')))
+    .map((e) => {
+      // Resolve missing names the same way we do for `recent`
+      const nameBlank = !clean(e?.name) || clean(e?.name).toLowerCase() === 'unknown' || clean(e?.name).toLowerCase() === 'unknown lead';
+      if (!nameBlank) return e;
+      const byId = leadById.get(clean(e?.leadId || ''));
+      const byExt = leadByExternalId.get(clean(e?.leadId || ''));
+      const byEmail = e?.email ? leadByEmail.get(clean(e.email).toLowerCase()) : null;
+      const byPhone = e?.phone ? leadByPhone.get(normalizePhone(e.phone)) : null;
+      const row = byId || byExt || byEmail || byPhone;
+      if (!row) return e;
+      const resolvedName = clean(row?.name || `${clean(row?.firstName || '')} ${clean(row?.lastName || '')}`.trim());
+      const resolvedEmail = clean(row?.email || e?.email || '');
+      const resolvedPhone = clean(row?.phone || e?.phone || '');
+      const bestName = resolvedName && resolvedName.toLowerCase() !== 'unknown'
+        ? resolvedName
+        : resolvedEmail.includes('@') ? resolvedEmail.split('@')[0]
+        : resolvedPhone || clean(e?.name || '');
+      return { ...e, name: bestName, email: resolvedEmail || e?.email || '', phone: resolvedPhone || e?.phone || '' };
+    })
+    .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
+    .slice(0, 1000);
+
+  return Response.json({ ok: true, settings, counts, recent, assignmentEvents, keys, tomorrowStartOrder, callMetrics, calledLeadRows, delayedQueue, weekUnsubmittedLeads, distributionMonthScope, distributionMonthKey, releaseRun, ghlSyncSummary });
 }
 
 export async function PATCH(req) {
