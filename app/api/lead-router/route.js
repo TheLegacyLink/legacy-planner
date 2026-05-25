@@ -4,6 +4,9 @@ import ownerOverrides from '../../../data/callerOwnerOverrides.json';
 import users from '../../../data/innerCircleUsers.json';
 import nodemailer from 'nodemailer';
 
+// ⛔ EMERGENCY KILL SWITCH — set to false to re-enable routing (Kimora Link directive 2026-05-25)
+const ROUTER_EMERGENCY_KILL = true;
+
 const SETTINGS_PATH = 'stores/lead-router-settings.json';
 const RR_POINTER_PATH = 'stores/lead-router-rr-pointer.json'; // direct overwrite, never versioned
 const EVENTS_PATH = 'stores/lead-router-events.json';
@@ -1975,7 +1978,7 @@ export async function POST(req) {
   let assignedTo = settings.overflowAgent || 'Kimora Link';
   let reason = 'overflow';
 
-  if (settings.enabled) {
+  if (settings.enabled && !ROUTER_EMERGENCY_KILL) {
     if (settings.routingMode === 'delayed24h') {
       const existing = existingIdx >= 0 ? leads[existingIdx] : null;
       if (clean(existing?.releaseStatus || '') === 'released_to_agent' && clean(existing?.owner || '') && clean(existing?.owner || '') !== clean(settings.overflowAgent || '')) {
