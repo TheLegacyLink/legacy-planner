@@ -9,6 +9,53 @@ const MEMBERS_PATH = 'stores/sponsorship-program-members.json';
 const INVITES_PATH = 'stores/sponsorship-sop-invites.json';
 const AUTH_USERS_PATH = 'stores/sponsorship-sop-auth-users.json';
 const CALLER_LEADS_PATH = 'stores/caller-leads.json';
+const TEAM_HIERARCHY_PATH = 'stores/team-hierarchy.json';
+
+// Sponsor name → known IC email (used for hierarchy auto-linking)
+const SPONSOR_EMAIL_MAP = {
+  'kimora link': 'kimora@thelegacylink.com',
+  'jamal holmes': 'support@jdholmesagencyllc.com',
+  'mahogany burns': 'lovelyfloral78@gmail.com',
+  'leticia wright': 'leticiawright05@gmail.com',
+  'kelin brown': 'kelinb63@gmail.com',
+  'madalyn adams': 'madalynm13@gmail.com',
+  'breanna james': 'drboss637@gmail.com',
+  'donyell richardson': 'donyellrichardson80@gmail.com',
+  'shannon maxwell': 'smaxwell32@gmail.com',
+  'angelique lassiter': 'shopthreesixteen@gmail.com',
+  'andrea cannon': 'andreadcannon@gmail.com',
+};
+function lookupSponsorEmail(name = '') {
+  return SPONSOR_EMAIL_MAP[String(name || '').toLowerCase().trim()] || '';
+}
+function hierPersonKey(name = '', email = '') {
+  const em = String(email || '').toLowerCase().trim();
+  if (em) return `em:${em}`;
+  const nm = String(name || '').toLowerCase().replace(/[^a-z0-9 ]+/g, '').replace(/\s+/g, '_').trim();
+  return nm ? `nm:${nm}` : '';
+}
+async function upsertHierarchyEntry({ parentName = '', parentEmail = '', childName = '', childEmail = '', source = 'sponsorship_submission', eventAt = '' } = {}) {
+  if (!parentName || !childName || !childEmail) return;
+  const parentKey = hierPersonKey(parentName, parentEmail);
+  const childKey = hierPersonKey(childName, childEmail);
+  if (!parentKey || !childKey || parentKey === childKey) return;
+  const rows = await loadJsonFile(TEAM_HIERARCHY_PATH, []);
+  const list = Array.isArray(rows) ? rows : [];
+  const idx = list.findIndex((r) => String(r?.childKey || '') === childKey);
+  const ts = new Date().toISOString();
+  const entry = {
+    id: idx >= 0 ? String(list[idx]?.id || '') : `th_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    parentKey, parentName, parentEmail: parentEmail || lookupSponsorEmail(parentName),
+    childKey, childName, childEmail,
+    source, rating: 0, note: '', lastAppType: '',
+    lastEventAt: eventAt || ts,
+    createdAt: idx >= 0 ? String(list[idx]?.createdAt || ts) : ts,
+    updatedAt: ts
+  };
+  if (idx >= 0) list[idx] = { ...list[idx], ...entry };
+  else list.push(entry);
+  await saveJsonFile(TEAM_HIERARCHY_PATH, list);
+}
 
 const DEFAULT_SKOOL_URL = 'https://www.skool.com/legacylink/about';
 const DEFAULT_YOUTUBE_URL = 'https://youtu.be/SVvU9SvCH9o?si=H9BNtEDzglTuvJaI';
@@ -90,13 +137,7 @@ function resolveAssignedAgentByContact(email = '', phone = '', callerLeads = [])
 }
 
 function resolveSponsorDisplayName(row = {}, callerLeads = []) {
-  // 1. Lead router assignment always wins
-  const email = clean(row?.email || '');
-  const phone = clean(row?.phone || '');
-  const assignedAgent = resolveAssignedAgentByContact(email, phone, callerLeads);
-  if (assignedAgent) return assignedAgent;
-
-  // 2. Explicit referral name on the form
+  // 1. Explicit referral name on the form — referral attribution wins over lead routing
   const direct = clean(row?.referralName || row?.referredByName || row?.referred_by || '');
   const directNorm = normalize(direct);
   if (directNorm) {
@@ -107,7 +148,7 @@ function resolveSponsorDisplayName(row = {}, callerLeads = []) {
   const fromEmailLike = mapEmailLikeToName(direct);
   if (fromEmailLike) return fromEmailLike;
 
-  // 3. Ref code from URL
+  // 2. Ref code from URL
   const fromRefCode = mapRefCodeToName(row?.refCode || row?.referral_code || '');
   if (fromRefCode) return fromRefCode;
 
@@ -115,7 +156,33 @@ function resolveSponsorDisplayName(row = {}, callerLeads = []) {
   if (codeAsEmailLike) return codeAsEmailLike;
 
   if (direct) return direct;
+
+  // 3. Fall back to lead router assignment only when no referral info exists
+  const email = clean(row?.email || '');
+  const phone = clean(row?.phone || '');
+  const assignedAgent = resolveAssignedAgentByContact(email, phone, callerLeads);
+  if (assignedAgent) return assignedAgent;
+
   return 'Unattributed';
+}
+
+// Extended resolver — falls back to sponsorship-program-members for non-IC agent ref codes
+function resolveSponsorDisplayNameWithMembers(row = {}, callerLeads = [], programMembers = []) {
+  // Try the standard IC-only resolver first
+  const standard = resolveSponsorDisplayName(row, callerLeads);
+  if (standard && standard !== 'Unattributed') return standard;
+
+  // Fallback: match refCode against all program members by name-derived code
+  const rc = clean(row?.refCode || row?.referral_code || '').toLowerCase();
+  if (!rc) return standard;
+  const members = Array.isArray(programMembers) ? programMembers : [];
+  const hit = members.find((m) => {
+    const mName = clean(m?.name || m?.applicantName || '');
+    if (!mName) return false;
+    return refCodeFromName(mName) === rc;
+  });
+  if (hit) return clean(hit?.name || hit?.applicantName || '');
+  return standard;
 }
 
 function randomToken(prefix = 'sop') {
@@ -766,12 +833,17 @@ export async function POST(req) {
     }
 
     let callerLeadsForRecord = [];
-    try { callerLeadsForRecord = await loadJsonStore(CALLER_LEADS_PATH, []); } catch { /* non-fatal */ }
-    const sponsorName = resolveSponsorDisplayName(record, callerLeadsForRecord);
+    let programMembersForRecord = [];
+    try { [callerLeadsForRecord, programMembersForRecord] = await Promise.all([
+      loadJsonStore(CALLER_LEADS_PATH, []),
+      loadJsonStore(MEMBERS_PATH, [])
+    ]); } catch { /* non-fatal */ }
+    const sponsorName = resolveSponsorDisplayNameWithMembers(record, callerLeadsForRecord, programMembersForRecord);
     if (sponsorName && sponsorName !== 'Unattributed') {
       record.referralName = sponsorName;
       if (!clean(record.referredByName)) record.referredByName = sponsorName;
       if (!clean(record.referred_by)) record.referred_by = sponsorName;
+      record.sponsorDisplayName = sponsorName; // persist so raw reads (activity, etc.) see it
     }
 
     if (!record.firstName || !record.lastName) {
@@ -809,6 +881,20 @@ export async function POST(req) {
     }
 
     await writeStore(store);
+
+    // Auto-link to team hierarchy so sponsor's IC back office stays in sync
+    if (sponsorName && sponsorName !== 'Unattributed') {
+      const childFirstN = clean(record?.firstName);
+      const childLastN = clean(record?.lastName);
+      upsertHierarchyEntry({
+        parentName: sponsorName,
+        parentEmail: lookupSponsorEmail(sponsorName),
+        childName: `${childFirstN} ${childLastN}`.trim(),
+        childEmail: clean(record?.email).toLowerCase(),
+        source: 'sponsorship_submission',
+        eventAt: record.submitted_at || ''
+      }).catch(() => {}); // non-fatal, don't block response
+    }
 
     // Send approval + booking email immediately for auto-approved submissions
     let approvalEmail = { ok: false, error: 'not_sent' };
@@ -901,6 +987,21 @@ export async function POST(req) {
     }
 
     await writeStore(store);
+
+    // Auto-link approved applicant to team hierarchy
+    const approvedRow = store[idx];
+    const sponsorForHierarchy = clean(approvedRow?.sponsorDisplayName || approvedRow?.referralName || approvedRow?.referredByName || '');
+    if (sponsorForHierarchy && sponsorForHierarchy !== 'Unattributed') {
+      upsertHierarchyEntry({
+        parentName: sponsorForHierarchy,
+        parentEmail: lookupSponsorEmail(sponsorForHierarchy),
+        childName: `${clean(approvedRow?.firstName)} ${clean(approvedRow?.lastName)}`.trim(),
+        childEmail: clean(approvedRow?.email).toLowerCase(),
+        source: 'sponsorship_approval',
+        eventAt: approvedRow?.approved_at || nowIso()
+      }).catch(() => {}); // non-fatal
+    }
+
     return Response.json({ ok: true, row: store[idx], sopLink, inviteToken, inviteEmail });
   }
 
