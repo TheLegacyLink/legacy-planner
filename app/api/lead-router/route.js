@@ -27,7 +27,7 @@ const POLICY_SUBMISSIONS_PATH = 'stores/policy-submissions.json';
 const AGENT_ONBOARDING_PATH = 'stores/agent-onboarding.json';
 
 const DEFAULT_SETTINGS = {
-  enabled: true,
+  enabled: false, // Default OFF — must be explicitly enabled by Kimora Link
   mode: 'random',
   routingMode: 'live', // live | delayed24h
   delayedReleaseEnabled: true,
@@ -601,7 +601,7 @@ function withDefaults(raw = {}) {
     const isBlocked = ROUTING_BLOCKED_AGENTS.has(clean(name));
     return {
       name,
-      active: isBlocked ? false : (current?.active ?? true),
+      active: isBlocked ? false : (current?.active ?? false),
       paused: isBlocked ? true : (current?.paused ?? false),
       delayedReleaseEnabled: current?.delayedReleaseEnabled ?? false,
       windowStart: clean(current?.windowStart || '09:00') || '09:00',
@@ -1789,108 +1789,11 @@ export async function PATCH(req) {
 
   await saveJsonFile(SETTINGS_PATH, next);
 
-  // After saving agents, run a catch-up pass to fill gaps for newly-active agents
-  const catchUpResults = [];
-  if (body?.patch?.agents && Array.isArray(body.patch.agents)) {
-    try {
-      const leads = await loadJsonStore(CALLER_PATH, []);
-      const events = await loadJsonStore(EVENTS_PATH, []);
-      const agentOnboarding = await loadJsonStore(AGENT_ONBOARDING_PATH, []);
-      const agentDirectory = buildAgentDirectory(agentOnboarding);
-      const now = new Date();
-      const todayKey = cstDateKey(now);
-      const overflowName = clean(next.overflowAgent || 'Kimora Link');
+  // NOTE: Catch-up redistribution PERMANENTLY REMOVED (2026-05-25, Kimora Link directive).
+  // Do NOT add it back. Saving settings must never auto-assign leads to agents.
+  // Manual bulk-release is available via PATCH mode=bulk-release-week-unsubmitted only.
 
-      // Count today's leads per agent from events
-      const todayCounts = {};
-      for (const e of events) {
-        if (clean(e?.type || '') !== 'assigned') continue;
-        if (clean(e?.dateKey || '') !== todayKey) continue;
-        const a = clean(e?.assignedTo || '');
-        todayCounts[a] = (todayCounts[a] || 0) + 1;
-      }
-
-      // Pool: overflow leads from today (assigned to overflowAgent, no progress)
-      const overflowPool = leads
-        .map((r, idx) => ({ ...r, _idx: idx }))
-        .filter((r) => {
-          if (normalize(clean(r?.owner || '')) !== normalize(overflowName)) return false;
-          if (cstDateKeyFromIso(r?.createdAt || '') !== todayKey) return false;
-          if (r?.calledAt || r?.connectedAt || r?.qualifiedAt) return false; // skip if progressed
-          return true;
-        });
-
-      let poolIdx = 0;
-
-      for (const agent of next.agents) {
-        if (!agent.active) continue;
-        if (normalize(clean(agent.name)) === normalize(overflowName)) continue;
-        const cap = agent.capPerDay ?? next.maxPerDay ?? 0;
-        if (!cap) continue;
-        const current = todayCounts[clean(agent.name)] || 0;
-        const gap = Math.max(0, cap - current);
-        if (!gap) continue;
-
-        for (let i = 0; i < gap && poolIdx < overflowPool.length; i++, poolIdx++) {
-          const lead = overflowPool[poolIdx];
-          const assignedTo = clean(agent.name);
-
-          // Update lead record
-          leads[lead._idx] = {
-            ...leads[lead._idx],
-            owner: assignedTo,
-            updatedAt: nowIso(),
-          };
-
-          // Log event
-          const keys = { dateKey: cstDateKey(now), weekKey: cstWeekKey(now), monthKey: cstMonthKey(now) };
-          events.push({
-            id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            type: 'assigned',
-            timestamp: nowIso(),
-            dateKey: keys.dateKey,
-            weekKey: keys.weekKey,
-            monthKey: keys.monthKey,
-            leadId: clean(lead.id || ''),
-            externalId: clean(lead.externalId || ''),
-            name: clean(lead.name || ''),
-            email: clean(lead.email || ''),
-            phone: clean(lead.phone || ''),
-            assignedTo,
-            reason: 'catch_up_redistribution',
-            mode: next.mode,
-            routingMode: next.routingMode || 'live',
-          });
-
-          // Send email notification
-          const isFirstLead = (todayCounts[assignedTo] || 0) + catchUpResults.filter((r) => r.assignedTo === assignedTo).length === 0;
-          const emailResult = await sendLeadAssignedEmail({
-            assignedTo,
-            row: lead,
-            agentDirectory,
-          });
-
-          catchUpResults.push({ leadId: clean(lead.id || ''), name: clean(lead.name || ''), assignedTo, emailSent: emailResult?.ok === true });
-
-          // Update GHL contact owner + apply 'legacy' tag to trigger initial email workflow
-          syncGhlOwnerForRelease({ row: lead, assignedTo, agentDirectory }).catch(() => {});
-          const catchUpContactId = clean(lead?.externalId || lead?.id || '');
-          if (catchUpContactId) applyGhlLegacyTag(catchUpContactId).catch(() => {});
-        }
-      }
-
-      if (catchUpResults.length > 0) {
-        await saveJsonStore(CALLER_PATH, leads);
-        const trimmed = events.sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0)).slice(-5000);
-        await saveJsonStore(EVENTS_PATH, trimmed);
-      }
-    } catch (e) {
-      // Non-fatal - settings were already saved
-      catchUpResults.push({ error: String(e?.message || e) });
-    }
-  }
-
-  return Response.json({ ok: true, settings: next, catchUp: { ran: body?.patch?.agents != null, distributed: catchUpResults.filter((r) => !r.error).length, results: catchUpResults } });
+  return Response.json({ ok: true, settings: next, catchUp: { ran: false, distributed: 0, results: [] } });
 }
 
 export async function POST(req) {
