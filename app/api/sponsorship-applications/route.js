@@ -15,7 +15,10 @@ const TEAM_HIERARCHY_PATH = 'stores/team-hierarchy.json';
 const GHL_SPONSORSHIP_WEBHOOK_URL = process.env.GHL_SPONSORSHIP_WEBHOOK_URL ||
   'https://services.leadconnectorhq.com/hooks/I7bXOorPHk415nKgsFfa/webhook-trigger/98eff3e6-d13a-4ffe-bcc2-453e04640e6a';
 
-async function fireGhlSponsorshipWebhook(record = {}, event = 'sponsorship_submitted') {
+const GHL_SPONSORSHIP_SUBMITTED_WEBHOOK_URL = process.env.GHL_SPONSORSHIP_SUBMITTED_WEBHOOK_URL ||
+  'https://services.leadconnectorhq.com/hooks/I7bXOorPHk415nKgsFfa/webhook-trigger/827b8a07-61ef-4782-839c-3e78dee978f8';
+
+async function fireGhlSponsorshipWebhook(record = {}, event = 'sponsorship_submitted', webhookUrl = GHL_SPONSORSHIP_WEBHOOK_URL) {
   try {
     const payload = {
       event,
@@ -35,7 +38,7 @@ async function fireGhlSponsorshipWebhook(record = {}, event = 'sponsorship_submi
       submittedAt:    clean(record?.submitted_at || ''),
       source:         'sponsorship_form',
     };
-    await fetch(GHL_SPONSORSHIP_WEBHOOK_URL, {
+    await fetch(webhookUrl, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(payload),
@@ -939,8 +942,9 @@ export async function POST(req) {
       }).catch(() => {}); // non-fatal, don't block response
     }
 
-    // Fire GHL webhook on submission
+    // Fire GHL webhooks on submission
     fireGhlSponsorshipWebhook(record, 'sponsorship_submitted').catch(() => {});
+    fireGhlSponsorshipWebhook(record, 'sponsorship_submitted', GHL_SPONSORSHIP_SUBMITTED_WEBHOOK_URL).catch(() => {});
 
     // Send approval + booking email immediately for auto-approved submissions
     let approvalEmail = { ok: false, error: 'not_sent' };
