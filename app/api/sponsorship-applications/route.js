@@ -11,6 +11,38 @@ const AUTH_USERS_PATH = 'stores/sponsorship-sop-auth-users.json';
 const CALLER_LEADS_PATH = 'stores/caller-leads.json';
 const TEAM_HIERARCHY_PATH = 'stores/team-hierarchy.json';
 
+// ─── GHL Sponsorship Webhook ────────────────────────────────────────────────
+const GHL_SPONSORSHIP_WEBHOOK_URL = process.env.GHL_SPONSORSHIP_WEBHOOK_URL ||
+  'https://services.leadconnectorhq.com/hooks/I7bXOorPHk415nKgsFfa/webhook-trigger/98eff3e6-d13a-4ffe-bcc2-453e04640e6a';
+
+async function fireGhlSponsorshipWebhook(record = {}, event = 'sponsorship_submitted') {
+  try {
+    const payload = {
+      event,
+      id:             clean(record?.id || ''),
+      firstName:      clean(record?.firstName || ''),
+      lastName:       clean(record?.lastName || ''),
+      fullName:       `${clean(record?.firstName || '')} ${clean(record?.lastName || '')}`.trim(),
+      email:          clean(record?.email || '').toLowerCase(),
+      phone:          clean(record?.phone || ''),
+      state:          clean(record?.state || ''),
+      isLicensed:     clean(record?.isLicensed || 'no'),
+      referralName:   clean(record?.referralName || record?.sponsorDisplayName || ''),
+      applicationScore: Number(record?.application_score || 0),
+      upsellTier:     clean(record?.upsell_tier || ''),
+      upsellLabel:    clean(record?.upsell_label || ''),
+      status:         clean(record?.status || ''),
+      submittedAt:    clean(record?.submitted_at || ''),
+      source:         'sponsorship_form',
+    };
+    await fetch(GHL_SPONSORSHIP_WEBHOOK_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    });
+  } catch { /* non-fatal — never block the response */ }
+}
+
 // Sponsor name → known IC email (used for hierarchy auto-linking)
 const SPONSOR_EMAIL_MAP = {
   'kimora link': 'kimora@thelegacylink.com',
@@ -907,6 +939,9 @@ export async function POST(req) {
       }).catch(() => {}); // non-fatal, don't block response
     }
 
+    // Fire GHL webhook on submission
+    fireGhlSponsorshipWebhook(record, 'sponsorship_submitted').catch(() => {});
+
     // Send approval + booking email immediately for auto-approved submissions
     let approvalEmail = { ok: false, error: 'not_sent' };
     if (clean(record.decision_bucket) === 'auto_approved' && clean(record.email)) {
@@ -914,6 +949,8 @@ export async function POST(req) {
         to: clean(record.email),
         firstName: clean(record.firstName)
       });
+      // Fire second webhook for the approval event
+      fireGhlSponsorshipWebhook({ ...record, status: 'Approved – Onboarding Pending' }, 'sponsorship_approved').catch(() => {});
     }
 
     return Response.json({ ok: true, row: record, approvalEmail });
@@ -1011,6 +1048,11 @@ export async function POST(req) {
         source: 'sponsorship_approval',
         eventAt: approvedRow?.approved_at || nowIso()
       }).catch(() => {}); // non-fatal
+    }
+
+    // Fire GHL webhook on manual approval
+    if (decision === 'approve') {
+      fireGhlSponsorshipWebhook(store[idx], 'sponsorship_approved').catch(() => {});
     }
 
     return Response.json({ ok: true, row: store[idx], sopLink, inviteToken, inviteEmail });
