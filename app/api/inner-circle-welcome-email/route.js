@@ -406,38 +406,51 @@ function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, 
         </div>`
       : '');
 
-  return `
-  <div style="margin:0;padding:24px;background:#0B1020;font-family:Arial,Helvetica,sans-serif;color:#F8FAFC;">
-    <div style="max-width:680px;margin:0 auto;border:1px solid #1D428A;border-radius:14px;overflow:hidden;background:#111A33;">
-      <div style="padding:20px 22px;background:linear-gradient(120deg,#1D428A,#006BB6);">
-        <div style="font-size:28px;font-weight:800;letter-spacing:.4px;line-height:1.1;">THE LEGACY LINK</div>
-        <div style="margin-top:6px;font-size:14px;opacity:.9;">${safeRole} Welcome</div>
+  const mobileStyles = `
+    @media only screen and (max-width:620px) {
+      .ll-outer { padding: 8px !important; }
+      .ll-card { border-radius: 10px !important; }
+      .ll-header { padding: 14px 16px !important; }
+      .ll-header-title { font-size: 22px !important; }
+      .ll-body { padding: 16px !important; }
+      .ll-btn { display: block !important; width: 100% !important; box-sizing: border-box !important; text-align: center !important; margin: 0 0 10px 0 !important; }
+      .ll-mono { font-size: 11px !important; word-break: break-all !important; }
+      .ll-section { padding: 12px !important; }
+    }
+  `;
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><style>${mobileStyles}</style></head><body style="margin:0;padding:0;background:#0B1020;">
+  <div class="ll-outer" style="margin:0;padding:16px;background:#0B1020;font-family:Arial,Helvetica,sans-serif;color:#F8FAFC;">
+    <div class="ll-card" style="max-width:640px;margin:0 auto;border:1px solid #1D428A;border-radius:14px;overflow:hidden;background:#111A33;width:100%;">
+      <div class="ll-header" style="padding:20px 22px;background:linear-gradient(120deg,#1D428A,#006BB6);">
+        <div class="ll-header-title" style="font-size:26px;font-weight:800;letter-spacing:.4px;line-height:1.1;">THE LEGACY LINK</div>
+        <div style="margin-top:6px;font-size:13px;opacity:.9;">${safeRole} Welcome</div>
       </div>
 
-      <div style="padding:22px;line-height:1.65;">
+      <div class="ll-body" style="padding:22px;line-height:1.7;">
         <p style="margin:0 0 14px;">Hi ${safeName},</p>
         <p style="margin:0 0 14px;">Welcome to <strong>The Legacy Link ${safeRole}</strong>. We're excited to have you inside.</p>
         <p style="margin:0 0 14px;"><strong>Your coach:</strong> ${safeCoach}</p>
 
-        <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
+        <div class="ll-section" style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
           <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Your onboarding steps</div>
           <ol style="margin:0 0 0 18px;padding:0;">
             ${onboardingRows.join('\n')}
           </ol>
         </div>
 
-        <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
+        <div class="ll-section" style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
           <div style="font-weight:700;margin-bottom:8px;color:#F58426;">What to do in your first 72 hours</div>
           <ul style="margin:0 0 0 18px;padding:0;">
             ${first72}
           </ul>
         </div>
 
-        <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
+        <div class="ll-section" style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
           <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Onboarding Documents (PDF)</div>
           <p style="margin:0 0 10px;">Your role-specific onboarding documents are attached to this email.</p>
-          <a href="${safePlaybook}" style="display:inline-block;background:#F58426;color:#0B1020;padding:10px 14px;border-radius:8px;font-weight:800;text-decoration:none;margin-right:8px;">Onboarding Playbook</a>
-          ${!isInnerCircle && safeCompSchedule ? `<a href="${safeCompSchedule}" style="display:inline-block;background:#C8A96B;color:#0B1020;padding:10px 14px;border-radius:8px;font-weight:800;text-decoration:none;">Comp + Bonus Schedule</a>` : ''}
+          <a href="${safePlaybook}" class="ll-btn" style="display:inline-block;background:#F58426;color:#0B1020;padding:10px 14px;border-radius:8px;font-weight:800;text-decoration:none;margin-right:8px;">Onboarding Playbook</a>
+          ${!isInnerCircle && safeCompSchedule ? `<a href="${safeCompSchedule}" class="ll-btn" style="display:inline-block;background:#C8A96B;color:#0B1020;padding:10px 14px;border-radius:8px;font-weight:800;text-decoration:none;">Comp + Bonus Schedule</a>` : ''}
           ${roleNote ? `<p style="margin:10px 0 0;color:#C9D1E1;font-size:12px;">${roleNote}</p>` : ''}
         </div>
 
@@ -445,19 +458,19 @@ function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, 
 
         ${safeSponsorship && !isInnerCircle ? (
           roleKey === 'licensed'
-            ? `<div style="margin:18px 0;padding:20px;border:2px solid #16A34A;border-radius:14px;background:linear-gradient(160deg,#052e16,#071a0d);">
+            ? `<div class="ll-section" style="margin:18px 0;padding:20px;border:2px solid #16A34A;border-radius:14px;background:linear-gradient(160deg,#052e16,#071a0d);">
               <div style="font-weight:800;margin-bottom:8px;font-size:18px;color:#86EFAC;">🔗 Your Personal Referral Link</div>
               <p style="margin:0 0 12px;color:#D1FAE5;font-size:14px;">Share this with any friends, family, or people in your network you feel this opportunity could benefit.</p>
-              <p style="margin:0 0 14px;color:#86EFAC;font-weight:700;font-size:14px;">As a licensed agent, your referral bonus is paid out immediately every time someone joins using your link. No waiting — it's yours.</p>
-              <div style="padding:12px 14px;border-radius:10px;border:1px solid #166534;background:#020617;color:#86EFAC;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;word-break:break-all;margin-bottom:14px;">${safeSponsorship}</div>
-              <a href="${safeSponsorship}" style="display:inline-block;background:#16A34A;color:#fff;padding:11px 18px;border-radius:10px;font-weight:800;text-decoration:none;font-size:14px;">Open My Referral Page &rarr;</a>
+              <p style="margin:0 0 14px;color:#86EFAC;font-weight:700;font-size:14px;">As a licensed agent, your referral bonus is paid out immediately every time someone joins using your link. No waiting — it&apos;s yours.</p>
+              <div class="ll-mono" style="padding:12px 14px;border-radius:10px;border:1px solid #166534;background:#020617;color:#86EFAC;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;word-break:break-all;margin-bottom:14px;">${safeSponsorship}</div>
+              <a href="${safeSponsorship}" class="ll-btn" style="display:inline-block;background:#16A34A;color:#fff;padding:11px 18px;border-radius:10px;font-weight:800;text-decoration:none;font-size:14px;">Open My Referral Page &rarr;</a>
             </div>`
-            : `<div style="margin:18px 0;padding:20px;border:2px solid #C8A96B;border-radius:14px;background:linear-gradient(160deg,#1a1200,#0d0a00);">
+            : `<div class="ll-section" style="margin:18px 0;padding:20px;border:2px solid #C8A96B;border-radius:14px;background:linear-gradient(160deg,#1a1200,#0d0a00);">
               <div style="font-weight:800;margin-bottom:8px;font-size:18px;color:#FCD34D;">🔗 Your Personal Referral Link</div>
               <p style="margin:0 0 12px;color:#FEF3C7;font-size:14px;">Share this with any friends, family, or people in your network you feel this opportunity could benefit.</p>
-              <p style="margin:0 0 14px;color:#FCD34D;font-weight:700;font-size:14px;">Every referral you make now builds your account. Since you're still getting licensed, your referral bonus is held and released the moment you get your license — start stacking before you even pass your exam.</p>
-              <div style="padding:12px 14px;border-radius:10px;border:1px solid #92400E;background:#020617;color:#FCD34D;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;word-break:break-all;margin-bottom:14px;">${safeSponsorship}</div>
-              <a href="${safeSponsorship}" style="display:inline-block;background:#C8A96B;color:#0B1020;padding:11px 18px;border-radius:10px;font-weight:800;text-decoration:none;font-size:14px;">Open My Referral Page &rarr;</a>
+              <p style="margin:0 0 14px;color:#FCD34D;font-weight:700;font-size:14px;">Every referral you make now builds your account. Since you&apos;re still getting licensed, your referral bonus is held and released the moment you get your license — start stacking before you even pass your exam.</p>
+              <div class="ll-mono" style="padding:12px 14px;border-radius:10px;border:1px solid #92400E;background:#020617;color:#FCD34D;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;word-break:break-all;margin-bottom:14px;">${safeSponsorship}</div>
+              <a href="${safeSponsorship}" class="ll-btn" style="display:inline-block;background:#C8A96B;color:#0B1020;padding:11px 18px;border-radius:10px;font-weight:800;text-decoration:none;font-size:14px;">Open My Referral Page &rarr;</a>
             </div>`
         ) : ''}
 
