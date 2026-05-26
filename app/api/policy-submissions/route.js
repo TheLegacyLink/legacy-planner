@@ -2,6 +2,59 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import nodemailer from 'nodemailer';
+
+// ─── GHL Application Submitted Webhook ──────────────────────────────────────
+const GHL_APPLICATION_SUBMITTED_WEBHOOK_URL =
+  process.env.GHL_SPONSORSHIP_SUBMITTED_WEBHOOK_URL ||
+  'https://services.leadconnectorhq.com/hooks/I7bXOorPHk415nKgsFfa/webhook-trigger/827b8a07-61ef-4782-839c-3e78dee978f8';
+
+function isFgOrNlgCarrier(row = {}) {
+  const carrier = String(row?.carrier || '').toLowerCase();
+  const product = String(row?.productName || '').toLowerCase();
+  return (
+    carrier.includes('f&g') ||
+    carrier.includes('f and g') ||
+    carrier.includes('fidelity') ||
+    carrier.includes('national life') ||
+    carrier.includes('nlg') ||
+    product.includes('f&g') ||
+    product.includes('national life') ||
+    product.includes('nlg') ||
+    product.includes('flex life')
+  );
+}
+
+async function fireGhlApplicationSubmittedWebhook(row = {}) {
+  try {
+    const fullName = clean(row?.applicantName || '');
+    const nameParts = fullName.split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    const payload = {
+      event: 'policy_application_submitted',
+      id: clean(row?.id || ''),
+      firstName,
+      lastName,
+      fullName,
+      email: clean(row?.applicantEmail || '').toLowerCase(),
+      phone: clean(row?.applicantPhone || ''),
+      state: clean(row?.state || ''),
+      isLicensed: clean(row?.applicantLicensedStatus || row?.agentLicensedStatus || 'unknown'),
+      referralName: clean(row?.referredByName || row?.referrer || ''),
+      carrier: clean(row?.carrier || ''),
+      productName: clean(row?.productName || ''),
+      policyType: clean(row?.policyType || ''),
+      status: clean(row?.status || 'Submitted'),
+      submittedAt: clean(row?.submittedAt || ''),
+      source: 'policy_submission_form',
+    };
+    await fetch(GHL_APPLICATION_SUBMITTED_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch { /* non-fatal — never block the response */ }
+}
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
@@ -1233,6 +1286,11 @@ export async function POST(req) {
   const sop = skipSopProvision
     ? { ok: true, skipped: true, reason: 'skip_sop_provision' }
     : await ensureSopProvisionFromActSubmit(finalRow).catch((e) => ({ ok: false, error: clean(e?.message || 'sop_provision_failed') }));
+
+  // Fire GHL webhook when an F&G or NLG application is submitted → moves contact to "Application Submitted"
+  if (isFgOrNlgCarrier(finalRow)) {
+    fireGhlApplicationSubmittedWebhook(finalRow).catch(() => {});
+  }
 
   return Response.json({ ok: true, row: finalRow, hierarchy, sop, removedFromBookingQueue, bookingQueueRetention: 'preserved' });
 }
