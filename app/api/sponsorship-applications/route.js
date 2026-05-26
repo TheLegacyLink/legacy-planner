@@ -942,9 +942,10 @@ export async function POST(req) {
       }).catch(() => {}); // non-fatal, don't block response
     }
 
-    // Fire GHL webhooks on submission
+    // Fire GHL webhook on sponsorship form submission (moves contact to Sponsorship Form Submitted stage)
     fireGhlSponsorshipWebhook(record, 'sponsorship_submitted').catch(() => {});
-    fireGhlSponsorshipWebhook(record, 'sponsorship_submitted', GHL_SPONSORSHIP_SUBMITTED_WEBHOOK_URL).catch(() => {});
+    // NOTE: GHL_SPONSORSHIP_SUBMITTED_WEBHOOK_URL (827b8a07) is intentionally NOT fired here.
+    // That webhook is for insurance application submissions (F&G / NLG) only — handled in policy-submissions route.
 
     // Send approval + booking email immediately for auto-approved submissions
     let approvalEmail = { ok: false, error: 'not_sent' };
