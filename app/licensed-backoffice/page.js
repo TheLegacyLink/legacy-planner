@@ -1582,7 +1582,7 @@ export default function LicensedBackofficePage() {
                   </div>
                   <span style={{ border: '1px solid #166534', background: '#052e16', color: '#86EFAC', borderRadius: 999, padding: '3px 12px', fontSize: 11, fontWeight: 800 }}>LICENSED</span>
                 </div>
-                <div style={{ color: '#86EFAC', fontWeight: 700, fontSize: 14 }}>Your referral bonus is paid out immediately every time someone joins using your link. No waiting — it's yours.</div>
+                <div style={{ color: '#86EFAC', fontWeight: 700, fontSize: 14 }}>Your referral bonus is paid out immediately every time someone joins using your link. No waiting — it&apos;s yours.</div>
                 <div style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #166534', background: '#020617', color: '#86EFAC', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, wordBreak: 'break-all' }}>
                   {`${typeof window !== 'undefined' ? window.location.origin : 'https://innercirclelink.com'}${personalSponsorshipLink}`}
                 </div>
