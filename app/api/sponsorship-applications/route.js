@@ -744,6 +744,11 @@ async function sendApprovalBookingEmail({ to = '', firstName = '' } = {}) {
     `Book your Activation Call here:`,
     bookingUrl,
     '',
+    `Before your call — Required:`,
+    `Watch "Whatever It Takes" on YouTube and leave a comment before your Activation Call:`,
+    `https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX`,
+    `This video is powerful and will give you a full understanding of what Kimora Link is about and what he is willing to do to help you grow. Watch it before your call.`,
+    '',
     `What to have ready for your call:`,
     `- Government-issued ID`,
     `- Your licensing status (licensed or unlicensed)`,
@@ -781,6 +786,12 @@ async function sendApprovalBookingEmail({ to = '', firstName = '' } = {}) {
       <li>Get your back office and training access set up</li>
       <li>Answer any questions before you start</li>
     </ul>
+
+    <div style="background:#06090f;border:2px solid #C8A96B;border-radius:12px;padding:20px 24px;margin-bottom:28px;">
+      <div style="font-weight:800;color:#C8A96B;font-size:15px;margin-bottom:8px;">&#127909; Before Your Call — Required</div>
+      <p style="margin:0 0 10px;color:#e2e8f0;font-size:14px;line-height:1.65;">Watch <strong style="color:#C8A96B;">&ldquo;Whatever It Takes&rdquo;</strong> and leave a comment on the video before your Activation Call. This is powerful &mdash; it will give you a full understanding of what Kimora Link is about and what he is willing to do to help you grow.</p>
+      <a href="https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX" style="display:inline-block;background:#C8A96B;color:#06090f;font-weight:800;font-size:14px;padding:11px 20px;border-radius:8px;text-decoration:none;">&#9654; Watch Whatever It Takes</a>
+    </div>
 
     <div style="text-align:center;margin:28px 0;">
       <a href="${bookingUrl}" style="display:inline-block;background:#C8A96B;color:#06090f;font-weight:800;font-size:16px;padding:16px 40px;border-radius:999px;text-decoration:none;letter-spacing:.3px;">Book Your Activation Call &rarr;</a>
