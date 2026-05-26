@@ -1573,7 +1573,33 @@ export default function LicensedBackofficePage() {
               </div>
             ) : null}
 
-
+            {tab === 'overview' ? (
+              <div style={{ border: '2px solid #16A34A', borderRadius: 14, background: 'linear-gradient(160deg,#052e16,#071a0d)', padding: 18, display: 'grid', gap: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 18, color: '#86EFAC' }}>🔗 Your Referral Link</div>
+                    <div style={{ color: '#D1FAE5', fontSize: 13, marginTop: 4 }}>Share this with anyone in your network you feel this opportunity could benefit.</div>
+                  </div>
+                  <span style={{ border: '1px solid #166534', background: '#052e16', color: '#86EFAC', borderRadius: 999, padding: '3px 12px', fontSize: 11, fontWeight: 800 }}>LICENSED</span>
+                </div>
+                <div style={{ color: '#86EFAC', fontWeight: 700, fontSize: 14 }}>Your referral bonus is paid out immediately every time someone joins using your link. No waiting — it's yours.</div>
+                <div style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #166534', background: '#020617', color: '#86EFAC', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, wordBreak: 'break-all' }}>
+                  {`${typeof window !== 'undefined' ? window.location.origin : 'https://innercirclelink.com'}${personalSponsorshipLink}`}
+                </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <a href={personalSponsorshipLink} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                    <button type="button" style={{ padding: '11px 18px', borderRadius: 10, border: 0, background: '#16A34A', color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: '0 6px 16px rgba(22,163,74,.35)' }}>Open My Referral Page →</button>
+                  </a>
+                  <button type="button" onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}${personalSponsorshipLink}`);
+                    setCopiedSponsor(true);
+                    setTimeout(() => setCopiedSponsor(false), 1600);
+                  }} style={{ padding: '11px 18px', borderRadius: 10, border: '1px solid #166534', background: '#0a2316', color: '#86EFAC', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                    {copiedSponsor ? '✅ Copied!' : 'Copy Link'}
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             {tab === 'tracker' ? (
               <div style={{ border: '1px solid #2A3142', borderRadius: 12, overflow: 'hidden', background: '#0F172A' }}>

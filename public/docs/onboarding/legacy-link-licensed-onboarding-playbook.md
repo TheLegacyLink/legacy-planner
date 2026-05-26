@@ -125,6 +125,20 @@ Complete each step in order, then execute daily standards with clean CRM updates
   - continued onboarding support
 - Note: Suitability is determined during your ICA signing process. You can still participate in Legacy Link regardless of your policy election.
 
+## Your Personal Referral Link
+
+Every licensed agent has their own unique referral link. You can find it in two places:
+- **Your welcome email** — it was included when your back office access was granted
+- **Your back office** — visible on your Overview tab as soon as you log in
+
+**Share this link with any friends, family, or people in your network you feel this opportunity could benefit.**
+
+As a licensed agent, your referral bonus is paid out **immediately** every time someone joins using your link. No waiting — it's yours.
+
+Referrals are automatically tracked and attributed to your agent profile when people use your link.
+
+---
+
 ## Upline Support (Use the Help Button)
 - Use **Help / Messages** in back office to contact your upline directly.
 - Response SLA: **1 business day (Monday–Friday)**.

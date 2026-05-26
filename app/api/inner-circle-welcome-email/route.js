@@ -361,15 +361,13 @@ function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, 
   if (isInnerCircle) {
     onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Join the Telegram group and send a quick intro message:</strong><br/><a href="${safeTelegram}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeTelegram}</a></li>`);
     onboardingRows.push(`<li style="margin-bottom:10px;">Then log in to your Inner Circle Hub:<br/><a href="${safeHub}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeHub}</a></li>`);
-    if (safeSponsorship) onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Your personal sponsor link to share:</strong><br/><a href="${safeSponsorship}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSponsorship}</a></li>`);
     onboardingRows.push(`<li style="margin-bottom:10px;"><strong>HUB Login Email:</strong> ${safeEmail}</li>`);
     onboardingRows.push(`<li style="margin-bottom:10px;"><strong>HUB Login Password (save this):</strong><br/><span style="display:inline-block;background:#F58426;color:#0B1020;padding:6px 10px;border-radius:8px;font-weight:800;">${safePassword}</span></li>`);
     onboardingRows.push('<li>Now move through your first 72-hour execution plan in the Hub.</li>');
   } else {
     onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Open your Legacy Link Back Office:</strong><br/><a href="${safeApp}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeApp}</a></li>`);
-    if (safeSponsorship) onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Your personal sponsor link to share:</strong><br/><a href="${safeSponsorship}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSponsorship}</a></li>`);
     if (roleKey === 'licensed' && safeSkool) onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Join Skool Community (Training):</strong><br/><a href="${safeSkool}" style="color:#F58426;text-decoration:none;font-weight:700;">${safeSkool}</a></li>`);
-    onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Watch “Whatever It Takes” + leave a comment:</strong><br/><a href="${YOUTUBE_WHATEVER_IT_TAKES}" style="color:#F58426;text-decoration:none;font-weight:700;">${YOUTUBE_WHATEVER_IT_TAKES}</a></li>`);
+    onboardingRows.push(`<li style="margin-bottom:10px;"><strong>Watch "Whatever It Takes" + leave a comment:</strong><br/><a href="${YOUTUBE_WHATEVER_IT_TAKES}" style="color:#F58426;text-decoration:none;font-weight:700;">${YOUTUBE_WHATEVER_IT_TAKES}</a></li>`);
     onboardingRows.push('<li>Complete the attached onboarding playbook + comp/bonus schedule and follow your coach instructions.</li>');
   }
 
@@ -390,7 +388,7 @@ function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, 
   const roleSpecialNotice = roleKey === 'unlicensed'
     ? `<div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
           <div style="font-weight:700;margin-bottom:8px;color:#F58426;">Pre-Licensing Onboarding (Important)</div>
-          <p style="margin:0;">Jamal leads all pre-licensing onboarding. Regardless of referral/upline, Jamal will reach out within <strong>1–3 business days</strong> to start your pre-licensing process.</p>
+          <p style="margin:0;">Jamal leads all pre-licensing onboarding. Regardless of referral/upline, Jamal will reach out within <strong>1-3 business days</strong> to start your pre-licensing process.</p>
         </div>`
     : (roleKey === 'licensed'
       ? `<div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
@@ -418,7 +416,7 @@ function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, 
 
       <div style="padding:22px;line-height:1.65;">
         <p style="margin:0 0 14px;">Hi ${safeName},</p>
-        <p style="margin:0 0 14px;">Welcome to <strong>The Legacy Link ${safeRole}</strong>. We’re excited to have you inside.</p>
+        <p style="margin:0 0 14px;">Welcome to <strong>The Legacy Link ${safeRole}</strong>. We're excited to have you inside.</p>
         <p style="margin:0 0 14px;"><strong>Your coach:</strong> ${safeCoach}</p>
 
         <div style="margin:14px 0;padding:14px;border:1px solid #263859;border-radius:10px;background:#0D152B;">
@@ -445,7 +443,25 @@ function buildHtml({ roleKey, roleLabel, isInnerCircle, name, email, coachName, 
 
         ${roleSpecialNotice}
 
-        <p style="margin:0;">If you run into any access issue, reply to this email and we’ll get you handled fast.</p>
+        ${safeSponsorship && !isInnerCircle ? (
+          roleKey === 'licensed'
+            ? `<div style="margin:18px 0;padding:20px;border:2px solid #16A34A;border-radius:14px;background:linear-gradient(160deg,#052e16,#071a0d);">
+              <div style="font-weight:800;margin-bottom:8px;font-size:18px;color:#86EFAC;">🔗 Your Personal Referral Link</div>
+              <p style="margin:0 0 12px;color:#D1FAE5;font-size:14px;">Share this with any friends, family, or people in your network you feel this opportunity could benefit.</p>
+              <p style="margin:0 0 14px;color:#86EFAC;font-weight:700;font-size:14px;">As a licensed agent, your referral bonus is paid out immediately every time someone joins using your link. No waiting — it's yours.</p>
+              <div style="padding:12px 14px;border-radius:10px;border:1px solid #166534;background:#020617;color:#86EFAC;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;word-break:break-all;margin-bottom:14px;">${safeSponsorship}</div>
+              <a href="${safeSponsorship}" style="display:inline-block;background:#16A34A;color:#fff;padding:11px 18px;border-radius:10px;font-weight:800;text-decoration:none;font-size:14px;">Open My Referral Page &rarr;</a>
+            </div>`
+            : `<div style="margin:18px 0;padding:20px;border:2px solid #C8A96B;border-radius:14px;background:linear-gradient(160deg,#1a1200,#0d0a00);">
+              <div style="font-weight:800;margin-bottom:8px;font-size:18px;color:#FCD34D;">🔗 Your Personal Referral Link</div>
+              <p style="margin:0 0 12px;color:#FEF3C7;font-size:14px;">Share this with any friends, family, or people in your network you feel this opportunity could benefit.</p>
+              <p style="margin:0 0 14px;color:#FCD34D;font-weight:700;font-size:14px;">Every referral you make now builds your account. Since you're still getting licensed, your referral bonus is held and released the moment you get your license — start stacking before you even pass your exam.</p>
+              <div style="padding:12px 14px;border-radius:10px;border:1px solid #92400E;background:#020617;color:#FCD34D;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;word-break:break-all;margin-bottom:14px;">${safeSponsorship}</div>
+              <a href="${safeSponsorship}" style="display:inline-block;background:#C8A96B;color:#0B1020;padding:11px 18px;border-radius:10px;font-weight:800;text-decoration:none;font-size:14px;">Open My Referral Page &rarr;</a>
+            </div>`
+        ) : ''}
+
+        <p style="margin:0;">If you run into any access issue, reply to this email and we'll get you handled fast.</p>
         <p style="margin:14px 0 0;"><strong>Welcome to the movement,</strong><br/>The Legacy Link Team</p>
       </div>
     </div>
@@ -491,7 +507,7 @@ export async function POST(req) {
   const m = mailer();
   if (!m) return Response.json({ ok: false, error: 'mail_not_configured' }, { status: 500 });
 
-  const subject = `Welcome to The Legacy Link ${roleConfig.label} 🔗 — Your Access Details`;
+  const subject = `Welcome to The Legacy Link ${roleConfig.label} 🔗 - Your Access Details`;
   const textLines = [
     `Hi ${name},`,
     '',
@@ -518,7 +534,19 @@ export async function POST(req) {
   }
 
   textLines.push(`Coach: ${coachName}`);
-  textLines.push(`Your Personal Sponsor Link to Share: ${sponsorshipUrl}`);
+  if (sponsorshipUrl) {
+    textLines.push('');
+    textLines.push('--- YOUR PERSONAL REFERRAL LINK ---');
+    textLines.push(`Share this with anyone in your network you feel this opportunity could benefit.`);
+    if (roleConfig.roleKey === 'licensed') {
+      textLines.push('As a licensed agent, your referral bonus is paid out immediately every time someone joins using your link.');
+    } else if (roleConfig.roleKey === 'unlicensed') {
+      textLines.push('Your referral bonus is held and released the moment you get licensed — every referral you make now is stacking your first check.');
+    }
+    textLines.push(`Your Link: ${sponsorshipUrl}`);
+    textLines.push('-----------------------------------');
+    textLines.push('');
+  }
   textLines.push(`Onboarding Playbook (PDF): ${playbookUrl}`);
   if (!isInnerCircle) {
     textLines.push(`Comp + Bonus Schedule (PDF): ${compScheduleUrl}`);
@@ -526,7 +554,7 @@ export async function POST(req) {
   if (roleConfig.roleKey === 'unlicensed') {
     textLines.push(`Required video task: Watch "Whatever It Takes" and leave a comment: ${YOUTUBE_WHATEVER_IT_TAKES}`);
     textLines.push('Pre-licensing onboarding note: Jamal leads this process for all unlicensed agents, regardless of referral/upline.');
-    textLines.push('Jamal will reach out within 1–3 business days to get pre-licensing started.');
+    textLines.push('Jamal will reach out within 1-3 business days to get pre-licensing started.');
   }
   if (roleConfig.roleKey === 'licensed') {
     textLines.push(`Skool Community (Training): ${skoolUrl}`);

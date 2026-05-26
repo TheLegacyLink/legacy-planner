@@ -7,6 +7,17 @@ import PodcastPopup from '../../components/PodcastPopup';
 function clean(v = '') { return String(v || '').trim(); }
 function pct(done = 0, total = 1) { return Math.round((done / Math.max(1, total)) * 100); }
 
+function referralCodeFromName(name = '') {
+  const n = clean(name).toLowerCase().replace(/[^a-z\s'-]/g, ' ').split(/\s+/).map((x) => x.trim()).filter(Boolean);
+  if (n.length >= 2) return `${n[0]}.${n[n.length - 1]}`;
+  return n[0] || 'member';
+}
+
+function sponsorshipLinkForProfile(profile = {}) {
+  const ref = referralCodeFromName(profile?.name || '');
+  return ref ? `/sponsorship-signup?ref=${encodeURIComponent(ref)}` : '/sponsorship-signup';
+}
+
 const US_STATE_OPTIONS = [
   ['AL', 'Alabama'], ['AK', 'Alaska'], ['AZ', 'Arizona'], ['AR', 'Arkansas'], ['CA', 'California'],
   ['CO', 'Colorado'], ['CT', 'Connecticut'], ['DE', 'Delaware'], ['FL', 'Florida'], ['GA', 'Georgia'],
@@ -50,6 +61,9 @@ export default function UnlicensedBackofficePage() {
   const [tab, setTab] = useState('steps');
   const [uplineSending, setUplineSending] = useState(false);
   const [uplineNotice, setUplineNotice] = useState('');
+  const [copiedReferral, setCopiedReferral] = useState(false);
+
+  const personalSponsorshipLink = useMemo(() => sponsorshipLinkForProfile(profile || {}), [profile]);
 
   useEffect(() => {
     // Read token from localStorage first, fall back to cookie
@@ -419,6 +433,33 @@ export default function UnlicensedBackofficePage() {
             {error ? <div style={{ marginTop: 8, color: '#FCA5A5', fontSize: 13 }}>{error}</div> : null}
           </div>
         </header>
+
+        {/* Referral Link Card */}
+        <div style={{ border: '2px solid #C8A96B', borderRadius: 14, background: 'linear-gradient(160deg,#1a1200,#0d0a00)', padding: 18, display: 'grid', gap: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 18, color: '#FCD34D' }}>🔗 Your Referral Link</div>
+              <div style={{ color: '#FEF3C7', fontSize: 13, marginTop: 4 }}>Share this with anyone in your network you feel this opportunity could benefit.</div>
+            </div>
+            <span style={{ border: '1px solid #92400E', background: '#1a1200', color: '#FCD34D', borderRadius: 999, padding: '3px 12px', fontSize: 11, fontWeight: 800 }}>UNLICENSED</span>
+          </div>
+          <div style={{ color: '#FCD34D', fontWeight: 700, fontSize: 14 }}>Every referral you make right now builds your account. Your bonus is held and released the moment you get licensed — start stacking before you even pass your exam.</div>
+          <div style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid #92400E', background: '#020617', color: '#FCD34D', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, wordBreak: 'break-all' }}>
+            {`${typeof window !== 'undefined' ? window.location.origin : 'https://innercirclelink.com'}${personalSponsorshipLink}`}
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <a href={personalSponsorshipLink} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+              <button type="button" style={{ padding: '11px 18px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>Open My Referral Page →</button>
+            </a>
+            <button type="button" onClick={() => {
+              navigator.clipboard.writeText(`${window.location.origin}${personalSponsorshipLink}`);
+              setCopiedReferral(true);
+              setTimeout(() => setCopiedReferral(false), 1600);
+            }} style={{ padding: '11px 18px', borderRadius: 10, border: '1px solid #92400E', background: '#1a1200', color: '#FCD34D', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+              {copiedReferral ? '✅ Copied!' : 'Copy Link'}
+            </button>
+          </div>
+        </div>
 
         {/* Tab navigation */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

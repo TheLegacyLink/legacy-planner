@@ -78,6 +78,22 @@ Complete each step in order and maintain daily execution discipline.
 - No same-day activity left unlogged
 - No skipped follow-up without reason
 
+## Your Personal Referral Link
+
+Every agent has their own unique referral link — and yours is active right now, even before you get licensed.
+
+You can find your link in two places:
+- **Your welcome email** — included when your back office access was granted
+- **Your back office** — visible as soon as you log in
+
+**Share this link with any friends, family, or people in your network you feel this opportunity could benefit.**
+
+Since you are currently in the pre-licensing process, your referral bonus is held and released **the moment you get your license**. Every person you refer right now is building your account. Start stacking before you even pass your exam.
+
+Referrals are automatically tracked and attributed to your profile when people use your link.
+
+---
+
 ## Upline Support (Use the Help Button)
 - Use **Help / Messages** in back office to contact your upline directly.
 - Unlicensed onboarding messages route through your assigned upline flow.
