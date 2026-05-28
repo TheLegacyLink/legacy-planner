@@ -27,6 +27,30 @@ async function fileToDataUrl(file) {
   });
 }
 
+// Compress image to max 1200px wide/tall at 80% JPEG quality before upload.
+// Keeps payloads well under Vercel's 4.5MB body limit (phone photos can be 10MB+).
+function compressImage(file, maxDim = 1200, quality = 0.8) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width >= height) { height = Math.round((height / width) * maxDim); width = maxDim; }
+        else { width = Math.round((width / height) * maxDim); height = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); fileToDataUrl(file).then(resolve); };
+    img.src = url;
+  });
+}
+
 export default function CommunityServicePage() {
   const [identity, setIdentity] = useState({ name: '', email: '', source: '' });
   const [homeHref, setHomeHref] = useState('/');
@@ -151,8 +175,8 @@ export default function CommunityServicePage() {
     try {
       const uploadFiles = await Promise.all(files.slice(0, 8).map(async (f) => ({
         filename: f.name,
-        contentType: f.type || 'image/jpeg',
-        dataUrl: await fileToDataUrl(f)
+        contentType: 'image/jpeg',
+        dataUrl: await compressImage(f)
       })));
 
       const upRes = await fetch('/api/community-service', {
