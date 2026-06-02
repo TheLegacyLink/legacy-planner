@@ -7,6 +7,7 @@ import PodcastPopup from '../../components/PodcastPopup';
 import LinkBlendBuilderTab from './tools-link-blend-builder';
 import SalesTrainerTab from './sales-trainer-tab';
 import DailyDrive from '../../components/DailyDrive';
+import { CardEditor } from '../../components/DigitalCard';
 
 const SESSION_KEY = 'inner_circle_hub_member_v1';
 const LINK_LEADS_SESSION_KEY = 'legacy_lead_marketplace_user_v1';
