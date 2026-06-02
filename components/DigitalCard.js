@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 const GOLD = '#d4af37';
 const DARK = '#0a0c10';
-const LOGO_URL = '/legacy-link-seal.png';
+const LOGO_URL = '/legacy-link-logo-mark.png';
 
 const TITLE_OPTIONS = [
   'Life Insurance Agent',
@@ -31,7 +31,6 @@ function QRWithLogo({ url, size = 240 }) {
         src={qrApiUrl}
         alt="QR Code"
         style={{ width: '100%', height: '100%', display: 'block' }}
-        crossOrigin="anonymous"
       />
       {/* Logo overlay */}
       <div style={{
@@ -39,12 +38,13 @@ function QRWithLogo({ url, size = 240 }) {
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: size * 0.22,
-        height: size * 0.22,
+        width: size * 0.26,
+        height: size * 0.26,
         borderRadius: '50%',
         overflow: 'hidden',
         background: '#000',
-        border: '2px solid #000',
+        border: '3px solid #fff',
+        zIndex: 10,
       }}>
         <img
           src={LOGO_URL}
@@ -148,11 +148,7 @@ export function BusinessCardPreview({ refCode, settings = {} }) {
       width: '100%',
       maxWidth: 740,
     }}>
-      {/* Divider line between panels */}
-      <div style={{ position: 'relative' }}>
-        <CardBack settings={settings} preview />
-        <div style={{ position: 'absolute', top: 0, right: 0, width: 1, height: '100%', background: `rgba(212,175,55,0.15)` }} />
-      </div>
+      <CardBack settings={settings} preview />
       <CardFront refCode={refCode} settings={settings} preview />
     </div>
   );
