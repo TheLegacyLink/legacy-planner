@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import ICAContractGate from '../../components/ICAContractGate';
+import { CardEditor } from '../../components/DigitalCard';
 import licensedAgents from '../../data/licensedAgents.json';
 import PodcastPopup from '../../components/PodcastPopup';
 import innerCircleUsers from '../../data/innerCircleUsers.json';
@@ -1426,6 +1427,7 @@ export default function LicensedBackofficePage() {
               ['awards', 'Achievement Center'],
               ['growth', 'Growth Hub'],
               ['podcast', '🎤 Podcast'],
+              ['card', '🪪 My Card'],
             ];
 
             const moreTabs = [
@@ -2288,6 +2290,15 @@ export default function LicensedBackofficePage() {
                     </div>
                   </div>
                 </div>
+              </div>
+            ) : null}
+
+            {tab === 'card' ? (
+              <div style={{ background: '#0a0c10', borderRadius: 18, padding: 24 }}>
+                <CardEditor
+                  refCode={referralCodeFromName(profile?.name || '')}
+                  profile={profile}
+                />
               </div>
             ) : null}
           </>

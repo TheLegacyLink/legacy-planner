@@ -463,7 +463,7 @@ export default function UnlicensedBackofficePage() {
 
         {/* Tab navigation */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {[['steps', '📋 Steps'], ['podcast', '🎤 Podcast']].map(([k, label]) => (
+          {[['steps', '📋 Steps'], ['podcast', '🎤 Podcast'], ['card', '🪪 My Card']].map(([k, label]) => (
             <button key={k} onClick={() => setTab(k)} style={{ padding: '10px 16px', borderRadius: 999, border: '1px solid #334155', background: tab === k ? '#1D428A' : '#0B1220', color: '#E5E7EB', cursor: 'pointer', fontWeight: 700, fontSize: 14, transition: 'all .18s ease', boxShadow: '0 4px 14px rgba(2,6,23,.25)' }}>{label}</button>
           ))}
         </div>
@@ -615,6 +615,14 @@ export default function UnlicensedBackofficePage() {
             {uplineNotice ? <span style={{ color: uplineNotice.toLowerCase().includes('could not') ? '#FCA5A5' : '#86EFAC' }}>{uplineNotice}</span> : null}
           </div>
         </div>
+        {tab === 'card' ? (
+          <div style={{ background: '#0a0c10', borderRadius: 18, padding: 24 }}>
+            <CardEditor
+              refCode={referralCodeFromName(profile?.name || '')}
+              profile={profile}
+            />
+          </div>
+        ) : null}
       </section>
     </main>
     <PodcastPopup />
