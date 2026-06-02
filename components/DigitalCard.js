@@ -373,7 +373,7 @@ export function CardEditor({ refCode, profile = {}, onSaved }) {
         <div style={{ marginTop: 20, padding: 16, background: 'rgba(212,175,55,0.05)', borderRadius: 12, border: '1px solid rgba(212,175,55,0.15)' }}>
           <div style={{ fontSize: 13, color: '#fff', fontWeight: 600, marginBottom: 6 }}>Professional Photo</div>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 14, lineHeight: 1.5 }}>
-            Add a professional headshot to your card. We'll handle the editing and polish.
+            Add a professional headshot to your card. We&apos;ll handle the editing and polish.
             Included free when you order physical cards — or request it standalone.
           </div>
           <button
