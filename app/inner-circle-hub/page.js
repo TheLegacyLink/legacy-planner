@@ -211,7 +211,7 @@ function availableTabs(member = {}) {
   const isKimora = email === 'kimora@thelegacylink.com';
   const all = [
     { key: 'dashboard', label: 'The Lounge' },
-    { key: 'dailydrive', label: 'Daily Drive' },
+    { key: 'virtualcard', label: '🪪 Virtual Card' },
     { key: 'faststart', label: 'Fast Start' },
     { key: 'growth', label: 'Growth Hub' },
     { key: 'scripts2', label: 'Script Vault 2.0' },
@@ -2549,7 +2549,7 @@ export default function InnerCircleHubPage() {
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
             {(() => {
-              const PINNED_KEYS = ['dashboard', 'dailydrive', 'onboarding', 'production', 'submitapp', 'podcast'];
+              const PINNED_KEYS = ['dashboard', 'virtualcard', 'onboarding', 'production', 'submitapp', 'podcast'];
               const pinnedTabs = PINNED_KEYS.map((k) => tabs.find((t) => t.key === k)).filter(Boolean);
               const overflowTabs = tabs.filter((t) => !PINNED_KEYS.includes(t.key)).sort((a, b) => a.label.localeCompare(b.label));
 
@@ -4046,8 +4046,16 @@ export default function InnerCircleHubPage() {
               </div>
             ) : null}
 
-            {tab === 'dailydrive' ? (
-              <DailyDrive email={member?.email || ''} tier="inner_circle" />
+            {tab === 'virtualcard' ? (
+              <div style={{ background: '#0a0c10', borderRadius: 18, padding: 24 }}>
+                <CardEditor
+                  refCode={(() => {
+                    const n = String(member?.applicantName || member?.name || '').trim().toLowerCase().replace(/[^a-z0-9 ]/g,'').trim();
+                    return n.replace(/\s+/g, '_') || 'member';
+                  })()}
+                  profile={{ name: member?.applicantName || member?.name || '', email: member?.email || '' }}
+                />
+              </div>
             ) : null}
 
             {tab === 'licensedstates' ? (() => {

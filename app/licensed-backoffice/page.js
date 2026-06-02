@@ -1419,6 +1419,7 @@ export default function LicensedBackofficePage() {
           {(() => {
             const primaryTabs = [
               ['overview', 'Overview'],
+              ['card', '🪪 Virtual Card'],
               ['tracker', 'Onboarding Tracker'],
               ['financials', 'Financials'],
               ['sponsorships', 'Sponsorships'],
@@ -1427,7 +1428,6 @@ export default function LicensedBackofficePage() {
               ['awards', 'Achievement Center'],
               ['growth', 'Growth Hub'],
               ['podcast', '🎤 Podcast'],
-              ['card', '🪪 My Card'],
             ];
 
             const moreTabs = [
