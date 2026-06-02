@@ -179,7 +179,7 @@ function ScanStats({ refCode }) {
 function OrderModal({ refCode, settings={}, onClose }) {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoEmail, setPhotoEmail] = useState('');
-  const [qty, setQty] = useState('250');
+  const [qty, setQty] = useState('500');
   const [mode, setMode] = useState('upload');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -222,11 +222,34 @@ function OrderModal({ refCode, settings={}, onClose }) {
               </div>
               <button onClick={onClose} style={{ background:'none', border:'none', color:'rgba(255,255,255,0.4)', fontSize:22, cursor:'pointer' }}>×</button>
             </div>
+            {/* Pricing options */}
             <div style={{ marginBottom:20 }}>
-              <label style={lS}>Quantity</label>
-              <select style={{ ...iS, cursor:'pointer' }} value={qty} onChange={e=>setQty(e.target.value)}>
-                {['100','250','500','1000'].map(q=><option key={q} value={q}>{q==='1000'?'1,000':q} cards</option>)}
-              </select>
+              <label style={lS}>Select Package</label>
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {[
+                  { qty:'500',  label:'500 cards',   price:'$89',  note:'Most popular' },
+                  { qty:'1000', label:'1,000 cards',  price:'$149', note:'Best value' },
+                  { qty:'2000', label:'2,000 cards',  price:'$279', note:'' },
+                  { qty:'5000', label:'5,000 cards',  price:'$559', note:'Bulk' },
+                ].map(opt => (
+                  <button key={opt.qty} onClick={()=>setQty(opt.qty)} style={{
+                    display:'flex', alignItems:'center', justifyContent:'space-between',
+                    padding:'12px 16px', borderRadius:12,
+                    border:`1px solid ${qty===opt.qty ? GOLD : 'rgba(255,255,255,0.1)'}`,
+                    background: qty===opt.qty ? 'rgba(212,175,55,0.1)' : 'rgba(255,255,255,0.03)',
+                    cursor:'pointer', textAlign:'left',
+                  }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                      <div style={{ width:16, height:16, borderRadius:'50%', border:`2px solid ${qty===opt.qty ? GOLD : 'rgba(255,255,255,0.2)'}`, background: qty===opt.qty ? GOLD : 'transparent', flexShrink:0 }} />
+                      <div>
+                        <div style={{ color:'#fff', fontSize:13, fontWeight:600 }}>{opt.label}</div>
+                        {opt.note && <div style={{ color:'rgba(255,255,255,0.4)', fontSize:11, marginTop:1 }}>{opt.note}</div>}
+                      </div>
+                    </div>
+                    <div style={{ color: qty===opt.qty ? GOLD : '#fff', fontSize:16, fontWeight:700 }}>{opt.price}</div>
+                  </button>
+                ))}
+              </div>
             </div>
             <div style={{ marginBottom:20 }}>
               <label style={lS}>Your Photo</label>
