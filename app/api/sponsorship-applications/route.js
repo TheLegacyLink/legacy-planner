@@ -956,6 +956,33 @@ export async function POST(req) {
       });
       // Fire second webhook for the approval event
       fireGhlSponsorshipWebhook({ ...record, status: 'Approved – Onboarding Pending' }, 'sponsorship_approved').catch(() => {});
+
+      // Auto-provision back office access — creates start-intake record so agent
+      // can authenticate immediately and sign ICA on first login.
+      try {
+        const provisionBody = {
+          actorEmail: 'kimora@thelegacylink.com',
+          agents: [{
+            firstName: clean(record.firstName),
+            lastName: clean(record.lastName),
+            email: clean(record.email),
+            phone: clean(record.phone),
+            homeState: clean(record.state),
+            birthDate: clean(record.birthday || ''),
+            trackType: boolFromLicensed(record.isLicensed) ? 'licensed' : 'unlicensed',
+            source: 'auto_provisioned_on_approval',
+          }],
+        };
+        const provisionRes = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'https://innercirclelink.com'}/api/admin/provision-backoffice`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(provisionBody),
+        });
+        const provisionData = await provisionRes.json().catch(() => ({}));
+        if (!provisionData?.ok) console.error('[provision-backoffice] failed:', provisionData?.error);
+      } catch (provErr) {
+        console.error('[provision-backoffice] exception:', provErr?.message);
+      }
     }
 
     return Response.json({ ok: true, row: record, approvalEmail });
