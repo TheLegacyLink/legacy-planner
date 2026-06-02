@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 const GOLD = '#d4af37';
 const DARK = '#0a0c10';
-const LOGO_URL = '/legacy-link-logo-mark.png';
+const LOGO_URL = '/legacy-link-seal.png';
 
 const TITLE_OPTIONS = [
   'Life Insurance Agent',
@@ -15,7 +15,9 @@ const TITLE_OPTIONS = [
 ];
 
 function QRWithLogo({ url, size = 240 }) {
-  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size * 2}x${size * 2}&data=${encodeURIComponent(url)}&color=ffffff&bgcolor=000000&qzone=1&format=png`;
+  // qzone=2 adds quiet zone so QR modules don't crowd the center logo
+  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size * 2}x${size * 2}&data=${encodeURIComponent(url)}&color=ffffff&bgcolor=000000&qzone=2&format=png`;
+  const logoSize = Math.round(size * 0.28);
   return (
     <div style={{
       position: 'relative',
@@ -26,31 +28,27 @@ function QRWithLogo({ url, size = 240 }) {
       background: '#000',
       flexShrink: 0,
     }}>
-      {/* QR code image */}
+      {/* QR code */}
       <img
         src={qrApiUrl}
         alt="QR Code"
         style={{ width: '100%', height: '100%', display: 'block' }}
       />
-      {/* Logo overlay */}
+      {/* Logo — absolutely centered, no clip needed (image is already circular) */}
       <div style={{
         position: 'absolute',
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: size * 0.26,
-        height: size * 0.26,
-        borderRadius: '50%',
-        overflow: 'hidden',
-        background: '#000',
-        border: '3px solid #fff',
+        width: logoSize,
+        height: logoSize,
         zIndex: 10,
+        pointerEvents: 'none',
       }}>
         <img
           src={LOGO_URL}
           alt="Legacy Link"
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          onError={(e) => { e.target.style.display = 'none'; }}
+          style={{ width: '100%', height: '100%', display: 'block' }}
         />
       </div>
     </div>
