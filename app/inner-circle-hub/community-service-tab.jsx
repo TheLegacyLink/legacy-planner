@@ -43,7 +43,7 @@ function fileToDataUrl(file) {
 
 // Compress image to max 1200px wide/tall at 80% JPEG quality before upload.
 // This keeps payloads well under Vercel’s 4.5MB body limit.
-function compressImage(file, maxDim = 1200, quality = 0.8) {
+function compressImage(file, maxDim = 800, quality = 0.65) {
   return new Promise((resolve) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -198,7 +198,8 @@ export default function CommunityServiceTab({ member, hubMembers = [], isAdmin =
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data?.ok) {
-        setNotice('Photo upload failed. Please try again.');
+        const errMsg = data?.error || (res.status === 413 ? 'Image too large — try a smaller photo.' : 'Upload failed. Please try again.');
+        setNotice(errMsg);
         return;
       }
 
