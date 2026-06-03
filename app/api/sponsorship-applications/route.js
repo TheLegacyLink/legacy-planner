@@ -1091,6 +1091,25 @@ export async function POST(req) {
   }
 
   // ─── reassign_sponsor ───────────────────────────────────────────────────────────────
+  // Admin patch — update specific fields on a record (email, sponsorDisplayName, etc.)
+  if (mode === 'admin_patch') {
+    const actorEmail = clean(body?.actorEmail || '').toLowerCase();
+    if (actorEmail !== 'kimora@thelegacylink.com') {
+      return Response.json({ ok: false, error: 'forbidden' }, { status: 403 });
+    }
+    const id = clean(body?.id || '');
+    const patch = body?.patch || {};
+    if (!id) return Response.json({ ok: false, error: 'id_required' }, { status: 400 });
+    const idx = store.findIndex((r) => clean(r?.id) === id);
+    if (idx < 0) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
+    const allowed = ['email','phone','firstName','lastName','state','sponsorDisplayName','referralName','referredByName','referred_by'];
+    const safe = {};
+    for (const k of allowed) { if (patch[k] !== undefined) safe[k] = clean(patch[k]); }
+    store[idx] = { ...store[idx], ...safe, updatedAt: nowIso() };
+    await writeStore(store);
+    return Response.json({ ok: true, row: store[idx] });
+  }
+
   if (mode === 'reassign_sponsor') {
     const id          = clean(body?.id || '');
     const newSponsor  = clean(body?.newSponsorName || '');
