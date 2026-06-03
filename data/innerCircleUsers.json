@@ -106,11 +106,5 @@
     "role": "admin",
     "active": true,
     "password": "LegacyTest#2026!"
-  },
-  {
-    "name": "Deshae Ford",
-    "email": "",
-    "agentId": "",
-    "homeState": ""
   }
 ]

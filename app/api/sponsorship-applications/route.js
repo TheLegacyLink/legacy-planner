@@ -201,22 +201,32 @@ function resolveSponsorDisplayName(row = {}, callerLeads = []) {
   return 'Unattributed';
 }
 
-// Extended resolver — falls back to sponsorship-program-members for non-IC agent ref codes
-function resolveSponsorDisplayNameWithMembers(row = {}, callerLeads = [], programMembers = []) {
+// Extended resolver — falls back to program members, then ALL approved agents
+function resolveSponsorDisplayNameWithMembers(row = {}, callerLeads = [], programMembers = [], allAgents = []) {
   // Try the standard IC-only resolver first
   const standard = resolveSponsorDisplayName(row, callerLeads);
   if (standard && standard !== 'Unattributed') return standard;
 
-  // Fallback: match refCode against all program members by name-derived code
   const rc = clean(row?.refCode || row?.referral_code || '').toLowerCase();
   if (!rc) return standard;
+
+  // Fallback 1: match against program members
   const members = Array.isArray(programMembers) ? programMembers : [];
   const hit = members.find((m) => {
     const mName = clean(m?.name || m?.applicantName || '');
-    if (!mName) return false;
-    return refCodeFromName(mName) === rc;
+    return mName && refCodeFromName(mName) === rc;
   });
   if (hit) return clean(hit?.name || hit?.applicantName || '');
+
+  // Fallback 2: match against ALL approved agents in the sapp store
+  // This means any licensed or unlicensed agent with a referral link resolves correctly
+  const agents = Array.isArray(allAgents) ? allAgents : [];
+  const agentHit = agents.find((a) => {
+    const aName = clean(`${a?.firstName || ''} ${a?.lastName || ''}`).trim();
+    return aName && refCodeFromName(aName) === rc && clean(a?.status || '').toLowerCase().includes('approved');
+  });
+  if (agentHit) return clean(`${agentHit.firstName || ''} ${agentHit.lastName || ''}`).trim();
+
   return standard;
 }
 
@@ -884,7 +894,7 @@ export async function POST(req) {
       loadJsonStore(CALLER_LEADS_PATH, []),
       loadJsonStore(MEMBERS_PATH, [])
     ]); } catch { /* non-fatal */ }
-    const sponsorName = resolveSponsorDisplayNameWithMembers(record, callerLeadsForRecord, programMembersForRecord);
+    const sponsorName = resolveSponsorDisplayNameWithMembers(record, callerLeadsForRecord, programMembersForRecord, store);
     if (sponsorName && sponsorName !== 'Unattributed') {
       record.referralName = sponsorName;
       if (!clean(record.referredByName)) record.referredByName = sponsorName;
