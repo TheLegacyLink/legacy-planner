@@ -2342,8 +2342,8 @@ export default function LicensedBackofficePage() {
             {tab === 'card' ? (
               <div style={{ background: '#0a0c10', borderRadius: 18, padding: 24 }}>
                 <CardEditor
-                  refCode={referralCodeFromName(profile?.name || '')}
-                  profile={profile}
+                  refCode={referralCodeFromName(session?.name || '')}
+                  profile={session}
                 />
               </div>
             ) : null}
