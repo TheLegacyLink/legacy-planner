@@ -93,7 +93,7 @@ export async function resolveUnlicensedProfile({ email = '', fullName = '' } = {
 
   const signedIntake = await resolveFromSignedIntake({ email: e });
   if (signedIntake) {
-    if (!n || normName(signedIntake?.name) === n) return { ok: true, profile: signedIntake };
+    if (!n || normName(signedIntake?.name) === n) return { ok: true, profile: { ...signedIntake, skipIca: true } };
   }
 
   const hit = list.find((r) => {

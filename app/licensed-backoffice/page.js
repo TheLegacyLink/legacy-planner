@@ -1360,7 +1360,7 @@ export default function LicensedBackofficePage() {
 
   return (
     <>
-      {session && authToken && !icaSigned && (
+      {session && authToken && !icaSigned && !session?.skipIca && (
         <ICAContractGate token={authToken} session={session} onSigned={() => setIcaSigned(true)} />
       )}
     <main style={{ minHeight: '100vh', background: '#070b14', color: '#E5E7EB', padding: 22 }}>

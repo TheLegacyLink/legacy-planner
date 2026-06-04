@@ -397,7 +397,7 @@ export default function UnlicensedBackofficePage() {
 
   return (
     <>
-      {profile && token && !icaSigned && (
+      {profile && token && !icaSigned && !profile?.skipIca && (
         <ICAContractGate token={token} session={profile} onSigned={() => setIcaSigned(true)} />
       )}
     <main style={{ minHeight: '100vh', background: '#070b14', color: '#E5E7EB', padding: 22 }}>

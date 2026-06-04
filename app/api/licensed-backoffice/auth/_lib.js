@@ -169,7 +169,8 @@ export async function resolveLicensedProfile({ email = '', fullName = '', phone 
         homeState: clean(preview.homeState),
         carriersActive: Array.isArray(preview.carriersActive) ? preview.carriersActive : [],
         role: clean(preview.role || ''),
-        isDemo: Boolean(preview.isDemo)
+        isDemo: Boolean(preview.isDemo),
+        skipIca: true
       },
       via: 'preview_user'
     };
@@ -177,7 +178,7 @@ export async function resolveLicensedProfile({ email = '', fullName = '', phone 
 
   // 1) Exact licensed email
   const byEmail = findLicensedByEmail(e);
-  if (byEmail) return { ok: true, profile: byEmail, via: 'licensed_email' };
+  if (byEmail) return { ok: true, profile: { ...byEmail, skipIca: true }, via: 'licensed_email' };
 
   // 2) Approved alias mapping
   const aliases = await loadAliases();
@@ -185,7 +186,7 @@ export async function resolveLicensedProfile({ email = '', fullName = '', phone 
   if (alias) {
     const rematch = matchLicensedAgent({ fullName: alias?.name, email: alias?.primaryEmail, phone: alias?.phone });
     if (rematch?.matched && rematch?.match) {
-      return { ok: true, profile: rematch.match, via: 'alias_email' };
+      return { ok: true, profile: { ...rematch.match, skipIca: true }, via: 'alias_email' };
     }
   }
 
@@ -221,7 +222,7 @@ export async function resolveLicensedProfile({ email = '', fullName = '', phone 
     await saveAliases(next);
   }
 
-  return { ok: true, profile: m.match, via: 'name_phone_match' };
+  return { ok: true, profile: { ...m.match, skipIca: true }, via: 'name_phone_match' };
 }
 
 export function generateCode() {
