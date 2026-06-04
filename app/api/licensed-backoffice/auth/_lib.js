@@ -91,6 +91,25 @@ async function queuePendingVerification({ email = '', fullName = '', phone = '',
 // Demo/preview users — Inner Circle members who need access for onboarding demos
 // Also used for licensed-track members whose email differs across records
 const LICENSED_PREVIEW_USERS = [
+  // Kimora Link — admin access via work emails
+  {
+    email: 'kimora@thelegacylink.com',
+    name: 'Kimora Link',
+    agentId: 'kimora_link_admin',
+    homeState: 'GA',
+    carriersActive: ['F&G', 'National Life Group'],
+    role: 'admin',
+    isDemo: false
+  },
+  {
+    email: 'link@thelegacylink.com',
+    name: 'Kimora Link',
+    agentId: 'kimora_link_admin',
+    homeState: 'GA',
+    carriersActive: ['F&G', 'National Life Group'],
+    role: 'admin',
+    isDemo: false
+  },
   {
     email: 'leticiawright05@gmail.com',
     name: 'Leticia Wright',
@@ -149,7 +168,8 @@ export async function resolveLicensedProfile({ email = '', fullName = '', phone 
         agentId: clean(preview.agentId),
         homeState: clean(preview.homeState),
         carriersActive: Array.isArray(preview.carriersActive) ? preview.carriersActive : [],
-        isDemo: true
+        role: clean(preview.role || ''),
+        isDemo: Boolean(preview.isDemo)
       },
       via: 'preview_user'
     };
