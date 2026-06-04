@@ -493,6 +493,7 @@ export default function UnlicensedBackofficePage() {
           <>
             {/* 30-Day Sprint Card */}
             {(() => {
+              try {
               const startMs = new Date(progress?.sprintStartedAt || 0).getTime();
               const deadlineDays = 30;
               const deadlineMs = startMs > 0 ? startMs + deadlineDays * 24 * 60 * 60 * 1000 : 0;
@@ -543,6 +544,7 @@ export default function UnlicensedBackofficePage() {
                   </div>
                 </div>
               );
+              } catch (e) { return null; }
             })()}
 
             <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
