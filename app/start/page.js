@@ -301,7 +301,7 @@ export default function StartPortalPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
         const msg = data?.error === 'not_found'
-          ? 'No account found for that email. Complete your intake first at innercirclelink.com/start/licensed or /start/unlicensed.'
+          ? 'No account found for that email. If you just signed your contract, wait 1\u20132 minutes and try again. Or go directly to your back office: innercirclelink.com/unlicensed-backoffice'
           : (data?.error || 'Unable to send code. Try again.');
         setError(msg);
         return;
@@ -409,12 +409,22 @@ export default function StartPortalPage() {
   if (stage === 'done') {
     return (
       <main style={bg}>
-        <div style={{ ...card, textAlign: 'center', gap: 12 }}>
-          <div style={{ fontSize: 42 }}>✅</div>
+        <div style={{ ...card, textAlign: 'center', gap: 14 }}>
+          <div style={{ fontSize: 48 }}>✅</div>
           <h2 style={{ margin: 0, fontSize: 26 }}>Agreement Signed</h2>
-          <p style={{ ...mutedStyle, fontSize: 14 }}>
-            Your signature has been recorded. Redirecting to your back office…
+          <p style={{ ...mutedStyle, fontSize: 15, margin: 0 }}>
+            You are officially onboard. Your back office is ready.
           </p>
+          <a
+            href="/unlicensed-backoffice"
+            style={{ display: 'block', padding: '16px', borderRadius: 12, background: '#1651AE', color: '#fff', fontWeight: 800, fontSize: 17, textDecoration: 'none', textAlign: 'center', boxShadow: '0 6px 20px rgba(22,81,174,0.4)' }}
+          >
+            Go to My Back Office →
+          </a>
+          <p style={{ ...mutedStyle, fontSize: 12, margin: 0 }}>
+            Bookmark this link: <strong style={{ color: '#93C5FD' }}>innercirclelink.com/unlicensed-backoffice</strong>
+          </p>
+          <p style={{ ...mutedStyle, fontSize: 11, margin: 0, opacity: 0.6 }}>Redirecting automatically in a moment…</p>
         </div>
       </main>
     );

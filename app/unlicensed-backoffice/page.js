@@ -191,7 +191,7 @@ export default function UnlicensedBackofficePage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
         setError(data?.error === 'not_found'
-          ? 'No account found for that email. Make sure you\'re using the email from your original application. If you haven\'t completed signup yet, go back to innercirclelink.com/start'
+          ? 'No account found for that email. If you just signed your contract, wait 1\u20132 minutes and try again \u2014 it takes a moment to activate. Make sure you\'re using the same email from your application.'
           : 'Unable to send code right now. Please try again or email support@thelegacylink.com');
         return;
       }
