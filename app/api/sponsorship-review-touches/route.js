@@ -32,6 +32,10 @@ export async function POST(req) {
       next.textCount = Number(next.textCount || 0) + 1;
       next.lastTextAt = nowIso();
     }
+  } else if (action === 'set_note') {
+    const note = clean(body?.note || '');
+    next.note = note;
+    next.noteAt = note ? nowIso() : '';
   } else if (action === 'reset') {
     next.textCount = 0;
     next.emailCount = 0;

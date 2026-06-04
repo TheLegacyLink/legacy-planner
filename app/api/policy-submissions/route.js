@@ -58,6 +58,7 @@ async function fireGhlApplicationSubmittedWebhook(row = {}) {
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
+import { checkAndFireTeamSponsorshipBonuses } from '../../../lib/eliteBonus';
 import users from '../../../data/innerCircleUsers.json';
 
 const STORE_PATH = 'stores/policy-submissions.json';
@@ -1368,6 +1369,17 @@ export async function PATCH(req) {
   let backOfficeEmail = null;
   let payoutEmail = null;
   let sopProvision = null;
+
+  // Elite IC team policy referral bonus: $150 when an FNG/NLG policy approved by a downline member of an Elite IC agent
+  if (approveTransition && isFgOrNlgCarrier(store[idx]) && clean(store[idx]?.referredByName)) {
+    checkAndFireTeamSponsorshipBonuses({
+      sponsorName:    clean(store[idx].referredByName),
+      applicantName:  clean(store[idx].applicantName || ''),
+      applicantEmail: clean(store[idx].applicantEmail || '').toLowerCase(),
+      submittedAt:    store[idx].approvedAt || nowIso(),
+      bonusType:      'team_policy_referral_bonus',
+    }).catch(() => {});
+  }
 
   if (!suppressEmail && approveTransition) {
     email = await sendApprovalEmail(store[idx]).catch((e) => ({ ok: false, error: e?.message || 'email_failed' }));

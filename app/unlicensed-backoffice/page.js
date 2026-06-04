@@ -35,9 +35,13 @@ const US_STATE_OPTIONS = [
 
 const STEP_META = [
   { key: 'backOfficeAccess', title: 'Step 1 — Back Office Access + Welcome Instructions', note: 'Open your welcome email, save your links, and confirm your back office access is active.' },
-  { key: 'communitySkool', title: 'Step 2 — Community + Skool (Training)', note: 'Join Skool and complete assigned onboarding/training tasks.' },
-  { key: 'prelicensingStarted', title: 'Step 3 — Pre-Licensing Onboarding (Jamal Leads This)', note: 'Jamal leads this process for all unlicensed agents. Tap “I’m Ready” so Jamal is notified.' },
-  { key: 'watchedWhateverItTakes', title: 'Step 4 — Required YouTube Task', note: 'Watch https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX and leave a comment to confirm completion.' },
+  { key: 'communitySkool', title: 'Step 2 — Join Skool Community (Training)', note: 'Join our training community: https://www.skool.com/legacylink/about — stay active and complete assigned tasks.' },
+  { key: 'jamalContacted', title: 'Step 3 — Jamal Reached Out (Pre-Licensing)', note: 'Jamal runs pre-licensing for all unlicensed agents. He will contact you within 1–3 business days. Mark this once he has reached out.' },
+  { key: 'prelicensingStarted', title: 'Step 4 — Pre-Licensing Course Started', note: "Enrolled in your pre-licensing course. Hit ‘I’m Ready’ to notify Jamal you’re set to begin.", useReadyButton: true },
+  { key: 'examScheduled', title: 'Step 5 — State Exam Scheduled', note: 'Schedule your state insurance licensing exam. Speed matters — this is your 30-Day Sprint.' },
+  { key: 'examPassed', title: 'Step 6 — State Exam Passed', note: 'Passed your exam? Mark it here and enter your exam pass date.' },
+  { key: 'licenseReceived', title: 'Step 7 — License Received', note: 'Official license in hand. This completes your 30-Day Sprint and triggers your $250 bonus!' },
+  { key: 'watchedWhateverItTakes', title: 'Step 8 — Watch "Whatever It Takes"', note: 'Watch https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX and leave a comment to confirm completion.' },
 ];
 
 export default function UnlicensedBackofficePage() {
@@ -187,8 +191,8 @@ export default function UnlicensedBackofficePage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
         setError(data?.error === 'not_found'
-          ? 'No account found for that email. Contact your upline to confirm your info is on file.'
-          : (data?.error ? `Access blocked: ${data.error}` : 'Unable to send code. Try again.'));
+          ? 'No account found for that email. Make sure you\'re using the email from your original application. If you haven\'t completed signup yet, go back to innercirclelink.com/start'
+          : 'Unable to send code right now. Please try again or email support@thelegacylink.com');
         return;
       }
       setCodeRequested(true);
@@ -355,7 +359,10 @@ export default function UnlicensedBackofficePage() {
               </>
             ) : (
               <>
-                <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14 }}>A 6-digit code was sent to <strong>{email}</strong>. Enter it below.</p>
+                <div style={{ background: '#0f2a1a', border: '1px solid #16a34a', borderRadius: 10, padding: '10px 14px' }}>
+                  <p style={{ margin: 0, color: '#86efac', fontSize: 13, fontWeight: 600 }}>&#10003; Code sent to {email}</p>
+                  <p style={{ margin: '4px 0 0', color: '#4ade80', fontSize: 12 }}>&#128276; <strong>Check your spam/junk folder</strong> if you don&apos;t see it within 2 minutes. The email comes from <strong>info@thelegacylink.com</strong></p>
+                </div>
                 <input
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
@@ -483,92 +490,153 @@ export default function UnlicensedBackofficePage() {
         ) : null}
 
         {tab === 'steps' ? (
-          <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
-          <h3 style={{ marginTop: 0 }}>Required Steps</h3>
-          <div style={{ display: 'grid', gap: 10 }}>
-            {STEP_META.map((s) => (
-              <div key={s.key} style={{ border: '1px solid #2A3142', borderRadius: 10, background: '#020617', padding: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                  <div>
-                    <strong>{s.title}</strong>
-                    <div style={{ color: '#9CA3AF', marginTop: 4 }}>{s.note}</div>
+          <>
+            {/* 30-Day Sprint Card */}
+            {(() => {
+              const startMs = new Date(progress?.sprintStartedAt || 0).getTime();
+              const deadlineDays = 30;
+              const deadlineMs = startMs > 0 ? startMs + deadlineDays * 24 * 60 * 60 * 1000 : 0;
+              const nowMs = Date.now();
+              const daysElapsed = startMs > 0 ? Math.floor((nowMs - startMs) / (24 * 60 * 60 * 1000)) : 0;
+              const daysLeft = deadlineMs > 0 ? Math.max(0, Math.ceil((deadlineMs - nowMs) / (24 * 60 * 60 * 1000))) : 30;
+              const sprintDone = Boolean(progress?.steps?.licenseReceived);
+              const sprintExpired = deadlineMs > 0 && nowMs > deadlineMs && !sprintDone;
+              const barPct = Math.min(100, Math.round((daysElapsed / deadlineDays) * 100));
+              const borderCol = sprintDone ? '#16a34a' : sprintExpired ? '#dc2626' : daysLeft <= 7 ? '#f59e0b' : '#C8A96B';
+              const bgGrad = sprintDone
+                ? 'linear-gradient(160deg,#052e16,#0a1a0a)'
+                : sprintExpired ? 'linear-gradient(160deg,#1a0000,#0d0000)'
+                : 'linear-gradient(160deg,#1a1200,#0d0a00)';
+              return (
+                <div style={{ border: `2px solid ${borderCol}`, borderRadius: 14, background: bgGrad, padding: 18, display: 'grid', gap: 10, marginBottom: 4 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 18, color: sprintDone ? '#86EFAC' : '#FCD34D' }}>
+                        {sprintDone ? '30-Day Sprint Complete!' : sprintExpired ? 'Sprint Window Closed' : '30-Day Sprint — Get Licensed, Earn $250'}
+                      </div>
+                      <div style={{ color: '#CBD5E1', fontSize: 13, marginTop: 4 }}>
+                        {sprintDone
+                          ? 'Sprint complete. Your $250 bonus is queued for processing.'
+                          : sprintExpired
+                            ? 'The 30-day window has passed. Keep going — your license still matters.'
+                            : `Get your license within 30 days of joining. ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining.`}
+                      </div>
+                    </div>
+                    <div style={{ border: `1px solid ${borderCol}44`, borderRadius: 12, padding: '10px 16px', textAlign: 'center', background: 'rgba(0,0,0,0.3)', minWidth: 80 }}>
+                      <div style={{ fontSize: 26, fontWeight: 800, color: sprintDone ? '#86EFAC' : daysLeft <= 5 ? '#FCA5A5' : '#FCD34D' }}>
+                        {sprintDone ? 'Done' : daysLeft}
+                      </div>
+                      {!sprintDone && <div style={{ color: '#9CA3AF', fontSize: 11 }}>days left</div>}
+                    </div>
                   </div>
-                  {s.key === 'prelicensingStarted' ? (
-                    <button
-                      type="button"
-                      onClick={notifyPrelicensingReady}
-                      disabled={readySubmitting || saving}
-                      style={{ borderRadius: 999, border: '1px solid #334155', padding: '8px 12px', background: steps[s.key] ? '#065F46' : '#1D4ED8', color: '#E5E7EB', fontWeight: 700 }}
-                    >
-                      {readySubmitting ? 'Sending…' : steps[s.key] ? '✅ Request Sent' : "I'm Ready"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => save({ steps: { ...steps, [s.key]: !steps[s.key] }, fields })}
-                      disabled={saving || readySubmitting}
-                      style={{ borderRadius: 999, border: '1px solid #334155', padding: '8px 12px', background: steps[s.key] ? '#065F46' : '#111827', color: '#E5E7EB', fontWeight: 700 }}
-                    >
-                      {steps[s.key] ? '✅ Complete' : 'Mark Complete'}
-                    </button>
+                  {!sprintDone && !sprintExpired && (
+                    <div style={{ height: 8, borderRadius: 999, background: '#1F2937', overflow: 'hidden' }}>
+                      <div style={{ width: `${barPct}%`, height: '100%', background: barPct >= 80 ? 'linear-gradient(90deg,#ef4444,#dc2626)' : 'linear-gradient(90deg,#f59e0b,#C8A96B)' }} />
+                    </div>
                   )}
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', color: '#FCD34D', fontSize: 13, fontWeight: 700 }}>
+                    <span>Goal: Get licensed in 30 days</span>
+                    <span style={{ color: '#9CA3AF' }}>&bull;</span>
+                    <span>Reward: $250 bonus</span>
+                    <span style={{ color: '#9CA3AF' }}>&bull;</span>
+                    <span>Day {Math.min(daysElapsed, 30)} of 30</span>
+                  </div>
                 </div>
+              );
+            })()}
 
-                {s.key === 'prelicensingStarted' && fields.prelicensingReadyRequestedAt ? (
-                  <div style={{ marginTop: 8, color: '#93C5FD', fontSize: 12 }}>
-                    Request sent: {new Date(fields.prelicensingReadyRequestedAt).toLocaleString()}
+            <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
+              <h3 style={{ marginTop: 0 }}>Required Steps</h3>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {STEP_META.map((s) => (
+                  <div key={s.key} style={{ border: `1px solid ${steps[s.key] ? '#166534' : '#2A3142'}`, borderRadius: 10, background: '#020617', padding: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                      <div>
+                        <strong style={{ color: steps[s.key] ? '#86EFAC' : '#E5E7EB' }}>{s.title}</strong>
+                        <div style={{ color: '#9CA3AF', marginTop: 4 }}>{s.note}</div>
+                      </div>
+                      {s.useReadyButton ? (
+                        <button
+                          type="button"
+                          onClick={notifyPrelicensingReady}
+                          disabled={readySubmitting || saving}
+                          style={{ flexShrink: 0, borderRadius: 999, border: '1px solid #334155', padding: '8px 12px', background: steps[s.key] ? '#065F46' : '#1D4ED8', color: '#E5E7EB', fontWeight: 700 }}
+                        >
+                          {readySubmitting ? 'Sending...' : steps[s.key] ? 'Notified' : "I'm Ready"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => save({ steps: { ...steps, [s.key]: !steps[s.key] }, fields })}
+                          disabled={saving || readySubmitting}
+                          style={{ flexShrink: 0, borderRadius: 999, border: '1px solid #334155', padding: '8px 12px', background: steps[s.key] ? '#065F46' : '#111827', color: '#E5E7EB', fontWeight: 700 }}
+                        >
+                          {steps[s.key] ? 'Complete' : 'Mark Complete'}
+                        </button>
+                      )}
+                    </div>
+
+                    {s.key === 'prelicensingStarted' && fields.prelicensingReadyRequestedAt ? (
+                      <div style={{ marginTop: 8, color: '#93C5FD', fontSize: 12 }}>
+                        Request sent: {new Date(fields.prelicensingReadyRequestedAt).toLocaleString()}
+                      </div>
+                    ) : null}
+
+                    {s.key === 'examScheduled' ? (
+                      <label style={{ display: 'grid', gap: 4, marginTop: 8, color: '#9CA3AF' }}>
+                        <span>Exam date (if scheduled)</span>
+                        <input
+                          type="date"
+                          value={fields.examScheduledDate || ''}
+                          onChange={(e) => save({ steps, fields: { ...fields, examScheduledDate: e.target.value } })}
+                          style={{ width: 'min(220px,100%)', padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }}
+                        />
+                      </label>
+                    ) : null}
+
+                    {s.key === 'examPassed' ? (
+                      <label style={{ display: 'grid', gap: 4, marginTop: 8, color: '#9CA3AF' }}>
+                        <span>Exam pass date</span>
+                        <input
+                          type="date"
+                          value={fields.examPassDate || ''}
+                          onChange={(e) => save({ steps, fields: { ...fields, examPassDate: e.target.value } })}
+                          style={{ width: 'min(220px,100%)', padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }}
+                        />
+                      </label>
+                    ) : null}
+
+                    {s.key === 'licenseReceived' ? (
+                      <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 }}>
+                        <label style={{ display: 'grid', gap: 4, color: '#9CA3AF' }}>
+                          <span>License received date</span>
+                          <input
+                            type="date"
+                            value={fields.licenseReceivedDate || ''}
+                            onChange={(e) => save({ steps, fields: { ...fields, licenseReceivedDate: e.target.value } })}
+                            style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }}
+                          />
+                        </label>
+                        <label style={{ display: 'grid', gap: 4, color: '#9CA3AF' }}>
+                          <span>License number</span>
+                          <input
+                            value={fields.licenseNumber || ''}
+                            onChange={(e) => save({ steps, fields: { ...fields, licenseNumber: e.target.value } })}
+                            placeholder="Your license #"
+                            style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }}
+                          />
+                        </label>
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
-
-                {s.key === 'examPassed' ? (
-                  <label style={{ display: 'grid', gap: 4, marginTop: 8, color: '#9CA3AF' }}>
-                    <span>Exam pass date</span>
-                    <input
-                      type="date"
-                      value={fields.examPassDate || ''}
-                      onChange={(e) => save({ steps, fields: { ...fields, examPassDate: e.target.value } })}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }}
-                    />
-                  </label>
-                ) : null}
-
-                {s.key === 'residentLicenseObtained' ? (
-                  <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                    <label style={{ display: 'grid', gap: 4, color: '#9CA3AF' }}>
-                      <span>Resident state</span>
-                      <select
-                        value={fields.residentState || ''}
-                        onChange={(e) => save({ steps, fields: { ...fields, residentState: e.target.value } })}
-                        style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }}
-                      >
-                        <option value="">Select state</option>
-                        {US_STATE_OPTIONS.map(([code, label]) => (
-                          <option key={code} value={code}>{code} — {label}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label style={{ display: 'grid', gap: 4, color: '#9CA3AF' }}>
-                      <span>Resident license #</span>
-                      <input value={fields.residentLicenseNumber || ''} onChange={(e) => save({ steps, fields: { ...fields, residentLicenseNumber: e.target.value } })} placeholder="License #" style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }} />
-                    </label>
-                    <label style={{ display: 'grid', gap: 4, color: '#9CA3AF' }}>
-                      <span>License active date</span>
-                      <input type="date" value={fields.residentLicenseActiveDate || ''} onChange={(e) => save({ steps, fields: { ...fields, residentLicenseActiveDate: e.target.value } })} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }} />
-                    </label>
-                  </div>
-                ) : null}
-
-                {s.key === 'licenseDetailsSubmitted' ? (
-                  <input value={fields.npn || ''} onChange={(e) => save({ steps, fields: { ...fields, npn: e.target.value } })} placeholder="NPN" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }} />
-                ) : null}
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          </>
         ) : null}
 
         <div id="upline-help-section" style={{ border: '1px solid #7F1D1D', borderRadius: 12, background: '#0F172A', padding: 14, display: 'grid', gap: 10 }}>
-          <h3 style={{ margin: 0 }}>Upline Support</h3>
+          <h3 style={{ margin: 0 }}>Uplink Support</h3>
           <p style={{ color: '#9CA3AF', margin: 0 }}>For now, all unlicensed support messages route to <strong style={{ color: '#E5E7EB' }}>Jamal Holmes</strong>.</p>
           {uplineSupport?.upline ? (
             <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#020617', padding: 10 }}>

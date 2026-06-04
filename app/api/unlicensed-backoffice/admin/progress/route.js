@@ -5,12 +5,14 @@ const STORE_PATH = 'stores/unlicensed-backoffice-progress.json';
 function clean(v = '') { return String(v || '').trim(); }
 
 const STAGES = [
+  { key: 'backOfficeAccess', label: 'Back Office Access' },
+  { key: 'communitySkool', label: 'Joined Skool' },
+  { key: 'jamalContacted', label: 'Jamal Reached Out' },
   { key: 'prelicensingStarted', label: 'Pre-Licensing Started' },
-  { key: 'watchedWhateverItTakes', label: 'Watched Whatever It Takes' },
+  { key: 'examScheduled', label: 'Exam Scheduled' },
   { key: 'examPassed', label: 'Exam Passed' },
-  { key: 'residentLicenseObtained', label: 'Resident License Obtained' },
-  { key: 'licenseDetailsSubmitted', label: 'License + NPN Submitted' },
-  { key: 'readyForContracting', label: 'Ready for Contracting' }
+  { key: 'licenseReceived', label: 'License Received' },
+  { key: 'watchedWhateverItTakes', label: 'Watched Whatever It Takes' }
 ];
 
 function stageFromSteps(steps = {}) {
@@ -38,10 +40,7 @@ export async function GET() {
     const daysLeft = deadlineMs ? Math.ceil((deadlineMs - nowMs) / (24 * 60 * 60 * 1000)) : null;
 
     const fullyEligible = Boolean(
-      steps?.examPassed
-      && steps?.residentLicenseObtained
-      && steps?.licenseDetailsSubmitted
-      && clean(fields?.npn)
+      steps?.licenseReceived
       && deadlineMs
       && nowMs <= deadlineMs
     );
@@ -63,8 +62,8 @@ export async function GET() {
       deadlineAt: deadlineMs ? new Date(deadlineMs).toISOString() : '',
       daysLeft,
       bonusStatus,
-      agentBonus: Number(r?.bonusRule?.agentBonus || 100),
-      referrerBonus: Number(r?.bonusRule?.referrerBonus || 100),
+      agentBonus: Number(r?.bonusRule?.agentBonus || 250),
+      referrerBonus: Number(r?.bonusRule?.referrerBonus || 250),
       nudge7Due: Number.isFinite(startMs) && startMs > 0 ? new Date(startMs + (7 * 24 * 60 * 60 * 1000)).toISOString() : '',
       nudge14Due: Number.isFinite(startMs) && startMs > 0 ? new Date(startMs + (14 * 24 * 60 * 60 * 1000)).toISOString() : '',
       nudge21Due: Number.isFinite(startMs) && startMs > 0 ? new Date(startMs + (21 * 24 * 60 * 60 * 1000)).toISOString() : '',

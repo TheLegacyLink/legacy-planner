@@ -1,4 +1,3 @@
-import nodemailer from 'nodemailer';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 import licensedAgents from '../../../data/licensedAgents.json';
 import innerCircleUsers from '../../../data/innerCircleUsers.json';
@@ -353,37 +352,14 @@ function progressForRow(row = {}, stepOrder = []) {
   };
 }
 
-async function maybeSendNudgeEmail({ to = '', cc = '', subject = '', text = '' } = {}) {
-  const user = clean(process.env.GMAIL_APP_USER);
-  const pass = clean(process.env.GMAIL_APP_PASSWORD);
-  const from = clean(process.env.GMAIL_FROM) || user;
-  const recipient = clean(to);
-  if (!recipient || !user || !pass) return { ok: false, error: 'email_not_configured' };
-
-  try {
-    const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
-    const info = await tx.sendMail({ from, to: recipient, cc: clean(cc), subject: clean(subject), text: clean(text) });
-    return { ok: true, messageId: clean(info?.messageId) };
-  } catch (error) {
-    return { ok: false, error: clean(error?.message || 'send_failed') };
-  }
+// Email nudges removed — uplinks see stuck agents via red/yellow/green colors in the back office tracker.
+async function maybeSendNudgeEmail() {
+  return { ok: false, skipped: true, reason: 'email_nudges_disabled' };
 }
 
-async function maybeSendStepNoteToUpline({ sponsorName = '', sponsorEmail = '', agentName = '', stepLabel = '', note = '' } = {}) {
-  const to = clean(sponsorEmail);
-  if (!to || !clean(note)) return { ok: false, skipped: true, reason: 'missing_sponsor_or_note' };
-  const subject = `Onboarding Note: ${clean(agentName)} — ${clean(stepLabel)}`;
-  const text = [
-    `Hi ${clean(sponsorName || 'Upline')},`,
-    '',
-    `${clean(agentName)} added a note in Onboarding Tracker.`,
-    `Step: ${clean(stepLabel)}`,
-    '',
-    `Note: ${clean(note)}`,
-    '',
-    '— Legacy Link Support Team'
-  ].join('\n');
-  return maybeSendNudgeEmail({ to, subject, text });
+// Step note to uplink — email disabled, tracked internally only.
+async function maybeSendStepNoteToUpline() {
+  return { ok: false, skipped: true, reason: 'email_nudges_disabled' };
 }
 
 function nextStepLabel(stepKey = '', stepLabels = {}) {

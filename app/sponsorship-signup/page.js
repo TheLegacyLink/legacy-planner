@@ -728,7 +728,7 @@ export default function SponsorshipSignupPage() {
 
         {/* ─── HERO ─── */}
         <section className="sp-hero">
-          <img src="/legacy-link-seal.png" alt="Legacy Link" className="sp-hero-logo" style={{ filter: 'invert(1) brightness(1.1)' }} />
+          <img src="/legacy-link-seal.png" alt="Legacy Link" className="sp-hero-logo" />
           <div className="sp-hero-eyebrow">🔒 Limited Sponsorship & Inner Circle Spots</div>
           <h1 className="sp-hero-headline">
             Get Sponsored.<br />

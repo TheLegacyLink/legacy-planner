@@ -26,10 +26,18 @@ const STEP_DEFS_LICENSED = [
   { key: 'eo_uploaded', label: 'Step 3 — E&O Activated', why: 'Required protection before production (activate and confirm E&O).', resourceUrl: EO_PURCHASE_URL },
   { key: 'product_training', label: 'Step 4 — Core Product Training Completed', why: 'Complete core carrier product training sequence.' },
   { key: 'crm_setup', label: 'Step 5 — CRM + Calendar + Dialer Setup', why: 'Complete CRM workflow setup using the onboarding guide/video.', resourceUrl: CRM_SETUP_VIDEO_URL },
-  { key: 'script_cert', label: 'Step 6 — Script Roleplay Certification', why: 'Complete roleplay certification with trainer/upline.' },
+  { key: 'script_cert', label: 'Step 6 — Script Roleplay Certification', why: 'Complete roleplay certification with trainer/uplink.' },
   { key: 'youtube_review', label: 'Step 7 — Required YouTube Task', why: 'Watch the required video and leave a comment.', resourceUrl: YOUTUBE_REVIEW_URL },
   { key: 'first_policy_submitted', label: 'Step 8A — First Policy Submitted', why: 'Milestone from application submission.' },
-  { key: 'first_policy_placed', label: 'Step 8B — First Policy Placed', why: 'Milestone when first policy is approved.' }
+  { key: 'first_policy_placed', label: 'Step 8B — First Policy Placed', why: 'Milestone when first policy is approved.' },
+  // --- 30-Day Sprint Steps ---
+  { key: 'sprint_contracting_approved', label: 'Sprint: Contracting Approved (Both Carriers)', why: 'Carrier approval confirmed for Pinnacle + InvestaLink packets. Your uplink marks this once confirmed.', sprintOnly: true },
+  { key: 'sprint_watched_video', label: 'Sprint: Watch "Whatever It Takes" + Leave Comment', why: 'Watch the required video and leave a comment.', sprintOnly: true },
+  { key: 'sprint_referred_one', label: 'Sprint: Refer 1 Friend or Family Member', why: 'Share the opportunity with at least one person in your network.', sprintOnly: true },
+  { key: 'sprint_meeting_1', label: 'Sprint: Team Meeting #1', why: 'Attend a team or training meeting.', sprintOnly: true },
+  { key: 'sprint_meeting_2', label: 'Sprint: Team Meeting #2', why: 'Attend a team or training meeting.', sprintOnly: true },
+  { key: 'sprint_meeting_3', label: 'Sprint: Team Meeting #3', why: 'Attend a team or training meeting.', sprintOnly: true },
+  { key: 'sprint_meeting_4', label: 'Sprint: Team Meeting #4 — Sprint Complete!', why: 'All 4 meetings attended. Sprint requirement met.', sprintOnly: true },
 ];
 
 const STEP_DEFS_INNER_CIRCLE = [
@@ -71,7 +79,8 @@ export default function LicensedOnboardingTrackerPage() {
   }, []);
 
   const STEP_DEFS = track === 'inner-circle' ? STEP_DEFS_INNER_CIRCLE : STEP_DEFS_LICENSED;
-  const STEP_ORDER = STEP_DEFS.map((s) => s.key);
+  const STEP_ORDER = STEP_DEFS.filter((s) => !s.sprintOnly).map((s) => s.key);
+  const SPRINT_STEP_DEFS = STEP_DEFS.filter((s) => s.sprintOnly);
   const STEP_LABELS = STEP_DEFS.reduce((acc, s) => ({ ...acc, [s.key]: s.label }), {});
   const AUTO_STEP_KEYS = STEP_DEFS.filter((s) => s.automated).map((s) => s.key);
 
@@ -131,7 +140,7 @@ export default function LicensedOnboardingTrackerPage() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok || !body?.ok) throw new Error(body?.error || 'update_failed');
       const notified = Boolean(body?.noteNotification?.ok);
-      setMsg(notified ? 'Saved. Note sent to upline.' : 'Saved.');
+      setMsg(notified ? 'Saved. Note sent to uplink.' : 'Saved.');
       await loadTracker();
     } catch (e) {
       setMsg(`Update failed: ${e?.message || 'unknown_error'}`);
@@ -198,7 +207,7 @@ export default function LicensedOnboardingTrackerPage() {
               Refresh
             </button>
             <button onClick={runNudges} disabled={nudgeState.running} style={{ borderRadius: 10, border: '1px solid #854d0e', padding: '6px 10px', background: '#78350f', color: '#fde68a', fontWeight: 700 }}>
-              {nudgeState.running ? 'Running Nudges…' : 'Run Stuck Nudges'}
+              {nudgeState.running ? 'Checking Status…' : 'Refresh Stuck Status'}
             </button>
             {nudgeState.sent != null ? <span style={{ color: '#86EFAC', fontSize: 12 }}>Nudges sent: {nudgeState.sent}</span> : null}
             {nudgeState.detail ? <span style={{ color: '#FCA5A5', fontSize: 12 }}>{nudgeState.detail}</span> : null}
@@ -211,7 +220,7 @@ export default function LicensedOnboardingTrackerPage() {
 
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 }}>
           <div style={{ border: '1px solid #334155', borderRadius: 14, background: 'rgba(30,64,175,.22)', padding: 14 }}>
-            <div style={{ color: '#93C5FD', fontSize: 12, textTransform: 'uppercase', letterSpacing: '.06em' }}>Downline Total</div>
+            <div style={{ color: '#93C5FD', fontSize: 12, textTransform: 'uppercase', letterSpacing: '.06em' }}>Downlink Total</div>
             <div style={{ fontSize: 28, fontWeight: 800 }}>{metrics.totalDownline || 0}</div>
           </div>
           <div style={{ border: '1px solid #334155', borderRadius: 14, background: 'rgba(22,163,74,.16)', padding: 14 }}>
@@ -227,6 +236,94 @@ export default function LicensedOnboardingTrackerPage() {
             <div style={{ fontSize: 28, fontWeight: 800 }}>{metrics.red || 0}</div>
           </div>
         </section>
+
+        {/* 30-Day Sprint Card */}
+        {myRow ? (() => {
+          const joinedMs = new Date(myRow?.joinedAt || 0).getTime();
+          const deadlineMs = joinedMs > 0 ? joinedMs + 30 * 24 * 60 * 60 * 1000 : 0;
+          const nowMs = Date.now();
+          const daysElapsed = joinedMs > 0 ? Math.floor((nowMs - joinedMs) / (24 * 60 * 60 * 1000)) : 0;
+          const daysLeft = deadlineMs > 0 ? Math.max(0, Math.ceil((deadlineMs - nowMs) / (24 * 60 * 60 * 1000))) : 30;
+          const sprintSteps = myRow?.steps || {};
+          const contractingDone = Boolean(sprintSteps?.sprint_contracting_approved || (sprintSteps?.investalink_contracting && sprintSteps?.pinnacle_contracting));
+          const videoDone = Boolean(sprintSteps?.sprint_watched_video || sprintSteps?.youtube_review);
+          const referralDone = Boolean(sprintSteps?.sprint_referred_one);
+          const meetingsDone = [sprintSteps?.sprint_meeting_1, sprintSteps?.sprint_meeting_2, sprintSteps?.sprint_meeting_3, sprintSteps?.sprint_meeting_4].filter(Boolean).length;
+          const sprintComplete = contractingDone && videoDone && referralDone && meetingsDone >= 4;
+          const sprintExpired = deadlineMs > 0 && nowMs > deadlineMs && !sprintComplete;
+          const barPct = Math.min(100, Math.round((daysElapsed / 30) * 100));
+          const borderCol = sprintComplete ? '#16a34a' : sprintExpired ? '#dc2626' : daysLeft <= 7 ? '#f59e0b' : '#C8A96B';
+          const bgGrad = sprintComplete
+            ? 'linear-gradient(160deg,#052e16,#0a1a0a)'
+            : sprintExpired ? 'linear-gradient(160deg,#1a0000,#0d0000)'
+            : 'linear-gradient(160deg,#0f172a,#111c35)';
+
+          const req = [
+            { label: 'Contracting Approved', done: contractingDone, key: 'sprint_contracting_approved' },
+            { label: 'Watch "Whatever It Takes" + Comment', done: videoDone, key: 'sprint_watched_video' },
+            { label: 'Refer 1 Friend or Family Member', done: referralDone, key: 'sprint_referred_one' },
+            { label: `Attend 4 Team Meetings (${meetingsDone}/4)`, done: meetingsDone >= 4, key: null },
+          ];
+
+          return (
+            <section style={{ border: `2px solid ${borderCol}`, borderRadius: 16, background: bgGrad, padding: 16, boxShadow: '0 12px 26px rgba(2,6,23,.28)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                <div>
+                  <h3 style={{ margin: 0, color: sprintComplete ? '#86EFAC' : '#FCD34D' }}>
+                    {sprintComplete ? '30-Day Sprint Complete!' : sprintExpired ? 'Sprint Window Closed' : '30-Day Sprint'}
+                  </h3>
+                  <p style={{ margin: '4px 0 0', color: '#94A3B8', fontSize: 13 }}>
+                    {sprintComplete ? 'All requirements met. $250 bonus queued for processing.' : sprintExpired ? 'The 30-day window passed. Keep executing.' : `Complete all 4 requirements within your first 30 days — earn $250.`}
+                  </p>
+                </div>
+                <div style={{ border: `1px solid ${borderCol}44`, borderRadius: 12, padding: '10px 16px', textAlign: 'center', background: 'rgba(0,0,0,0.3)', minWidth: 80 }}>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: sprintComplete ? '#86EFAC' : daysLeft <= 5 ? '#FCA5A5' : '#FCD34D' }}>
+                    {sprintComplete ? 'Done' : daysLeft}
+                  </div>
+                  {!sprintComplete && <div style={{ color: '#9CA3AF', fontSize: 11 }}>days left</div>}
+                </div>
+              </div>
+
+              {!sprintComplete && !sprintExpired && (
+                <div style={{ marginBottom: 10, height: 8, borderRadius: 999, background: '#1f2937', overflow: 'hidden' }}>
+                  <div style={{ width: `${barPct}%`, height: '100%', background: barPct >= 80 ? 'linear-gradient(90deg,#ef4444,#dc2626)' : 'linear-gradient(90deg,#f59e0b,#C8A96B)' }} />
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gap: 8 }}>
+                {req.map((r, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: r.done ? 'rgba(22,163,74,.12)' : 'rgba(15,23,42,.6)', border: `1px solid ${r.done ? '#166534' : '#334155'}` }}>
+                    <span style={{ fontSize: 16 }}>{r.done ? '✅' : '○'}</span>
+                    <span style={{ color: r.done ? '#86EFAC' : '#CBD5E1', fontWeight: r.done ? 700 : 400 }}>{r.label}</span>
+                    {r.key && !r.done && (
+                      <button
+                        onClick={() => updateStep('agent_mark_done', r.key, myRow)}
+                        disabled={Boolean(savingStep)}
+                        style={{ marginLeft: 'auto', padding: '4px 10px', borderRadius: 999, border: '1px solid #334155', background: '#0B1220', color: '#CBD5E1', fontSize: 12, cursor: 'pointer' }}
+                      >
+                        Mark Done
+                      </button>
+                    )}
+                    {!r.key ? (
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                        {[1,2,3,4].map((n) => {
+                          const mk = `sprint_meeting_${n}`;
+                          const mDone = Boolean(sprintSteps?.[mk]);
+                          return (
+                            <button key={n} onClick={() => !mDone && updateStep('agent_mark_done', mk, myRow)} disabled={mDone || Boolean(savingStep)}
+                              style={{ width: 28, height: 28, borderRadius: 999, border: `1px solid ${mDone ? '#166534' : '#334155'}`, background: mDone ? '#166534' : '#0B1220', color: mDone ? '#86EFAC' : '#9CA3AF', fontSize: 11, cursor: mDone ? 'default' : 'pointer', fontWeight: 700 }}>
+                              {n}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })() : null}
 
         {myRow ? (
           <section style={{ border: '1px solid #334155', borderRadius: 16, background: 'rgba(15,23,42,.86)', padding: 14, boxShadow: '0 12px 26px rgba(2,6,23,.28)' }}>
@@ -302,7 +399,7 @@ export default function LicensedOnboardingTrackerPage() {
 
         <section style={{ border: '1px solid #334155', borderRadius: 16, background: 'rgba(15,23,42,.86)', padding: 14, boxShadow: '0 12px 26px rgba(2,6,23,.28)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <h3 style={{ margin: 0 }}>Downline Tracker</h3>
+            <h3 style={{ margin: 0 }}>Downlink Tracker</h3>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ border: '1px solid #14532d', background: '#052e16', color: '#86efac', borderRadius: 999, padding: '2px 9px', fontSize: 12 }}>Green: {metrics.green}</span>
               <span style={{ border: '1px solid #854d0e', background: '#713f12', color: '#fde68a', borderRadius: 999, padding: '2px 9px', fontSize: 12 }}>Yellow: {metrics.yellow}</span>
@@ -312,7 +409,7 @@ export default function LicensedOnboardingTrackerPage() {
           </div>
 
           {!downlineRows.length ? (
-            <p style={{ color: '#9CA3AF', marginTop: 10 }}>No downline onboarding records found yet.</p>
+            <p style={{ color: '#9CA3AF', marginTop: 10 }}>No downlink onboarding records found yet.</p>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 10, marginTop: 12 }}>
               {downlineRows.map((row) => {

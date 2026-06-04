@@ -7,7 +7,6 @@ import PodcastPopup from '../../components/PodcastPopup';
 import LinkBlendBuilderTab from './tools-link-blend-builder';
 import SalesTrainerTab from './sales-trainer-tab';
 import DailyDrive from '../../components/DailyDrive';
-import { CardEditor } from '../../components/DigitalCard';
 
 const SESSION_KEY = 'inner_circle_hub_member_v1';
 const LINK_LEADS_SESSION_KEY = 'legacy_lead_marketplace_user_v1';
@@ -212,7 +211,7 @@ function availableTabs(member = {}) {
   const isKimora = email === 'kimora@thelegacylink.com';
   const all = [
     { key: 'dashboard', label: 'The Lounge' },
-    { key: 'virtualcard', label: '🪪 Virtual Card' },
+    { key: 'virtualcard', label: '🎴 Virtual Card' },
     { key: 'faststart', label: 'Fast Start' },
     { key: 'growth', label: 'Growth Hub' },
     { key: 'scripts2', label: 'Script Vault 2.0' },
@@ -261,6 +260,503 @@ function isMasterDisabled(email = '') {
 function qrUrl(value = '') {
   const data = encodeURIComponent(value || '');
   return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${data}`;
+}
+
+const CARD_GOLD = '#C8A96B';
+const CARD_DARK = '#06090f';
+
+const TITLE_OPTIONS = [
+  'Inner Circle Agent',
+  'Financial Advisor',
+  'Insurance Professional',
+  'Senior Agent',
+  'Founder',
+  'Regional Director',
+  'Agency Owner',
+];
+
+const CARD_PRICES = { '500': 89, '1000': 149, '2000': 279 };
+
+const CARD_W = 560;
+const CARD_H = 320;
+
+function VirtualCardTab({ member }) {
+  const defaultName  = clean(member?.applicantName || member?.name || '');
+  const defaultEmail = clean(member?.email || '');
+  const defaultPhone = clean(member?.phone || '');
+  // Use email directly as ref — matches actual sponsorship links like ?ref=kimora@thelegacylink.com
+  // Fall back to member.refCode (e.g. kimora_link) only if no email
+  const refCode = defaultEmail || clean(member?.refCode || '');
+
+  // Editable back-card fields
+  const [cardName,  setCardName]  = useState(defaultName);
+  const [cardTitle, setCardTitle] = useState('Inner Circle Agent');
+  const [cardPhone, setCardPhone] = useState(defaultPhone);
+  const [cardEmail, setCardEmail] = useState(defaultEmail);
+  const [cardCity,  setCardCity]  = useState('');
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const saveTimerRef = typeof window !== 'undefined' ? { current: null } : { current: null };
+
+  // Photo for front card
+  const [photoSrc,  setPhotoSrc]  = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+
+  // UI
+  const [cardSide,   setCardSide]   = useState('front');
+  const [scanStats, setScanStats] = useState(null);
+  const [scanLoading, setScanLoading] = useState(false);
+  const [orderModal, setOrderModal] = useState(false);
+  const [orderQty,   setOrderQty]   = useState('500');
+  const [orderMode,  setOrderMode]  = useState('email');
+  const [orderPhoto, setOrderPhoto] = useState(null);
+  const [orderBusy,  setOrderBusy]  = useState(false);
+  const [orderDone,  setOrderDone]  = useState(false);
+  const [orderErr,   setOrderErr]   = useState('');
+
+  useEffect(() => {
+    loadScanStats();
+    loadCardSettings();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refCode]);
+
+  function loadCardSettings() {
+    const key = (defaultEmail || clean(member?.refCode || '')).toLowerCase().replace(/\s+/g, '');
+    if (!key) return;
+    fetch('/api/card-settings?ref=' + encodeURIComponent(key))
+      .then(r => r.json())
+      .then(d => {
+        if (d?.ok && d.settings) {
+          const s = d.settings;
+          if (s.cardName)  setCardName(s.cardName);
+          if (s.cardTitle) setCardTitle(s.cardTitle);
+          if (s.cardPhone) setCardPhone(s.cardPhone);
+          if (s.cardEmail) setCardEmail(s.cardEmail);
+          if (s.cardCity)  setCardCity(s.cardCity);
+        }
+        setSettingsLoaded(true);
+      })
+      .catch(() => setSettingsLoaded(true));
+  }
+
+  function saveCardSettings(overrides = {}) {
+    const key = (defaultEmail || clean(member?.refCode || '')).toLowerCase().replace(/\s+/g, '');
+    if (!key || !settingsLoaded) return;
+    fetch('/api/card-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ref: key, cardName, cardTitle, cardPhone, cardEmail, cardCity,
+        ...overrides,
+      }),
+    }).catch(() => {});
+  }
+
+  function loadScanStats() {
+    const email = defaultEmail;
+    const rc    = clean(member?.refCode || '');
+    if (!email && !rc) return;
+    setScanLoading(true);
+    const params = new URLSearchParams();
+    if (email) params.set('ref', email);
+    if (rc)    params.set('refCode', rc);
+    fetch('/api/qr-scan-stats?' + params.toString())
+      .then(r => r.json())
+      .then(d => { if (d?.ok) setScanStats({ total: d.total ?? 0, thisWeek: d.thisWeek ?? 0, thisMonth: d.thisMonth ?? 0 }); })
+      .catch(() => {})
+      .finally(() => setScanLoading(false));
+  }
+
+  function handlePhotoFile(file) {
+    if (!file) return;
+    setPhotoUploading(true);
+    const reader = new FileReader();
+    reader.onload = e => { setPhotoSrc(e.target.result); setPhotoUploading(false); };
+    reader.readAsDataURL(file);
+  }
+
+  async function submitCardOrder() {
+    setOrderBusy(true); setOrderErr('');
+    try {
+      await fetch('/api/card-order-submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ref: refCode || cardEmail, name: cardName, qty: orderQty,
+          submitMode: orderMode,
+          photoEmail: orderMode === 'email' ? cardEmail : '',
+          photoUrl: orderMode === 'upload' && photoSrc ? photoSrc : '',
+          hasPhoto: orderMode === 'upload' ? !!orderPhoto : false,
+          cardTitle, cardPhone, cardEmail, cardCity,
+          priceUsd: CARD_PRICES[orderQty] || 89,
+        }),
+      });
+      setOrderDone(true);
+    } catch { setOrderErr('Something went wrong. Please try again.'); }
+    finally { setOrderBusy(false); }
+  }
+
+  const GOLD  = '#C8A96B';
+  const BLACK = '#0a0a0a';
+
+  const qrTrackUrl = `https://innercirclelink.com/api/qr-scan?ref=${encodeURIComponent(refCode)}`;
+  const qrImgUrl   = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&color=ffffff&bgcolor=0a0a0a&data=${encodeURIComponent(qrTrackUrl)}&margin=6&ecc=H`;
+
+  const inputSt = {
+    width: '100%', padding: '8px 10px', borderRadius: 8,
+    border: '1px solid #334155', background: '#060d1a',
+    color: '#e2e8f0', fontSize: 13, boxSizing: 'border-box',
+  };
+
+  // ─── FRONT CARD ─────────────────────────────────────────────────────────────
+  // Layout: text left, person photo right (blends into black)
+  const CardFront = () => (
+    <div style={{
+      width: CARD_W, height: CARD_H, background: BLACK, borderRadius: 16,
+      boxShadow: '0 16px 48px rgba(0,0,0,.85)', border: '1px solid #1a1a1a',
+      display: 'flex', overflow: 'hidden', flexShrink: 0,
+    }}>
+      {/* Left — text content */}
+      <div style={{ flex: 1, padding: '28px 30px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        {/* "THE LEGACY LINK" header */}
+        <div style={{ color: GOLD, fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', textDecoration: 'underline', textDecorationColor: GOLD, textUnderlineOffset: 4 }}>
+          THE LEGACY LINK
+        </div>
+
+        {/* Main headline */}
+        <div>
+          <div style={{ color: '#fff', fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 30, fontWeight: 400, lineHeight: 1.25, marginBottom: 10 }}>
+            The Insurance Game,{' '}
+            <span style={{ color: GOLD }}>Uncensored.</span>
+          </div>
+          <div style={{ color: '#888', fontSize: 11, lineHeight: 1.6 }}>
+            Real numbers. Real agents. Real talk.<br />New videos weekly.
+          </div>
+        </div>
+
+        {/* YouTube pill button */}
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 7,
+          background: GOLD, borderRadius: 999,
+          padding: '7px 14px', width: 'fit-content',
+        }}>
+          <span style={{ color: BLACK, fontSize: 11, fontWeight: 700 }}>▶</span>
+          <span style={{ color: BLACK, fontSize: 10, fontWeight: 700, letterSpacing: '.03em' }}>youtube.com/@thelegacylink</span>
+        </div>
+      </div>
+
+      {/* Right — photo (blends into black bg) */}
+      <div style={{ width: 210, flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+        {/* Fade gradient to blend photo into bg */}
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 60, background: `linear-gradient(to right, ${BLACK}, transparent)`, zIndex: 1, pointerEvents: 'none' }} />
+        {photoSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photoSrc} alt="card photo" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', display: 'block' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(180deg, #141414 0%, #0a0a0a 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#1c1c1c', border: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', filter: 'blur(2px)' }}>
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="#333"><path d="M12 12c2.7 0 4-1.8 4-4s-1.3-4-4-4-4 1.8-4 4 1.3 4 4 4zm0 2c-3.3 0-8 1.7-8 4v1h16v-1c0-2.3-4.7-4-8-4z"/></svg>
+            </div>
+            <span style={{ color: '#333', fontSize: 9, letterSpacing: '.1em', textTransform: 'uppercase', textAlign: 'center', padding: '0 10px' }}>Your photo here</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // ─── BACK CARD ──────────────────────────────────────────────────────────────
+  // LEFT: contact info. Divider. RIGHT: JOIN FREE / Earn With Us / QR / SCAN TO JOIN
+  const CardBack = () => (
+    <div style={{
+      width: CARD_W, height: CARD_H, background: BLACK, borderRadius: 16,
+      boxShadow: '0 16px 48px rgba(0,0,0,.85)', border: '1px solid #1a1a1a',
+      display: 'flex', overflow: 'hidden', flexShrink: 0,
+    }}>
+      {/* ── Left: contact info ── */}
+      <div style={{ flex: 1, padding: '26px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div style={{ color: GOLD, fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase', textDecoration: 'underline', textDecorationColor: GOLD, textUnderlineOffset: 4 }}>
+          INCOME OPPORTUNITY / JOIN THE TEAM
+        </div>
+        <div>
+          <div style={{ color: '#fff', fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 32, fontWeight: 400, lineHeight: 1.1, marginBottom: 6 }}>
+            {cardName || 'Your Name'}
+          </div>
+          <div style={{ color: GOLD, fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase' }}>
+            {cardTitle}&nbsp;&nbsp;&middot;&nbsp;&nbsp;THE LEGACY LINK
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {[
+            ['P', cardPhone || '—'],
+            ['E', cardEmail || '—'],
+            ['W', 'thelegacylink.com'],
+            ...(cardCity ? [['·', cardCity]] : []),
+          ].map(([label, val]) => (
+            <div key={label} style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
+              <span style={{ color: GOLD, fontSize: 10, fontWeight: 700, width: 12, flexShrink: 0 }}>{label}</span>
+              <span style={{ color: '#d4d4d4', fontSize: 11 }}>{val}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Gold divider ── */}
+      <div style={{ width: 1, background: `linear-gradient(180deg, transparent 5%, ${GOLD}55 30%, ${GOLD}55 70%, transparent 95%)`, flexShrink: 0 }} />
+
+      {/* ── Right: QR join area ── */}
+      <div style={{ width: 210, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '22px 18px' }}>
+        <div style={{ color: GOLD, fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase', textDecoration: 'underline', textDecorationColor: GOLD, textUnderlineOffset: 4 }}>JOIN FREE</div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ color: '#fff', fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 22, fontWeight: 400, lineHeight: 1.2, marginBottom: 4 }}>
+            Earn With Us<span style={{ color: GOLD }}>.</span>
+          </div>
+          <div style={{ color: '#777', fontSize: 10 }}>Licensed or unlicensed welcome.</div>
+        </div>
+        {/* QR with logo */}
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qrImgUrl} alt="QR" width={140} height={140} style={{ display: 'block', borderRadius: 4 }} />
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 34, height: 34, borderRadius: '50%', background: BLACK, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/legacy-link-seal.png" alt="logo" width={30} height={30} style={{ borderRadius: '50%', display: 'block' }} />
+          </div>
+        </div>
+        <div style={{ color: GOLD, fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase' }}>SCAN TO JOIN</div>
+      </div>
+    </div>
+  );
+
+  // ─── RENDER ─────────────────────────────────────────────────────────────────
+  return (
+    <div style={{ maxWidth: 940 }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h3 style={{ margin: 0, color: '#fff', fontSize: 20 }}>Virtual Card</h3>
+          <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 13 }}>Customize your Legacy Link business card</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {[
+                { label: 'This Week', val: scanStats?.thisWeek ?? '—' },
+                { label: 'This Month', val: scanStats?.thisMonth ?? '—' },
+                { label: 'Total Scans', val: scanStats?.total ?? '—' },
+              ].map(({ label, val }) => (
+                <div key={label} style={{ border: '1px solid #1e293b', borderRadius: 8, padding: '6px 12px', background: '#0b1220', textAlign: 'center', minWidth: 72 }}>
+                  <div style={{ color: GOLD, fontWeight: 800, fontSize: 18, lineHeight: 1 }}>{val}</div>
+                  <div style={{ color: '#475569', fontSize: 10, marginTop: 2 }}>{label}</div>
+                </div>
+              ))}
+              <button type="button" onClick={loadScanStats} disabled={scanLoading}
+                style={{ padding: '5px 10px', background: 'transparent', border: '1px solid #334155', color: '#475569', borderRadius: 7, fontSize: 12, cursor: 'pointer' }}>
+                {scanLoading ? '...' : '↻'}
+              </button>
+            </div>
+          <button type="button" onClick={() => { setOrderModal(true); setOrderDone(false); setOrderErr(''); }}
+            style={{ padding: '10px 22px', background: GOLD, color: BLACK, border: 'none', borderRadius: 10, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
+            Order Cards &rarr;
+          </button>
+        </div>
+      </div>
+
+      {/* Main layout */}
+      <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+
+        {/* ── Edit Panel ── */}
+        <div style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ color: '#64748b', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase' }}>Edit Your Card</div>
+
+          {/* Photo (front) */}
+          <div style={{ border: '1px solid #1e293b', borderRadius: 10, padding: 12, background: '#0b1220' }}>
+            <div style={{ color: '#94a3b8', fontSize: 12, marginBottom: 4 }}>Your Photo <span style={{ color: '#475569', fontSize: 11 }}>(front)</span></div>
+            {photoSrc ? (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photoSrc} alt="preview" style={{ width: 44, height: 44, borderRadius: 4, objectFit: 'cover', objectPosition: 'top', border: `1px solid ${GOLD}` }} />
+                <button type="button" onClick={() => setPhotoSrc(null)} style={{ fontSize: 12, color: '#fca5a5', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Remove</button>
+              </div>
+            ) : (
+              <label style={{ display: 'block', cursor: 'pointer' }}>
+                <div style={{ border: '1px dashed #334155', borderRadius: 8, padding: 10, textAlign: 'center', color: '#475569', fontSize: 12 }}>
+                  {photoUploading ? 'Loading...' : '+ Upload Photo'}
+                </div>
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handlePhotoFile(e.target.files[0])} />
+              </label>
+            )}
+          </div>
+
+          {/* Back card fields */}
+          <div style={{ color: '#64748b', fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: -6 }}>Back Card Info</div>
+
+          <label style={{ display: 'grid', gap: 5 }}>
+            <span style={{ color: '#94a3b8', fontSize: 12 }}>Name</span>
+            <input value={cardName} onChange={e => { setCardName(e.target.value); saveCardSettings({ cardName: e.target.value }); }} onBlur={() => saveCardSettings()} placeholder="Full Name" style={inputSt} />
+          </label>
+          <label style={{ display: 'grid', gap: 5 }}>
+            <span style={{ color: '#94a3b8', fontSize: 12 }}>Title</span>
+            <select value={cardTitle} onChange={e => { setCardTitle(e.target.value); saveCardSettings({ cardTitle: e.target.value }); }} style={inputSt}>
+              {TITLE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+          <label style={{ display: 'grid', gap: 5 }}>
+            <span style={{ color: '#94a3b8', fontSize: 12 }}>Phone</span>
+            <input value={cardPhone} onChange={e => { setCardPhone(e.target.value); saveCardSettings({ cardPhone: e.target.value }); }} onBlur={() => saveCardSettings()} placeholder="737.701.1991" style={inputSt} />
+          </label>
+          <label style={{ display: 'grid', gap: 5 }}>
+            <span style={{ color: '#94a3b8', fontSize: 12 }}>Email</span>
+            <input value={cardEmail} onChange={e => { setCardEmail(e.target.value); saveCardSettings({ cardEmail: e.target.value }); }} onBlur={() => saveCardSettings()} placeholder="you@email.com" style={inputSt} />
+          </label>
+          <label style={{ display: 'grid', gap: 5 }}>
+            <span style={{ color: '#94a3b8', fontSize: 12 }}>City, State</span>
+            <input value={cardCity} onChange={e => { setCardCity(e.target.value); saveCardSettings({ cardCity: e.target.value }); }} onBlur={() => saveCardSettings()} placeholder="Austin, TX" style={inputSt} />
+          </label>
+          <div style={{ display: 'grid', gap: 5 }}>
+            <span style={{ color: '#94a3b8', fontSize: 12 }}>Website <span style={{ color: '#334155' }}>(fixed)</span></span>
+            <div style={{ ...inputSt, color: '#475569', cursor: 'not-allowed' }}>thelegacylink.com</div>
+          </div>
+        </div>
+
+        {/* ── Card Preview ── */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+            <span style={{ color: '#64748b', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase' }}>Preview</span>
+            {[['front', 'Front'], ['back', 'Back'], ['both', 'Both Sides']].map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setCardSide(k)} style={{
+                padding: '5px 14px', borderRadius: 7, fontSize: 13, cursor: 'pointer',
+                border: `1.5px solid ${cardSide === k ? GOLD : '#334155'}`,
+                background: cardSide === k ? 'rgba(200,169,107,.15)' : 'transparent',
+                color: cardSide === k ? GOLD : '#94a3b8',
+                fontWeight: cardSide === k ? 700 : 400,
+              }}>{l}</button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20, overflowX: 'auto' }}>
+            {(cardSide === 'front' || cardSide === 'both') && (
+              <div>
+                <div style={{ color: '#475569', fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>FRONT</div>
+                <CardFront />
+              </div>
+            )}
+            {(cardSide === 'back' || cardSide === 'both') && (
+              <div>
+                <div style={{ color: '#475569', fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>BACK</div>
+                <CardBack />
+              </div>
+            )}
+          </div>
+          <div style={{ color: '#334155', fontSize: 11, marginTop: 12 }}>3.5&quot; &times; 2&quot; &mdash; Printed and shipped by The Legacy Link team.</div>
+        </div>
+      </div>
+
+      {/* ── Order Modal ── */}
+      {orderModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }} onClick={() => setOrderModal(false)}>
+          <div style={{ background: '#0b1220', border: '1px solid #1e293b', borderRadius: 16, padding: 28, maxWidth: 460, width: '100%' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 4px', color: '#fff' }}>Order Business Cards</h3>
+            <p style={{ margin: '0 0 20px', color: '#64748b', fontSize: 13 }}>Professional print &middot; Your custom design</p>
+
+            {orderDone ? (
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <div style={{ fontSize: 36, marginBottom: 10 }}>✅</div>
+                <div style={{ color: '#86efac', fontWeight: 700, fontSize: 17 }}>Order Request Submitted!</div>
+                <p style={{ color: '#94a3b8', fontSize: 13, marginTop: 8 }}>
+                  {orderMode === 'email'
+                    ? <>We&apos;ll follow up at <strong style={{ color: '#e2e8f0' }}>{cardEmail}</strong> with next steps.</>
+                    : <>Your photo and order details were received. We&apos;ll be in touch.</>}
+                </p>
+                <button type="button" onClick={() => setOrderModal(false)} style={{ marginTop: 16, padding: '10px 24px', background: GOLD, color: BLACK, border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}>Done</button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* Card info summary */}
+                <div style={{ border: '1px solid #1e293b', borderRadius: 10, padding: '10px 14px', background: '#060d1a' }}>
+                  <div style={{ color: '#94a3b8', fontSize: 12, marginBottom: 4 }}>Card info</div>
+                  <div style={{ color: '#e2e8f0', fontSize: 14 }}>{cardName || '(no name)'} &nbsp;&middot;&nbsp; {cardTitle}</div>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>{cardPhone} &nbsp;&middot;&nbsp; {cardEmail}</div>
+                </div>
+
+                {/* Quantity + Price */}
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <span style={{ color: '#94a3b8', fontSize: 13 }}>Quantity</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {[
+                      { qty: '500',  label: '500 cards',    price: CARD_PRICES['500'] },
+                      { qty: '1000', label: '1,000 cards',  price: CARD_PRICES['1000'] },
+                      { qty: '2000', label: '2,000 cards',  price: CARD_PRICES['2000'] },
+                    ].map(({ qty, label, price }) => (
+                      <button key={qty} type="button" onClick={() => setOrderQty(qty)} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '11px 14px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                        border: `1.5px solid ${orderQty === qty ? GOLD : '#334155'}`,
+                        background: orderQty === qty ? 'rgba(200,169,107,.12)' : 'transparent',
+                      }}>
+                        <span style={{ color: orderQty === qty ? GOLD : '#e2e8f0', fontWeight: orderQty === qty ? 700 : 400, fontSize: 14 }}>{label}</span>
+                        <span style={{ color: orderQty === qty ? GOLD : '#64748b', fontWeight: 700, fontSize: 15 }}>${price}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Photo */}
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <span style={{ color: '#94a3b8', fontSize: 13 }}>Headshot for front of card</span>
+                  {photoSrc ? (
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '8px 12px', border: '1px solid #16a34a', borderRadius: 8, background: 'rgba(22,163,74,.08)' }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={photoSrc} alt="" style={{ width: 36, height: 36, borderRadius: 4, objectFit: 'cover' }} />
+                      <span style={{ color: '#86efac', fontSize: 13 }}>Photo ready ✓</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {[['email', 'Email it to us'], ['upload', 'Upload now']].map(([k, l]) => (
+                          <button key={k} type="button" onClick={() => setOrderMode(k)} style={{
+                            flex: 1, padding: '9px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+                            border: `1.5px solid ${orderMode === k ? GOLD : '#334155'}`,
+                            background: orderMode === k ? 'rgba(200,169,107,.12)' : 'transparent',
+                            color: orderMode === k ? GOLD : '#94a3b8',
+                            fontWeight: orderMode === k ? 700 : 400,
+                          }}>{l}</button>
+                        ))}
+                      </div>
+                      {orderMode === 'email' && <p style={{ color: '#64748b', fontSize: 12, margin: 0 }}>Email to <strong style={{ color: '#cbd5e1' }}>support@thelegacylink.com</strong> &mdash; reference your name</p>}
+                      {orderMode === 'upload' && (
+                        <label style={{ cursor: 'pointer' }}>
+                          <div style={{ border: '1px dashed #334155', borderRadius: 8, padding: 10, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+                            {orderPhoto ? `✓ ${orderPhoto.name}` : 'Click to select photo'}
+                          </div>
+                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { setOrderPhoto(e.target.files[0]); handlePhotoFile(e.target.files[0]); }} />
+                        </label>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {orderErr && <p style={{ color: '#fca5a5', fontSize: 13, margin: 0 }}>{orderErr}</p>}
+
+                {/* Total + submit */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #1e293b', paddingTop: 14 }}>
+                  <div>
+                    <span style={{ color: '#64748b', fontSize: 13 }}>Total: </span>
+                    <span style={{ color: GOLD, fontWeight: 800, fontSize: 18 }}>${CARD_PRICES[orderQty] || 89}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button type="button" onClick={() => setOrderModal(false)} style={{ padding: '10px 16px', background: 'transparent', border: '1px solid #334155', color: '#94a3b8', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+                    <button type="button" disabled={orderBusy} onClick={submitCardOrder}
+                      style={{ padding: '10px 20px', background: GOLD, color: BLACK, border: 'none', borderRadius: 8, fontWeight: 800, fontSize: 14, cursor: 'pointer', opacity: orderBusy ? 0.6 : 1 }}>
+                      {orderBusy ? 'Submitting...' : 'Submit Order'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function InnerCircleHubPage() {
@@ -4047,17 +4543,7 @@ export default function InnerCircleHubPage() {
               </div>
             ) : null}
 
-            {tab === 'virtualcard' ? (
-              <div style={{ background: '#0a0c10', borderRadius: 18, padding: 24 }}>
-                <CardEditor
-                  refCode={(() => {
-                    const n = String(member?.applicantName || member?.name || '').trim().toLowerCase().replace(/[^a-z0-9 ]/g,'').trim();
-                    return n.replace(/\s+/g, '_') || 'member';
-                  })()}
-                  profile={{ name: member?.applicantName || member?.name || '', email: member?.email || '' }}
-                />
-              </div>
-            ) : null}
+            {tab === 'virtualcard' ? <VirtualCardTab member={member} /> : null}
 
             {tab === 'licensedstates' ? (() => {
               const ALL_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];

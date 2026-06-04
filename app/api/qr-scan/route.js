@@ -1,40 +1,48 @@
-import { NextResponse } from 'next/server';
-import { saveJsonFile, loadJsonFile } from '../../../lib/blobJsonStore';
+import { loadJsonFile, saveJsonFile } from '../../../lib/blobJsonStore';
+
+export const dynamic = 'force-dynamic';
 
 const STORE_PATH = 'qr-scan-log/v1.json';
 
-export async function GET(req) {
-  const sp = new URL(req.url).searchParams;
-  const ref = String(sp.get('ref') || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+function clean(v = '') { return String(v || '').trim(); }
 
-  if (!ref) {
-    return NextResponse.redirect(new URL('/sponsorship-signup', req.url));
-  }
+function getDevice(ua = '') {
+  if (/mobile|android|iphone|ipad/i.test(ua)) return 'mobile';
+  return 'desktop';
+}
+
+function getIp(req) {
+  return clean(
+    req.headers.get('x-forwarded-for')?.split(',')[0] ||
+    req.headers.get('x-real-ip') ||
+    ''
+  );
+}
+
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const ref = clean(searchParams.get('ref') || '');
+  const dest = clean(searchParams.get('dest') || '');
 
   // Log the scan
-  try {
-    const ip =
-      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      req.headers.get('x-real-ip') ||
-      'unknown';
-    const ua = req.headers.get('user-agent') || '';
-
-    const log = (await loadJsonFile(STORE_PATH, [])) || [];
-    log.push({
-      ref,
-      ts: new Date().toISOString(),
-      ip,
-      device: /mobile|android|iphone|ipad/i.test(ua) ? 'mobile' : 'desktop',
-    });
-
-    // Keep last 50k records, trim older
-    const trimmed = log.slice(-50000);
-    await saveJsonFile(STORE_PATH, trimmed);
-  } catch {
-    // Never block the redirect on logging failure
+  if (ref) {
+    try {
+      const scans = await loadJsonFile(STORE_PATH, []);
+      const list = Array.isArray(scans) ? scans : [];
+      list.unshift({
+        ref,
+        ts: new Date().toISOString(),
+        ip: getIp(req),
+        device: getDevice(req.headers.get('user-agent') || ''),
+      });
+      // Keep last 5000 scans
+      await saveJsonFile(STORE_PATH, list.slice(0, 5000));
+    } catch {
+      // Non-blocking — scan logging failure should not block redirect
+    }
   }
 
-  const dest = new URL('/sponsorship-signup', 'https://innercirclelink.com');
-  dest.searchParams.set('ref', ref);
-  return NextResponse.redirect(dest.toString(), { status: 302 });
+  // Redirect to dest or default sponsorship page
+  const target = dest || `https://innercirclelink.com/sponsorship-signup${ref ? `?ref=${encodeURIComponent(ref)}` : ''}`;
+  return Response.redirect(target, 302);
 }

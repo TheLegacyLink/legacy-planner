@@ -36,7 +36,7 @@ function normalize(v = '') {
 //   Non-IC agent  → $400
 // Writer bonus: $100 extra if policy writer is different from the referral owner
 
-const CIRCLE_ELITE_AGENTS = new Set([]); // No one currently — update when told
+const CIRCLE_ELITE_AGENTS = new Set(['leticia wright']); // Elite IC members: $1,000 referral bonus tier. Leticia Wright added 2026-06-01.
 const PAID_IC_AGENTS = new Set(['jamal holmes', 'madalyn adams']);
 
 function getReferralBonusAmount(referrerName, icNamesSet) {
@@ -100,14 +100,37 @@ export default function PolicyPayoutsPage() {
   async function load() {
     setLoading(true);
     try {
-      const [rowsRes, usersRes] = await Promise.all([
+      const [rowsRes, usersRes, bonusRes] = await Promise.all([
         fetch('/api/policy-submissions', { cache: 'no-store' }),
-        fetch('/api/inner-circle-auth', { cache: 'no-store' })
+        fetch('/api/inner-circle-auth', { cache: 'no-store' }),
+        fetch('/api/elite-bonuses', { cache: 'no-store' })
       ]);
-      const rowsData = await rowsRes.json().catch(() => ({}));
+      const rowsData  = await rowsRes.json().catch(() => ({}));
       const usersData = await usersRes.json().catch(() => ({}));
+      const bonusData = await bonusRes.json().catch(() => ({}));
 
-      if (rowsRes.ok && rowsData?.ok) setRows(Array.isArray(rowsData.rows) ? rowsData.rows : []);
+      const policyRows = rowsRes.ok && rowsData?.ok ? (Array.isArray(rowsData.rows) ? rowsData.rows : []) : [];
+
+      // Transform elite bonus rows into display-compatible shape
+      const rawBonusRows = bonusRes.ok && bonusData?.ok ? (Array.isArray(bonusData.rows) ? bonusData.rows : []) : [];
+      const eliteRows = rawBonusRows.map((b) => ({
+        _isEliteBonus: true,
+        id: b.id,
+        applicantName: b.applicantName || '—',
+        referredByName: b.agent,          // Leticia — she is owed the $, drives “What You Owe” grouping
+        _triggeredBy: b.triggeredBy,      // Mirick — the downline member who brought in the applicant
+        policyWriterName: b.agent,
+        status: 'Approved',
+        payoutStatus: b.status || 'Unpaid',
+        payoutAmount: Number(b.amount || 0) || 0,
+        submittedAt: b.eventDate || b.createdAt || '',
+        approvedAt: b.eventDate || b.createdAt || '',
+        payoutPaidAt: b.paidAt || '',
+        payoutPaidBy: b.paidBy || '',
+        productName: 'Team Sponsorship Bonus',
+      }));
+
+      setRows([...policyRows, ...eliteRows]);
       if (usersRes.ok && usersData?.ok) setUsers(Array.isArray(usersData.users) ? usersData.users : []);
     } finally {
       setLoading(false);
@@ -185,6 +208,12 @@ export default function PolicyPayoutsPage() {
       if (!paidAt || Number.isNaN(paidAt.getTime())) return;
       if (paidAt.getMonth() !== month || paidAt.getFullYear() !== year) return;
 
+      // Elite IC bonus rows: credit directly to the agent (no bonusSplit — amount is fixed flat)
+      if (r._isEliteBonus) {
+        add(r.policyWriterName, Number(r.payoutAmount || 0) || 0);
+        return;
+      }
+
       const split = bonusSplit(r, icNamesSet);
       add(r.referredByName, split.referralBonus);
       if (split.writerBonus > 0) add(r.policyWriterName, split.writerBonus);
@@ -199,7 +228,37 @@ export default function PolicyPayoutsPage() {
       .sort((a, b) => b.amount - a.amount);
   }, [rows, icNamesSet]);
 
+  async function patchEliteBonus(id, patch) {
+    setSavingId(id);
+    try {
+      const newStatus = (patch.payoutStatus === 'Paid') ? 'Paid' : (patch.payoutStatus === 'Unpaid' ? 'Unpaid' : undefined);
+      const apiPatch = {};
+      if (newStatus) { apiPatch.status = newStatus; apiPatch.paidBy = patch.payoutPaidBy || 'Kimora'; }
+      if (patch.notes) apiPatch.notes = patch.notes;
+      const res = await fetch('/api/elite-bonuses', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, patch: apiPatch })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        setRows((prev) => prev.map((r) =>
+          r.id === id
+            ? { ...r, payoutStatus: data.row?.status || r.payoutStatus, payoutPaidAt: data.row?.paidAt || r.payoutPaidAt, payoutPaidBy: data.row?.paidBy || r.payoutPaidBy }
+            : r
+        ));
+        setSyncMsg('Elite bonus updated.');
+      } else {
+        setSyncMsg(`Save failed: ${data?.error || 'unknown error'}`);
+      }
+    } finally {
+      setSavingId('');
+    }
+  }
+
   async function patchRow(id, patch) {
+    const targetRow = rows.find((r) => r.id === id);
+    if (targetRow?._isEliteBonus) return patchEliteBonus(id, patch);
     setSavingId(id);
     try {
       const res = await fetch('/api/policy-submissions', {
@@ -502,38 +561,55 @@ export default function PolicyPayoutsPage() {
             </thead>
             <tbody>
               {filtered.map((r) => {
-                const split = bonusSplit(r, icNamesSet);
+                const split = r._isEliteBonus
+                  ? { referralBonus: 0, writerBonus: 0, totalRecommended: Number(r.payoutAmount || 0) }
+                  : bonusSplit(r, icNamesSet);
                 const visual = rowVisualState(r);
                 const approvalLocked = visual.terminal;
                 const statusLower = String(r.status || '').trim().toLowerCase();
                 return (
-                  <tr key={r.id}>
-                    <td>{r.applicantName || '—'}</td>
-                    <td>{r.referredByName || '—'}</td>
+                  <tr key={r.id} style={r._isEliteBonus ? { background: '#f0fdf4', borderLeft: '4px solid #16a34a' } : undefined}>
                     <td>
-                      <select
-                        value={r.policyWriterName || ''}
-                        onChange={(e) => patchRow(r.id, { policyWriterName: e.target.value })}
-                      >
-                        <option value="">Select writer</option>
-                        {users.map((u) => <option key={`writer-${u.name}`} value={u.name}>{u.name}</option>)}
-                        <option value="Other">Other</option>
-                      </select>
+                      {r._isEliteBonus ? (
+                        <><span style={{ display:'block', fontWeight:600 }}>{r.applicantName}</span>
+                        <span style={{ fontSize:11, background:'#16a34a', color:'#fff', padding:'2px 6px', borderRadius:4, marginTop:2, display:'inline-block' }}>Elite IC Bonus</span></>
+                      ) : (r.applicantName || '—')}
                     </td>
-                    <td>{money(r.monthlyPremium)}</td>
-                    <td>{money(split.referralBonus)}</td>
-                    <td>{money(split.writerBonus)}</td>
-                    <td>{money(split.totalRecommended)}</td>
-                    <td>{r.state || '—'}</td>
                     <td>
-                      <select
-                        value={r.applicantLicensedStatus || ''}
-                        onChange={(e) => patchRow(r.id, { applicantLicensedStatus: e.target.value })}
-                      >
-                        <option value="">Unknown</option>
-                        <option value="Licensed">Licensed</option>
-                        <option value="Unlicensed">Unlicensed</option>
-                      </select>
+                      {r._isEliteBonus ? (
+                        <>{r.referredByName || '—'}{r._triggeredBy ? <><br/><span className="muted" style={{ fontSize:11 }}>via {r._triggeredBy}</span></> : null}</>
+                      ) : (r.referredByName || '—')}
+                    </td>
+                    <td>
+                      {r._isEliteBonus ? (
+                        <strong>{r.policyWriterName || '—'}</strong>
+                      ) : (
+                        <select
+                          value={r.policyWriterName || ''}
+                          onChange={(e) => patchRow(r.id, { policyWriterName: e.target.value })}
+                        >
+                          <option value="">Select writer</option>
+                          {users.map((u) => <option key={`writer-${u.name}`} value={u.name}>{u.name}</option>)}
+                          <option value="Other">Other</option>
+                        </select>
+                      )}
+                    </td>
+                    <td>{r._isEliteBonus ? '—' : money(r.monthlyPremium)}</td>
+                    <td>{r._isEliteBonus ? '—' : money(split.referralBonus)}</td>
+                    <td>{r._isEliteBonus ? '—' : money(split.writerBonus)}</td>
+                    <td>{money(split.totalRecommended)}</td>
+                    <td>{r._isEliteBonus ? '—' : (r.state || '—')}</td>
+                    <td>
+                      {r._isEliteBonus ? '—' : (
+                        <select
+                          value={r.applicantLicensedStatus || ''}
+                          onChange={(e) => patchRow(r.id, { applicantLicensedStatus: e.target.value })}
+                        >
+                          <option value="">Unknown</option>
+                          <option value="Licensed">Licensed</option>
+                          <option value="Unlicensed">Unlicensed</option>
+                        </select>
+                      )}
                     </td>
                     <td>{fmtDate(r.submittedAt)}</td>
                     <td>
@@ -630,16 +706,20 @@ export default function PolicyPayoutsPage() {
                     </td>
                     <td>{fmtDate(r.payoutDueAt)}</td>
                     <td>
-                      <div style={{ display: 'grid', gap: 4 }}>
-                        <input
-                          style={{ width: 92 }}
-                          defaultValue={effectivePayoutAmount(r)}
-                          onBlur={(e) => patchRow(r.id, { payoutAmount: Number(e.target.value || 0) || 0 })}
-                        />
-                        <button type="button" className="ghost" onClick={() => patchRow(r.id, { payoutAmount: split.totalRecommended })}>
-                          Use calc
-                        </button>
-                      </div>
+                      {r._isEliteBonus ? (
+                        <strong>{money(r.payoutAmount)}</strong>
+                      ) : (
+                        <div style={{ display: 'grid', gap: 4 }}>
+                          <input
+                            style={{ width: 92 }}
+                            defaultValue={effectivePayoutAmount(r)}
+                            onBlur={(e) => patchRow(r.id, { payoutAmount: Number(e.target.value || 0) || 0 })}
+                          />
+                          <button type="button" className="ghost" onClick={() => patchRow(r.id, { payoutAmount: split.totalRecommended })}>
+                            Use calc
+                          </button>
+                        </div>
+                      )}
                     </td>
                     <td>
                       <select
@@ -659,15 +739,19 @@ export default function PolicyPayoutsPage() {
                       </select>
                     </td>
                     <td>
-                      {r.approvedEmailSentAt ? 'Approved Email ✅' : 'Approval Email ⏳'}
-                      <br />
-                      {r.sopInviteSentAt ? 'SOP Invite ✅' : 'SOP Invite ⏳'}
-                      <br />
-                      {r.backOfficeNotifiedAt ? 'Back Office ✅' : 'Back Office ⏳'}
-                      <br />
-                      {r.interviewEmailSentAt ? `Interview Email ✅ (${fmtDate(r.interviewEmailSentAt)})` : 'Interview Email ⏳'}
-                      <br />
-                      {r.payoutEmailSentAt ? 'Payout Paid Email ✅' : 'Payout Email ⏳'}
+                      {r._isEliteBonus ? '—' : (
+                        <>
+                          {r.approvedEmailSentAt ? 'Approved Email ✅' : 'Approval Email ⏳'}
+                          <br />
+                          {r.sopInviteSentAt ? 'SOP Invite ✅' : 'SOP Invite ⏳'}
+                          <br />
+                          {r.backOfficeNotifiedAt ? 'Back Office ✅' : 'Back Office ⏳'}
+                          <br />
+                          {r.interviewEmailSentAt ? `Interview Email ✅ (${fmtDate(r.interviewEmailSentAt)})` : 'Interview Email ⏳'}
+                          <br />
+                          {r.payoutEmailSentAt ? 'Payout Paid Email ✅' : 'Payout Email ⏳'}
+                        </>
+                      )}
                     </td>
                     <td>{fmtDate(r.payoutPaidAt)}</td>
                     <td>{r.payoutPaidBy || '—'}</td>

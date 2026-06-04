@@ -6,8 +6,15 @@ const STORE_PATH = 'stores/unlicensed-backoffice-progress.json';
 function clean(v = '') { return String(v || '').trim(); }
 
 const DEFAULT_STEPS = {
+  backOfficeAccess: false,
+  communitySkool: false,
+  jamalContacted: false,
   prelicensingStarted: false,
+  examScheduled: false,
   examPassed: false,
+  licenseReceived: false,
+  watchedWhateverItTakes: false,
+  // legacy keys kept for backward compat
   residentLicenseObtained: false,
   licenseDetailsSubmitted: false,
   readyForContracting: false,
@@ -31,16 +38,19 @@ export async function GET(req) {
     steps: { ...DEFAULT_STEPS },
     fields: {
       examPassDate: '',
+      examScheduledDate: '',
       residentState: clean(profile?.state),
       residentLicenseNumber: '',
       residentLicenseActiveDate: '',
-      npn: ''
+      npn: '',
+      licenseNumber: '',
+      licenseReceivedDate: ''
     },
-    bonusRule: { agentBonus: 100, referrerBonus: 100, deadlineDays: 30 },
+    bonusRule: { agentBonus: 250, referrerBonus: 250, deadlineDays: 30 },
     updatedAt: ''
   };
 
-  const progress = idx >= 0 ? { ...fallback, ...(list[idx] || {}), steps: { ...DEFAULT_STEPS, ...((list[idx] || {}).steps || {}) }, fields: { ...fallback.fields, ...((list[idx] || {}).fields || {}) } } : fallback;
+  const progress = idx >= 0 ? { ...fallback, ...(list[idx] || {}), steps: { ...DEFAULT_STEPS, ...((list[idx] || {}).steps || {}) }, fields: { ...fallback.fields, ...((list[idx] || {}).fields || {}) }, bonusRule: { agentBonus: 250, referrerBonus: 250, deadlineDays: 30 } } : fallback;
 
   if (idx < 0) {
     await saveJsonStore(STORE_PATH, [...list, progress]);
@@ -71,17 +81,20 @@ export async function POST(req) {
     steps: { ...DEFAULT_STEPS },
     fields: {
       examPassDate: '',
+      examScheduledDate: '',
       residentState: clean(profile?.state),
       residentLicenseNumber: '',
       residentLicenseActiveDate: '',
-      npn: ''
+      npn: '',
+      licenseNumber: '',
+      licenseReceivedDate: ''
     },
-    bonusRule: { agentBonus: 100, referrerBonus: 100, deadlineDays: 30 }
+    bonusRule: { agentBonus: 250, referrerBonus: 250, deadlineDays: 30 }
   };
 
   const next = {
     ...base,
-    bonusRule: { agentBonus: 100, referrerBonus: 100, deadlineDays: 30, ...(base.bonusRule || {}) },
+    bonusRule: { agentBonus: 250, referrerBonus: 250, deadlineDays: 30 },
     steps: {
       ...DEFAULT_STEPS,
       ...(base.steps || {}),
@@ -97,13 +110,8 @@ export async function POST(req) {
   if (next.steps.examPassed && !clean(next.fields.examPassDate)) {
     return Response.json({ ok: false, error: 'exam_pass_date_required' }, { status: 400 });
   }
-  if (next.steps.residentLicenseObtained) {
-    if (!clean(next.fields.residentState) || !clean(next.fields.residentLicenseNumber)) {
-      return Response.json({ ok: false, error: 'resident_license_fields_required' }, { status: 400 });
-    }
-  }
-  if (next.steps.licenseDetailsSubmitted && !clean(next.fields.npn)) {
-    return Response.json({ ok: false, error: 'npn_required' }, { status: 400 });
+  if (next.steps.licenseReceived && !clean(next.fields.licenseReceivedDate)) {
+    return Response.json({ ok: false, error: 'license_received_date_required' }, { status: 400 });
   }
 
   if (idx >= 0) list[idx] = next;
