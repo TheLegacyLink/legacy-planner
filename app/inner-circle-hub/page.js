@@ -210,33 +210,43 @@ function availableTabs(member = {}) {
   const email = clean(member?.email || '').toLowerCase();
   const isKimora = email === 'kimora@thelegacylink.com';
   const all = [
+    // Primary working tools
     { key: 'dashboard', label: 'The Lounge' },
-    { key: 'virtualcard', label: '🎴 Virtual Card' },
-    { key: 'faststart', label: 'Fast Start' },
-    { key: 'growth', label: 'Growth Hub' },
-    { key: 'scripts2', label: 'Script Vault 2.0' },
-    { key: 'execution', label: 'Daily Execution' },
-    { key: 'vault', label: 'Resource Vault' },
-    { key: 'media', label: 'VIP Media Vault' },
-    { key: 'tracker', label: 'KPI Tracker' },
-    { key: 'onboarding', label: 'Onboarding Tracker' },
     { key: 'production', label: 'My Production' },
     { key: 'submitapp', label: 'Submit App' },
     { key: 'team', label: 'Team Tree' },
-    { key: 'community', label: 'Community Service' },
-    { key: 'incentives', label: 'Champions Circle' },
+    { key: 'tracker', label: 'KPI Tracker' },
+    { key: 'scripts', label: 'Scripts' },
+    { key: 'execution', label: 'Daily Execution' },
+    { key: 'onboarding', label: 'Onboarding' },
+    // Consolidated tabs
+    { key: 'training', label: 'Training' },       // merged: academy + media + sales + library + vault
+    { key: 'identity', label: 'Identity' },        // merged: virtualcard + links
+    { key: 'wins', label: 'Wins' },                // merged: awards + rewards + champions circle
+    // Secondary / overflow
+    { key: 'growth', label: 'Growth Hub' },
     { key: 'tools', label: 'Tools' },
+    { key: 'community', label: 'Community Service' },
+    { key: 'podcast', label: '🎤 Podcast' },
+    { key: 'licensedstates', label: 'My Licensed States' },
     ...(isKimora ? [{ key: 'contracts', label: 'Contract Queue' }] : []),
-    { key: 'rewards', label: 'VIP Rewards' },
+    // Legacy keys (kept for backward compat — still render if navigated directly)
+    { key: 'virtualcard', label: '🎴 Virtual Card' },
+    { key: 'faststart', label: 'Fast Start' },
+    { key: 'scripts2', label: 'Script Vault 2.0' },
+    { key: 'vault', label: 'Resource Vault' },
+    { key: 'media', label: 'VIP Media Vault' },
     { key: 'academy', label: 'IUL Academy' },
     { key: 'awards', label: 'Achievement Center' },
     { key: 'links', label: 'My VIP Links' },
     { key: 'library', label: 'PDF Library' },
-    { key: 'licensedstates', label: 'My Licensed States' },
     { key: 'sales-training', label: 'Sales Training' },
-    { key: 'podcast', label: '🎤 Podcast' },
+    { key: 'rewards', label: 'VIP Rewards' },
+    { key: 'incentives', label: 'Champions Circle' },
   ];
-  return all.filter((t) => modules?.[t.key] !== false);
+  // De-dupe by key (legacy keys hidden if new version exists)
+  const seen = new Set();
+  return all.filter((t) => modules?.[t.key] !== false && !seen.has(t.key) && seen.add(t.key));
 }
 
 function masterDisabledKey(email = '') {
@@ -3046,7 +3056,7 @@ export default function InnerCircleHubPage() {
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
             {(() => {
-              const PINNED_KEYS = ['dashboard', 'virtualcard', 'onboarding', 'production', 'submitapp', 'podcast'];
+              const PINNED_KEYS = ['dashboard', 'production', 'submitapp', 'team', 'tracker', 'scripts', 'execution', 'onboarding'];
               const pinnedTabs = PINNED_KEYS.map((k) => tabs.find((t) => t.key === k)).filter(Boolean);
               const overflowTabs = tabs.filter((t) => !PINNED_KEYS.includes(t.key)).sort((a, b) => a.label.localeCompare(b.label));
 
@@ -3055,6 +3065,7 @@ export default function InnerCircleHubPage() {
                 if (t.key === 'incentives') { if (typeof window !== 'undefined') window.open('/champions-circle/inner-circle?home=/inner-circle-hub', '_blank', 'noopener,noreferrer'); return; }
                 if (t.key === 'scripts2') { if (typeof window !== 'undefined') window.open('/inner-circle-scripts?home=/inner-circle-hub', '_blank', 'noopener,noreferrer'); return; }
                 if (t.key === 'submitapp') { const me = clean(member?.applicantName || member?.name || ''); const href = `/inner-circle-app-submit?referredBy=${encodeURIComponent(me)}&policyWriter=${encodeURIComponent(me)}&source=inner-circle-hub`; if (typeof window !== 'undefined') window.open(href, '_blank', 'noopener,noreferrer'); return; }
+                if (t.key === 'community') { if (typeof window !== 'undefined') window.open('/community-service?home=/inner-circle-hub', '_blank', 'noopener,noreferrer'); return; }
                 setTab(t.key);
               }
 
@@ -4463,6 +4474,102 @@ export default function InnerCircleHubPage() {
                     style={{ width: '100%', minHeight: '1350px', border: 0, background: '#020617' }}
                   />
                 </div>
+              </div>
+            ) : null}
+
+            {/* ── MERGED: Training tab (academy + media + sales + library + vault) ── */}
+            {tab === 'training' ? (
+              <div style={{ display: 'grid', gap: 14 }}>
+                {/* Reference Docs */}
+                <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#071022', padding: 18 }}>
+                  <h3 style={{ margin: '0 0 12px', color: '#fff' }}>Reference Materials</h3>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    <a href="/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD', fontWeight: 600 }}>Licensed Onboarding Playbook ↗</a>
+                    <a href="/docs/onboarding/legacy-link-comp-schedule-bonuses-v2.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD', fontWeight: 600 }}>Comp Schedule + Bonuses + FAQ ↗</a>
+                    <a href="/docs/onboarding/legacy-link-sponsorship-phone-application-sop.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD', fontWeight: 600 }}>Sponsorship Application SOP ↗</a>
+                  </div>
+                </div>
+
+                {/* Sales Training */}
+                <SalesTrainerTab member={member} />
+
+                {/* IUL Academy */}
+                <div style={{ border: '1px solid #1f2937', borderRadius: 14, overflow: 'hidden', background: '#020617' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #1f2937', background: '#071022' }}>
+                    <strong style={{ color: '#fff' }}>IUL Academy</strong>
+                    <a href={`/iul-learning-academy?name=${encodeURIComponent(member?.applicantName || member?.name || '')}&email=${encodeURIComponent(member?.email || '')}&licensed=1&v=20260315-3`} target="_blank" rel="noreferrer" style={{ color: '#93C5FD', fontWeight: 700, fontSize: 13 }}>Open Full Page ↗</a>
+                  </div>
+                  <iframe title="IUL Academy" src={`/iul-learning-academy?name=${encodeURIComponent(member?.applicantName || member?.name || '')}&email=${encodeURIComponent(member?.email || '')}&licensed=1&v=20260315-3`} style={{ width: '100%', minHeight: '1450px', border: 0, background: '#020617' }} />
+                </div>
+
+                {/* VIP Media Vault */}
+                <div style={{ border: '1px solid #334155', borderRadius: 14, padding: 12, background: '#071022' }}>
+                  <strong style={{ color: '#fff', fontSize: 16 }}>VIP Media Vault</strong>
+                  <p style={{ color: '#cbd5e1', margin: '8px 0 14px', fontSize: 14 }}>Full video library — open full-page for best experience.</p>
+                  <a href="/vip-media-vault?home=/inner-circle-hub" target="_blank" rel="noreferrer" style={{ padding: '10px 16px', borderRadius: 8, background: '#1D428A', color: '#fff', fontWeight: 700, textDecoration: 'none', fontSize: 14 }}>Open Media Vault ↗</a>
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── MERGED: Identity tab (virtual card + vip links) ── */}
+            {tab === 'identity' ? (
+              <div style={{ display: 'grid', gap: 14 }}>
+                <VirtualCardTab member={member} />
+                <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#071022', padding: 18, display: 'grid', gap: 12 }}>
+                  <strong style={{ color: '#fff', fontSize: 16 }}>Your VIP Links</strong>
+                  <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
+                    <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617', display: 'grid', gap: 8 }}>
+                      <strong style={{ color: '#fff' }}>Personal Sponsorship Link</strong>
+                      <small style={{ color: '#94A3B8' }}>Share to attribute every referral to your profile.</small>
+                      <button type="button" className="ghost" onClick={() => copyLink(sponsorshipLink, 'sponsor')}>
+                        {copiedKey === 'sponsor' ? 'Copied ✓' : 'Copy Sponsorship Link'}
+                      </button>
+                    </div>
+                    <div style={{ border: '1px solid #1f2937', borderRadius: 12, padding: 14, background: '#020617', display: 'grid', gap: 8 }}>
+                      <strong style={{ color: '#fff' }}>Personal Life Insurance Page</strong>
+                      <small style={{ color: '#94A3B8' }}>Send prospects directly to your quote flow.</small>
+                      <button type="button" className="ghost" onClick={() => copyLink(personalCoverageLink, 'coverage')}>
+                        {copiedKey === 'coverage' ? 'Copied ✓' : 'Copy Coverage Link'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── MERGED: Wins tab (awards + rewards + champions circle) ── */}
+            {tab === 'wins' ? (
+              <div style={{ display: 'grid', gap: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 10 }}>
+                  <div style={{ border: '1px solid #854d0e', borderRadius: 14, background: '#1a0e00', padding: 16, textAlign: 'center' }}>
+                    <div style={{ fontWeight: 800, color: '#FCD34D', fontSize: 16, marginBottom: 6 }}>Champions Circle</div>
+                    <p style={{ color: '#FDE68A', fontSize: 13, margin: '0 0 12px' }}>Leaderboard, rank, and performance incentives.</p>
+                    <button type="button" onClick={() => { if (typeof window !== 'undefined') window.open('/champions-circle/inner-circle?home=/inner-circle-hub', '_blank', 'noopener,noreferrer'); }} style={{ padding: '10px 16px', borderRadius: 8, background: '#92400e', border: '1px solid #854d0e', color: '#FDE68A', fontWeight: 700, cursor: 'pointer' }}>Open Champions Circle ↗</button>
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #1f2937', borderRadius: 14, overflow: 'hidden', background: '#020617' }}>
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid #1f2937', background: '#071022' }}>
+                    <strong style={{ color: '#fff' }}>Achievement Center</strong>
+                  </div>
+                  <iframe title="Achievement Center" src={`/achievement-center?name=${encodeURIComponent(member?.applicantName || member?.name || '')}&email=${encodeURIComponent(member?.email || '')}&licensed=1`} style={{ width: '100%', minHeight: '1350px', border: 0, background: '#020617' }} />
+                </div>
+
+                <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#071022', padding: 16 }}>
+                  <strong style={{ color: '#fff', fontSize: 16 }}>VIP Rewards</strong>
+                  <p style={{ color: '#cbd5e1', margin: '8px 0 0', fontSize: 14 }}>Your reward history and upcoming milestones are tracked here.</p>
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── MERGED: Scripts tab (inline — replaces scripts2 external window) ── */}
+            {tab === 'scripts' ? (
+              <div style={{ border: '1px solid #1f2937', borderRadius: 14, overflow: 'hidden', background: '#020617' }}>
+                <iframe
+                  title="Scripts"
+                  src={`/inner-circle-scripts?home=/inner-circle-hub&name=${encodeURIComponent(member?.applicantName || member?.name || '')}&email=${encodeURIComponent(member?.email || '')}`}
+                  style={{ width: '100%', minHeight: 1150, border: 0, background: '#020617' }}
+                />
               </div>
             ) : null}
 

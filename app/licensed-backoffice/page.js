@@ -1419,21 +1419,20 @@ export default function LicensedBackofficePage() {
           {(() => {
             const primaryTabs = [
               ['overview', 'Overview'],
-              ['card', '🪪 Virtual Card'],
-              ['tracker', 'Onboarding Tracker'],
               ['financials', 'Financials'],
               ['sponsorships', 'Sponsorships'],
               ['submit', 'Submit App'],
-              ['academy', 'IUL Academy'],
-              ['awards', 'Achievement Center'],
-              ['growth', 'Growth Hub'],
-              ['podcast', '🎤 Podcast'],
+              ['tracker', 'Onboarding Tracker'],
+              ['scriptvault', 'Scripts'],
+              ['training', 'Training'],
             ];
 
             const moreTabs = [
-              ['resources', 'Resources'],
-              ['scriptvault', 'Script Vault 2.0'],
+              ['card', '🪪 Virtual Card'],
               ['linkleads', 'VIP Links'],
+              ['awards', 'Achievement Center'],
+              ['growth', 'Growth Hub'],
+              ['podcast', '🎤 Podcast'],
               ['incentives', 'Champions Circle'],
               ['community', 'Community Service'],
               ['policies', 'Policies']
@@ -1846,6 +1845,22 @@ export default function LicensedBackofficePage() {
             ) : null}
 
 
+            {tab === 'overview' && personalSponsorshipLink ? (
+              <div style={{ border: '1px solid #166534', borderRadius: 14, background: 'linear-gradient(135deg,#061410,#0a1a10)', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, color: '#86EFAC', fontSize: 14, marginBottom: 3 }}>Your Sponsorship Link</div>
+                  <div style={{ color: '#4ADE80', fontFamily: 'ui-monospace,monospace', fontSize: 12, wordBreak: 'break-all' }}>
+                    {`${typeof window !== 'undefined' ? window.location.origin : 'https://innercirclelink.com'}${personalSponsorshipLink}`}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <a href={personalSponsorshipLink} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', borderRadius: 8, background: '#16A34A', color: '#fff', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>Open</a>
+                  <button type="button" onClick={() => { navigator.clipboard.writeText((typeof window !== 'undefined' ? window.location.origin : 'https://innercirclelink.com') + personalSponsorshipLink); setCopiedSponsor(true); setTimeout(() => setCopiedSponsor(false), 1400); }} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #166534', background: 'transparent', color: '#86EFAC', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                    {copiedSponsor ? 'Copied ✓' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            ) : null}
             {tab === 'sponsorships' ? (
               <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
                 <h3 style={{ marginTop: 0 }}>My Sponsorship Pipeline</h3>
@@ -2229,6 +2244,37 @@ export default function LicensedBackofficePage() {
                   <a href="/docs/onboarding/legacy-link-comp-schedule-bonuses-v2.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Comp Schedule + Bonuses + FAQ</a>
                   <a href="/docs/onboarding/legacy-link-sponsorship-phone-application-sop.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Sponsorship Application Call SOP</a>
                 </div>
+                <div style={{ border: '1px solid #C8A96B44', borderRadius: 14, background: 'linear-gradient(135deg,#0f172a,#0b1020)', padding: '18px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                    <span style={{ fontSize: 24 }}>🎤</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: '#f1f5f9' }}>The Legacy Link Podcast</div>
+                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Hosted by Kimora Link &mdash; on iHeart Radio</div>
+                    </div>
+                  </div>
+                  <iframe allow="autoplay" width="100%" height="300" src="https://www.iheart.com/podcast/334111550/?embed=true" frameBorder="0" style={{ borderRadius: 10, display: 'block', border: 0 }} title="The Legacy Link Podcast" />
+                </div>
+              </div>
+            ) : null}
+            {tab === 'training' ? (
+              <div style={{ display: 'grid', gap: 14 }}>
+                <div style={{ border: '1px solid #2A3142', borderRadius: 14, background: '#0F172A', padding: 18 }}>
+                  <h3 style={{ margin: '0 0 12px', fontSize: 18, color: '#E2E8F0' }}>Reference Materials</h3>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    <a href="/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD', fontWeight: 600 }}>Licensed Onboarding Playbook ↗</a>
+                    <a href="/docs/onboarding/legacy-link-comp-schedule-bonuses-v2.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD', fontWeight: 600 }}>Comp Schedule + Bonuses + FAQ ↗</a>
+                    <a href="/docs/onboarding/legacy-link-sponsorship-phone-application-sop.pdf" target="_blank" rel="noreferrer" style={{ color: '#93C5FD', fontWeight: 600 }}>Sponsorship Application SOP ↗</a>
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #2A3142', borderRadius: 14, overflow: 'hidden', background: '#0F172A' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #243046', background: '#0B1220' }}>
+                    <strong style={{ color: '#E2E8F0', fontSize: 16 }}>IUL Academy</strong>
+                    <a href={`/iul-learning-academy?name=${encodeURIComponent(session?.name || '')}&email=${encodeURIComponent(session?.email || '')}&licensed=1&v=20260315-3`} target="_blank" rel="noreferrer" style={{ color: '#93C5FD', fontWeight: 700, fontSize: 13 }}>Open Full Page ↗</a>
+                  </div>
+                  <iframe title="IUL Academy" src={`/iul-learning-academy?name=${encodeURIComponent(session?.name || '')}&email=${encodeURIComponent(session?.email || '')}&licensed=1&v=20260315-3`} style={{ width: '100%', minHeight: 1450, border: 0, background: '#020617' }} />
+                </div>
+
                 <div style={{ border: '1px solid #C8A96B44', borderRadius: 14, background: 'linear-gradient(135deg,#0f172a,#0b1020)', padding: '18px 20px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                     <span style={{ fontSize: 24 }}>🎤</span>
