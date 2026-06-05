@@ -659,35 +659,39 @@ export default function PolicyPayoutsPage() {
                             <button
                               type="button"
                               onClick={() => patchRow(r.id, { status: 'Approved', applicantLicensedStatus: 'Licensed' })}
+                              disabled={!!savingId}
                               style={{ ...SMALL_BTN, background: '#166534', color: '#fff', border: '1px solid #14532d' }}
                             >
-                              Approve (Licensed)
+                              {savingId === r.id ? 'Saving…' : 'Approve (Licensed)'}
                             </button>
                             <button
                               type="button"
                               onClick={() => patchRow(r.id, { status: 'Approved', applicantLicensedStatus: 'Unlicensed' })}
+                              disabled={!!savingId}
                               style={{ ...SMALL_BTN, background: '#92400e', color: '#fff', border: '1px solid #78350f' }}
                             >
-                              Approve (Unlicensed)
+                              {savingId === r.id ? 'Saving…' : 'Approve (Unlicensed)'}
                             </button>
                             <button
                               type="button"
                               onClick={() => patchRow(r.id, { status: 'Approved', suppressEmail: true })}
+                              disabled={!!savingId}
                               style={SMALL_BTN}
                             >
-                              Approve
+                              {savingId === r.id ? 'Saving…' : 'Approve'}
                             </button>
                             <button
                               type="button"
                               onClick={() => patchRow(r.id, { status: 'Declined' })}
+                              disabled={!!savingId}
                               style={{ ...SMALL_BTN, background: '#b91c1c', color: '#fff', border: '1px solid #991b1b' }}
                             >
-                              Decline
+                              {savingId === r.id ? 'Saving…' : 'Decline'}
                             </button>
                             <button
                               type="button"
                               onClick={() => sendTelephoneInterviewEmail(r)}
-                              disabled={emailingId === r.id}
+                              disabled={!!savingId || emailingId === r.id}
                               style={{ ...SMALL_BTN, background: '#0f172a', color: '#fff', border: '1px solid #020617' }}
                             >
                               {emailingId === r.id ? 'Sending…' : 'Send Interview Email'}
@@ -724,6 +728,7 @@ export default function PolicyPayoutsPage() {
                     <td>
                       <select
                         value={r.payoutStatus || 'Unpaid'}
+                        disabled={!!savingId}
                         onChange={(e) => {
                           const isPaid = e.target.value === 'Paid';
                           patchRow(r.id, {
