@@ -201,14 +201,35 @@ function isInnerCircleName(name = '') {
   return (users || []).some((u) => normalize(u?.name || u?.fullName || '') === n);
 }
 
-function sponsorshipFlatRate({ policyWriterName = '', referredByName = '', submittedByRole = '' } = {}) {
+// ─── Elite IC referral bonus config ────────────────────────────────────────
+// Mirrors lib/eliteBonus.js ELITE_IC_MEMBERS. Update both when membership changes.
+const ELITE_IC_REFERRERS = [
+  { name: 'Leticia Wright', effectiveFrom: '2026-06-01', sponsorshipReferralBonus: 1000 },
+];
+
+function eliteIcReferralBonus(referredByName = '', submittedAt = '') {
+  if (!referredByName) return 0;
+  const n = normalize(referredByName);
+  const eventDate = new Date(submittedAt || Date.now());
+  for (const m of ELITE_IC_REFERRERS) {
+    if (normalize(m.name) !== n) continue;
+    const eff = new Date(m.effectiveFrom);
+    if (!isNaN(eff.getTime()) && eventDate >= eff) return m.sponsorshipReferralBonus;
+  }
+  return 0;
+}
+
+function sponsorshipFlatRate({ policyWriterName = '', referredByName = '', submittedByRole = '', submittedAt = '' } = {}) {
+  // Elite IC referrer: $1,000 flat for submissions on/after their effectiveFrom date
+  const eliteBonus = eliteIcReferralBonus(referredByName, submittedAt);
+  if (eliteBonus > 0) return eliteBonus;
   const role = normalize(submittedByRole);
   if (role.includes('inner_circle')) return 500;
   if (isInnerCircleName(policyWriterName) || isInnerCircleName(referredByName)) return 500;
   return 400;
 }
 
-function computePolicyPayoutFields({ policyType = '', monthlyPremium = 0, annualPremium = 0, licensed = false, policyWriterName = '', referredByName = '', submittedByRole = '', carrier = '', productName = '' } = {}) {
+function computePolicyPayoutFields({ policyType = '', monthlyPremium = 0, annualPremium = 0, licensed = false, policyWriterName = '', referredByName = '', submittedByRole = '', carrier = '', productName = '', submittedAt = '' } = {}) {
   const type = normalizePolicyType(policyType);
   const monthly = clampMonthlyPremium(monthlyPremium);
   const annualFromMonthly = roundMoney(monthly * 12);
@@ -222,7 +243,7 @@ function computePolicyPayoutFields({ policyType = '', monthlyPremium = 0, annual
   let flatPayout = false;
 
   if (type === 'Sponsorship Policy') {
-    pointsEarned = sponsorshipFlatRate({ policyWriterName, referredByName, submittedByRole });
+    pointsEarned = sponsorshipFlatRate({ policyWriterName, referredByName, submittedByRole, submittedAt });
     flatPayout = true;
   } else if (type === 'Bonus Policy') {
     pointsEarned = licensed ? 500 : 0;
@@ -363,7 +384,8 @@ function normalizedRecord(row = {}) {
     referredByName: row.referredByName || row.referrer || '',
     submittedByRole: row.submittedByRole || '',
     carrier: row.carrier || '',
-    productName: row.productName || ''
+    productName: row.productName || '',
+    submittedAt: row.submittedAt || row.submitted_at || row.createdAt || ''
   });
 
   const status = clean(row.status || 'Submitted') || 'Submitted';
@@ -425,7 +447,8 @@ function applyPolicyMath(row = {}, { preservePayoutAmount = false } = {}) {
     referredByName: row?.referredByName || row?.referrer || '',
     submittedByRole: row?.submittedByRole || '',
     carrier: row?.carrier || '',
-    productName: row?.productName || ''
+    productName: row?.productName || '',
+    submittedAt: row?.submittedAt || row?.submitted_at || row?.createdAt || ''
   });
 
   const isApproved = normalize(row?.status || '').startsWith('approved');
