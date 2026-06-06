@@ -96,9 +96,9 @@ export default function AdminOnboardingPage() {
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  // Token: prefer mc: passcode (most reliable), fallback to localStorage session token
-  const getToken = () => {
-    if (passcode) return `mc:${passcode}`;
+  const getToken = (overridePasscode) => {
+    const pc = overridePasscode !== undefined ? overridePasscode : passcode;
+    if (pc) return `mc:${pc}`;
     if (typeof window === 'undefined') return null;
     return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LICENSED_TOKEN_KEY) || null;
   };
@@ -139,10 +139,7 @@ export default function AdminOnboardingPage() {
     return () => clearInterval(interval);
   }, [load, loadSystemAgents]);
 
-  // Re-load when passcode is entered
-  useEffect(() => {
-    if (passcode) { load(); loadSystemAgents(); }
-  }, [passcode, load, loadSystemAgents]);
+
 
   async function openDrawer(agent) {
     setDrawer({ agent });
@@ -310,15 +307,29 @@ export default function AdminOnboardingPage() {
 
   async function submitPasscode() {
     setPassError('');
+    const pc = passcodeInput.trim();
+    if (!pc) { setPassError('Enter your passcode.'); return; }
     try {
       const res = await fetch('/api/admin-skeleton-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: 'Kimora Link', password: passcodeInput })
+        body: JSON.stringify({ identifier: 'Kimora Link', password: pc })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) { setPassError('Incorrect passcode.'); return; }
-      setPasscode(passcodeInput);
+      // Passcode verified — load data directly with this passcode before state update
+      setPasscode(pc);
+      const token = `mc:${pc}`;
+      try {
+        setPageState('loading');
+        const r2 = await fetch('/api/admin/onboarding/agents', { headers: { Authorization: `Bearer ${token}` } });
+        const d2 = await r2.json().catch(() => ({}));
+        setAgents(d2.agents || []);
+        const r3 = await fetch('/api/admin/onboarding/system-agents', { headers: { Authorization: `Bearer ${token}` } });
+        const d3 = await r3.json().catch(() => ({}));
+        setSystemAgents(d3.agents || []);
+        setPageState('ok');
+      } catch { setPageState('ok'); }
     } catch { setPassError('Unable to verify. Try again.'); }
   }
 
