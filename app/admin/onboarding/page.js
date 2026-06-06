@@ -24,6 +24,7 @@ const C = {
 };
 
 const TOKEN_KEY = 'start_portal_token_v1';
+const LICENSED_TOKEN_KEY = 'licensed_backoffice_token';
 
 function fmtDate(iso) {
   if (!iso) return '—';
@@ -86,7 +87,10 @@ export default function AdminOnboardingPage() {
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  const getToken = () => typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+  const getToken = () => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LICENSED_TOKEN_KEY) || null;
+  };
 
   const load = useCallback(async () => {
     const token = getToken();

@@ -1,19 +1,15 @@
 export const dynamic = 'force-dynamic';
 
+import { resolveAdminSession } from '../../../../../lib/onboardingAdminAuth.js';
+
 // app/api/admin/onboarding/send-report/route.js
 // POST /api/admin/onboarding/send-report — trigger weekly report immediately (admin only)
 
 import { NextResponse } from 'next/server';
-import { sessionFromToken } from '../../../start-auth/_lib';
 import { sendWeeklyReport } from '../../../../../lib/onboardingReport';
 import { ensureLeticiaWright } from '../../../../../lib/onboardingSeed';
 
-const ADMIN_EMAILS = new Set(['kimora@thelegacylink.com', 'link@thelegacylink.com']);
 
-function token(req) {
-  const auth = req.headers.get('authorization') || '';
-  return auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-}
 
 export async function POST(req) {
   try {

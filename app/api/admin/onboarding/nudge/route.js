@@ -1,17 +1,13 @@
 export const dynamic = 'force-dynamic';
 
+import { resolveAdminSession } from '../../../../../lib/onboardingAdminAuth.js';
+
 // app/api/admin/onboarding/nudge/route.js
 // POST /api/admin/onboarding/nudge — send a nudge (stub for Phase 2)
 
 import { NextResponse } from 'next/server';
-import { sessionFromToken } from '../../../start-auth/_lib';
 
-const ADMIN_EMAILS = new Set(['kimora@thelegacylink.com', 'link@thelegacylink.com']);
 
-function token(req) {
-  const auth = req.headers.get('authorization') || '';
-  return auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-}
 
 export async function POST(req) {
   try {
