@@ -1,10 +1,11 @@
 import nodemailer from 'nodemailer';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 import { normalizePersonName } from '../../../lib/nameAliases';
 
 export const CODES_PATH = 'stores/start-auth-codes.json';
 export const SESSIONS_PATH = 'stores/start-auth-sessions.json';
+export const PASSWORDS_PATH = 'stores/start-auth-passwords.json';
 const START_INTAKE_PATH = 'stores/start-intake.json';
 const APPS_PATH = 'stores/sponsorship-applications.json';
 const LICENSED_AGENTS_PATH = 'data/licensedAgents.json';
@@ -82,6 +83,45 @@ export async function resolveProfileByEmail(email = '') {
   }
 
   return null;
+}
+
+// ─── Password hashing ────────────────────────────────────────────────────
+
+export function hashPassword(plaintext) {
+  const salt = randomBytes(16).toString('hex');
+  const hash = scryptSync(String(plaintext || ''), salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+export function verifyPasswordHash(plaintext, stored) {
+  try {
+    const [salt, hash] = String(stored || '').split(':');
+    if (!salt || !hash) return false;
+    const keyBuf = scryptSync(String(plaintext || ''), salt, 64);
+    const hashBuf = Buffer.from(hash, 'hex');
+    if (keyBuf.length !== hashBuf.length) return false;
+    return timingSafeEqual(keyBuf, hashBuf);
+  } catch { return false; }
+}
+
+export async function getPasswordRecord(email = '') {
+  const e = norm(email);
+  const rows = await loadJsonStore(PASSWORDS_PATH, []);
+  return (Array.isArray(rows) ? rows : []).find((r) => norm(r?.email) === e) || null;
+}
+
+export async function setPasswordRecord(email = '', passwordHash = '') {
+  const e = norm(email);
+  const rows = await loadJsonStore(PASSWORDS_PATH, []);
+  const list = Array.isArray(rows) ? rows : [];
+  const idx = list.findIndex((r) => norm(r?.email) === e);
+  const now = nowIso();
+  if (idx >= 0) {
+    list[idx] = { ...list[idx], passwordHash, updatedAt: now };
+  } else {
+    list.push({ email: e, passwordHash, createdAt: now, updatedAt: now });
+  }
+  await saveJsonStore(PASSWORDS_PATH, list);
 }
 
 // ─── OTP email ────────────────────────────────────────────────────────────

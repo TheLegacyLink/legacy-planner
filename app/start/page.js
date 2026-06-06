@@ -247,6 +247,13 @@ export default function StartPortalPage() {
   const [signedAt, setSignedAt] = useState('');
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
 
+  // Password auth state
+  const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+
   // Typed-name sig state
   const [typedName, setTypedName] = useState('');
   const [agreed, setAgreed] = useState(false);
@@ -287,11 +294,41 @@ export default function StartPortalPage() {
     }
   }
 
-  async function requestCode() {
+  // ── Check email first — routes to password or OTP ──────────────────────
+  async function checkEmail() {
     setError(''); setNotice('');
     const e = clean(email).toLowerCase();
     if (!isEmail(e)) { setError('Enter a valid email address.'); return; }
     setBusy(true);
+    try {
+      const res = await fetch('/api/start-auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: e })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setError(data?.error === 'not_found'
+          ? 'No account found for that email. If you just signed your contract, wait 1\u20132 minutes and try again.'
+          : (data?.error || 'Unable to continue. Try again.'));
+        return;
+      }
+      setAlreadyRegistered(Boolean(data?.alreadyRegistered));
+      if (data?.hasPassword) {
+        setStage('password');
+      } else {
+        await requestCode(e);
+      }
+    } finally { setBusy(false); }
+  }
+
+  async function requestCode(prevalidatedEmail) {
+    setError(''); setNotice('');
+    const e = prevalidatedEmail || clean(email).toLowerCase();
+    if (!prevalidatedEmail) {
+      if (!isEmail(e)) { setError('Enter a valid email address.'); return; }
+      setBusy(true);
+    }
     try {
       const res = await fetch('/api/start-auth/request-code', {
         method: 'POST',
@@ -307,13 +344,62 @@ export default function StartPortalPage() {
         return;
       }
       setAlreadyRegistered(Boolean(data?.alreadyRegistered));
-      setNotice(
-        data?.alreadyRegistered
-          ? 'Welcome back! A login code was sent to your email.'
-          : 'Code sent! Check your email (including spam).'
-      );
+      setNotice('Code sent! Check your email (including spam).');
       setStage('otp');
+    } finally { if (!prevalidatedEmail) setBusy(false); }
+  }
+
+  // ── Password login ────────────────────────────────────────────────────────
+  async function loginWithPassword() {
+    setError('');
+    const e = clean(email).toLowerCase();
+    const pw = passwordInput;
+    if (!pw) { setError('Enter your password.'); return; }
+    setBusy(true);
+    try {
+      const res = await fetch('/api/start-auth/login-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: e, password: pw })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok || !data?.token) {
+        setError(data?.error === 'invalid_credentials'
+          ? 'Incorrect password. Try again or use a code instead.'
+          : 'Login failed. Try again.');
+        return;
+      }
+      if (typeof window !== 'undefined') window.localStorage.setItem(TOKEN_KEY, data.token);
+      if (typeof window !== 'undefined') window.localStorage.setItem(PROFILE_KEY, JSON.stringify(data.profile));
+      setToken(data.token);
+      setProfile(data.profile);
+      await proceedAfterAuth(data.token, data.profile);
     } finally { setBusy(false); }
+  }
+
+  // ── Set password (post-OTP, optional) ────────────────────────────────────
+  async function handleSetPassword() {
+    setError('');
+    if (newPassword.length < 8) { setError('Password must be at least 8 characters.'); return; }
+    if (newPassword !== confirmNewPassword) { setError('Passwords do not match.'); return; }
+    setBusy(true);
+    try {
+      const res = await fetch('/api/start-auth/set-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ password: newPassword })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) { setError('Failed to set password. Try again.'); return; }
+      await proceedAfterAuth(token, profile);
+    } finally { setBusy(false); }
+  }
+
+  async function proceedAfterAuth(tok, prof) {
+    const cr = await fetch('/api/esign-contract', { headers: { Authorization: `Bearer ${tok}` }, cache: 'no-store' });
+    const cd = await cr.json().catch(() => ({}));
+    if (cd?.signed) redirectToBackoffice(prof);
+    else setStage('contract');
   }
 
   async function verifyOtp() {
@@ -337,14 +423,8 @@ export default function StartPortalPage() {
       if (typeof window !== 'undefined') window.localStorage.setItem(PROFILE_KEY, JSON.stringify(data.profile));
       setToken(data.token);
       setProfile(data.profile);
-      // Check contract status
-      const cr = await fetch('/api/esign-contract', { headers: { Authorization: `Bearer ${data.token}` }, cache: 'no-store' });
-      const cd = await cr.json().catch(() => ({}));
-      if (cd?.signed) {
-        redirectToBackoffice(data.profile);
-      } else {
-        setStage('contract');
-      }
+      // Offer password setup before proceeding
+      setStage('set-password');
     } finally { setBusy(false); }
   }
 
@@ -439,12 +519,16 @@ export default function StartPortalPage() {
           <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.1em', color: '#93C5FD', textTransform: 'uppercase', marginBottom: 4 }}>The Legacy Link</div>
           <h1 style={{ margin: 0, fontSize: 26, lineHeight: 1.2 }}>
             {stage === 'email' && 'Back Office Access'}
+            {stage === 'password' && 'Welcome Back'}
             {stage === 'otp' && 'Enter Your Code'}
+            {stage === 'set-password' && 'Set a Password'}
             {stage === 'contract' && 'Independent Contractor Agreement'}
           </h1>
           <p style={{ ...mutedStyle, marginTop: 6 }}>
-            {stage === 'email' && 'Enter your email to receive a one-time login code.'}
+            {stage === 'email' && 'Enter your email to continue.'}
+            {stage === 'password' && `Enter your password for ${clean(email)}`}
             {stage === 'otp' && `We sent a 6-digit code to ${clean(email)}`}
+            {stage === 'set-password' && 'Skip the code every time — set a password once and you’re done.'}
             {stage === 'contract' && 'Read and sign the agreement below to access your back office.'}
           </p>
         </div>
@@ -460,14 +544,14 @@ export default function StartPortalPage() {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && requestCode()}
+                onKeyDown={(e) => e.key === 'Enter' && checkEmail()}
                 autoFocus
               />
             </label>
             {notice && <p style={{ ...mutedStyle, color: '#86EFAC' }}>{notice}</p>}
             {error && <p style={errStyle}>{error}</p>}
-            <button style={btnPrimary} onClick={requestCode} disabled={busy}>
-              {busy ? 'Sending…' : 'Send Login Code'}
+            <button style={btnPrimary} onClick={checkEmail} disabled={busy}>
+              {busy ? 'Checking…' : 'Continue'}
             </button>
             <p style={{ ...mutedStyle, textAlign: 'center' }}>
               Not registered yet?{' '}
@@ -475,6 +559,95 @@ export default function StartPortalPage() {
               {' '}or{' '}
               <a href="/start/unlicensed" style={{ color: '#60A5FA' }}>Unlicensed Sign-Up</a>
             </p>
+          </>
+        )}
+
+        {/* ── STAGE: PASSWORD ── */}
+        {stage === 'password' && (
+          <>
+            <label style={labelStyle}>
+              Password
+              <div style={{ position: 'relative' }}>
+                <input
+                  style={{ ...inputStyle, paddingRight: 44 }}
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && loginWithPassword()}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', fontSize: 13, padding: 0 }}
+                >{showPassword ? 'Hide' : 'Show'}</button>
+              </div>
+            </label>
+            {error && <p style={errStyle}>{error}</p>}
+            <button style={btnPrimary} onClick={loginWithPassword} disabled={busy}>
+              {busy ? 'Logging in…' : 'Log In'}
+            </button>
+            <button
+              style={btnSecondary}
+              disabled={busy}
+              onClick={() => { setError(''); setPasswordInput(''); requestCode(clean(email).toLowerCase()); }}
+            >
+              Use a code instead
+            </button>
+            <button style={{ ...btnSecondary, marginTop: -8 }} onClick={() => { setStage('email'); setPasswordInput(''); setError(''); }}>
+              ← Use a different email
+            </button>
+          </>
+        )}
+
+        {/* ── STAGE: SET-PASSWORD (post-OTP, optional) ── */}
+        {stage === 'set-password' && (
+          <>
+            <div style={{ background: '#071a0e', border: '1px solid #166534', borderRadius: 10, padding: '12px 14px' }}>
+              <p style={{ margin: 0, color: '#86efac', fontWeight: 700, fontSize: 14 }}>You’re in! \u{1F389}</p>
+              <p style={{ margin: '4px 0 0', color: '#6ee7b7', fontSize: 13 }}>Create a password now and you’ll never need an email code again.</p>
+            </div>
+            <label style={labelStyle}>
+              New Password <span style={{ color: '#64748B', fontWeight: 400 }}>(min 8 characters)</span>
+              <div style={{ position: 'relative' }}>
+                <input
+                  style={{ ...inputStyle, paddingRight: 44 }}
+                  type={showNewPassword ? 'text' : 'password'}
+                  placeholder="Create a password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(v => !v)}
+                  style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', fontSize: 13, padding: 0 }}
+                >{showNewPassword ? 'Hide' : 'Show'}</button>
+              </div>
+            </label>
+            <label style={labelStyle}>
+              Confirm Password
+              <input
+                style={inputStyle}
+                type={showNewPassword ? 'text' : 'password'}
+                placeholder="Repeat your password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSetPassword()}
+              />
+            </label>
+            {error && <p style={errStyle}>{error}</p>}
+            <button style={btnPrimary} onClick={handleSetPassword} disabled={busy}>
+              {busy ? 'Saving…' : 'Set Password & Continue'}
+            </button>
+            <button
+              style={btnSecondary}
+              disabled={busy}
+              onClick={() => proceedAfterAuth(token, profile)}
+            >
+              Skip for now
+            </button>
           </>
         )}
 
