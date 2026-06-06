@@ -51,6 +51,7 @@ export default function UnlicensedBackofficePage() {
   const [code, setCode] = useState('');
   const [codeRequested, setCodeRequested] = useState(false);
   const [showDemoSelect, setShowDemoSelect] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
 
   const DEMO_EMAILS = ['leticiawright05@gmail.com'];
   const [token, setToken] = useState('');
@@ -86,6 +87,11 @@ export default function UnlicensedBackofficePage() {
         if (!mounted || !res.ok || !data?.ok) return;
         setToken(t);
         setProfile(data.profile || null);
+        // Show Whatever It Takes video popup once per session
+        if (typeof sessionStorage !== 'undefined' && !sessionStorage.getItem('wit_modal_shown')) {
+          setShowVideoModal(true);
+          sessionStorage.setItem('wit_modal_shown', '1');
+        }
       } catch {}
     })();
     return () => { mounted = false; };
@@ -395,8 +401,40 @@ export default function UnlicensedBackofficePage() {
   const steps = progress?.steps || {};
   const fields = progress?.fields || {};
 
+  const WIT_VIDEO_ID = 'SVvU9SvCH9o';
+
   return (
     <>
+      {/* Whatever It Takes — sign-in video popup */}
+      {showVideoModal && (
+        <div
+          onClick={() => setShowVideoModal(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, borderRadius: 16, overflow: 'hidden', background: '#0B1220', border: '1px solid #1e3a5f', boxShadow: '0 24px 60px rgba(0,0,0,0.7)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid #1e3a5f' }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: '#F8FAFC' }}>Whatever It Takes</div>
+                <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>Watch the full video &mdash; leave a comment when done</div>
+              </div>
+              <button onClick={() => setShowVideoModal(false)} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '4px 8px' }}>&#x2715;</button>
+            </div>
+            <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
+              <iframe
+                src={`https://www.youtube.com/embed/${WIT_VIDEO_ID}?autoplay=1&rel=0`}
+                title="Whatever It Takes"
+                allow="autoplay; encrypted-media"
+                allowFullScreen
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }}
+              />
+            </div>
+            <div style={{ padding: '14px 18px', display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowVideoModal(false)} style={{ padding: '10px 22px', borderRadius: 8, background: '#1651AE', border: 'none', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Got it — Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {profile && token && !icaSigned && !profile?.skipIca && (
         <ICAContractGate token={token} session={profile} onSigned={() => setIcaSigned(true)} />
       )}
@@ -479,13 +517,21 @@ export default function UnlicensedBackofficePage() {
         {tab === 'podcast' ? (
           <div style={{ border: '1px solid #C8A96B44', borderRadius: 16, background: 'linear-gradient(160deg,#0f172a,#0b1020)', padding: '24px 22px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-              <span style={{ fontSize: 30 }}>🎤</span>
+              <span style={{ fontSize: 30 }}>&#127909;</span>
               <div>
-                <h3 style={{ margin: 0, fontSize: 18, color: '#f1f5f9' }}>The Legacy Link Podcast</h3>
-                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Hosted by Kimora Link &mdash; on iHeart Radio</p>
+                <h3 style={{ margin: 0, fontSize: 18, color: '#f1f5f9' }}>Whatever It Takes</h3>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Watch the full video &mdash; leave a comment when done. This is a required step.</p>
               </div>
             </div>
-            <iframe allow="autoplay" width="100%" height="352" src="https://www.iheart.com/podcast/334111550/?embed=true" frameBorder="0" style={{ borderRadius: 12, display: 'block', border: 0 }} title="The Legacy Link Podcast" />
+            <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 12, overflow: 'hidden' }}>
+              <iframe
+                src={`https://www.youtube.com/embed/${WIT_VIDEO_ID}?rel=0`}
+                title="Whatever It Takes"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }}
+              />
+            </div>
           </div>
         ) : null}
 

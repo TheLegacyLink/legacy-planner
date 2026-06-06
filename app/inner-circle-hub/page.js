@@ -227,7 +227,7 @@ function availableTabs(member = {}) {
     { key: 'growth', label: 'Growth Hub' },
     { key: 'tools', label: 'Tools' },
     { key: 'community', label: 'Community Service' },
-    { key: 'podcast', label: '🎤 Podcast' },
+    { key: 'podcast', label: '🎥 Podcast' },
     { key: 'licensedstates', label: 'My Licensed States' },
     ...(isKimora ? [{ key: 'contracts', label: 'Contract Queue' }] : []),
     // Legacy keys (kept for backward compat — still render if navigated directly)
@@ -3394,13 +3394,21 @@ export default function InnerCircleHubPage() {
 
               <div style={{ border: '1px solid #C8A96B44', borderRadius: 14, background: 'linear-gradient(135deg,#0f172a,#0b1020)', padding: '18px 20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                  <span style={{ fontSize: 24 }}>🎤</span>
+                  <span style={{ fontSize: 24 }}>🎥</span>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 15, color: '#f1f5f9' }}>The Legacy Link Podcast</div>
-                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Hosted by Kimora Link &mdash; on iHeart Radio</div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: '#f1f5f9' }}>Whatever It Takes</div>
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Watch the full video — leave a comment when done.</div>
                   </div>
                 </div>
-                <iframe allow="autoplay" width="100%" height="300" src="https://www.iheart.com/podcast/334111550/?embed=true" frameBorder="0" style={{ borderRadius: 10, display: 'block', border: 0 }} title="The Legacy Link Podcast" />
+                <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 10, overflow: 'hidden' }}>
+              <iframe
+                src="https://www.youtube.com/embed/SVvU9SvCH9o?rel=0"
+                title="Whatever It Takes"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }}
+              />
+            </div>
               </div>
               </div>
             ) : null}
@@ -3408,13 +3416,21 @@ export default function InnerCircleHubPage() {
             {tab === 'podcast' ? (
               <div style={{ border: '1px solid #C8A96B44', borderRadius: 16, background: 'linear-gradient(160deg,#0f172a,#0b1020)', padding: '24px 22px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-                  <span style={{ fontSize: 30 }}>🎤</span>
+                  <span style={{ fontSize: 30 }}>🎥</span>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: 18, color: '#f1f5f9' }}>The Legacy Link Podcast</h3>
-                    <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Hosted by Kimora Link &mdash; on iHeart Radio</p>
+                    <h3 style={{ margin: 0, fontSize: 18, color: '#f1f5f9' }}>Whatever It Takes</h3>
+                    <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Watch the full video — leave a comment when done. This is a required step.</p>
                   </div>
                 </div>
-                <iframe allow="autoplay" width="100%" height="352" src="https://www.iheart.com/podcast/334111550/?embed=true" frameBorder="0" style={{ borderRadius: 12, display: 'block', border: 0 }} title="The Legacy Link Podcast" />
+                <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 10, overflow: 'hidden' }}>
+              <iframe
+                src="https://www.youtube.com/embed/SVvU9SvCH9o?rel=0"
+                title="Whatever It Takes"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }}
+              />
+            </div>
               </div>
             ) : null}
 
