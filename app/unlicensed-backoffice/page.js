@@ -52,6 +52,9 @@ export default function UnlicensedBackofficePage() {
   const [codeRequested, setCodeRequested] = useState(false);
   const [showDemoSelect, setShowDemoSelect] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [onboardingData, setOnboardingData] = useState(null); // { agent, checklist }
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
+  const [onboardingSaving, setOnboardingSaving] = useState(false);
 
   const DEMO_EMAILS = ['leticiawright05@gmail.com'];
   const [token, setToken] = useState('');
@@ -64,7 +67,7 @@ export default function UnlicensedBackofficePage() {
   const [error, setError] = useState('');
   const [uplineSupport, setUplineSupport] = useState({ loading: false, error: '', upline: null, rows: [], unreadForViewer: 0 });
   const [uplineDraft, setUplineDraft] = useState('');
-  const [tab, setTab] = useState('steps');
+  const [tab, setTab] = useState('onboarding');
   const [uplineSending, setUplineSending] = useState(false);
   const [uplineNotice, setUplineNotice] = useState('');
   const [copiedReferral, setCopiedReferral] = useState(false);
@@ -110,6 +113,27 @@ export default function UnlicensedBackofficePage() {
       } catch {}
     })();
     return () => { mounted = false; };
+  }, [token]);
+
+  // Onboarding tracker data — load + poll every 30s
+  const loadOnboarding = async (tok) => {
+    if (!tok) return;
+    try {
+      const res = await fetch('/api/onboarding/me', { headers: { Authorization: `Bearer ${tok}` }, cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data?.ok) setOnboardingData(data);
+      } else if (res.status === 404) {
+        setOnboardingData(null); // not enrolled in IC/Elite tracker
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (!token) return;
+    loadOnboarding(token);
+    const interval = setInterval(() => loadOnboarding(token), 30000);
+    return () => clearInterval(interval);
   }, [token]);
 
   useEffect(() => {
@@ -509,7 +533,7 @@ export default function UnlicensedBackofficePage() {
 
         {/* Tab navigation */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {[['card', '🪪 Virtual Card'], ['steps', '📋 Steps'], ['podcast', '🎤 Podcast']].map(([k, label]) => (
+          {[['card', '🪦 Virtual Card'], ['onboarding', '🗺️ Onboarding'], ['podcast', '🎥 Whatever It Takes']].map(([k, label]) => (
             <button key={k} onClick={() => setTab(k)} style={{ padding: '10px 16px', borderRadius: 999, border: '1px solid #334155', background: tab === k ? '#1D428A' : '#0B1220', color: '#E5E7EB', cursor: 'pointer', fontWeight: 700, fontSize: 14, transition: 'all .18s ease', boxShadow: '0 4px 14px rgba(2,6,23,.25)' }}>{label}</button>
           ))}
         </div>
@@ -535,203 +559,125 @@ export default function UnlicensedBackofficePage() {
           </div>
         ) : null}
 
-        {tab === 'steps' ? (
-          <>
-            {/* 30-Day Sprint Card */}
-            {(() => {
-              try {
-              const startMs = new Date(progress?.sprintStartedAt || 0).getTime();
-              const deadlineDays = 30;
-              const deadlineMs = startMs > 0 ? startMs + deadlineDays * 24 * 60 * 60 * 1000 : 0;
-              const nowMs = Date.now();
-              const daysElapsed = startMs > 0 ? Math.floor((nowMs - startMs) / (24 * 60 * 60 * 1000)) : 0;
-              const daysLeft = deadlineMs > 0 ? Math.max(0, Math.ceil((deadlineMs - nowMs) / (24 * 60 * 60 * 1000))) : 30;
-              const sprintDone = Boolean(progress?.steps?.licenseReceived);
-              const sprintExpired = deadlineMs > 0 && nowMs > deadlineMs && !sprintDone;
-              const barPct = Math.min(100, Math.round((daysElapsed / deadlineDays) * 100));
-              const borderCol = sprintDone ? '#16a34a' : sprintExpired ? '#dc2626' : daysLeft <= 7 ? '#f59e0b' : '#C8A96B';
-              const bgGrad = sprintDone
-                ? 'linear-gradient(160deg,#052e16,#0a1a0a)'
-                : sprintExpired ? 'linear-gradient(160deg,#1a0000,#0d0000)'
-                : 'linear-gradient(160deg,#1a1200,#0d0a00)';
-              return (
-                <div style={{ border: `2px solid ${borderCol}`, borderRadius: 14, background: bgGrad, padding: 18, display: 'grid', gap: 10, marginBottom: 4 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                    <div>
-                      <div style={{ fontWeight: 800, fontSize: 18, color: sprintDone ? '#86EFAC' : '#FCD34D' }}>
-                        {sprintDone ? '30-Day Sprint Complete!' : sprintExpired ? 'Sprint Window Closed' : '30-Day Sprint — Get Licensed, Earn $250'}
-                      </div>
-                      <div style={{ color: '#CBD5E1', fontSize: 13, marginTop: 4 }}>
-                        {sprintDone
-                          ? 'Sprint complete. Your $250 bonus is queued for processing.'
-                          : sprintExpired
-                            ? 'The 30-day window has passed. Keep going — your license still matters.'
-                            : `Get your license within 30 days of joining. ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining.`}
-                      </div>
-                    </div>
-                    <div style={{ border: `1px solid ${borderCol}44`, borderRadius: 12, padding: '10px 16px', textAlign: 'center', background: 'rgba(0,0,0,0.3)', minWidth: 80 }}>
-                      <div style={{ fontSize: 26, fontWeight: 800, color: sprintDone ? '#86EFAC' : daysLeft <= 5 ? '#FCA5A5' : '#FCD34D' }}>
-                        {sprintDone ? 'Done' : daysLeft}
-                      </div>
-                      {!sprintDone && <div style={{ color: '#9CA3AF', fontSize: 11 }}>days left</div>}
-                    </div>
-                  </div>
-                  {!sprintDone && !sprintExpired && (
-                    <div style={{ height: 8, borderRadius: 999, background: '#1F2937', overflow: 'hidden' }}>
-                      <div style={{ width: `${barPct}%`, height: '100%', background: barPct >= 80 ? 'linear-gradient(90deg,#ef4444,#dc2626)' : 'linear-gradient(90deg,#f59e0b,#C8A96B)' }} />
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', color: '#FCD34D', fontSize: 13, fontWeight: 700 }}>
-                    <span>Goal: Get licensed in 30 days</span>
-                    <span style={{ color: '#9CA3AF' }}>&bull;</span>
-                    <span>Reward: $250 bonus</span>
-                    <span style={{ color: '#9CA3AF' }}>&bull;</span>
-                    <span>Day {Math.min(daysElapsed, 30)} of 30</span>
-                  </div>
-                </div>
-              );
-              } catch (e) { return null; }
-            })()}
-
-            <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14 }}>
-              <h3 style={{ marginTop: 0 }}>Required Steps</h3>
-              <div style={{ display: 'grid', gap: 10 }}>
-                {STEP_META.map((s) => (
-                  <div key={s.key} style={{ border: `1px solid ${steps[s.key] ? '#166534' : '#2A3142'}`, borderRadius: 10, background: '#020617', padding: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                      <div>
-                        <strong style={{ color: steps[s.key] ? '#86EFAC' : '#E5E7EB' }}>{s.title}</strong>
-                        <div style={{ color: '#9CA3AF', marginTop: 4 }}>{s.note}</div>
-                      </div>
-                      {s.useReadyButton ? (
-                        <button
-                          type="button"
-                          onClick={notifyPrelicensingReady}
-                          disabled={readySubmitting || saving}
-                          style={{ flexShrink: 0, borderRadius: 999, border: '1px solid #334155', padding: '8px 12px', background: steps[s.key] ? '#065F46' : '#1D4ED8', color: '#E5E7EB', fontWeight: 700 }}
-                        >
-                          {readySubmitting ? 'Sending...' : steps[s.key] ? 'Notified' : "I'm Ready"}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => save({ steps: { ...steps, [s.key]: !steps[s.key] }, fields })}
-                          disabled={saving || readySubmitting}
-                          style={{ flexShrink: 0, borderRadius: 999, border: '1px solid #334155', padding: '8px 12px', background: steps[s.key] ? '#065F46' : '#111827', color: '#E5E7EB', fontWeight: 700 }}
-                        >
-                          {steps[s.key] ? 'Complete' : 'Mark Complete'}
-                        </button>
-                      )}
-                    </div>
-
-                    {s.key === 'prelicensingStarted' && fields.prelicensingReadyRequestedAt ? (
-                      <div style={{ marginTop: 8, color: '#93C5FD', fontSize: 12 }}>
-                        Request sent: {new Date(fields.prelicensingReadyRequestedAt).toLocaleString()}
-                      </div>
-                    ) : null}
-
-                    {s.key === 'examScheduled' ? (
-                      <label style={{ display: 'grid', gap: 4, marginTop: 8, color: '#9CA3AF' }}>
-                        <span>Exam date (if scheduled)</span>
-                        <input
-                          type="date"
-                          value={fields.examScheduledDate || ''}
-                          onChange={(e) => save({ steps, fields: { ...fields, examScheduledDate: e.target.value } })}
-                          style={{ width: 'min(220px,100%)', padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }}
-                        />
-                      </label>
-                    ) : null}
-
-                    {s.key === 'examPassed' ? (
-                      <label style={{ display: 'grid', gap: 4, marginTop: 8, color: '#9CA3AF' }}>
-                        <span>Exam pass date</span>
-                        <input
-                          type="date"
-                          value={fields.examPassDate || ''}
-                          onChange={(e) => save({ steps, fields: { ...fields, examPassDate: e.target.value } })}
-                          style={{ width: 'min(220px,100%)', padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }}
-                        />
-                      </label>
-                    ) : null}
-
-                    {s.key === 'licenseReceived' ? (
-                      <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 }}>
-                        <label style={{ display: 'grid', gap: 4, color: '#9CA3AF' }}>
-                          <span>License received date</span>
-                          <input
-                            type="date"
-                            value={fields.licenseReceivedDate || ''}
-                            onChange={(e) => save({ steps, fields: { ...fields, licenseReceivedDate: e.target.value } })}
-                            style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }}
-                          />
-                        </label>
-                        <label style={{ display: 'grid', gap: 4, color: '#9CA3AF' }}>
-                          <span>License number</span>
-                          <input
-                            value={fields.licenseNumber || ''}
-                            onChange={(e) => save({ steps, fields: { ...fields, licenseNumber: e.target.value } })}
-                            placeholder="Your license #"
-                            style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0B1220', color: '#fff' }}
-                          />
-                        </label>
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
+        {tab === 'onboarding' ? (
+          <div style={{ display: 'grid', gap: 16 }}>
+            {onboardingLoading && !onboardingData && (
+              <p style={{ color: '#94A3B8', textAlign: 'center', padding: 32 }}>Loading your onboarding tracker…</p>
+            )}
+            {!onboardingLoading && onboardingData === null && (
+              <div style={{ border: '1px solid #1e3a5f', borderRadius: 14, background: '#0B1220', padding: '28px 24px', textAlign: 'center' }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
+                <p style={{ color: '#94A3B8', margin: 0 }}>Your onboarding tracker isn&apos;t set up yet. Contact <a href="mailto:support@thelegacylink.com" style={{ color: '#60A5FA' }}>support@thelegacylink.com</a> to get enrolled.</p>
               </div>
-            </div>
-          </>
-        ) : null}
+            )}
+            {onboardingData && (() => {
+              const { agent, checklist = [] } = onboardingData;
+              const coreItems = checklist.filter(r => r.visible && !r.item?.recurring);
+              const recurringItems = checklist.filter(r => r.visible && r.item?.recurring);
+              const doneCount = coreItems.filter(r => r.checked).length;
+              const totalCount = coreItems.length;
+              const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+              const daysSince = agent?.start_date ? Math.floor((Date.now() - new Date(agent.start_date)) / 86400000) : 0;
+              const AGENT_CAN_CHECK = new Set(['YOU DO', 'WE GUIDE']);
 
-        <div id="upline-help-section" style={{ border: '1px solid #7F1D1D', borderRadius: 12, background: '#0F172A', padding: 14, display: 'grid', gap: 10 }}>
-          <h3 style={{ margin: 0 }}>Uplink Support</h3>
-          <p style={{ color: '#9CA3AF', margin: 0 }}>For now, all unlicensed support messages route to <strong style={{ color: '#E5E7EB' }}>Jamal Holmes</strong>.</p>
-          {uplineSupport?.upline ? (
-            <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#020617', padding: 10 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <strong>{clean(uplineSupport.upline.name || 'Jamal Holmes')}</strong>
-                <span style={{ border: '1px solid #334155', borderRadius: 999, padding: '2px 8px', fontSize: 12, color: '#CBD5E1' }}>{clean(uplineSupport.upline.role || 'Regional Director')}</span>
-                {uplineSupport.upline.email ? <span style={{ color: '#93C5FD', fontSize: 13 }}>{uplineSupport.upline.email}</span> : null}
-              </div>
-            </div>
-          ) : null}
+              const handleCheck = async (itemId, checked) => {
+                setOnboardingSaving(true);
+                try {
+                  await fetch('/api/onboarding/check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ item_id: itemId, checked })
+                  });
+                  await loadOnboarding(token);
+                } catch {} finally { setOnboardingSaving(false); }
+              };
 
-          {uplineSupport?.loading ? <div style={{ color: '#9CA3AF' }}>Loading thread…</div> : null}
-          {uplineSupport?.error ? <div style={{ color: '#FCA5A5' }}>{uplineSupport.error}</div> : null}
-
-          <div style={{ display: 'grid', gap: 8, maxHeight: 220, overflow: 'auto' }}>
-            {!uplineSupport?.rows?.length ? (
-              <div style={{ border: '1px dashed #334155', borderRadius: 10, padding: 10, color: '#9CA3AF' }}>No support messages yet.</div>
-            ) : (
-              uplineSupport.rows.slice(-20).map((msg, idx) => {
-                const mine = clean(msg?.fromRole) === 'agent';
+              const renderItem = (row) => {
+                const item = row.item || {};
+                const canCheck = AGENT_CAN_CHECK.has(item.owner);
+                const ownerColors = { 'YOU DO': '#D4A24A', 'WE GUIDE': '#D4A24A', 'WE DO': '#64748b', 'CARRIER': '#64748b', 'WE PAY': '#64748b' };
                 return (
-                  <div key={msg?.id || `${idx}-${msg?.createdAt || 'na'}`} style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, background: mine ? '#13203A' : '#111827' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-                      <strong>{mine ? 'You' : clean(msg?.fromName || 'Jamal')}</strong>
-                      <span style={{ color: '#9CA3AF', fontSize: 12 }}>{clean(msg?.createdAt) ? new Date(msg.createdAt).toLocaleString() : '—'}</span>
+                  <div key={item.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 14, padding: '13px 16px',
+                    background: row.checked ? 'rgba(67,122,34,0.08)' : row.is_overdue ? 'rgba(161,44,123,0.07)' : '#0f172a',
+                    border: `1px solid ${row.checked ? '#3d6b1a' : row.is_overdue ? '#7c1a5e' : '#1e3a5f'}`,
+                    borderRadius: 10
+                  }}>
+                    <button
+                      onClick={() => canCheck && handleCheck(item.id, !row.checked)}
+                      disabled={!canCheck || onboardingSaving}
+                      style={{
+                        width: 26, height: 26, borderRadius: 6, flexShrink: 0, border: `2px solid ${row.checked ? '#437a22' : '#334155'}`,
+                        background: row.checked ? '#437a22' : '#0b1220', color: '#fff', cursor: canCheck ? 'pointer' : 'not-allowed',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14
+                      }}
+                    >
+                      {row.checked ? '✓' : !canCheck ? '🔒' : ''}
+                    </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: row.checked ? '#86efac' : '#f1f5f9', textDecoration: row.checked ? 'line-through' : 'none', lineHeight: 1.3 }}>
+                        <span style={{ color: '#B28147', marginRight: 8, fontSize: 12 }}>{String(item.id).padStart(2,'0')}</span>
+                        {(item.title || '').replace(/ \(Elite\)$| \(Paid In Full Only\)$/, '')}
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, marginTop: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, color: ownerColors[item.owner] || '#94A3B8', fontWeight: 600 }}>{item.owner}</span>
+                        {!item.recurring && <span style={{ fontSize: 11, color: '#475569' }}>Days {item.target_day_start}–{item.target_day_end}</span>}
+                        {item.recurring && <span style={{ fontSize: 11, color: '#475569' }}>Every {item.target_day_end === 7 ? 'week' : 'month'}</span>}
+                        {row.is_overdue && <span style={{ fontSize: 11, color: '#e879b0', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Overdue</span>}
+                        {item.elite_only && <span style={{ fontSize: 10, background: '#D4A24A', color: '#0A0A0A', padding: '2px 6px', borderRadius: 3, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Elite</span>}
+                        {row.checked && row.checked_at && <span style={{ fontSize: 11, color: '#64748b' }}>Done {new Date(row.checked_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+                      </div>
                     </div>
-                    <div style={{ whiteSpace: 'pre-wrap' }}>{clean(msg?.body || '')}</div>
                   </div>
                 );
-              })
-            )}
-          </div>
+              };
 
-          <textarea
-            value={uplineDraft}
-            onChange={(e) => setUplineDraft(e.target.value)}
-            rows={3}
-            placeholder="Message Jamal..."
-            style={{ width: '100%', borderRadius: 10, border: '1px solid #374151', background: '#0B1220', color: '#fff', padding: '10px 12px' }}
-          />
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <button type="button" onClick={sendUplineMessage} disabled={uplineSending} style={{ padding: '10px 14px', borderRadius: 10, border: 0, background: '#1D4ED8', color: '#fff', fontWeight: 800 }}>
-              {uplineSending ? 'Sending…' : 'Send Support Message'}
-            </button>
-            {uplineNotice ? <span style={{ color: uplineNotice.toLowerCase().includes('could not') ? '#FCA5A5' : '#86EFAC' }}>{uplineNotice}</span> : null}
+              return (
+                <>
+                  {/* Header */}
+                  <div style={{ border: '1px solid #1e3a5f', borderRadius: 14, background: '#0B1220', padding: '20px 22px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#B28147', marginBottom: 4 }}>Your Onboarding Path</div>
+                        <div style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 700, fontSize: 22, color: '#F8FAFC' }}>Welcome, {(agent.first_name || '').split(' ')[0]}.</div>
+                        <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>
+                          {agent.tier === 'elite' ? 'Inner Circle Elite' : 'Inner Circle'} &mdash; Day {daysSince}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 20 }}>
+                        {[['Complete', doneCount], ['Remaining', totalCount - doneCount], ['Day', daysSince]].map(([l,v]) => (
+                          <div key={l} style={{ textAlign: 'center' }}>
+                            <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 26, fontWeight: 700, color: '#F8FAFC', lineHeight: 1 }}>{v}</div>
+                            <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>{l}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ height: 8, background: '#1e3a5f', borderRadius: 99, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #8A6234, #D4A24A)', borderRadius: 99, transition: 'width 0.6s' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12 }}>
+                      <span style={{ color: '#B28147', fontWeight: 700 }}>{pct}% Complete</span>
+                      <span style={{ color: '#64748b' }}>{pct < 30 ? 'Foundation phase. Keep moving.' : pct < 70 ? 'Momentum building. Stay disciplined.' : pct < 100 ? 'Almost fully producing. Finish strong.' : 'Fully producing. Lead by example.'}</span>
+                    </div>
+                  </div>
+
+                  {/* Core items */}
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: -8 }}>Core Onboarding</div>
+                  {coreItems.map(renderItem)}
+
+                  {recurringItems.length > 0 && (
+                    <>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#B28147', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: -8, marginTop: 8 }}>Recurring Discipline</div>
+                      {recurringItems.map(renderItem)}
+                    </>
+                  )}
+                </>
+              );
+            })()}
           </div>
-        </div>
+        ) : null}
+
         {tab === 'card' ? (
           <div style={{ background: '#0a0c10', borderRadius: 18, padding: 24 }}>
             <CardEditor

@@ -79,7 +79,13 @@ export default function AdminOnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
 
-  // Add agent form
+  // Enroll-from-system state
+  const [systemAgents, setSystemAgents] = useState([]);
+  const [systemSearch, setSystemSearch] = useState('');
+  const [enrollForm, setEnrollForm] = useState({ tier: 'inner_circle', paid_in_full: false, start_date: new Date().toISOString().slice(0, 10) });
+  const [enrollSelected, setEnrollSelected] = useState(null); // { email, first_name, last_name }
+
+  // Add agent form (kept for edge cases)
   const [form, setForm] = useState({ first_name: '', last_name: '', email: '', tier: 'inner_circle', paid_in_full: false, start_date: new Date().toISOString().slice(0, 10) });
 
   const showToast = useCallback((msg, type = 'success') => {
@@ -109,7 +115,24 @@ export default function AdminOnboardingPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // Load system agents for the enroll picker
+  const loadSystemAgents = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const res = await fetch('/api/admin/onboarding/system-agents', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json().catch(() => ({}));
+      if (data?.ok) setSystemAgents(data.agents || []);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    load();
+    loadSystemAgents();
+    // Poll every 30s so admin sees agent updates in real time
+    const interval = setInterval(() => { load(); }, 30000);
+    return () => clearInterval(interval);
+  }, [load, loadSystemAgents]);
 
   async function openDrawer(agent) {
     setDrawer({ agent });
@@ -199,8 +222,45 @@ export default function AdminOnboardingPage() {
       setAddModal(false);
       setForm({ first_name: '', last_name: '', email: '', tier: 'inner_circle', paid_in_full: false, start_date: new Date().toISOString().slice(0, 10) });
       await load();
+      loadSystemAgents();
     } catch (err) {
       showToast('Error adding agent: ' + err.message, 'error');
+    }
+    setSaving(false);
+  }
+
+  async function enrollFromSystem() {
+    if (!enrollSelected) {
+      showToast('Select a person first', 'error');
+      return;
+    }
+    const token = getToken();
+    setSaving(true);
+    try {
+      const payload = {
+        first_name: enrollSelected.first_name,
+        last_name: enrollSelected.last_name,
+        email: enrollSelected.email,
+        tier: enrollForm.tier,
+        paid_in_full: enrollForm.paid_in_full,
+        start_date: enrollForm.start_date,
+      };
+      const res = await fetch('/api/admin/onboarding/agents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      showToast(`${enrollSelected.first_name} enrolled ✓`);
+      setAddModal(false);
+      setEnrollSelected(null);
+      setSystemSearch('');
+      setEnrollForm({ tier: 'inner_circle', paid_in_full: false, start_date: new Date().toISOString().slice(0, 10) });
+      await load();
+      loadSystemAgents();
+    } catch (err) {
+      showToast('Error enrolling: ' + err.message, 'error');
     }
     setSaving(false);
   }
@@ -272,7 +332,7 @@ export default function AdminOnboardingPage() {
               onClick={() => setAddModal(true)}
               style={{ padding: '10px 20px', background: C.gold, color: C.ink, border: 0, borderRadius: 8, fontFamily: 'DM Sans, sans-serif', fontWeight: 700, fontSize: 13, cursor: 'pointer', letterSpacing: '0.02em' }}
             >
-              + Add Agent
+              + Enroll Agent
             </button>
           </div>
         </div>
@@ -439,14 +499,19 @@ export default function AdminOnboardingPage() {
         />
       )}
 
-      {/* ─── Add Agent Modal ─── */}
+      {/* ─── Enroll Agent Modal ─── */}
       {addModal && (
-        <AddAgentModal
-          form={form}
-          setForm={setForm}
+        <EnrollModal
+          systemAgents={systemAgents}
+          systemSearch={systemSearch}
+          setSystemSearch={setSystemSearch}
+          enrollSelected={enrollSelected}
+          setEnrollSelected={setEnrollSelected}
+          enrollForm={enrollForm}
+          setEnrollForm={setEnrollForm}
           saving={saving}
-          onClose={() => setAddModal(false)}
-          onSubmit={addAgent}
+          onClose={() => { setAddModal(false); setEnrollSelected(null); setSystemSearch(''); }}
+          onSubmit={enrollFromSystem}
         />
       )}
 
@@ -624,75 +689,106 @@ function AgentDrawer({ agent, detail, saving, onClose, onCheck, onUpgrade, onNud
   );
 }
 
-// ─── Add Agent Modal ──────────────────────────────────────────────────────────
-function AddAgentModal({ form, setForm, saving, onClose, onSubmit }) {
+// ─── Enroll Agent Modal ──────────────────────────────────────────────────────
+function EnrollModal({ systemAgents, systemSearch, setSystemSearch, enrollSelected, setEnrollSelected, enrollForm, setEnrollForm, saving, onClose, onSubmit }) {
   useEffect(() => {
     const handler = e => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const field = (label, key, type = 'text', opts = null) => (
-    <div style={{ marginBottom: 16 }}>
-      <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>{label}</label>
-      {opts ? (
-        <select
-          value={form[key]}
-          onChange={e => setForm(f => ({ ...f, [key]: e.target.value === 'true' ? true : e.target.value === 'false' ? false : e.target.value }))}
-          style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.line}`, background: C.paper, fontSize: 14, fontFamily: 'Inter, sans-serif', color: C.text }}
-        >
-          {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-      ) : (
-        <input
-          type={type}
-          value={form[key]}
-          onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-          style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.line}`, background: C.paper, fontSize: 14, fontFamily: 'Inter, sans-serif', color: C.text, boxSizing: 'border-box' }}
-        />
-      )}
-    </div>
-  );
+  const filtered = systemAgents.filter(a => {
+    if (!systemSearch) return true;
+    const q = systemSearch.toLowerCase();
+    return `${a.first_name} ${a.last_name} ${a.email}`.toLowerCase().includes(q);
+  });
+
+  const inp = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.line}`, background: C.cream, fontSize: 14, fontFamily: 'Inter, sans-serif', color: C.ink, boxSizing: 'border-box' };
+  const lbl = { display: 'block', fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 };
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200 }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(10,10,10,0.5)' }} />
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(10,10,10,0.55)' }} />
       <div style={{
         position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        width: '100%', maxWidth: 480, background: C.paper, borderRadius: 12, padding: 32,
-        boxShadow: '0 20px 60px rgba(10,10,10,0.2)'
+        width: '100%', maxWidth: 520, background: C.paper, borderRadius: 14, padding: '28px 28px 24px',
+        boxShadow: '0 20px 60px rgba(10,10,10,0.2)', maxHeight: '90vh', overflowY: 'auto'
       }}>
         <button onClick={onClose} style={{ position: 'absolute', top: 12, right: 16, background: 'none', border: 0, fontSize: 26, color: C.textFaint, cursor: 'pointer' }}>×</button>
-        <h2 style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 20, fontWeight: 700, color: C.ink, margin: '0 0 24px' }}>Add New Agent</h2>
+        <h2 style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 20, fontWeight: 700, color: C.ink, margin: '0 0 6px' }}>Enroll Agent</h2>
+        <p style={{ margin: '0 0 20px', fontSize: 13, color: C.textMuted }}>Select from people already in the system. Only those not yet enrolled are shown.</p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-          <div>{field('First Name', 'first_name')}</div>
-          <div>{field('Last Name', 'last_name')}</div>
+        <input
+          placeholder="Search by name or email…"
+          value={systemSearch}
+          onChange={e => setSystemSearch(e.target.value)}
+          style={{ ...inp, marginBottom: 12 }}
+          autoFocus
+        />
+
+        <div style={{ maxHeight: 210, overflowY: 'auto', border: `1px solid ${C.line}`, borderRadius: 8, marginBottom: 20 }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding: '20px 16px', textAlign: 'center', color: C.textFaint, fontSize: 13 }}>
+              {systemAgents.length === 0 ? 'Everyone in the system is already enrolled.' : 'No matches.'}
+            </div>
+          ) : filtered.map(a => (
+            <div
+              key={a.email}
+              onClick={() => setEnrollSelected(a)}
+              style={{
+                padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                cursor: 'pointer', borderBottom: `1px solid ${C.line}`,
+                background: enrollSelected?.email === a.email ? 'rgba(178,129,71,0.1)' : 'transparent',
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: C.ink }}>{a.first_name} {a.last_name}</div>
+                <div style={{ fontSize: 12, color: C.textMuted }}>{a.email}</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 11, color: C.textFaint, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{a.track_type}</span>
+                {enrollSelected?.email === a.email && <span style={{ color: C.gold, fontSize: 18, fontWeight: 700 }}>✓</span>}
+              </div>
+            </div>
+          ))}
         </div>
-        {field('Email', 'email', 'email')}
-        {field('Tier', 'tier', 'text', [
-          { value: 'inner_circle', label: 'Inner Circle' },
-          { value: 'elite', label: 'Inner Circle Elite' }
-        ])}
-        {field('Paid In Full?', 'paid_in_full', 'text', [
-          { value: 'false', label: 'No' },
-          { value: 'true', label: 'Yes' }
-        ])}
-        {field('Start Date', 'start_date', 'date')}
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-          <button
-            onClick={onClose}
-            style={{ flex: 1, padding: '12px 0', borderRadius: 8, border: `1px solid ${C.line}`, background: C.cream, color: C.text, fontFamily: 'DM Sans, sans-serif', fontWeight: 600, cursor: 'pointer' }}
-          >
-            Cancel
-          </button>
+        {enrollSelected && (
+          <>
+            <div style={{ background: 'rgba(178,129,71,0.08)', border: `1px solid ${C.gold}`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: C.ink }}>
+              Selected: <strong>{enrollSelected.first_name} {enrollSelected.last_name}</strong> — {enrollSelected.email}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+              <div style={{ marginBottom: 14 }}>
+                <label style={lbl}>Tier</label>
+                <select value={enrollForm.tier} onChange={e => setEnrollForm(f => ({ ...f, tier: e.target.value }))} style={inp}>
+                  <option value="inner_circle">Inner Circle</option>
+                  <option value="elite">Inner Circle Elite</option>
+                </select>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={lbl}>Paid In Full?</label>
+                <select value={enrollForm.paid_in_full} onChange={e => setEnrollForm(f => ({ ...f, paid_in_full: e.target.value === 'true' }))} style={inp}>
+                  <option value="false">No</option>
+                  <option value="true">Yes</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={lbl}>Start Date</label>
+              <input type="date" value={enrollForm.start_date} onChange={e => setEnrollForm(f => ({ ...f, start_date: e.target.value }))} style={inp} />
+            </div>
+          </>
+        )}
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '12px 0', borderRadius: 8, border: `1px solid ${C.line}`, background: C.cream, color: C.text, fontFamily: 'DM Sans, sans-serif', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
           <button
             onClick={onSubmit}
-            disabled={saving}
-            style={{ flex: 2, padding: '12px 0', borderRadius: 8, border: 0, background: C.ink, color: C.goldBright, fontFamily: 'DM Sans, sans-serif', fontWeight: 700, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}
+            disabled={saving || !enrollSelected}
+            style={{ flex: 2, padding: '12px 0', borderRadius: 8, border: 0, background: enrollSelected ? C.ink : C.line, color: enrollSelected ? C.goldBright : C.textFaint, fontFamily: 'DM Sans, sans-serif', fontWeight: 700, cursor: enrollSelected ? 'pointer' : 'not-allowed', opacity: saving ? 0.7 : 1 }}
           >
-            {saving ? 'Adding…' : 'Add Agent + Init Checklist'}
+            {saving ? 'Enrolling…' : enrollSelected ? `Enroll ${enrollSelected.first_name}` : 'Select a person first'}
           </button>
         </div>
       </div>
