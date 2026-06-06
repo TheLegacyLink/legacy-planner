@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 // POST /api/onboarding/check — agent checks/unchecks a YOU DO or WE GUIDE item
 
 import { NextResponse } from 'next/server';
-import { sessionFromToken } from '../../start-auth/_lib';
+import { resolveMemberSession } from '../../../../lib/onboardingMemberAuth.js';
 import {
   getAgentByEmail,
   upsertChecklistRow,
@@ -26,7 +26,7 @@ export async function POST(req) {
     const t = token(req);
     if (!t) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
-    const session = await sessionFromToken(t);
+    const session = await resolveMemberSession(req);
     if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
     const agent = await getAgentByEmail(session.email);

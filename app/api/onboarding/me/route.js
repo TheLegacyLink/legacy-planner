@@ -4,7 +4,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { sessionFromToken } from '../../start-auth/_lib';
+import { resolveMemberSession } from '../../../../lib/onboardingMemberAuth.js';
 import {
   getAgentByEmail,
   getChecklist,
@@ -29,7 +29,7 @@ export async function GET(req) {
     const t = token(req);
     if (!t) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
-    const session = await sessionFromToken(t);
+    const session = await resolveMemberSession(req);
     if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
     const agent = await getAgentByEmail(session.email);

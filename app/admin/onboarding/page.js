@@ -160,22 +160,35 @@ export default function AdminOnboardingPage() {
 
   async function adminCheck(agentId, itemId, checked) {
     const token = getToken();
+    // Optimistic update — flip locally right away so UI responds instantly
+    // (Vercel Blob CDN cache means re-fetching immediately returns stale data)
+    setDrawerDetail(prev => {
+      if (!prev) return prev;
+      const now = new Date().toISOString();
+      return {
+        ...prev,
+        checklist: (prev.checklist || []).map(e =>
+          e.item?.id === itemId
+            ? { ...e, checked, checked_at: checked ? now : null, checked_by: checked ? 'admin' : null, is_overdue: false }
+            : e
+        )
+      };
+    });
     setSaving(true);
     try {
-      await fetch('/api/admin/onboarding/check', {
+      const res = await fetch('/api/admin/onboarding/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ agent_id: agentId, item_id: itemId, checked })
       });
-      showToast(checked ? 'Marked complete' : 'Unmarked');
-      // Refresh detail
-      const res = await fetch(`/api/admin/onboarding/agents/${agentId}`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      setDrawerDetail(data);
-      // Refresh main list
-      await load();
+      if (!res.ok) throw new Error();
+      showToast(checked ? 'Marked complete ✓' : 'Unmarked');
+      // Refresh list summary in background (delay so CDN has time to propagate)
+      setTimeout(() => load(), 1500);
     } catch {
       showToast('Error saving', 'error');
+      // Revert optimistic update on failure
+      openDrawer(drawer?.agent);
     }
     setSaving(false);
   }

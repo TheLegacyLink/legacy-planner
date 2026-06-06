@@ -799,13 +799,31 @@ export default function MissionControl() {
   };
 
   const checkOnboardingItem = async (agentId, itemId, checked) => {
-    await fetch('/api/admin/onboarding/check', {
-      method: 'POST',
-      headers: onboardingAuthHeader(),
-      body: JSON.stringify({ agent_id: agentId, item_id: itemId, checked })
+    // Optimistic update — flip locally immediately
+    const now = new Date().toISOString();
+    setOnboardingDetail(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        checklist: (prev.checklist || []).map(e =>
+          e.item?.id === itemId
+            ? { ...e, checked, checked_at: checked ? now : null, checked_by: checked ? 'admin' : null }
+            : e
+        )
+      };
     });
-    loadOnboardingDetail(agentId);
-    loadOnboardingAgents();
+    try {
+      await fetch('/api/admin/onboarding/check', {
+        method: 'POST',
+        headers: onboardingAuthHeader(),
+        body: JSON.stringify({ agent_id: agentId, item_id: itemId, checked })
+      });
+      // Background refresh with delay for CDN propagation
+      setTimeout(() => { loadOnboardingDetail(agentId); loadOnboardingAgents(); }, 1500);
+    } catch {
+      // Revert on error
+      loadOnboardingDetail(agentId);
+    }
   };
 
   if (!authed) {

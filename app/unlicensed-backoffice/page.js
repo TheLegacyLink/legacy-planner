@@ -581,6 +581,19 @@ export default function UnlicensedBackofficePage() {
               const AGENT_CAN_CHECK = new Set(['YOU DO', 'WE GUIDE']);
 
               const handleCheck = async (itemId, checked) => {
+                // Optimistic update
+                const now = new Date().toISOString();
+                setOnboardingData(prev => {
+                  if (!prev) return prev;
+                  return {
+                    ...prev,
+                    checklist: (prev.checklist || []).map(r =>
+                      r.item?.id === itemId
+                        ? { ...r, checked, checked_at: checked ? now : null }
+                        : r
+                    )
+                  };
+                });
                 setOnboardingSaving(true);
                 try {
                   await fetch('/api/onboarding/check', {
@@ -588,8 +601,10 @@ export default function UnlicensedBackofficePage() {
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                     body: JSON.stringify({ item_id: itemId, checked })
                   });
-                  await loadOnboarding(token);
-                } catch {} finally { setOnboardingSaving(false); }
+                  setTimeout(() => loadOnboarding(token), 1500);
+                } catch {
+                  loadOnboarding(token); // revert on error
+                } finally { setOnboardingSaving(false); }
               };
 
               const renderItem = (row) => {

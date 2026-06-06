@@ -863,6 +863,11 @@ export default function InnerCircleHubPage() {
   const [savingTracker, setSavingTracker] = useState(false);
   const [copiedKey, setCopiedKey] = useState('');
   const [uplineUnreadCount, setUplineUnreadCount] = useState(0);
+  // IC Onboarding tracker state
+  const [icOnboarding, setIcOnboarding] = useState(null);
+  const [icOnboardingLoading, setIcOnboardingLoading] = useState(false);
+  const [icOnboardingSaving, setIcOnboardingSaving] = useState(false);
+
   const [licensedStates, setLicensedStates] = useState([]);
   const [licensedStatesBusy, setLicensedStatesBusy] = useState(false);
   const [licensedStatesMsg, setLicensedStatesMsg] = useState('');
@@ -3630,13 +3635,10 @@ export default function InnerCircleHubPage() {
             ) : null}
 
             {tab === 'onboarding' ? (
-              <div style={{ border: '1px solid #2A3142', borderRadius: 12, overflow: 'hidden', background: '#0F172A' }}>
-                <iframe
-                  title="Licensed Onboarding Tracker"
-                  src={`/licensed-onboarding-tracker?track=inner-circle&viewerName=${encodeURIComponent(clean(member?.applicantName || member?.name || ''))}&viewerEmail=${encodeURIComponent(clean(member?.email || ''))}&viewerRole=${encodeURIComponent(clean(member?.role || 'agent'))}`}
-                  style={{ width: '100%', minHeight: 1450, border: 0, background: '#020617' }}
-                />
-              </div>
+              <IcOnboardingTab
+                email={clean(member?.email || '').toLowerCase()}
+                token={typeof window !== 'undefined' ? (window.localStorage.getItem('licensed_backoffice_token') || '') : ''}
+              />
             ) : null}
 
             {tab === 'tracker' ? (
@@ -4805,5 +4807,105 @@ export default function InnerCircleHubPage() {
       `}</style>
     <PodcastPopup />
     </main>
+  );
+}
+
+// ─── IC Onboarding Tab Component ───────────────────────────────────────────────
+function IcOnboardingTab({ email, token }) {
+  const [data, setData] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const AGENT_CAN_CHECK = new Set(['YOU DO', 'WE GUIDE']);
+
+  const load = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch('/api/onboarding/me', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+      if (res.ok) { const d = await res.json(); if (d?.ok) setData(d); }
+      else if (res.status === 404) setData(null);
+    } catch {}
+  };
+
+  useEffect(() => {
+    load();
+    const iv = setInterval(load, 30000);
+    return () => clearInterval(iv);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  const handleCheck = async (itemId, checked) => {
+    const now = new Date().toISOString();
+    setData(prev => prev ? { ...prev, checklist: (prev.checklist || []).map(r => r.item?.id === itemId ? { ...r, checked, checked_at: checked ? now : null } : r) } : prev);
+    setSaving(true);
+    try {
+      await fetch('/api/onboarding/check', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ item_id: itemId, checked }) });
+      setTimeout(load, 1500);
+    } catch { load(); } finally { setSaving(false); }
+  };
+
+  if (!data) return (
+    <div style={{ border: '1px solid #2A3142', borderRadius: 12, padding: '32px 24px', background: '#0F172A', textAlign: 'center', color: '#64748b' }}>
+      <div style={{ fontSize: 28, marginBottom: 12 }}>📋</div>
+      <p style={{ margin: 0 }}>Your onboarding tracker isn&apos;t set up yet. Contact <a href="mailto:support@thelegacylink.com" style={{ color: '#60A5FA' }}>support@thelegacylink.com</a>.</p>
+    </div>
+  );
+
+  const { agent, checklist = [] } = data;
+  const core = checklist.filter(r => r.visible && !r.item?.recurring);
+  const recurring = checklist.filter(r => r.visible && r.item?.recurring);
+  const done = core.filter(r => r.checked).length;
+  const total = core.length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const days = agent?.start_date ? Math.floor((Date.now() - new Date(agent.start_date)) / 86400000) : 0;
+
+  const renderRow = (row) => {
+    const item = row.item || {};
+    const canCheck = AGENT_CAN_CHECK.has(item.owner);
+    return (
+      <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: row.checked ? 'rgba(67,122,34,0.08)' : row.is_overdue ? 'rgba(161,44,123,0.07)' : '#0f172a', border: `1px solid ${row.checked ? '#3d6b1a' : row.is_overdue ? '#7c1a5e' : '#1e3a5f'}`, borderRadius: 10, marginBottom: 8 }}>
+        <button onClick={() => canCheck && !saving && handleCheck(item.id, !row.checked)} disabled={!canCheck || saving} style={{ width: 26, height: 26, borderRadius: 6, border: `2px solid ${row.checked ? '#437a22' : '#334155'}`, background: row.checked ? '#437a22' : 'transparent', color: '#fff', cursor: canCheck ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>{row.checked ? '✓' : (!canCheck ? '🔒' : '')}</button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, color: row.checked ? '#86efac' : '#f1f5f9', textDecoration: row.checked ? 'line-through' : 'none', lineHeight: 1.3 }}>
+            <span style={{ color: '#B28147', marginRight: 8, fontSize: 12 }}>{String(item.id).padStart(2,'0')}</span>
+            {(item.title || '').replace(/ \(Elite\)$| \(Paid In Full Only\)$/, '')}
+          </div>
+          <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>{item.owner}{row.is_overdue ? ' — ⚠️ Overdue' : ''}{row.checked && row.checked_at ? ` — Done ${new Date(row.checked_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}` : ''}</div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <div style={{ border: '1px solid #1e3a5f', borderRadius: 14, background: '#0B1220', padding: '20px 22px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#B28147', marginBottom: 4 }}>Your Onboarding Path</div>
+            <div style={{ fontWeight: 700, fontSize: 22, color: '#F8FAFC' }}>Welcome, {agent.first_name}.</div>
+            <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>{agent.tier === 'elite' ? 'Inner Circle Elite' : 'Inner Circle'} &mdash; Day {days}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 20 }}>
+            {[['Complete', done], ['Remaining', total - done], ['Day', days]].map(([l,v]) => (
+              <div key={l} style={{ textAlign: 'center' }}>
+                <div style={{ fontWeight: 700, fontSize: 26, color: '#F8FAFC', lineHeight: 1 }}>{v}</div>
+                <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 3 }}>{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ height: 8, background: '#1e3a5f', borderRadius: 99, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg,#8A6234,#D4A24A)', borderRadius: 99, transition: 'width 0.6s' }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12 }}>
+          <span style={{ color: '#B28147', fontWeight: 700 }}>{pct}% Complete</span>
+          <span style={{ color: '#64748b' }}>{pct === 0 ? 'Let’s get started.' : pct < 50 ? 'Building momentum.' : pct < 100 ? 'Stay disciplined.' : 'Fully producing.'}</span>
+        </div>
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Core Onboarding</div>
+      {core.map(renderRow)}
+      {recurring.length > 0 && <>
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#B28147', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 8 }}>Recurring Discipline</div>
+        {recurring.map(renderRow)}
+      </>}
+    </div>
   );
 }
