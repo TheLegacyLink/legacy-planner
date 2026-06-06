@@ -11,12 +11,8 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req) {
   try {
-    const t = token(req);
-    if (!t) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-    const session = await sessionFromToken(t);
-    if (!session || !ADMIN_EMAILS.has(session.email)) {
-      return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-    }
+    const session = await resolveAdminSession(req);
+    if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
     console.log('[nudge stub] agent_id:', body.agent_id, '— Phase 2 SMS/email nudge not yet implemented');

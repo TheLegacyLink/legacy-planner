@@ -15,12 +15,8 @@ export async function POST(req) {
   try {
     await ensureLeticiaWright();
 
-    const t = token(req);
-    if (!t) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-    const session = await sessionFromToken(t);
-    if (!session || !ADMIN_EMAILS.has(session.email)) {
-      return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-    }
+    const session = await resolveAdminSession(req);
+    if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
     const result = await sendWeeklyReport();
     return NextResponse.json(result);

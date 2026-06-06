@@ -15,20 +15,12 @@ import { ensureLeticiaWright } from '../../../../../lib/onboardingSeed';
 
 
 
-async function requireAdmin(req) {
-  const t = token(req);
-  if (!t) return null;
-  const session = await sessionFromToken(t);
-  if (!session) return null;
-  if (!ADMIN_EMAILS.has(session.email)) return null;
-  return session;
-}
 
 export async function POST(req) {
   try {
     await ensureLeticiaWright();
 
-    const session = await requireAdmin(req);
+    const session = await resolveAdminSession(req);
     if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
