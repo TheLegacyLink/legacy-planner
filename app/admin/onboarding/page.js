@@ -78,6 +78,9 @@ export default function AdminOnboardingPage() {
   const [addModal, setAddModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
+  const [passcode, setPasscode] = useState('');
+  const [passcodeInput, setPasscodeInput] = useState('');
+  const [passError, setPassError] = useState('');
 
   // Enroll-from-system state
   const [systemAgents, setSystemAgents] = useState([]);
@@ -93,7 +96,9 @@ export default function AdminOnboardingPage() {
     setTimeout(() => setToast(null), 3000);
   }, []);
 
+  // Token: prefer mc: passcode (most reliable), fallback to localStorage session token
   const getToken = () => {
+    if (passcode) return `mc:${passcode}`;
     if (typeof window === 'undefined') return null;
     return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LICENSED_TOKEN_KEY) || null;
   };
@@ -133,6 +138,11 @@ export default function AdminOnboardingPage() {
     const interval = setInterval(() => { load(); }, 30000);
     return () => clearInterval(interval);
   }, [load, loadSystemAgents]);
+
+  // Re-load when passcode is entered
+  useEffect(() => {
+    if (passcode) { load(); loadSystemAgents(); }
+  }, [passcode, load, loadSystemAgents]);
 
   async function openDrawer(agent) {
     setDrawer({ agent });
@@ -298,12 +308,46 @@ export default function AdminOnboardingPage() {
     );
   }
 
+  async function submitPasscode() {
+    setPassError('');
+    try {
+      const res = await fetch('/api/admin-skeleton-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: 'Kimora Link', password: passcodeInput })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) { setPassError('Incorrect passcode.'); return; }
+      setPasscode(passcodeInput);
+    } catch { setPassError('Unable to verify. Try again.'); }
+  }
+
   if (pageState === 'auth') {
     return (
-      <div style={{ minHeight: '100vh', background: C.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <div style={{ textAlign: 'center', color: C.cream, fontFamily: 'Inter, sans-serif' }}>
-          <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 22, fontWeight: 700, color: C.goldBright, marginBottom: 12 }}>Access Denied</div>
-          <p style={{ color: C.textFaint }}>Admin access required. <a href="/start" style={{ color: C.gold }}>Sign in</a></p>
+      <div style={{ minHeight: '100vh', background: C.ink, display: 'grid', placeItems: 'center', padding: 24 }}>
+        <div style={{ width: '100%', maxWidth: 360, background: '#0f172a', border: `1px solid ${C.gold}33`, borderRadius: 14, padding: 32 }}>
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/onboarding-logo.png" alt="" style={{ width: 48, height: 48, objectFit: 'contain', marginBottom: 12 }} />
+            <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 20, fontWeight: 700, color: C.goldBright }}>IC Onboarding Admin</div>
+            <div style={{ fontSize: 13, color: C.textFaint, marginTop: 4 }}>Enter your admin passcode</div>
+          </div>
+          <input
+            type="password"
+            placeholder="Passcode"
+            value={passcodeInput}
+            onChange={e => setPasscodeInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && submitPasscode()}
+            autoFocus
+            style={{ width: '100%', padding: '11px 14px', borderRadius: 8, border: `1px solid ${C.line}`, background: '#0b1220', color: C.cream, fontSize: 15, outline: 'none', boxSizing: 'border-box', marginBottom: 12 }}
+          />
+          {passError && <p style={{ color: '#f87171', fontSize: 13, margin: '0 0 10px' }}>{passError}</p>}
+          <button
+            onClick={submitPasscode}
+            style={{ width: '100%', padding: '12px 0', borderRadius: 8, background: C.ink, border: 'none', color: C.goldBright, fontFamily: 'DM Sans, sans-serif', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
+          >
+            Enter
+          </button>
         </div>
       </div>
     );
