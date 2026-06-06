@@ -261,6 +261,11 @@ export default function MissionControl() {
   const [passcodeInput, setPasscodeInput] = useState('');
   const [passError, setPassError] = useState('');
   const [authed, setAuthed] = useState(true);
+  const [mcPasscode, setMcPasscode] = useState(''); // stored for onboarding API calls
+  const [onboardingAgents, setOnboardingAgents] = useState(null);
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
+  const [onboardingDrawer, setOnboardingDrawer] = useState(null);
+  const [onboardingDetail, setOnboardingDetail] = useState(null);
   const scopeLabel = 'This Month';
   const payoutMonthKey = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`;
 
@@ -739,6 +744,7 @@ export default function MissionControl() {
 
       setAuthed(true);
       setPassError('');
+      setMcPasscode(passcodeInput); // keep for onboarding API auth
       try {
         localStorage.setItem(PASSCODE_STORAGE_KEY, 'ok');
       } catch {
@@ -766,6 +772,41 @@ export default function MissionControl() {
     }
     return { today, tomorrow };
   }, [bookingQueueDeduped]);
+
+  // ─── IC Onboarding helpers ───────────────────────────────────────────────
+  const onboardingAuthHeader = () => ({
+    Authorization: `Bearer mc:${mcPasscode}`,
+    'Content-Type': 'application/json'
+  });
+
+  const loadOnboardingAgents = async () => {
+    setOnboardingLoading(true);
+    try {
+      const res = await fetch('/api/admin/onboarding/agents', { headers: onboardingAuthHeader() });
+      const data = await res.json().catch(() => ({}));
+      if (data?.ok) setOnboardingAgents(data.agents || []);
+    } catch {}
+    setOnboardingLoading(false);
+  };
+
+  const loadOnboardingDetail = async (agentId) => {
+    setOnboardingDetail(null);
+    try {
+      const res = await fetch(`/api/admin/onboarding/agents/${agentId}`, { headers: onboardingAuthHeader() });
+      const data = await res.json().catch(() => ({}));
+      if (data?.ok) setOnboardingDetail(data);
+    } catch {}
+  };
+
+  const checkOnboardingItem = async (agentId, itemId, checked) => {
+    await fetch('/api/admin/onboarding/check', {
+      method: 'POST',
+      headers: onboardingAuthHeader(),
+      body: JSON.stringify({ agent_id: agentId, item_id: itemId, checked })
+    });
+    loadOnboardingDetail(agentId);
+    loadOnboardingAgents();
+  };
 
   if (!authed) {
     return (
@@ -817,6 +858,7 @@ export default function MissionControl() {
           <strong>Mission Control Tabs:</strong>
           <button type="button" className={adminTab === 'overview' ? '' : 'ghost'} onClick={() => setAdminTab('overview')}>Overview</button>
           <button type="button" className={adminTab === 'payout' ? '' : 'ghost'} onClick={() => setAdminTab('payout')}>Payout Queue</button>
+          <button type="button" className={adminTab === 'onboarding' ? '' : 'ghost'} onClick={() => { setAdminTab('onboarding'); loadOnboardingAgents(); }}>IC Onboarding</button>
         </div>
       </div>
 
@@ -1259,6 +1301,114 @@ export default function MissionControl() {
             </>
           )}
         </div>
+      </div>
+
+      {/* ─── IC ONBOARDING TAB ─── */}
+      <div style={{ display: adminTab === 'onboarding' ? 'block' : 'none' }}>
+        <div className="panel" style={{ marginBottom: '1rem' }}>
+          <div className="panelRow" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <strong>Inner Circle Onboarding Tracker</strong>
+            <button type="button" className="ghost" onClick={loadOnboardingAgents} disabled={onboardingLoading}>
+              {onboardingLoading ? 'Loading…' : '↺ Refresh'}
+            </button>
+          </div>
+        </div>
+
+        {!onboardingAgents && !onboardingLoading && (
+          <div className="panel">
+            <p className="muted">Click <strong>IC Onboarding</strong> tab to load agents. Make sure you’re signed in with your passcode.</p>
+          </div>
+        )}
+
+        {onboardingAgents && (
+          <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: onboardingDrawer ? '1fr 420px' : '1fr' }}>
+
+            {/* Agent table */}
+            <div>
+              {onboardingAgents.length === 0 ? (
+                <div className="panel"><p className="muted">No agents enrolled yet. Go to <strong>/admin/onboarding</strong> to enroll agents.</p></div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Agent</th>
+                      <th>Tier</th>
+                      <th>Day</th>
+                      <th>Progress</th>
+                      <th>Status</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {onboardingAgents.map(a => (
+                      <tr key={a.id} style={{ cursor: 'pointer' }} onClick={() => { setOnboardingDrawer(a); loadOnboardingDetail(a.id); }}>
+                        <td><strong>{a.first_name} {a.last_name}</strong><br /><span style={{ fontSize: 12, color: '#94A3B8' }}>{a.email}</span></td>
+                        <td><span className={`pill ${a.tier === 'elite' ? 'onpace' : 'neutral'}`}>{a.tier === 'elite' ? 'Elite' : 'Inner Circle'}</span></td>
+                        <td>Day {a.daysSinceStart}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ flex: 1, height: 6, background: '#1e3a5f', borderRadius: 99, minWidth: 80 }}>
+                              <div style={{ height: '100%', width: `${a.progress?.pct || 0}%`, background: '#D4A24A', borderRadius: 99 }} />
+                            </div>
+                            <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{a.progress?.pct || 0}%</span>
+                          </div>
+                        </td>
+                        <td><span className={`pill ${a.status === 'stuck' ? 'atrisk' : a.status === 'fully_producing' ? 'onpace' : 'neutral'}`}>{a.status?.replace(/_/g, ' ')}</span></td>
+                        <td style={{ color: '#94A3B8' }}>›</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Detail panel */}
+            {onboardingDrawer && (
+              <div className="panel" style={{ position: 'sticky', top: 80, maxHeight: '80vh', overflowY: 'auto' }}>
+                <div className="panelRow" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
+                  <strong>{onboardingDrawer.first_name} {onboardingDrawer.last_name}</strong>
+                  <button type="button" className="ghost" onClick={() => { setOnboardingDrawer(null); setOnboardingDetail(null); }}>Close</button>
+                </div>
+                {!onboardingDetail ? (
+                  <p className="muted">Loading…</p>
+                ) : (
+                  <>
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ height: 6, background: '#1e3a5f', borderRadius: 99, marginBottom: 4 }}>
+                        <div style={{ height: '100%', width: `${onboardingDetail.progress?.pct || 0}%`, background: '#D4A24A', borderRadius: 99 }} />
+                      </div>
+                      <span style={{ fontSize: 12, color: '#94A3B8' }}>{onboardingDetail.progress?.done || 0} / {onboardingDetail.progress?.total || 0} steps — {onboardingDetail.progress?.pct || 0}%</span>
+                    </div>
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      {(onboardingDetail.checklist || []).filter(r => r.visible).map(row => {
+                        const item = row.item || {};
+                        const locked = !['YOU DO','WE GUIDE'].includes(item.owner);
+                        return (
+                          <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: row.checked ? 'rgba(67,122,34,0.1)' : '#0f172a', border: `1px solid ${row.checked ? '#3d6b1a' : '#1e3a5f'}`, borderRadius: 8 }}>
+                            <button
+                              type="button"
+                              onClick={() => checkOnboardingItem(onboardingDrawer.id, item.id, !row.checked)}
+                              style={{ width: 22, height: 22, borderRadius: 4, border: `1.5px solid ${row.checked ? '#437a22' : '#334155'}`, background: row.checked ? '#437a22' : 'transparent', color: '#fff', fontSize: 12, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              {row.checked ? '✓' : ''}
+                            </button>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: row.checked ? '#86efac' : '#f1f5f9', textDecoration: row.checked ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <span style={{ color: '#B28147', marginRight: 6, fontSize: 11 }}>{String(item.id).padStart(2,'0')}</span>
+                                {(item.title || '').replace(/ \(Elite\)$| \(Paid In Full Only\)$/, '')}
+                              </div>
+                              <div style={{ fontSize: 11, color: '#475569' }}>{item.owner}{row.is_overdue ? ' — ⚠️ Overdue' : ''}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
     </AppShell>
