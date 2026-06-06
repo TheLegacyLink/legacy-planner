@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -79,6 +79,7 @@ export default function AdminOnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const [passcode, setPasscode] = useState('');
+  const passcodeRef = useRef(''); // ref so stale closures (intervals, useCallback) always read current value
   const [passcodeInput, setPasscodeInput] = useState('');
   const [passError, setPassError] = useState('');
 
@@ -97,7 +98,8 @@ export default function AdminOnboardingPage() {
   }, []);
 
   const getToken = (overridePasscode) => {
-    const pc = overridePasscode !== undefined ? overridePasscode : passcode;
+    // Always read from ref so stale closures in intervals/useCallback get the live value
+    const pc = overridePasscode !== undefined ? overridePasscode : passcodeRef.current;
     if (pc) return `mc:${pc}`;
     if (typeof window === 'undefined') return null;
     return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LICENSED_TOKEN_KEY) || null;
@@ -319,6 +321,7 @@ export default function AdminOnboardingPage() {
       if (!res.ok || !data?.ok) { setPassError('Incorrect passcode.'); return; }
       // Passcode verified — load data directly with this passcode before state update
       setPasscode(pc);
+      passcodeRef.current = pc; // sync ref immediately so all closures see it
       const token = `mc:${pc}`;
       try {
         setPageState('loading');
