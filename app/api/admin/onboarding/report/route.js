@@ -1,6 +1,8 @@
 // app/api/admin/onboarding/report/route.js
 // GET /api/admin/onboarding/report — weekly report data
 
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { sessionFromToken } from '../../../start-auth/_lib';
 import {

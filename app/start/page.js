@@ -157,7 +157,7 @@ Electronic signatures and records are binding. Email/platform notices are valid 
 This Agreement plus Exhibit A is the entire agreement. If any provision is unenforceable, remaining provisions remain in force. Agent may not assign without written Agency consent. Amendments must be in writing.
 
 ─────────────────────────────────────────────
-EXHIBIT A — COMPENSATION SCHEDULE (INCORPORATED BY REFERENCE)
+EXHIBIT A - COMPENSATION SCHEDULE (INCORPORATED BY REFERENCE)
 ─────────────────────────────────────────────
 
 Small Policy Total: $1,200
@@ -294,7 +294,7 @@ export default function StartPortalPage() {
     }
   }
 
-  // ── Check email first — routes to password or OTP ──────────────────────
+  // ── Check email first - routes to password or OTP ──────────────────────
   async function checkEmail() {
     setError(''); setNotice('');
     const e = clean(email).toLowerCase();
@@ -480,7 +480,7 @@ export default function StartPortalPage() {
     return (
       <main style={bg}>
         <div style={card}>
-          <p style={mutedStyle}>Loading…</p>
+          <p style={mutedStyle}>Loading...</p>
         </div>
       </main>
     );
@@ -504,7 +504,7 @@ export default function StartPortalPage() {
           <p style={{ ...mutedStyle, fontSize: 12, margin: 0 }}>
             Bookmark this link: <strong style={{ color: '#93C5FD' }}>innercirclelink.com/unlicensed-backoffice</strong>
           </p>
-          <p style={{ ...mutedStyle, fontSize: 11, margin: 0, opacity: 0.6 }}>Redirecting automatically in a moment…</p>
+          <p style={{ ...mutedStyle, fontSize: 11, margin: 0, opacity: 0.6 }}>Redirecting automatically in a moment...</p>
         </div>
       </main>
     );
@@ -528,7 +528,7 @@ export default function StartPortalPage() {
             {stage === 'email' && 'Enter your email to continue.'}
             {stage === 'password' && `Enter your password for ${clean(email)}`}
             {stage === 'otp' && `We sent a 6-digit code to ${clean(email)}`}
-            {stage === 'set-password' && 'Skip the code every time — set a password once and you’re done.'}
+            {stage === 'set-password' && 'Skip the code every time — set a password once and you\'re done.'}
             {stage === 'contract' && 'Read and sign the agreement below to access your back office.'}
           </p>
         </div>
@@ -551,7 +551,7 @@ export default function StartPortalPage() {
             {notice && <p style={{ ...mutedStyle, color: '#86EFAC' }}>{notice}</p>}
             {error && <p style={errStyle}>{error}</p>}
             <button style={btnPrimary} onClick={checkEmail} disabled={busy}>
-              {busy ? 'Checking…' : 'Continue'}
+              {busy ? 'Checking...' : 'Continue'}
             </button>
             <p style={{ ...mutedStyle, textAlign: 'center' }}>
               Not registered yet?{' '}
@@ -586,7 +586,7 @@ export default function StartPortalPage() {
             </label>
             {error && <p style={errStyle}>{error}</p>}
             <button style={btnPrimary} onClick={loginWithPassword} disabled={busy}>
-              {busy ? 'Logging in…' : 'Log In'}
+              {busy ? 'Logging in...' : 'Log In'}
             </button>
             <button
               style={btnSecondary}
@@ -605,8 +605,8 @@ export default function StartPortalPage() {
         {stage === 'set-password' && (
           <>
             <div style={{ background: '#071a0e', border: '1px solid #166534', borderRadius: 10, padding: '12px 14px' }}>
-              <p style={{ margin: 0, color: '#86efac', fontWeight: 700, fontSize: 14 }}>You’re in! \u{1F389}</p>
-              <p style={{ margin: '4px 0 0', color: '#6ee7b7', fontSize: 13 }}>Create a password now and you’ll never need an email code again.</p>
+              <p style={{ margin: 0, color: '#86efac', fontWeight: 700, fontSize: 14 }}>You&apos;re in! 🎉</p>
+              <p style={{ margin: '4px 0 0', color: '#6ee7b7', fontSize: 13 }}>Create a password now and you&apos;ll never need an email code again.</p>
             </div>
             <label style={labelStyle}>
               New Password <span style={{ color: '#64748B', fontWeight: 400 }}>(min 8 characters)</span>
@@ -639,7 +639,7 @@ export default function StartPortalPage() {
             </label>
             {error && <p style={errStyle}>{error}</p>}
             <button style={btnPrimary} onClick={handleSetPassword} disabled={busy}>
-              {busy ? 'Saving…' : 'Set Password & Continue'}
+              {busy ? 'Saving...' : 'Set Password & Continue'}
             </button>
             <button
               style={btnSecondary}
@@ -656,7 +656,7 @@ export default function StartPortalPage() {
           <>
             {alreadyRegistered && (
               <div style={{ background: '#0f2a1a', border: '1px solid #16a34a', borderRadius: 10, padding: '12px 14px', marginBottom: 4 }}>
-                <p style={{ margin: 0, color: '#86efac', fontWeight: 700, fontSize: 14 }}>You already have an account — welcome back!</p>
+                <p style={{ margin: 0, color: '#86efac', fontWeight: 700, fontSize: 14 }}>You already have an account - welcome back!</p>
                 <p style={{ margin: '4px 0 0', color: '#6ee7b7', fontSize: 13 }}>Enter the code sent to your email to log back into your back office.</p>
               </div>
             )}
@@ -677,7 +677,7 @@ export default function StartPortalPage() {
             {notice && <p style={{ ...mutedStyle, color: '#86EFAC' }}>{notice}</p>}
             {error && <p style={errStyle}>{error}</p>}
             <button style={btnPrimary} onClick={verifyOtp} disabled={busy}>
-              {busy ? 'Verifying…' : 'Verify Code'}
+              {busy ? 'Verifying...' : 'Verify Code'}
             </button>
             <button style={btnSecondary} onClick={() => { setStage('email'); setOtp(''); setError(''); setNotice(''); }}>
               ← Use a different email
@@ -723,9 +723,9 @@ export default function StartPortalPage() {
             {/* ── Suitability Questionnaire ── */}
             <div style={{ background: '#071235', border: '1px solid #1E3A5F', borderRadius: 10, padding: '16px 18px', marginBottom: 4 }}>
               <p style={{ margin: '0 0 6px', color: '#F8FAFC', fontWeight: 700, fontSize: 14 }}>Suitability Questionnaire <span style={{ color: '#ef4444' }}>*</span></p>
-              <p style={{ margin: '0 0 14px', color: '#94A3B8', fontSize: 13 }}>Answer honestly — these help determine whether a company-funded life insurance policy is appropriate for you. You can still fully participate in Legacy Link regardless of your answers.</p>
+              <p style={{ margin: '0 0 14px', color: '#94A3B8', fontSize: 13 }}>Answer honestly - these help determine whether a company-funded life insurance policy is appropriate for you. You can still fully participate in Legacy Link regardless of your answers.</p>
 
-              {/* Q1 — Current life insurance */}
+              {/* Q1 - Current life insurance */}
               <div style={{ marginBottom: 14 }}>
                 <p style={{ margin: '0 0 8px', color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>1. Do you currently have any life insurance coverage?</p>
                 <div style={{ display: 'flex', gap: 12 }}>
@@ -738,7 +738,7 @@ export default function StartPortalPage() {
                 </div>
               </div>
 
-              {/* Q2 — Dependents (multi) */}
+              {/* Q2 - Dependents (multi) */}
               <div style={{ marginBottom: 14 }}>
                 <p style={{ margin: '0 0 8px', color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>2. Do you have anyone who relies on you financially? <span style={{ color: '#64748b', fontWeight: 400 }}>(select all that apply)</span></p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
@@ -757,7 +757,7 @@ export default function StartPortalPage() {
                 </div>
               </div>
 
-              {/* Q3 — Financial obligations (multi) */}
+              {/* Q3 - Financial obligations (multi) */}
               <div style={{ marginBottom: 14 }}>
                 <p style={{ margin: '0 0 8px', color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>3. Do you have financial obligations that could create hardship if something happened to you? <span style={{ color: '#64748b', fontWeight: 400 }}>(select all that apply)</span></p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
@@ -776,7 +776,7 @@ export default function StartPortalPage() {
                 </div>
               </div>
 
-              {/* Q4 — Financial hardship */}
+              {/* Q4 - Financial hardship */}
               <div style={{ marginBottom: 14 }}>
                 <p style={{ margin: '0 0 8px', color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>4. Would your family or loved ones experience financial hardship if you passed away unexpectedly?</p>
                 <div style={{ display: 'flex', gap: 12 }}>
@@ -789,7 +789,7 @@ export default function StartPortalPage() {
                 </div>
               </div>
 
-              {/* Q5 — Understanding */}
+              {/* Q5 - Understanding */}
               <div style={{ marginBottom: 4 }}>
                 <p style={{ margin: '0 0 8px', color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>5. Do you understand the purpose of life insurance and how it can protect your family or financial responsibilities?</p>
                 <div style={{ display: 'flex', gap: 12 }}>
@@ -811,13 +811,13 @@ export default function StartPortalPage() {
                 <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
                   <input type="radio" name="policyElect" value="yes" checked={policyElect === 'yes'} onChange={() => setPolicyElect('yes')} style={{ marginTop: 3, cursor: 'pointer' }} />
                   <span style={{ color: policyElect === 'yes' ? '#86EFAC' : '#94A3B8', fontSize: 13, lineHeight: 1.5 }}>
-                    <strong style={{ color: policyElect === 'yes' ? '#F8FAFC' : '#CBD5E1' }}>Yes — I elect to participate</strong> in the company-sponsored life insurance policy option, subject to eligibility, underwriting, and program terms.
+                    <strong style={{ color: policyElect === 'yes' ? '#F8FAFC' : '#CBD5E1' }}>Yes - I elect to participate</strong> in the company-sponsored life insurance policy option, subject to eligibility, underwriting, and program terms.
                   </span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
                   <input type="radio" name="policyElect" value="no" checked={policyElect === 'no'} onChange={() => setPolicyElect('no')} style={{ marginTop: 3, cursor: 'pointer' }} />
                   <span style={{ color: policyElect === 'no' ? '#FCA5A5' : '#94A3B8', fontSize: 13, lineHeight: 1.5 }}>
-                    <strong style={{ color: policyElect === 'no' ? '#F8FAFC' : '#CBD5E1' }}>No — I do not elect to participate</strong> in the company-sponsored life insurance policy option at this time.
+                    <strong style={{ color: policyElect === 'no' ? '#F8FAFC' : '#CBD5E1' }}>No - I do not elect to participate</strong> in the company-sponsored life insurance policy option at this time.
                   </span>
                 </label>
               </div>
@@ -851,7 +851,7 @@ export default function StartPortalPage() {
             {error && <p style={errStyle}>{error}</p>}
 
             <button style={btnPrimary} onClick={submitSignature} disabled={busy}>
-              {busy ? 'Submitting…' : '✍️ Sign & Continue to Back Office'}
+              {busy ? 'Submitting...' : '✍️ Sign & Continue to Back Office'}
             </button>
 
             <p style={{ ...mutedStyle, textAlign: 'center', fontSize: 12 }}>

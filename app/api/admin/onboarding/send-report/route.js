@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // app/api/admin/onboarding/send-report/route.js
 // POST /api/admin/onboarding/send-report — trigger weekly report immediately (admin only)
 

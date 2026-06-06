@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // app/api/onboarding/book/route.js
 // POST /api/onboarding/book — mark monthly book complete
 

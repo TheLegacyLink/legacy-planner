@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // app/api/admin/onboarding/nudge/route.js
 // POST /api/admin/onboarding/nudge — send a nudge (stub for Phase 2)
 

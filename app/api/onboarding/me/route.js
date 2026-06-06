@@ -1,6 +1,8 @@
 // app/api/onboarding/me/route.js
 // GET /api/onboarding/me — returns the authed agent's full tracker state
 
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { sessionFromToken } from '../../start-auth/_lib';
 import {

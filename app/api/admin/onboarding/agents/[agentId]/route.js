@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // app/api/admin/onboarding/agents/[agentId]/route.js
 // GET /api/admin/onboarding/agents/[agentId] — agent detail + full checklist + activity log
 

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // app/api/onboarding/homework/route.js
 // POST /api/onboarding/homework — submit weekly homework
 

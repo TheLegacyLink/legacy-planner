@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // app/api/admin/onboarding/upgrade/route.js
 // POST /api/admin/onboarding/upgrade — upgrade agent from inner_circle to elite
 

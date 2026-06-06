@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // app/api/admin/onboarding/agents/route.js
 // GET /api/admin/onboarding/agents — list all agents with progress
 // POST /api/admin/onboarding/agents — create new agent

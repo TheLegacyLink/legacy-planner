@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // app/api/admin/onboarding/check/route.js
 // POST /api/admin/onboarding/check — admin checks any item for any agent
 

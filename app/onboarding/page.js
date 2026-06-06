@@ -201,7 +201,7 @@ export default function OnboardingPage() {
       <div style={{ minHeight: '100vh', background: C.cream, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <div style={{ maxWidth: 440, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
           <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 12 }}>No tracker found</div>
-          <p style={{ color: C.textMuted }}>You don't have an onboarding tracker yet. Contact <a href="mailto:support@thelegacylink.com" style={{ color: C.gold }}>support@thelegacylink.com</a> to get set up.</p>
+          <p style={{ color: C.textMuted }}>You don&apos;t have an onboarding tracker yet. Contact <a href="mailto:support@thelegacylink.com" style={{ color: C.gold }}>support@thelegacylink.com</a> to get set up.</p>
         </div>
       </div>
     );
@@ -637,7 +637,7 @@ function ItemDrawer({ entry, agent, homework, book, hwYoutube, hwNote, setHwYout
                 />
               </div>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>What you're learning & implementing this week</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>What you&apos;re learning &amp; implementing this week</label>
                 <textarea
                   value={hwNote}
                   onChange={e => setHwNote(e.target.value)}
@@ -661,7 +661,7 @@ function ItemDrawer({ entry, agent, homework, book, hwYoutube, hwNote, setHwYout
             <div style={{ marginBottom: 20 }}>
               {book?.completed ? (
                 <div style={{ background: C.successBg, border: `1px solid #C5DEAF`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#2F5817' }}>
-                  ✓ This month's book marked complete — {fmtDate(book.completed_at)}
+                  ✓ This month&apos;s book marked complete — {fmtDate(book.completed_at)}
                 </div>
               ) : (
                 <button

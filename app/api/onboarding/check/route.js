@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // app/api/onboarding/check/route.js
 // POST /api/onboarding/check — agent checks/unchecks a YOU DO or WE GUIDE item
 
