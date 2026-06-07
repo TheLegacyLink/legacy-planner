@@ -73,8 +73,11 @@ export default function AdminOnboardingPage() {
   const [tierFilter, setTierFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('name');
-  const [drawer, setDrawer] = useState(null); // { agent } or null
-  const [drawerDetail, setDrawerDetail] = useState(null); // full detail
+  const [drawer, setDrawer] = useState(null);
+  const [drawerDetail, setDrawerDetail] = useState(null);
+  // Session-local check map — persists across drawer open/close/refresh
+  // key: "agentId-itemId" → { checked, checked_at }
+  const checkMapRef = useRef({});
   const [addModal, setAddModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
@@ -147,37 +150,62 @@ export default function AdminOnboardingPage() {
 
 
 
-  async function openDrawer(agent) {
+  const mergeChecks = (data, agentId) => {
+    if (!data?.checklist) return data;
+    return {
+      ...data,
+      checklist: data.checklist.map(e => {
+        const key = `${agentId}-${e.item?.id}`;
+        const override = checkMapRef.current[key];
+        return override ? { ...e, ...override } : e;
+      })
+    };
+  };
+
+  const openDrawer = async (agent) => {
     setDrawer({ agent });
-    setDrawerDetail(null);
+    // Show immediately with any local overrides applied to existing detail
+    setDrawerDetail(prev => prev ? mergeChecks(prev, agent.id) : null);
     const token = getToken();
     try {
       const res = await fetch(`/api/admin/onboarding/agents/${agent.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      setDrawerDetail(data);
-    } catch {
-      // ignore
-    }
-  }
+      // Merge server data with session-local check overrides
+      setDrawerDetail(mergeChecks(data, agent.id));
+    } catch {}
+  };
 
   async function adminCheck(agentId, itemId, checked) {
     const token = getToken();
-    // Optimistic update — flip locally right away so UI responds instantly
-    // (Vercel Blob CDN cache means re-fetching immediately returns stale data)
+    const now = new Date().toISOString();
+    const override = { checked, checked_at: checked ? now : null, checked_by: checked ? 'admin' : null, is_overdue: false };
+
+    // 1. Write to session-local map — persists across drawer open/close
+    checkMapRef.current[`${agentId}-${itemId}`] = override;
+
+    // 2. Optimistic update in drawer
     setDrawerDetail(prev => {
       if (!prev) return prev;
-      const now = new Date().toISOString();
       return {
         ...prev,
         checklist: (prev.checklist || []).map(e =>
-          e.item?.id === itemId
-            ? { ...e, checked, checked_at: checked ? now : null, checked_by: checked ? 'admin' : null, is_overdue: false }
-            : e
+          e.item?.id === itemId ? { ...e, ...override } : e
         )
       };
     });
+
+    // 3. Update progress in agent list locally
+    setAgents(prev => prev.map(a => {
+      if (a.id !== agentId) return a;
+      const currentDone = a.progress?.done || 0;
+      const total = a.progress?.total || 1;
+      const newDone = checked ? currentDone + 1 : Math.max(0, currentDone - 1);
+      const pct = Math.round((newDone / total) * 100);
+      return { ...a, progress: { ...a.progress, done: newDone, pct }, lastMoveAt: checked ? now : a.lastMoveAt };
+    }));
+
     setSaving(true);
     try {
       const res = await fetch('/api/admin/onboarding/check', {
@@ -187,11 +215,10 @@ export default function AdminOnboardingPage() {
       });
       if (!res.ok) throw new Error();
       showToast(checked ? 'Marked complete ✓' : 'Unmarked');
-      // Refresh list summary in background (delay so CDN has time to propagate)
-      setTimeout(() => load(), 1500);
     } catch {
-      showToast('Error saving', 'error');
-      // Revert optimistic update on failure
+      // Revert on failure
+      delete checkMapRef.current[`${agentId}-${itemId}`];
+      showToast('Error saving — try again', 'error');
       openDrawer(drawer?.agent);
     }
     setSaving(false);
