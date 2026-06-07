@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 import {
   getAgentById,
   upsertChecklistRow,
+  refreshAgentProgress,
   MASTER_ITEMS
 } from '../../../../../lib/onboardingStore';
 import { ensureLeticiaWright } from '../../../../../lib/onboardingSeed';
@@ -45,6 +46,9 @@ export async function POST(req) {
       checked_by: isChecked ? session.email : null,
       visible: true
     });
+
+    // Immediately refresh the progress summary blob so the next read is fresh
+    await refreshAgentProgress(agent.id);
 
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -8,6 +8,7 @@ import { resolveMemberSession } from '../../../../lib/onboardingMemberAuth.js';
 import {
   getAgentByEmail,
   upsertChecklistRow,
+  refreshAgentProgress,
   MASTER_ITEMS,
   AGENT_CAN_CHECK,
   visibleItemIds
@@ -57,6 +58,7 @@ export async function POST(req) {
       checked_by: checked ? session.email : null,
       visible: true
     });
+    await refreshAgentProgress(agent.id);
 
     return NextResponse.json({ ok: true });
   } catch (err) {

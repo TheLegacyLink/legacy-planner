@@ -196,15 +196,17 @@ export default function AdminOnboardingPage() {
       };
     });
 
-    // 3. Update progress in agent list locally
-    setAgents(prev => prev.map(a => {
-      if (a.id !== agentId) return a;
-      const currentDone = a.progress?.done || 0;
-      const total = a.progress?.total || 1;
-      const newDone = checked ? currentDone + 1 : Math.max(0, currentDone - 1);
-      const pct = Math.round((newDone / total) * 100);
-      return { ...a, progress: { ...a.progress, done: newDone, pct }, lastMoveAt: checked ? now : a.lastMoveAt };
-    }));
+    // 3. Update progress in agent list AND drawer header locally
+    const updateProgress = (prev) => {
+      if (!prev) return prev;
+      const currentDone = prev?.progress?.done || 0;
+      const total = prev?.progress?.total || 21; // fallback to full catalog size
+      const newDone = Math.max(0, Math.min(total, checked ? currentDone + 1 : currentDone - 1));
+      const pct = total > 0 ? Math.round((newDone / total) * 100) : 0;
+      return { ...prev, progress: { ...(prev.progress || {}), done: newDone, total, pct } };
+    };
+    setAgents(prev => prev.map(a => a.id !== agentId ? a : updateProgress(a)));
+    setDrawerDetail(prev => prev ? { ...prev, agent: updateProgress(prev.agent) } : prev);
 
     setSaving(true);
     try {
