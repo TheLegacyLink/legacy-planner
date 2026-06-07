@@ -266,6 +266,11 @@ export default function MissionControl() {
   const [onboardingLoading, setOnboardingLoading] = useState(false);
   const [onboardingDrawer, setOnboardingDrawer] = useState(null);
   const [onboardingDetail, setOnboardingDetail] = useState(null);
+  const [weeklyVideoUrl, setWeeklyVideoUrl] = useState('');
+  const [weeklyVideoTitle, setWeeklyVideoTitle] = useState('');
+  const [weeklyVideoCurrent, setWeeklyVideoCurrent] = useState(null);
+  const [weeklyVideoSaving, setWeeklyVideoSaving] = useState(false);
+  const [weeklyVideoMsg, setWeeklyVideoMsg] = useState('');
   const scopeLabel = 'This Month';
   const payoutMonthKey = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`;
 
@@ -779,6 +784,37 @@ export default function MissionControl() {
     'Content-Type': 'application/json'
   });
 
+  const loadWeeklyVideo = async () => {
+    try {
+      const res = await fetch('/api/admin/onboarding/weekly-video', { headers: onboardingAuthHeader() });
+      const data = await res.json().catch(() => ({}));
+      if (data?.ok) setWeeklyVideoCurrent(data.video);
+    } catch {}
+  };
+
+  const saveWeeklyVideo = async () => {
+    if (!weeklyVideoUrl.trim()) return;
+    setWeeklyVideoSaving(true);
+    setWeeklyVideoMsg('');
+    try {
+      const res = await fetch('/api/admin/onboarding/weekly-video', {
+        method: 'POST',
+        headers: onboardingAuthHeader(),
+        body: JSON.stringify({ url: weeklyVideoUrl.trim(), title: weeklyVideoTitle.trim() || 'Weekly Video' })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data?.ok) {
+        setWeeklyVideoCurrent(data.video);
+        setWeeklyVideoUrl('');
+        setWeeklyVideoTitle('');
+        setWeeklyVideoMsg('✓ Updated! Agents will see this video on next login.');
+      } else {
+        setWeeklyVideoMsg('Error: ' + (data?.error || 'invalid YouTube URL'));
+      }
+    } catch { setWeeklyVideoMsg('Error saving. Try again.'); }
+    setWeeklyVideoSaving(false);
+  };
+
   const loadOnboardingAgents = async () => {
     setOnboardingLoading(true);
     try {
@@ -876,7 +912,7 @@ export default function MissionControl() {
           <strong>Mission Control Tabs:</strong>
           <button type="button" className={adminTab === 'overview' ? '' : 'ghost'} onClick={() => setAdminTab('overview')}>Overview</button>
           <button type="button" className={adminTab === 'payout' ? '' : 'ghost'} onClick={() => setAdminTab('payout')}>Payout Queue</button>
-          <button type="button" className={adminTab === 'onboarding' ? '' : 'ghost'} onClick={() => { setAdminTab('onboarding'); loadOnboardingAgents(); }}>IC Onboarding</button>
+          <button type="button" className={adminTab === 'onboarding' ? '' : 'ghost'} onClick={() => { setAdminTab('onboarding'); loadOnboardingAgents(); loadWeeklyVideo(); }}>IC Onboarding</button>
         </div>
       </div>
 
@@ -1330,6 +1366,35 @@ export default function MissionControl() {
               {onboardingLoading ? 'Loading…' : '↺ Refresh'}
             </button>
           </div>
+        </div>
+
+        {/* ── Weekly Video ── */}
+        <div className="panel" style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: 10 }}>
+            <strong>Weekly Required Video</strong>
+            {weeklyVideoCurrent && (
+              <span className="muted" style={{ marginLeft: 10, fontSize: 13 }}>
+                Current: <a href={weeklyVideoCurrent.url} target="_blank" rel="noreferrer" style={{ color: '#60A5FA' }}>{weeklyVideoCurrent.title}</a>
+                {weeklyVideoCurrent.updatedAt
+                  ? ` — updated ${new Date(weeklyVideoCurrent.updatedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'})}`
+                  : ' (default — Blind Faith)'}
+              </span>
+            )}
+          </div>
+          <div className="panelRow" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
+            <div style={{ flex: 2, minWidth: 200 }}>
+              <label style={{ display: 'block', fontSize: 12, color: '#9CA3AF', marginBottom: 4 }}>New YouTube URL</label>
+              <input type="text" placeholder="https://youtu.be/..." value={weeklyVideoUrl} onChange={e => setWeeklyVideoUrl(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #334155', background: '#0b1220', color: '#e2e8f0', fontSize: 14, boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 140 }}>
+              <label style={{ display: 'block', fontSize: 12, color: '#9CA3AF', marginBottom: 4 }}>Title</label>
+              <input type="text" placeholder="e.g. Blind Faith" value={weeklyVideoTitle} onChange={e => setWeeklyVideoTitle(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #334155', background: '#0b1220', color: '#e2e8f0', fontSize: 14, boxSizing: 'border-box' }} />
+            </div>
+            <button type="button" onClick={saveWeeklyVideo} disabled={weeklyVideoSaving || !weeklyVideoUrl.trim()} style={{ padding: '8px 18px', borderRadius: 6, background: '#1651AE', border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: weeklyVideoSaving ? 0.7 : 1 }}>
+              {weeklyVideoSaving ? 'Saving…' : 'Update Video'}
+            </button>
+          </div>
+          {weeklyVideoMsg && <p style={{ margin: '8px 0 0', fontSize: 13, color: weeklyVideoMsg.startsWith('✓') ? '#86EFAC' : '#f87171' }}>{weeklyVideoMsg}</p>}
         </div>
 
         {!onboardingAgents && !onboardingLoading && (

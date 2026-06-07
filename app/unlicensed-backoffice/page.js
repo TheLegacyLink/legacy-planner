@@ -52,6 +52,7 @@ export default function UnlicensedBackofficePage() {
   const [codeRequested, setCodeRequested] = useState(false);
   const [showDemoSelect, setShowDemoSelect] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [weeklyVideo, setWeeklyVideo] = useState({ url: 'https://youtu.be/SVvU9SvCH9o', videoId: 'SVvU9SvCH9o', title: 'Blind Faith' });
   const [onboardingData, setOnboardingData] = useState(null); // { agent, checklist }
   const [onboardingLoading, setOnboardingLoading] = useState(false);
   const [onboardingSaving, setOnboardingSaving] = useState(false);
@@ -90,10 +91,20 @@ export default function UnlicensedBackofficePage() {
         if (!mounted || !res.ok || !data?.ok) return;
         setToken(t);
         setProfile(data.profile || null);
-        // Show Whatever It Takes video popup once per session
-        if (typeof localStorage !== 'undefined' && !localStorage.getItem('wit_modal_shown')) {
-          setShowVideoModal(true);
-          localStorage.setItem('wit_modal_shown', '1');
+        // Fetch current weekly video, show popup if not yet clicked for this video
+        try {
+          const vr = await fetch('/api/onboarding/weekly-video', { cache: 'no-store' });
+          const vd = await vr.json().catch(() => ({}));
+          const vid = vd?.video || { url: 'https://youtu.be/SVvU9SvCH9o', videoId: 'SVvU9SvCH9o', title: 'Blind Faith' };
+          setWeeklyVideo(vid);
+          const key = `wit_clicked_${vid.videoId}`;
+          if (typeof localStorage !== 'undefined' && !localStorage.getItem(key)) {
+            setShowVideoModal(true);
+          }
+        } catch {
+          if (typeof localStorage !== 'undefined' && !localStorage.getItem('wit_clicked_SVvU9SvCH9o')) {
+            setShowVideoModal(true);
+          }
         }
       } catch {}
     })();
@@ -425,35 +436,45 @@ export default function UnlicensedBackofficePage() {
   const steps = progress?.steps || {};
   const fields = progress?.fields || {};
 
-  const WIT_VIDEO_ID = 'SVvU9SvCH9o';
-
   return (
     <>
-      {/* Whatever It Takes — sign-in video popup */}
+      {/* Weekly Required Video popup — dismissed only by clicking the YouTube link */}
       {showVideoModal && (
-        <div
-          onClick={() => setShowVideoModal(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
-        >
-          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, borderRadius: 16, overflow: 'hidden', background: '#0B1220', border: '1px solid #1e3a5f', boxShadow: '0 24px 60px rgba(0,0,0,0.7)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid #1e3a5f' }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 16, color: '#F8FAFC' }}>Whatever It Takes</div>
-                <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>Watch the full video &mdash; leave a comment when done</div>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ width: '100%', maxWidth: 480, borderRadius: 16, background: '#0B1220', border: '1px solid #1651AE', boxShadow: '0 24px 60px rgba(0,0,0,0.8)', overflow: 'hidden' }}>
+            {/* Header */}
+            <div style={{ background: '#0f1f3d', padding: '20px 24px 16px', borderBottom: '1px solid #1e3a5f' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#60A5FA', marginBottom: 6 }}>Required This Week</div>
+              <div style={{ fontWeight: 800, fontSize: 20, color: '#F8FAFC', lineHeight: 1.2 }}>{weeklyVideo.title}</div>
+              <div style={{ fontSize: 13, color: '#94A3B8', marginTop: 6 }}>Watch the video on YouTube and leave a comment. This is a requirement.</div>
+            </div>
+            {/* Body */}
+            <div style={{ padding: '24px', display: 'grid', gap: 16 }}>
+              <div style={{ background: '#071235', border: '1px solid #1e3a5f', borderRadius: 10, padding: '14px 16px', fontSize: 13, color: '#CBD5E1', lineHeight: 1.6 }}>
+                <div style={{ fontWeight: 700, color: '#F8FAFC', marginBottom: 6 }}>What to do:</div>
+                <ol style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 6 }}>
+                  <li>Click the button below to open the video on YouTube</li>
+                  <li>Watch it completely</li>
+                  <li>Leave a comment on the video</li>
+                </ol>
               </div>
-              <button onClick={() => setShowVideoModal(false)} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '4px 8px' }}>&#x2715;</button>
-            </div>
-            <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
-              <iframe
-                src={`https://www.youtube.com/embed/${WIT_VIDEO_ID}?autoplay=1&rel=0`}
-                title="Whatever It Takes"
-                allow="autoplay; encrypted-media"
-                allowFullScreen
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }}
-              />
-            </div>
-            <div style={{ padding: '14px 18px', display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowVideoModal(false)} style={{ padding: '10px 22px', borderRadius: 8, background: '#1651AE', border: 'none', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Got it — Close</button>
+              <a
+                href={weeklyVideo.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  if (typeof localStorage !== 'undefined') {
+                    localStorage.setItem(`wit_clicked_${weeklyVideo.videoId}`, '1');
+                  }
+                  setShowVideoModal(false);
+                }}
+                style={{ display: 'block', textAlign: 'center', padding: '14px 0', borderRadius: 10, background: '#1651AE', color: '#fff', fontWeight: 800, fontSize: 16, textDecoration: 'none', letterSpacing: '0.02em' }}
+              >
+                Watch on YouTube →
+              </a>
+              <p style={{ margin: 0, fontSize: 11, color: '#475569', textAlign: 'center' }}>
+                This popup will not appear again once you click the link above.
+              </p>
             </div>
           </div>
         </div>
