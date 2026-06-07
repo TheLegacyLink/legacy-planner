@@ -304,11 +304,13 @@ export default function AdminOnboardingPage() {
     });
 
   // ─── KPI strip ────────────────────────────────────────────────────────────
-  const activeCount = agents.filter(a => a.status === 'active').length;
+  // 'status' is the computed onboarding status (new/on_track/stuck/etc.)
+  // agent record has a separate 'status' field (active/paused/churned) — use agents.length for active count
+  const activeCount = agents.filter(a => (a.agent_status || a.agentStatus || 'active') !== 'churned').length;
   const avgProgress = agents.length > 0
     ? Math.round(agents.reduce((s, a) => s + (a.progress?.pct || 0), 0) / agents.length)
     : 0;
-  const stuckCount = agents.filter(a => a.status_computed === 'stuck' || a.status === 'stuck').length;
+  const stuckCount = agents.filter(a => a.status === 'stuck').length;
   const readyCount = agents.filter(a => a.status === 'ready_upgrade').length;
 
   // ─── Page states ───────────────────────────────────────────────────────────
