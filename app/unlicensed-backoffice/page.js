@@ -91,9 +91,9 @@ export default function UnlicensedBackofficePage() {
         setToken(t);
         setProfile(data.profile || null);
         // Show Whatever It Takes video popup once per session
-        if (typeof sessionStorage !== 'undefined' && !sessionStorage.getItem('wit_modal_shown')) {
+        if (typeof localStorage !== 'undefined' && !localStorage.getItem('wit_modal_shown')) {
           setShowVideoModal(true);
-          sessionStorage.setItem('wit_modal_shown', '1');
+          localStorage.setItem('wit_modal_shown', '1');
         }
       } catch {}
     })();

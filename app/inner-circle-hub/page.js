@@ -4857,21 +4857,60 @@ function IcOnboardingTab({ email, token }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const days = agent?.start_date ? Math.floor((Date.now() - new Date(agent.start_date)) / 86400000) : 0;
 
-  const renderRow = (row) => {
+  const renderRow = (row, streakInfo) => {
     const item = row.item || {};
     const canCheck = AGENT_CAN_CHECK.has(item.owner);
+    // Countdown logic
+    let countdownLabel = null;
+    if (!item.recurring && agent?.start_date && item.target_day_end) {
+      const daysIn = Math.floor((Date.now() - new Date(agent.start_date)) / 86400000);
+      if (row.checked) {
+        countdownLabel = null;
+      } else if (daysIn < item.target_day_start) {
+        countdownLabel = { text: `Starts Day ${item.target_day_start}`, color: '#475569' };
+      } else if (daysIn <= item.target_day_end) {
+        const left = item.target_day_end - daysIn;
+        countdownLabel = { text: `${left} day${left !== 1 ? 's' : ''} left`, color: left <= 3 ? '#f59e0b' : '#64748b' };
+      } else {
+        countdownLabel = { text: `Overdue by ${daysIn - item.target_day_end}d`, color: '#e879b0' };
+      }
+    }
     return (
       <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: row.checked ? 'rgba(67,122,34,0.08)' : row.is_overdue ? 'rgba(161,44,123,0.07)' : '#0f172a', border: `1px solid ${row.checked ? '#3d6b1a' : row.is_overdue ? '#7c1a5e' : '#1e3a5f'}`, borderRadius: 10, marginBottom: 8 }}>
         <button onClick={() => canCheck && !saving && handleCheck(item.id, !row.checked)} disabled={!canCheck || saving} style={{ width: 26, height: 26, borderRadius: 6, border: `2px solid ${row.checked ? '#437a22' : '#334155'}`, background: row.checked ? '#437a22' : 'transparent', color: '#fff', cursor: canCheck ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>{row.checked ? '✓' : (!canCheck ? '🔒' : '')}</button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 14, color: row.checked ? '#86efac' : '#f1f5f9', textDecoration: row.checked ? 'line-through' : 'none', lineHeight: 1.3 }}>
-            <span style={{ color: '#B28147', marginRight: 8, fontSize: 12 }}>{String(item.id).padStart(2,'0')}</span>
+            <span style={{ color: '#B28147', marginRight: 8, fontSize: 12 }}>{String(item.sort_order || item.id).padStart(2,'0')}</span>
             {(item.title || '').replace(/ \(Elite\)$| \(Paid In Full Only\)$/, '')}
           </div>
-          <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>{item.owner}{row.is_overdue ? ' — ⚠️ Overdue' : ''}{row.checked && row.checked_at ? ` — Done ${new Date(row.checked_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}` : ''}</div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 3, alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: '#475569' }}>{item.owner}</span>
+            {countdownLabel && <span style={{ fontSize: 11, fontWeight: 600, color: countdownLabel.color }}>{countdownLabel.text}</span>}
+            {row.checked && row.checked_at && <span style={{ fontSize: 11, color: '#64748b' }}>Done {new Date(row.checked_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>}
+            {streakInfo && <span style={{ fontSize: 11, color: '#D4A24A', fontWeight: 700 }}>{streakInfo}</span>}
+          </div>
         </div>
       </div>
     );
+  };
+
+  const hw = data.homework || {};
+  const book = data.book || {};
+  const recurringWithInfo = (row) => {
+    const item = row.item || {};
+    if (item.id === 20) {
+      const streak = hw.weeksCompleted || 0;
+      const reset = hw.daysUntilReset || 7;
+      const done = hw.current?.submitted_at;
+      return renderRow(row, `${streak} week${streak !== 1 ? 's' : ''} completed · resets in ${reset}d${done ? ' · ✓ this week' : ''}`);
+    }
+    if (item.id === 21) {
+      const streak = book.monthsCompleted || 0;
+      const reset = book.daysUntilReset || 30;
+      const done = book.current?.completed;
+      return renderRow(row, `${streak} month${streak !== 1 ? 's' : ''} completed · resets in ${reset}d${done ? ' · ✓ this month' : ''}`);
+    }
+    return renderRow(row);
   };
 
   return (
@@ -4901,10 +4940,10 @@ function IcOnboardingTab({ email, token }) {
         </div>
       </div>
       <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Core Onboarding</div>
-      {core.map(renderRow)}
+      {core.map(r => renderRow(r))}
       {recurring.length > 0 && <>
         <div style={{ fontSize: 12, fontWeight: 700, color: '#B28147', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 8 }}>Recurring Discipline</div>
-        {recurring.map(renderRow)}
+        {recurring.map(r => recurringWithInfo(r))}
       </>}
     </div>
   );
