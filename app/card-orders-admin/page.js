@@ -86,6 +86,22 @@ function OrderCard({ order, onUpdate }) {
         </div>
       </div>
 
+      {/* Contact info */}
+      <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 10, background: '#060d1a', border: '1px solid #1e293b', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+        <div>
+          <div style={{ color: '#64748b', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Email</div>
+          <div style={{ color: order.email ? '#e2e8f0' : '#475569', fontSize: 13 }}>{order.email || '—'}</div>
+        </div>
+        <div>
+          <div style={{ color: '#64748b', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Phone</div>
+          <div style={{ color: order.phone ? '#e2e8f0' : '#475569', fontSize: 13 }}>{order.phone || '—'}</div>
+        </div>
+        <div style={{ gridColumn: 'span 2' }}>
+          <div style={{ color: '#64748b', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Shipping Address</div>
+          <div style={{ color: order.shippingAddress ? '#e2e8f0' : '#475569', fontSize: 13, whiteSpace: 'pre-line' }}>{order.shippingAddress || '—'}</div>
+        </div>
+      </div>
+
       {/* Photo section */}
       <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 10, background: '#060d1a', border: '1px solid #1e293b' }}>
         <div style={{ color: '#94a3b8', fontSize: 12, fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.06em' }}>

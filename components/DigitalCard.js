@@ -181,11 +181,21 @@ function OrderModal({ refCode, settings={}, onClose }) {
   const [photoEmail, setPhotoEmail] = useState('');
   const [qty, setQty] = useState('500');
   const [mode, setMode] = useState('upload');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [shippingAddress, setShippingAddress] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [err, setErr] = useState('');
   const fileRef = useRef();
 
   const submit = async () => {
+    setErr('');
+    if (!email.trim()) { setErr('Email address is required.'); return; }
+    if (!phone.trim()) { setErr('Phone number is required.'); return; }
+    if (!shippingAddress.trim()) { setErr('Shipping address is required.'); return; }
+    if (mode === 'upload' && !photoFile) { setErr('Please choose a photo to upload.'); return; }
+    if (mode === 'email' && !photoEmail.trim()) { setErr('Please enter the email we should send photo instructions to.'); return; }
     setSubmitting(true);
     try {
       const fd = new FormData();
@@ -193,9 +203,14 @@ function OrderModal({ refCode, settings={}, onClose }) {
       fd.append('name', [settings.firstName, settings.lastName].filter(Boolean).join(' '));
       fd.append('qty', qty);
       fd.append('submitMode', mode);
+      fd.append('email', email.trim());
+      fd.append('phone', phone.trim());
+      fd.append('shippingAddress', shippingAddress.trim());
       if (mode==='email') fd.append('photoEmail', photoEmail);
       if (mode==='upload' && photoFile) fd.append('photo', photoFile);
-      await fetch('/api/card-order', { method:'POST', body:fd });
+      const res = await fetch('/api/card-order', { method:'POST', body:fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) { setErr(data.error || 'Submission failed — please try again.'); return; }
       setDone(true);
     } finally { setSubmitting(false); }
   };
@@ -273,9 +288,28 @@ function OrderModal({ refCode, settings={}, onClose }) {
                 </div>
               )}
             </div>
-            <div style={{ background:'rgba(212,175,55,0.06)', border:`1px solid rgba(212,175,55,0.15)`, borderRadius:10, padding:12, marginBottom:20, fontSize:12, color:'rgba(255,255,255,0.5)', lineHeight:1.5 }}>
+            {/* Contact info */}
+            <div style={{ marginBottom:16 }}>
+              <label style={lS}>Email Address</label>
+              <input style={iS} type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="your@email.com" />
+            </div>
+            <div style={{ marginBottom:16 }}>
+              <label style={lS}>Phone Number</label>
+              <input style={iS} type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="(555) 000-0000" />
+            </div>
+            <div style={{ marginBottom:20 }}>
+              <label style={lS}>Shipping Address</label>
+              <textarea
+                style={{ ...iS, resize:'vertical', minHeight:72 }}
+                value={shippingAddress}
+                onChange={e=>setShippingAddress(e.target.value)}
+                placeholder="Street, City, State, ZIP"
+              />
+            </div>
+            <div style={{ background:'rgba(212,175,55,0.06)', border:`1px solid rgba(212,175,55,0.15)`, borderRadius:10, padding:12, marginBottom:16, fontSize:12, color:'rgba(255,255,255,0.5)', lineHeight:1.5 }}>
               💡 Professional photo editing included free with every order.
             </div>
+            {err && <div style={{ color:'#fca5a5', fontSize:12, marginBottom:12 }}>{err}</div>}
             <button onClick={submit} disabled={submitting} style={{ background:GOLD, color:'#000', border:'none', borderRadius:10, padding:'13px 28px', fontSize:13, fontWeight:700, cursor:'pointer', width:'100%', opacity:submitting?0.6:1 }}>
               {submitting?'Submitting...':'Submit Order Request →'}
             </button>
