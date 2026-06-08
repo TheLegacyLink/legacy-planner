@@ -178,21 +178,22 @@ function ScanStats({ refCode }) {
 /* ── Order modal ─────────────────────────────────────────────────── */
 function OrderModal({ refCode, settings={}, onClose }) {
   const [photoFile, setPhotoFile] = useState(null);
-  const [photoEmail, setPhotoEmail] = useState('');
+  const [photoEmail, setPhotoEmail] = useState(settings.email || '');
   const [qty, setQty] = useState('500');
   const [mode, setMode] = useState('upload');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [err, setErr] = useState('');
   const fileRef = useRef();
 
+  // Pull contact info directly from card settings — agent already filled these in
+  const agentEmail = (settings.email || '').trim();
+  const agentPhone = (settings.phone || '').trim();
+  const agentName  = [settings.firstName, settings.lastName].filter(Boolean).join(' ');
+
   const submit = async () => {
     setErr('');
-    if (!email.trim()) { setErr('Email address is required.'); return; }
-    if (!phone.trim()) { setErr('Phone number is required.'); return; }
     if (!shippingAddress.trim()) { setErr('Shipping address is required.'); return; }
     if (mode === 'upload' && !photoFile) { setErr('Please choose a photo to upload.'); return; }
     if (mode === 'email' && !photoEmail.trim()) { setErr('Please enter the email we should send photo instructions to.'); return; }
@@ -200,13 +201,13 @@ function OrderModal({ refCode, settings={}, onClose }) {
     try {
       const fd = new FormData();
       fd.append('ref', refCode);
-      fd.append('name', [settings.firstName, settings.lastName].filter(Boolean).join(' '));
+      fd.append('name', agentName);
       fd.append('qty', qty);
       fd.append('submitMode', mode);
-      fd.append('email', email.trim());
-      fd.append('phone', phone.trim());
+      fd.append('email', agentEmail);
+      fd.append('phone', agentPhone);
       fd.append('shippingAddress', shippingAddress.trim());
-      if (mode==='email') fd.append('photoEmail', photoEmail);
+      if (mode==='email') fd.append('photoEmail', photoEmail.trim());
       if (mode==='upload' && photoFile) fd.append('photo', photoFile);
       const res = await fetch('/api/card-order', { method:'POST', body:fd });
       const data = await res.json().catch(() => ({}));
@@ -288,22 +289,22 @@ function OrderModal({ refCode, settings={}, onClose }) {
                 </div>
               )}
             </div>
-            {/* Contact info */}
-            <div style={{ marginBottom:16 }}>
-              <label style={lS}>Email Address</label>
-              <input style={iS} type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="your@email.com" />
-            </div>
-            <div style={{ marginBottom:16 }}>
-              <label style={lS}>Phone Number</label>
-              <input style={iS} type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="(555) 000-0000" />
-            </div>
+            {/* Contact summary pulled from card settings */}
+            {(agentEmail || agentPhone) && (
+              <div style={{ marginBottom:16, padding:'10px 14px', borderRadius:10, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', fontSize:13 }}>
+                <div style={{ color:'rgba(255,255,255,0.35)', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>Order Contact (from your card)</div>
+                {agentName && <div style={{ color:'#e2e8f0', marginBottom:3 }}>{agentName}</div>}
+                {agentEmail && <div style={{ color:'rgba(255,255,255,0.55)' }}>{agentEmail}</div>}
+                {agentPhone && <div style={{ color:'rgba(255,255,255,0.55)' }}>{agentPhone}</div>}
+              </div>
+            )}
             <div style={{ marginBottom:20 }}>
               <label style={lS}>Shipping Address</label>
               <textarea
                 style={{ ...iS, resize:'vertical', minHeight:72 }}
                 value={shippingAddress}
                 onChange={e=>setShippingAddress(e.target.value)}
-                placeholder="Street, City, State, ZIP"
+                placeholder="Street address, City, State, ZIP"
               />
             </div>
             <div style={{ background:'rgba(212,175,55,0.06)', border:`1px solid rgba(212,175,55,0.15)`, borderRadius:10, padding:12, marginBottom:16, fontSize:12, color:'rgba(255,255,255,0.5)', lineHeight:1.5 }}>
