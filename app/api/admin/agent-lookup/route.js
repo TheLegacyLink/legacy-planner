@@ -15,14 +15,29 @@ function isAdmin(req, body = {}) {
   return getAdminSkeletonPasswords().includes(h || b);
 }
 
-function diagnose(row, canLogin) {
+const BAD_EMAIL_PATTERN = /\.(con|cmo|ocm|gmal|gmial|yaho|hotmial|outlok)$/i;
+
+function flagBadEmail(email = '') {
+  if (BAD_EMAIL_PATTERN.test(email)) return `Typo detected in email address ("${email}") — they will never receive emails or OTP codes. Correct it before anything else.`;
+  return null;
+}
+
+function diagnose(row, canLogin, email) {
+  const badEmail = flagBadEmail(email || '');
+  if (badEmail) return badEmail;
   if (!row) return 'Agent not found in the system. They may have used a different email or haven\'t started the onboarding process yet.';
   const cs = norm(row?.contractStatus || '');
+  const st = norm(row?.status || '');
   if (cs !== 'signed') {
-    return `ICA has NOT been signed yet (status: "${cs}"). The agent needs to go to https://innercirclelink.com/start and complete the contract signing before they can access the back office.`;
+    const extra = (st === 'intake_submitted' || st === 'contract_pending')
+      ? ' They have been registered but have not completed the ICA signing step. They need to go to https://innercirclelink.com/start and sign the contract before back office access unlocks.'
+      : '';
+    return `ICA has NOT been signed yet (status: "${cs}").${extra}`;
   }
+  const nonGmail = /@(yahoo|hotmail|aol|icloud|outlook|msn|live|att\.net|rocketmail|ymail|comcast)/i.test(email || '');
   if (canLogin) {
-    return `Everything looks correct. Agent can log in at https://innercirclelink.com/unlicensed-backoffice — they enter their email, then check their inbox for a 6-digit code. Make sure they check spam if they don\'t see it within 2 minutes.`;
+    const spamNote = nonGmail ? ' NOTE: This is a non-Gmail address (Yahoo/Hotmail/AOL/iCloud/etc.) — OTP codes frequently land in spam. Tell the agent to check spam immediately after requesting a code.' : '';
+    return `Everything looks correct. Agent can log in at https://innercirclelink.com/unlicensed-backoffice — they enter their email, then check their inbox for a 6-digit code.${spamNote}`;
   }
   return 'ICA is signed but the login check is failing — this may be a data integrity issue. Check the start-intake blob record directly.';
 }
@@ -76,7 +91,9 @@ export async function POST(req) {
     createdAt: clean(intake?.createdAt || app?.submitted_at || ''),
     referredBy: clean(intake?.referredBy || app?.referralName || app?.referredByName || ''),
     inSponsorshipApps: !!app,
-    diagnosis: diagnose(intake || app, canLogin),
+    badEmail: !!flagBadEmail(email),
+    isNonGmailProvider: /@(yahoo|hotmail|aol|icloud|outlook|msn|live|att\.net|rocketmail|ymail|comcast)/i.test(email),
+    diagnosis: diagnose(intake || app, canLogin, email),
   };
 
   return Response.json({ ok: true, result });

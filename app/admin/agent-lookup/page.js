@@ -148,6 +148,18 @@ export default function AgentLookup() {
               <Row label="Upline / Sponsor" value={r.referredBy} />
             </div>
 
+            {/* Bad email alert */}
+            {r.badEmail && (
+              <div style={{ padding: '12px 14px', borderRadius: 10, background: '#1c0a0a', border: '1px solid #b91c1c', marginBottom: 12, fontSize: 13, color: '#fca5a5', fontWeight: 600 }}>
+                🚨 EMAIL TYPO DETECTED — This agent will never receive emails or OTP codes. Fix the email address before anything else.
+              </div>
+            )}
+            {r.isNonGmailProvider && !r.badEmail && r.canLogin && (
+              <div style={{ padding: '12px 14px', borderRadius: 10, background: '#1c1007', border: '1px solid #a16207', marginBottom: 12, fontSize: 13, color: '#fde68a' }}>
+                ⚠️ Non-Gmail address — Yahoo / Hotmail / AOL / iCloud accounts frequently send OTP codes to spam. Tell the agent to check spam immediately after requesting a code.
+              </div>
+            )}
+
             {/* Diagnosis */}
             {r.diagnosis && (
               <div style={{ padding: '12px 14px', borderRadius: 10, background: '#060d1a', border: '1px solid #1e293b', marginBottom: 16, fontSize: 13, color: '#cbd5e1', lineHeight: 1.6 }}>

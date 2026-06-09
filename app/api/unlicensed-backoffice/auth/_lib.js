@@ -163,8 +163,14 @@ export async function issueSession(profile = {}) {
   const token = randomBytes(24).toString('hex');
   const tokenHash = sha256(token);
   const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+  const now = Date.now();
   const next = [
-    ...list.filter((r) => clean(r?.email).toLowerCase() !== clean(profile?.email).toLowerCase()),
+    // Prune expired sessions + dedupe by email for this agent
+    ...list.filter((r) => {
+      const notThisAgent = clean(r?.email).toLowerCase() !== clean(profile?.email).toLowerCase();
+      const notExpired = new Date(r?.expiresAt || 0).getTime() > now;
+      return notThisAgent && notExpired;
+    }),
     { tokenHash, ...profile, createdAt: nowIso(), expiresAt, active: true }
   ];
   await saveJsonStore(SESSIONS_PATH, next);

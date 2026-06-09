@@ -58,6 +58,7 @@ export default function UnlicensedBackofficePage() {
   const [onboardingSaving, setOnboardingSaving] = useState(false);
 
   const DEMO_EMAILS = ['leticiawright05@gmail.com'];
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [token, setToken] = useState('');
   const [icaSigned, setIcaSigned] = useState(false);
   const [profile, setProfile] = useState(null);
@@ -88,7 +89,14 @@ export default function UnlicensedBackofficePage() {
       try {
         const res = await fetch('/api/unlicensed-backoffice/auth/me', { headers: { Authorization: `Bearer ${t}` }, cache: 'no-store' });
         const data = await res.json().catch(() => ({}));
-        if (!mounted || !res.ok || !data?.ok) return;
+        if (!mounted) return;
+        if (!res.ok || !data?.ok) {
+          // Stale or expired token — clear it and show expired notice
+          try { window.localStorage.removeItem('unlicensed_backoffice_token'); } catch {}
+          try { document.cookie = 'unlicensed_bo_token=;path=/;max-age=0'; } catch {}
+          setSessionExpired(true);
+          return;
+        }
         setToken(t);
         setProfile(data.profile || null);
         // Fetch current weekly video, show popup if not yet clicked for this video
@@ -378,6 +386,11 @@ export default function UnlicensedBackofficePage() {
               </>
             ) : !codeRequested ? (
               <>
+                {sessionExpired && (
+                  <div style={{ background: '#1c1007', border: '1px solid #a16207', borderRadius: 10, padding: '10px 14px' }}>
+                    <p style={{ margin: 0, color: '#fde68a', fontSize: 13, fontWeight: 600 }}>Your session expired. Enter your email to log back in.</p>
+                  </div>
+                )}
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -395,7 +408,7 @@ export default function UnlicensedBackofficePage() {
                 </button>
                 {error
                   ? <small style={{ color: '#FCA5A5' }}>{error}</small>
-                  : <small style={{ color: '#9CA3AF' }}>Enter the email address on file from your application.</small>
+                  : <small style={{ color: '#9CA3AF' }}>Enter the email you used on your application. Yahoo, Hotmail, AOL, and iCloud users — check spam after requesting your code.</small>
                 }
               </>
             ) : (
