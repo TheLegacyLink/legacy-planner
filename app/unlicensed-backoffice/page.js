@@ -59,6 +59,9 @@ export default function UnlicensedBackofficePage() {
 
   const DEMO_EMAILS = ['leticiawright05@gmail.com'];
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [loginMode, setLoginMode] = useState('password'); // 'password' | 'otp'
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [token, setToken] = useState('');
   const [icaSigned, setIcaSigned] = useState(false);
   const [profile, setProfile] = useState(null);
@@ -220,6 +223,40 @@ export default function UnlicensedBackofficePage() {
       setUplineNotice('Could not send message right now.');
     } finally {
       setUplineSending(false);
+    }
+  }
+
+  async function loginWithPassword() {
+    setError('');
+    const cleanEmail = clean(email).toLowerCase();
+    if (!cleanEmail || !password) { setError('Enter your email and password.'); return; }
+    try {
+      const res = await fetch('/api/unlicensed-backoffice/auth/login-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        if (data?.error === 'no_password_set') {
+          setError('no_password_set');
+        } else if (data?.error === 'invalid_password') {
+          setError('Incorrect password. Try again or use a one-time code below.');
+        } else if (data?.error === 'not_found') {
+          setError('No account found for that email. Make sure you\'re using the email from your application.');
+        } else {
+          setError('Login failed. Please try again or email support@thelegacylink.com');
+        }
+        return;
+      }
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('unlicensed_backoffice_token', data.token);
+        try { document.cookie = `unlicensed_bo_token=${data.token};path=/;max-age=2592000;SameSite=Lax`; } catch {}
+      }
+      setToken(data.token);
+      setProfile(data.profile || null);
+    } catch {
+      setError('Network error. Please try again.');
     }
   }
 
@@ -388,28 +425,67 @@ export default function UnlicensedBackofficePage() {
               <>
                 {sessionExpired && (
                   <div style={{ background: '#1c1007', border: '1px solid #a16207', borderRadius: 10, padding: '10px 14px' }}>
-                    <p style={{ margin: 0, color: '#fde68a', fontSize: 13, fontWeight: 600 }}>Your session expired. Enter your email to log back in.</p>
+                    <p style={{ margin: 0, color: '#fde68a', fontSize: 13, fontWeight: 600 }}>Your session expired. Log back in below.</p>
                   </div>
                 )}
+
+                {/* Email — shared */}
                 <input
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && requestCode()}
+                  onChange={(e) => { setEmail(e.target.value); setError(''); }}
+                  onKeyDown={(e) => e.key === 'Enter' && (loginMode === 'password' ? loginWithPassword() : requestCode())}
                   placeholder="Your email address"
                   type="email"
                   autoFocus
                   style={{ padding: '14px 16px', borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff', fontSize: 15 }}
                 />
-                <button
-                  onClick={requestCode}
-                  style={{ padding: '14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}
-                >
-                  Send Login Code
-                </button>
-                {error
-                  ? <small style={{ color: '#FCA5A5' }}>{error}</small>
-                  : <small style={{ color: '#9CA3AF' }}>Enter the email you used on your application. Yahoo, Hotmail, AOL, and iCloud users — check spam after requesting your code.</small>
-                }
+
+                {loginMode === 'password' ? (
+                  <>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        value={password}
+                        onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                        onKeyDown={(e) => e.key === 'Enter' && loginWithPassword()}
+                        type={showPw ? 'text' : 'password'}
+                        placeholder="Password"
+                        style={{ padding: '14px 16px', paddingRight: 54, borderRadius: 10, border: '1px solid #374151', background: '#020617', color: '#fff', fontSize: 15, width: '100%', boxSizing: 'border-box' }}
+                      />
+                      <button type="button" onClick={() => setShowPw(v => !v)}
+                        style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 12 }}>
+                        {showPw ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                    <button onClick={loginWithPassword}
+                      style={{ padding: '14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}>
+                      Log In
+                    </button>
+                    <small style={{ color: error ? '#FCA5A5' : '#9CA3AF' }}>
+                      {error === 'no_password_set'
+                        ? 'No password set yet. Use the link in your welcome email, or click below to get a one-time code.'
+                        : error || 'Enter the email and password from your welcome setup link.'}
+                    </small>
+                    <button type="button" onClick={() => { setLoginMode('otp'); setError(''); setPassword(''); }}
+                      style={{ padding: '10px', borderRadius: 10, border: '1px solid #374151', background: 'transparent', color: '#9CA3AF', fontSize: 13, cursor: 'pointer' }}>
+                      Send a one-time code instead
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={requestCode}
+                      style={{ padding: '14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}>
+                      Send Login Code
+                    </button>
+                    {error
+                      ? <small style={{ color: '#FCA5A5' }}>{error}</small>
+                      : <small style={{ color: '#9CA3AF' }}>Check your inbox (and spam) for a 6-digit code.</small>
+                    }
+                    <button type="button" onClick={() => { setLoginMode('password'); setError(''); }}
+                      style={{ padding: '10px', borderRadius: 10, border: '1px solid #374151', background: 'transparent', color: '#9CA3AF', fontSize: 13, cursor: 'pointer' }}>
+                      ← Back to password login
+                    </button>
+                  </>
+                )}
               </>
             ) : (
               <>

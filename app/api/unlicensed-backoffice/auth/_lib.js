@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, scrypt, timingSafeEqual } from 'crypto';
 import { loadJsonStore, saveJsonStore, loadJsonFile, saveJsonFile } from '../../../../lib/blobJsonStore';
 import { normalizePersonName } from '../../../../lib/nameAliases';
 
@@ -7,6 +7,8 @@ const APPS_PATH = 'stores/sponsorship-applications.json';
 const START_INTAKE_PATH = 'stores/start-intake.json';
 export const CODES_PATH = 'stores/unlicensed-backoffice-login-codes.json';
 export const SESSIONS_PATH = 'stores/unlicensed-backoffice-sessions.json';
+export const PASSWORDS_PATH = 'stores/unlicensed-bo-passwords.json';
+export const SETUP_TOKENS_PATH = 'stores/unlicensed-bo-setup-tokens.json';
 
 const UNLICENSED_PREVIEW_USERS = [
   {
@@ -176,6 +178,86 @@ export async function issueSession(profile = {}) {
   await saveJsonStore(SESSIONS_PATH, next);
   return { token, expiresAt };
 }
+
+// ─── Password helpers ───────────────────────────────────────────────────────
+
+function scryptAsync(password, salt, keylen) {
+  return new Promise((resolve, reject) =>
+    scrypt(password, salt, keylen, (err, key) => (err ? reject(err) : resolve(key)))
+  );
+}
+
+export async function hashPassword(password = '') {
+  const salt = randomBytes(16).toString('hex');
+  const key = await scryptAsync(String(password), salt, 64);
+  return { hash: key.toString('hex'), salt };
+}
+
+export async function verifyPassword(password = '', storedHash = '', salt = '') {
+  try {
+    const key = await scryptAsync(String(password), salt, 64);
+    const keyBuf = Buffer.from(key.toString('hex'));
+    const storedBuf = Buffer.from(storedHash);
+    if (keyBuf.length !== storedBuf.length) return false;
+    return timingSafeEqual(keyBuf, storedBuf);
+  } catch { return false; }
+}
+
+export async function getPasswordRecord(email = '') {
+  const e = norm(email);
+  const rows = await loadJsonStore(PASSWORDS_PATH, []);
+  return (Array.isArray(rows) ? rows : []).find((r) => norm(r?.email) === e) || null;
+}
+
+export async function savePasswordRecord(email = '', hash = '', salt = '') {
+  const rows = await loadJsonStore(PASSWORDS_PATH, []);
+  const list = Array.isArray(rows) ? rows : [];
+  const e = norm(email);
+  const next = [
+    ...list.filter((r) => norm(r?.email) !== e),
+    { email: e, passwordHash: hash, salt, createdAt: nowIso(), updatedAt: nowIso() }
+  ];
+  await saveJsonStore(PASSWORDS_PATH, next);
+}
+
+export async function generateSetupToken(email = '') {
+  const e = norm(email);
+  const token = randomBytes(32).toString('hex');
+  const tokenHash = sha256(token);
+  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(); // 48h
+  const rows = await loadJsonStore(SETUP_TOKENS_PATH, []);
+  const list = Array.isArray(rows) ? rows : [];
+  const next = [
+    ...list.filter((r) => norm(r?.email) !== e && new Date(r?.expiresAt || 0).getTime() > Date.now()),
+    { email: e, tokenHash, expiresAt, used: false, createdAt: nowIso() }
+  ];
+  await saveJsonStore(SETUP_TOKENS_PATH, next);
+  return token;
+}
+
+export async function verifySetupToken(token = '') {
+  const hash = sha256(clean(token));
+  const rows = await loadJsonStore(SETUP_TOKENS_PATH, []);
+  const list = Array.isArray(rows) ? rows : [];
+  const idx = list.findIndex((r) => clean(r?.tokenHash) === hash && !r?.used);
+  if (idx < 0) return null;
+  const row = list[idx];
+  if (new Date(row?.expiresAt || 0).getTime() <= Date.now()) return null;
+  return row.email;
+}
+
+export async function consumeSetupToken(token = '') {
+  const hash = sha256(clean(token));
+  const rows = await loadJsonStore(SETUP_TOKENS_PATH, []);
+  const list = Array.isArray(rows) ? rows : [];
+  const idx = list.findIndex((r) => clean(r?.tokenHash) === hash && !r?.used);
+  if (idx < 0) return false;
+  list[idx] = { ...list[idx], used: true, usedAt: nowIso() };
+  await saveJsonStore(SETUP_TOKENS_PATH, list);
+  return true;
+}
+
+// ─── Session ─────────────────────────────────────────────────────────────────
 
 export async function sessionFromToken(token = '') {
   const t = clean(token);

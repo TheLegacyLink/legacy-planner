@@ -202,6 +202,13 @@ export async function POST(req) {
       const agentFirst = clean((record?.name || '').split(' ')[0] || 'there');
       const isUnlicensedTrack = (clean(record?.trackType || '').toLowerCase() === 'unlicensed');
       if (gmailUser2 && gmailPass2 && agentEmail && isUnlicensedTrack) {
+        // Generate a setup token for password creation
+        let setupLink = 'https://innercirclelink.com/unlicensed-backoffice';
+        try {
+          const { generateSetupToken } = await import('../../unlicensed-backoffice/auth/_lib');
+          const setupToken = await generateSetupToken(agentEmail);
+          setupLink = `https://innercirclelink.com/unlicensed-backoffice/set-password?token=${setupToken}`;
+        } catch { /* non-fatal — fall back to back office URL */ }
         const tx2 = nodemailer2.createTransport({ service: 'gmail', auth: { user: gmailUser2, pass: gmailPass2 } });
         const boHtml = `
 <div style="font-family:Arial,Helvetica,sans-serif;background:#040B23;padding:24px;color:#E5E7EB;line-height:1.6;">
@@ -213,17 +220,14 @@ export async function POST(req) {
       <h2 style="margin:0 0 12px;font-size:26px;color:#F8FAFC;">Your Back Office is Ready ✅</h2>
       <p style="color:#CBD5E1;font-size:16px;">Hi ${agentFirst},</p>
       <p style="color:#CBD5E1;font-size:16px;">Your ICA has been received. Your back office is now active and ready for you.</p>
-      <div style="background:#071235;border:1px solid #294B8D;border-radius:12px;padding:18px 20px;margin:18px 0;">
-        <p style="margin:0 0 10px;color:#F8FAFC;font-size:15px;font-weight:700;">How to Log In:</p>
-        <ol style="margin:0;padding-left:22px;color:#CBD5E1;font-size:15px;line-height:1.7;">
-          <li style="margin-bottom:8px;">Go to: <a href="https://innercirclelink.com/unlicensed-backoffice" style="color:#60A5FA;font-weight:700;">innercirclelink.com/unlicensed-backoffice</a></li>
-          <li style="margin-bottom:8px;">Enter your email address: <strong style="color:#F8FAFC;">${agentEmail}</strong></li>
-          <li style="margin-bottom:8px;">Check your inbox for a <strong style="color:#F8FAFC;">6-digit login code</strong> — it arrives within 1 minute</li>
-          <li>Enter the code to access your back office</li>
-        </ol>
+      <p style="color:#CBD5E1;font-size:16px;">Click the button below to create your password and access your back office — no codes, no confusion.</p>
+      <div style="text-align:center;margin:22px 0;">
+        <a href="${setupLink}" style="display:inline-block;background:#C8A96B;color:#0B1020;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:800;font-size:16px;">Create My Password &amp; Log In →</a>
       </div>
-      <p style="color:#94a3b8;font-size:13px;">💡 If you don't see the code, check your spam folder. The code expires in 10 minutes — just request a new one if needed.</p>
-      <p style="color:#CBD5E1;font-size:15px;">Questions? Contact us at <a href="mailto:support@thelegacylink.com" style="color:#60A5FA;">support@thelegacylink.com</a></p>
+      <div style="background:#071235;border:1px solid #294B8D;border-radius:12px;padding:14px 18px;margin:18px 0;font-size:13px;color:#94a3b8;">
+        <strong style="color:#CBD5E1;">Link expires in 48 hours.</strong> If it expires, go to <a href="https://innercirclelink.com/unlicensed-backoffice" style="color:#60A5FA;">innercirclelink.com/unlicensed-backoffice</a> and use &ldquo;Send a one-time code&rdquo; to get in.
+      </div>
+      <p style="color:#CBD5E1;font-size:15px;">Questions? <a href="mailto:support@thelegacylink.com" style="color:#60A5FA;">support@thelegacylink.com</a></p>
       <p style="margin:18px 0 0;color:#E2E8F0;">— The Legacy Link Team</p>
     </div>
   </div>
