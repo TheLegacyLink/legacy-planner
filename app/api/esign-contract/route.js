@@ -205,7 +205,7 @@ export async function POST(req) {
         // Generate a setup token for password creation
         let setupLink = 'https://innercirclelink.com/unlicensed-backoffice';
         try {
-          const { generateSetupToken } = await import('../../unlicensed-backoffice/auth/_lib');
+          const { generateSetupToken } = await import('../unlicensed-backoffice/auth/_lib');
           const setupToken = await generateSetupToken(agentEmail);
           setupLink = `https://innercirclelink.com/unlicensed-backoffice/set-password?token=${setupToken}`;
         } catch { /* non-fatal — fall back to back office URL */ }
