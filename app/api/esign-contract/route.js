@@ -193,6 +193,50 @@ export async function POST(req) {
       }
     } catch { /* non-fatal */ }
 
+    // Send "Back Office Ready" email to the agent
+    try {
+      const nodemailer2 = (await import('nodemailer')).default;
+      const gmailUser2 = clean(process.env.GMAIL_APP_USER || '');
+      const gmailPass2 = clean(process.env.GMAIL_APP_PASSWORD || '');
+      const agentEmail = clean(record?.email || '');
+      const agentFirst = clean((record?.name || '').split(' ')[0] || 'there');
+      const isUnlicensedTrack = (clean(record?.trackType || '').toLowerCase() === 'unlicensed');
+      if (gmailUser2 && gmailPass2 && agentEmail && isUnlicensedTrack) {
+        const tx2 = nodemailer2.createTransport({ service: 'gmail', auth: { user: gmailUser2, pass: gmailPass2 } });
+        const boHtml = `
+<div style="font-family:Arial,Helvetica,sans-serif;background:#040B23;padding:24px;color:#E5E7EB;line-height:1.6;">
+  <div style="max-width:640px;margin:0 auto;background:#0B1534;border:1px solid #1E3A8A;border-radius:18px;overflow:hidden;">
+    <div style="padding:16px 24px;background:#1651AE;text-align:center;">
+      <div style="color:#fff;font-weight:800;font-size:36px;letter-spacing:1px;">THE LEGACY LINK</div>
+    </div>
+    <div style="padding:28px 30px;">
+      <h2 style="margin:0 0 12px;font-size:26px;color:#F8FAFC;">Your Back Office is Ready ✅</h2>
+      <p style="color:#CBD5E1;font-size:16px;">Hi ${agentFirst},</p>
+      <p style="color:#CBD5E1;font-size:16px;">Your ICA has been received. Your back office is now active and ready for you.</p>
+      <div style="background:#071235;border:1px solid #294B8D;border-radius:12px;padding:18px 20px;margin:18px 0;">
+        <p style="margin:0 0 10px;color:#F8FAFC;font-size:15px;font-weight:700;">How to Log In:</p>
+        <ol style="margin:0;padding-left:22px;color:#CBD5E1;font-size:15px;line-height:1.7;">
+          <li style="margin-bottom:8px;">Go to: <a href="https://innercirclelink.com/unlicensed-backoffice" style="color:#60A5FA;font-weight:700;">innercirclelink.com/unlicensed-backoffice</a></li>
+          <li style="margin-bottom:8px;">Enter your email address: <strong style="color:#F8FAFC;">${agentEmail}</strong></li>
+          <li style="margin-bottom:8px;">Check your inbox for a <strong style="color:#F8FAFC;">6-digit login code</strong> — it arrives within 1 minute</li>
+          <li>Enter the code to access your back office</li>
+        </ol>
+      </div>
+      <p style="color:#94a3b8;font-size:13px;">💡 If you don't see the code, check your spam folder. The code expires in 10 minutes — just request a new one if needed.</p>
+      <p style="color:#CBD5E1;font-size:15px;">Questions? Contact us at <a href="mailto:support@thelegacylink.com" style="color:#60A5FA;">support@thelegacylink.com</a></p>
+      <p style="margin:18px 0 0;color:#E2E8F0;">— The Legacy Link Team</p>
+    </div>
+  </div>
+</div>`;
+        await tx2.sendMail({
+          from: gmailUser2,
+          to: agentEmail,
+          subject: 'Your Legacy Link Back Office is Ready — Here is How to Log In',
+          html: boHtml,
+        }).catch(() => {});
+      }
+    } catch { /* non-fatal */ }
+
     return Response.json({ ok: true, envelopeId, signedAt, record: sanitize(record) });
   }
 

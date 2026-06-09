@@ -43,6 +43,7 @@ const tabs = [
   { href: '/store', label: '🛒 Store' },
   { href: '/store/admin', label: 'Store Admin' },
   { href: '/card-orders-admin', label: '🪪 Card Orders' },
+  { href: '/admin/agent-lookup', label: '🔍 Agent Lookup' },
   { href: '/agent-training', label: '🎓 Agent Training' },
   { href: '/agent-training/admin', label: 'Training Admin' },
   { href: '/settings', label: 'Settings' }
