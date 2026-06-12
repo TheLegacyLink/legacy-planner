@@ -145,6 +145,7 @@ export default function PayoutQueuePage() {
   }, [rows, nowMs]);
 
   async function handleBatchPay(group) {
+    deselectAll(group.name); // auto-clear immediately on click
     setBatchSaving(group.name);
     setMsg('');
     try {

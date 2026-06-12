@@ -208,7 +208,8 @@ function isInnerCircleName(name = '') {
 // ─── Elite IC referral bonus config ────────────────────────────────────────
 // Mirrors lib/eliteBonus.js ELITE_IC_MEMBERS. Update both when membership changes.
 const ELITE_IC_REFERRERS = [
-  { name: 'Leticia Wright', effectiveFrom: '2026-06-01', sponsorshipReferralBonus: 1000 },
+  // totalProgramValue = total NET earnings target for this IC member (what they keep after 25% cut)
+  { name: 'Leticia Wright', effectiveFrom: '2026-06-01', sponsorshipReferralBonus: 1000, totalProgramValue: 37000 },
 ];
 
 function eliteIcReferralBonus(referredByName = '', submittedAt = '') {
@@ -1112,7 +1113,7 @@ async function ensureSopProvisionFromActSubmit(row = {}) {
 // ─── IC Batch Pay — 25% company cut, member receives 75% ──────────────────
 const IC_PAYOUT_NET_PCT = 0.75;
 
-async function sendPayoutBatchEmail(icMemberName, rows = []) {
+async function sendPayoutBatchEmail(icMemberName, rows = [], allRows = []) {
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
   const from = clean(process.env.GMAIL_FROM) || user;
@@ -1141,10 +1142,38 @@ async function sendPayoutBatchEmail(icMemberName, rows = []) {
   });
 
   const totalNet = roundMoney(lineItems.reduce((s, l) => s + l.net, 0));
+
+  // Running program balance
+  const memberConfig = ELITE_IC_REFERRERS.find((m) => normalize(m.name) === icNorm);
+  const totalProgramValue = memberConfig?.totalProgramValue || 0;
+  let cumulativeNetPaid = 0;
+  let remainingBalance = 0;
+  if (totalProgramValue > 0 && Array.isArray(allRows) && allRows.length) {
+    cumulativeNetPaid = roundMoney(
+      allRows
+        .filter((r) => clean(r?.payoutStatus || '').toLowerCase() === 'paid')
+        .filter((r) => normalize(r?.referredByName || '') === icNorm || normalize(r?.policyWriterName || '') === icNorm)
+        .reduce((s, r) => s + roundMoney(Number(r?.payoutAmount || 0) * IC_PAYOUT_NET_PCT), 0)
+    );
+    remainingBalance = roundMoney(totalProgramValue - cumulativeNetPaid);
+  }
+
   const subject = `Your Payout Summary — ${todayStr} — ${rows.length} Client${rows.length !== 1 ? 's' : ''}`;
+
+  const balanceLines = totalProgramValue > 0 ? [
+    '',
+    '─'.repeat(50),
+    'YOUR INNER CIRCLE PROGRAM BALANCE',
+    `Total Program Value:   $${totalProgramValue.toFixed(2)}`,
+    `Total Paid to Date:    $${cumulativeNetPaid.toFixed(2)}`,
+    `Remaining Balance:     $${remainingBalance.toFixed(2)}`,
+    '─'.repeat(50),
+  ] : [];
 
   const text = [
     `Hi ${firstName},`,
+    '',
+    'You are an Inner Circle Member of The Legacy Link.',
     '',
     `Here is your payout breakdown for today, ${todayStr}:`,
     '',
@@ -1156,7 +1185,8 @@ async function sendPayoutBatchEmail(icMemberName, rows = []) {
       ''
     ]),
     '─'.repeat(50),
-    `Total Paid to You: $${totalNet.toFixed(2)}`,
+    `Total Paid to You Today: $${totalNet.toFixed(2)}`,
+    ...balanceLines,
     '',
     'Keep building. 💪',
     '',
@@ -1172,9 +1202,20 @@ async function sendPayoutBatchEmail(icMemberName, rows = []) {
       <td style="padding:10px 12px;text-align:right;font-weight:700;color:#16a34a;">$${l.net.toFixed(2)}</td>
     </tr>`).join('');
 
+  const balanceHtml = totalProgramValue > 0 ? `
+    <div style="margin:18px 0;padding:16px 18px;background:#0f172a;border-radius:10px;color:#f8fafc;">
+      <div style="font-weight:800;font-size:13px;letter-spacing:.8px;color:#94a3b8;margin-bottom:10px;text-transform:uppercase;">Inner Circle Program Balance</div>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;">
+        <tr><td style="padding:4px 0;color:#94a3b8;">Total Program Value</td><td style="text-align:right;font-weight:600;">$${totalProgramValue.toFixed(2)}</td></tr>
+        <tr><td style="padding:4px 0;color:#94a3b8;">Total Paid to Date</td><td style="text-align:right;font-weight:600;color:#f87171;">-$${cumulativeNetPaid.toFixed(2)}</td></tr>
+        <tr style="border-top:1px solid #334155;"><td style="padding:8px 0 4px;font-weight:700;font-size:15px;">Remaining Balance</td><td style="text-align:right;font-weight:800;font-size:16px;color:#4ade80;padding-top:8px;">$${remainingBalance.toFixed(2)}</td></tr>
+      </table>
+    </div>` : '';
+
   const html = brandEmailFrame(
     `Your Payout Summary — ${todayStr}`,
     `<p>Hi <strong>${firstName}</strong>,</p>
+     <p style="display:inline-block;background:#0047AB;color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.5px;">INNER CIRCLE MEMBER</p>
      <p>Here is your payout breakdown for <strong>${todayStr}</strong>. All payouts below have been processed.</p>
      <table style="width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;">
        <thead>
@@ -1189,11 +1230,12 @@ async function sendPayoutBatchEmail(icMemberName, rows = []) {
        <tbody>${rowsHtml}</tbody>
        <tfoot>
          <tr style="background:#f8fafc;font-weight:700;border-top:2px solid #cbd5e1;">
-           <td colspan="4" style="padding:12px;text-align:right;font-size:15px;">Total Paid to You:</td>
+           <td colspan="4" style="padding:12px;text-align:right;font-size:15px;">Total Paid to You Today:</td>
            <td style="padding:12px;text-align:right;font-size:17px;color:#16a34a;">$${totalNet.toFixed(2)}</td>
          </tr>
        </tfoot>
-     </table>`
+     </table>
+     ${balanceHtml}`
   );
 
   const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
@@ -1474,7 +1516,7 @@ export async function PATCH(req) {
       return Response.json({ ok: false, error: 'no_rows_updated' }, { status: 400 });
     }
     await writeStore(batchStore);
-    const batchEmail = await sendPayoutBatchEmail(icMemberName, paidRows).catch((e) => ({ ok: false, error: clean(e?.message || 'batch_email_failed') }));
+    const batchEmail = await sendPayoutBatchEmail(icMemberName, paidRows, batchStore).catch((e) => ({ ok: false, error: clean(e?.message || 'batch_email_failed') }));
     if (batchEmail?.ok) {
       const ts = nowIso();
       for (const pr of paidRows) {
