@@ -15,7 +15,7 @@ const CRM_SETUP_VIDEO_URL = 'https://innercirclelink.com/docs/onboarding/legacy-
 const YOUTUBE_REVIEW_URL = 'https://youtu.be/SVvU9SvCH9o?si=nzgjgEa7DfGQlxmX';
 const PINNACLE_CONTRACTING_URL = 'https://surelc.surancebay.com/producer/?gaId=190';
 const INVESTALINK_CONTRACTING_URL = 'https://surelc.surancebay.com/sbweb/login.jsp?branch=InvestaLink&branchEditable=off&branchRequired=on&branchVisible=on&gaId=168&gaName=AIP%20Marketing%20Alliance';
-const CONTRACTING_VIDEO_URL = 'https://www.loom.com/share/79354f8de2334697ba53cc5b0ff80c86?sid=b88fafc3-96a0-4d6a-9918-f396f0047603';
+const CONTRACTING_VIDEO_URL = 'https://www.loom.com/share/f8d8c10001054625916adca06348ff03';
 const EO_PURCHASE_URL = 'https://thelegacylink.com/e-and-o-insurance';
 
 const STEP_DEFS_LICENSED = [

@@ -111,7 +111,7 @@ const LICENSED_PREVIEW_USERS = [
     isDemo: false
   },
   {
-    email: 'leticiawright05@gmail.com',
+    email: 'Leticia@thelegacylink.com',
     name: 'Leticia Wright',
     agentId: 'demo_leticia_wright',
     homeState: 'GA',

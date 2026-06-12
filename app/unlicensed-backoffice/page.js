@@ -57,7 +57,7 @@ export default function UnlicensedBackofficePage() {
   const [onboardingLoading, setOnboardingLoading] = useState(false);
   const [onboardingSaving, setOnboardingSaving] = useState(false);
 
-  const DEMO_EMAILS = ['leticiawright05@gmail.com'];
+  const DEMO_EMAILS = ['Leticia@thelegacylink.com'];
   const [sessionExpired, setSessionExpired] = useState(false);
   const [loginMode, setLoginMode] = useState('password'); // 'password' | 'otp'
   const [password, setPassword] = useState('');

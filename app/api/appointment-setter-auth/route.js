@@ -38,7 +38,7 @@ const STATIC_SETTER_LOGINS = [
   },
   {
     name: 'Leticia Wright',
-    email: 'leticiawright05@gmail.com',
+    email: 'Leticia@thelegacylink.com',
     aliases: ['leticia wright', 'leticia'],
     role: 'setter',
     passwordHash: 'f3a6378034f8bcf46b3fd0f64ce8f528519d56f2eff0e6e8306af27ce2c56f05',

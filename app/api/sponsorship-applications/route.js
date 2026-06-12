@@ -51,7 +51,7 @@ const SPONSOR_EMAIL_MAP = {
   'kimora link': 'kimora@thelegacylink.com',
   'jamal holmes': 'support@jdholmesagencyllc.com',
   'mahogany burns': 'lovelyfloral78@gmail.com',
-  'leticia wright': 'leticiawright05@gmail.com',
+  'leticia wright': 'Leticia@thelegacylink.com',
   'kelin brown': 'kelinb63@gmail.com',
   'madalyn adams': 'madalynm13@gmail.com',
   'breanna james': 'drboss637@gmail.com',

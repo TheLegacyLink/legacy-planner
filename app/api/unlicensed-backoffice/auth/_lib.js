@@ -19,7 +19,7 @@ const UNLICENSED_PREVIEW_USERS = [
     applicationId: 'preview_unlicensed_kimora'
   },
   {
-    email: 'leticiawright05@gmail.com',
+    email: 'Leticia@thelegacylink.com',
     name: 'Leticia Wright',
     phone: '',
     state: 'GA',

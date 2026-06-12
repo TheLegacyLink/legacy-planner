@@ -4,6 +4,8 @@ import { sessionFromToken as startAuthSession } from '../start-auth/_lib';
 import { sessionFromToken as unlicensedSession } from '../unlicensed-backoffice/auth/_lib';
 import { sessionFromToken as licensedSession } from '../licensed-backoffice/auth/_lib';
 
+const START_INTAKE_PATH = 'stores/start-intake.json';
+
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -114,6 +116,25 @@ export async function POST(req) {
     else list.push(record);
 
     await saveJsonStore(STORE_PATH, list);
+
+    // ── Update start-intake so the unlicensed back office resolveFromSignedIntake() finds them ──
+    try {
+      const intakeRows = await loadJsonStore(START_INTAKE_PATH, []);
+      const intakeList = Array.isArray(intakeRows) ? intakeRows : [];
+      const intakeIdx = intakeList.findIndex((r) => norm(r?.email) === norm(profile.email));
+      if (intakeIdx >= 0) {
+        intakeList[intakeIdx] = {
+          ...intakeList[intakeIdx],
+          contractStatus: 'signed',
+          contractSignedAt: signedAt,
+          contractMatchedBy: 'esign_api',
+          status: 'contract_signed',
+          credentialsStatus: 'active',
+          updatedAt: signedAt,
+        };
+        await saveJsonStore(START_INTAKE_PATH, intakeList);
+      }
+    } catch { /* non-fatal */ }
 
     // Sync to contract-signatures store so licensed back office policy submit gate works
     try {

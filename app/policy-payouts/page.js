@@ -270,9 +270,9 @@ export default function PolicyPayoutsPage() {
       if (res.ok) {
         if (data?.row?.id) {
           setRows((prev) => prev.map((r) => (r.id === data.row.id ? { ...r, ...data.row } : r)));
-        } else {
-          await load();
         }
+        // Always re-fetch from server to confirm blob persisted — prevents stale CDN reads on refresh
+        await load();
         if (data?.email?.ok) setSyncMsg('Saved. Notification email sent to agent.');
         else setSyncMsg('Saved successfully.');
       } else {
@@ -658,25 +658,9 @@ export default function PolicyPayoutsPage() {
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             <button
                               type="button"
-                              onClick={() => patchRow(r.id, { status: 'Approved', applicantLicensedStatus: 'Licensed' })}
-                              disabled={!!savingId}
-                              style={{ ...SMALL_BTN, background: '#166534', color: '#fff', border: '1px solid #14532d' }}
-                            >
-                              {savingId === r.id ? 'Saving…' : 'Approve (Licensed)'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => patchRow(r.id, { status: 'Approved', applicantLicensedStatus: 'Unlicensed' })}
-                              disabled={!!savingId}
-                              style={{ ...SMALL_BTN, background: '#92400e', color: '#fff', border: '1px solid #78350f' }}
-                            >
-                              {savingId === r.id ? 'Saving…' : 'Approve (Unlicensed)'}
-                            </button>
-                            <button
-                              type="button"
                               onClick={() => patchRow(r.id, { status: 'Approved', suppressEmail: true })}
                               disabled={!!savingId}
-                              style={SMALL_BTN}
+                              style={{ ...SMALL_BTN, background: '#166534', color: '#fff', border: '1px solid #14532d' }}
                             >
                               {savingId === r.id ? 'Saving…' : 'Approve'}
                             </button>

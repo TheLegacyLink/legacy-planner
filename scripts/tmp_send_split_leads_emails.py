@@ -113,7 +113,7 @@ res1 = post('https://innercirclelink.com/api/manual-email', {
 })
 
 res2 = post('https://innercirclelink.com/api/manual-email', {
-    'to': 'leticiawright05@gmail.com',
+    'to': 'Leticia@thelegacylink.com',
     'cc': 'investalinkinsurance@gmail.com',
     'subject': 'Your Lead Assignment List (Leticia Wright)',
     'text': leticia_text

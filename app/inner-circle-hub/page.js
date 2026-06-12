@@ -205,10 +205,19 @@ function inWindow(ts = 0, windowKey = 'all') {
   }
   return true;
 }
+const LEADERSHIP_EMAILS = new Set([
+  'kimora@thelegacylink.com',
+  'investalinkinsurance@gmail.com',
+  'Leticia@thelegacylink.com',
+  'jamalholmes195@yahoo.com',
+  'support@jdholmesagencyllc.com',
+]);
+
 function availableTabs(member = {}) {
   const modules = member?.modules || {};
   const email = clean(member?.email || '').toLowerCase();
   const isKimora = email === 'kimora@thelegacylink.com';
+  const isLeadership = LEADERSHIP_EMAILS.has(email);
   const all = [
     // Primary working tools
     { key: 'dashboard', label: 'The Lounge' },
@@ -230,6 +239,7 @@ function availableTabs(member = {}) {
     { key: 'podcast', label: '🎥 Podcast' },
     { key: 'licensedstates', label: 'My Licensed States' },
     ...(isKimora ? [{ key: 'contracts', label: 'Contract Queue' }] : []),
+    ...(isLeadership ? [{ key: 'leadership-ops', label: '🔒 Leadership Ops' }] : []),
     // Legacy keys (kept for backward compat — still render if navigated directly)
     { key: 'virtualcard', label: '🎴 Virtual Card' },
     { key: 'faststart', label: 'Fast Start' },
@@ -4166,6 +4176,20 @@ export default function InnerCircleHubPage() {
                 </>
                 ) : null}
 
+              </div>
+            ) : null}
+
+            {tab === 'leadership-ops' ? (
+              <div style={{ width: '100%', height: 'calc(100vh - 140px)', minHeight: 600, borderRadius: 14, overflow: 'hidden', border: '1px solid #334155' }}>
+                <iframe
+                  src="https://quixotic-team-flow-go.base44.app"
+                  width="100%"
+                  height="100%"
+                  frameBorder="0"
+                  style={{ display: 'block', width: '100%', height: '100%', border: 'none' }}
+                  title="Leadership Ops"
+                  allow="clipboard-read; clipboard-write"
+                />
               </div>
             ) : null}
 

@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 // Demo users allowed to auto-login (no OTP) from licensed back office
 const DEMO_AUTO_LOGIN = [
   {
-    email: 'leticiawright05@gmail.com',
+    email: 'Leticia@thelegacylink.com',
     name: 'Leticia Wright',
     phone: '',
     state: 'GA',
