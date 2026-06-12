@@ -1,7 +1,35 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+
+// ─── Base44 Redirect Gate ─────────────────────────────────────────────────────
+// If SSO_MODE is active, redirect everyone to Base44 for login.
+// Pass ?bypass=1 or ?sso=1 to skip the redirect (for internal/contract flows).
+function SsoRedirectGate({ children }) {
+  const params = useSearchParams();
+  const bypass = params.get('bypass') || params.get('sso') || params.get('error');
+  const base44Url = process.env.NEXT_PUBLIC_BASE44_LOGIN_URL;
+
+  useEffect(() => {
+    if (!bypass && base44Url) {
+      window.location.replace(base44Url);
+    }
+  }, [bypass, base44Url]);
+
+  if (!bypass && base44Url) {
+    return (
+      <main style={{
+        minHeight: '100vh', display: 'grid', placeItems: 'center',
+        background: '#020617', color: '#F8FAFC', fontFamily: 'Arial, Helvetica, sans-serif'
+      }}>
+        <p style={{ color: '#CBD5E1', fontSize: 14 }}>Redirecting to Legacy Link Hub…</p>
+      </main>
+    );
+  }
+
+  return children;
+}
 
 const TOKEN_KEY = 'start_portal_token_v1';
 const PROFILE_KEY = 'start_portal_profile_v1';
@@ -230,9 +258,10 @@ const errStyle = { color: '#F87171', fontSize: 13, margin: 0 };
 const mutedStyle = { color: '#64748B', fontSize: 13, margin: 0 };
 
 // ─── Stages ───────────────────────────────────────────────────────────────
-// 'email' → 'otp' → 'contract' → 'done'
+// 'role-select' → (New Agent: external) | (Licensed/Unlicensed: external link)
+// 'email' → 'otp' → 'contract' → 'done'  (for new agents signing ICA)
 
-export default function StartPortalPage() {
+function StartPortalPageInner() {
   const router = useRouter();
   const [stage, setStage] = useState('loading');
   const [email, setEmail] = useState('');
@@ -261,7 +290,7 @@ export default function StartPortalPage() {
   // Restore session on mount
   useEffect(() => {
     const t = typeof window !== 'undefined' ? window.localStorage.getItem(TOKEN_KEY) : '';
-    if (!t) { setStage('email'); return; }
+    if (!t) { setStage('role-select'); return; }
     let mounted = true;
     (async () => {
       try {
@@ -475,6 +504,98 @@ export default function StartPortalPage() {
   }
 
   // ─── Render ──────────────────────────────────────────────────────────────
+
+
+  // ─── Role Selector (default landing) ──────────────────────────────────────
+  if (stage === 'role-select') {
+    const selectorBg = {
+      minHeight: '100vh',
+      display: 'grid',
+      placeItems: 'center',
+      background: 'radial-gradient(900px 400px at 10% -10%, rgba(29,66,138,.35) 0%, transparent 55%), radial-gradient(700px 350px at 90% 5%, rgba(200,169,107,.15) 0%, transparent 55%), #020617',
+      fontFamily: 'Arial, Helvetica, sans-serif',
+      color: '#F8FAFC',
+      padding: 16
+    };
+    const selectorCard = {
+      width: '100%',
+      maxWidth: 600,
+      background: 'linear-gradient(180deg,#0a1628 0%,#070d1c 100%)',
+      border: '1px solid #1F2D4A',
+      borderRadius: 18,
+      padding: '32px 28px 24px',
+      boxShadow: '0 24px 60px rgba(0,0,0,.5)'
+    };
+    const optionBase = {
+      display: 'block',
+      textDecoration: 'none',
+      color: '#F8FAFC',
+      background: 'rgba(255,255,255,.03)',
+      borderRadius: 14,
+      padding: '18px 20px',
+      marginBottom: 12
+    };
+    return (
+      <main style={selectorBg}>
+        <div style={selectorCard}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 28 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.14em', color: '#93C5FD', textTransform: 'uppercase', marginBottom: 6 }}>The Legacy Link</div>
+            <h1 style={{ margin: 0, fontSize: 32, fontWeight: 800, lineHeight: 1.15 }}>Back Office Access</h1>
+            <p style={{ margin: '8px 0 0', color: '#94A3B8', fontSize: 15 }}>Select your status to continue.</p>
+          </div>
+
+          {/* New Agent */}
+          <a href="/sponsorship-signup" style={{ ...optionBase, border: '1px solid #C8A96B' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+              <span style={{ fontSize: 26, lineHeight: 1 }}>&#x1F31F;</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: 17, color: '#FBBF24', marginBottom: 4 }}>New Agent</div>
+                <div style={{ color: '#94A3B8', fontSize: 14, marginBottom: 10 }}>First time here. Never signed up or signed a contract yet.</div>
+                <span style={{ color: '#C8A96B', fontWeight: 700, fontSize: 14 }}>Start your registration at Legacy Link Hub &rarr;</span>
+              </div>
+            </div>
+          </a>
+
+          {/* Licensed Agent */}
+          <a href="/licensed-backoffice" style={{ ...optionBase, border: '1px solid #3B82F6' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+              <span style={{ fontSize: 26, lineHeight: 1 }}>&#x2705;</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: 17, color: '#93C5FD', marginBottom: 4 }}>Licensed Agent</div>
+                <div style={{ color: '#94A3B8', fontSize: 14, marginBottom: 10 }}>Returning agent with an active insurance license.</div>
+                <span style={{ color: '#60A5FA', fontWeight: 700, fontSize: 14 }}>Go to Licensed Agent Back Office &rarr;</span>
+              </div>
+            </div>
+          </a>
+
+          {/* Unlicensed Trainee */}
+          <a href="/unlicensed-backoffice" style={{ ...optionBase, border: '1px solid #475569', marginBottom: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+              <span style={{ fontSize: 26, lineHeight: 1 }}>&#x1F4CB;</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: 17, color: '#CBD5E1', marginBottom: 4 }}>Unlicensed Trainee</div>
+                <div style={{ color: '#94A3B8', fontSize: 14, marginBottom: 10 }}>Returning trainee working toward your license.</div>
+                <span style={{ color: '#94A3B8', fontWeight: 700, fontSize: 14 }}>Go to Trainee Back Office &rarr;</span>
+              </div>
+            </div>
+          </a>
+
+          {/* Footer */}
+          <p style={{ textAlign: 'center', color: '#475569', fontSize: 13, marginTop: 24, marginBottom: 0 }}>
+            Questions?{' '}
+            <a href="mailto:support@thelegacylink.com" style={{ color: '#60A5FA', textDecoration: 'none' }}>support@thelegacylink.com</a>
+            {' '}&middot;{' '}201-862-7040
+          </p>
+
+          <p style={{ textAlign: 'center', color: '#2D3748', fontSize: 12, marginTop: 12, marginBottom: 0 }}>
+            Need to sign your ICA?{' '}
+            <button onClick={() => setStage('email')} style={{ background: 'none', border: 'none', color: '#4A5568', cursor: 'pointer', fontSize: 12, textDecoration: 'underline', padding: 0 }}>Click here</button>
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   if (stage === 'loading') {
     return (
@@ -861,5 +982,17 @@ export default function StartPortalPage() {
         )}
       </div>
     </main>
+  );
+}
+
+// ─── Default export: wrapped with SSO redirect gate ──────────────────────────
+import { Suspense } from 'react';
+export default function StartPortalPage() {
+  return (
+    <Suspense>
+      <SsoRedirectGate>
+        <StartPortalPageInner />
+      </SsoRedirectGate>
+    </Suspense>
   );
 }
