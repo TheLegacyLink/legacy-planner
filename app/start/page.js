@@ -1,35 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
-// ─── Base44 Redirect Gate ─────────────────────────────────────────────────────
-// If SSO_MODE is active, redirect everyone to Base44 for login.
-// Pass ?bypass=1 or ?sso=1 to skip the redirect (for internal/contract flows).
-function SsoRedirectGate({ children }) {
-  const params = useSearchParams();
-  const bypass = params.get('bypass') || params.get('sso') || params.get('error');
-  const base44Url = process.env.NEXT_PUBLIC_BASE44_LOGIN_URL;
-
-  useEffect(() => {
-    if (!bypass && base44Url) {
-      window.location.replace(base44Url);
-    }
-  }, [bypass, base44Url]);
-
-  if (!bypass && base44Url) {
-    return (
-      <main style={{
-        minHeight: '100vh', display: 'grid', placeItems: 'center',
-        background: '#020617', color: '#F8FAFC', fontFamily: 'Arial, Helvetica, sans-serif'
-      }}>
-        <p style={{ color: '#CBD5E1', fontSize: 14 }}>Redirecting to Legacy Link Hub…</p>
-      </main>
-    );
-  }
-
-  return children;
-}
 
 const TOKEN_KEY = 'start_portal_token_v1';
 const PROFILE_KEY = 'start_portal_profile_v1';
