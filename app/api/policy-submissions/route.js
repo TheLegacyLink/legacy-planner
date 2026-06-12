@@ -1100,10 +1100,109 @@ async function ensureSopProvisionFromActSubmit(row = {}) {
   return { ok: true, sopLink, inviteToken: invite.token, inviteEmail, unlicensedCoachEmail, credentialsCreated: authProvision.created };
 }
 
+// ─── IC Batch Pay — 25% company cut, member receives 75% ──────────────────
+const IC_PAYOUT_NET_PCT = 0.75;
+
+async function sendPayoutBatchEmail(icMemberName, rows = []) {
+  const user = clean(process.env.GMAIL_APP_USER);
+  const pass = clean(process.env.GMAIL_APP_PASSWORD);
+  const from = clean(process.env.GMAIL_FROM) || user;
+  if (!user || !pass) return { ok: false, error: 'missing_gmail_env' };
+
+  const memberEmail = findUserEmailByName(icMemberName);
+  const recipients = [...new Set([memberEmail, ...adminEmails()].filter(Boolean))];
+  if (!recipients.length) return { ok: false, error: 'no_recipients' };
+
+  const firstName = clean(icMemberName.split(' ')[0]) || 'Agent';
+  const icNorm = normalize(icMemberName);
+  const todayStr = new Date().toLocaleDateString('en-US', {
+    timeZone: 'America/Chicago', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+
+  const lineItems = rows.map((row) => {
+    const isRef = normalize(row.referredByName || '') === icNorm;
+    const isWriter = normalize(row.policyWriterName || '') === icNorm;
+    let role = 'Referral';
+    if (isRef && isWriter) role = 'Referral + Policy Writer';
+    else if (isWriter) role = 'Policy Writer';
+    const gross = roundMoney(Number(row.payoutAmount || 0) || 0);
+    const deduction = roundMoney(gross * 0.25);
+    const net = roundMoney(gross * IC_PAYOUT_NET_PCT);
+    return { client: clean(row.applicantName || '—'), role, gross, deduction, net };
+  });
+
+  const totalNet = roundMoney(lineItems.reduce((s, l) => s + l.net, 0));
+  const subject = `Your Payout Summary — ${todayStr} — ${rows.length} Client${rows.length !== 1 ? 's' : ''}`;
+
+  const text = [
+    `Hi ${firstName},`,
+    '',
+    `Here is your payout breakdown for today, ${todayStr}:`,
+    '',
+    '─'.repeat(50),
+    ...lineItems.flatMap((l) => [
+      `Client: ${l.client}`,
+      `Role: ${l.role}`,
+      `Gross: $${l.gross.toFixed(2)} | Less 25%: -$${l.deduction.toFixed(2)} | Net Paid: $${l.net.toFixed(2)}`,
+      ''
+    ]),
+    '─'.repeat(50),
+    `Total Paid to You: $${totalNet.toFixed(2)}`,
+    '',
+    'Keep building. 💪',
+    '',
+    'The Legacy Link Support Team'
+  ].join('\n');
+
+  const rowsHtml = lineItems.map((l) => `
+    <tr style="border-bottom:1px solid #e2e8f0;">
+      <td style="padding:10px 12px;font-weight:600;">${l.client}</td>
+      <td style="padding:10px 12px;color:#475569;font-size:13px;">${l.role}</td>
+      <td style="padding:10px 12px;text-align:right;">$${l.gross.toFixed(2)}</td>
+      <td style="padding:10px 12px;text-align:right;color:#dc2626;">-$${l.deduction.toFixed(2)}</td>
+      <td style="padding:10px 12px;text-align:right;font-weight:700;color:#16a34a;">$${l.net.toFixed(2)}</td>
+    </tr>`).join('');
+
+  const html = brandEmailFrame(
+    `Your Payout Summary — ${todayStr}`,
+    `<p>Hi <strong>${firstName}</strong>,</p>
+     <p>Here is your payout breakdown for <strong>${todayStr}</strong>. All payouts below have been processed.</p>
+     <table style="width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;">
+       <thead>
+         <tr style="background:#f1f5f9;text-align:left;">
+           <th style="padding:10px 12px;">Client</th>
+           <th style="padding:10px 12px;">Your Role</th>
+           <th style="padding:10px 12px;text-align:right;">Gross</th>
+           <th style="padding:10px 12px;text-align:right;">Less 25%</th>
+           <th style="padding:10px 12px;text-align:right;">Net Paid</th>
+         </tr>
+       </thead>
+       <tbody>${rowsHtml}</tbody>
+       <tfoot>
+         <tr style="background:#f8fafc;font-weight:700;border-top:2px solid #cbd5e1;">
+           <td colspan="4" style="padding:12px;text-align:right;font-size:15px;">Total Paid to You:</td>
+           <td style="padding:12px;text-align:right;font-size:17px;color:#16a34a;">$${totalNet.toFixed(2)}</td>
+         </tr>
+       </tfoot>
+     </table>`
+  );
+
+  const tx = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+  const info = await tx.sendMail({ from, to: recipients.join(', '), subject, text, html });
+  return { ok: true, messageId: info?.messageId || '', to: recipients };
+}
+
 export async function GET() {
   const rows = await getStore();
   rows.sort((a, b) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime());
-  return Response.json({ ok: true, rows });
+  // Tag each row with icPayee if the referrer or writer is an Inner Circle member
+  const enriched = rows.map((row) => {
+    const referrer = clean(row?.referredByName || '');
+    const writer = clean(row?.policyWriterName || '');
+    const icPayee = isInnerCircleName(referrer) ? referrer : (isInnerCircleName(writer) ? writer : '');
+    return icPayee ? { ...row, icPayee } : row;
+  });
+  return Response.json({ ok: true, rows: enriched });
 }
 
 export async function POST(req) {
@@ -1340,6 +1439,42 @@ export async function PATCH(req) {
         return Response.json({ ok: false, error: 'duplicate_submitted_today', message: 'This has already been submitted today. Do you still want to continue?', existing: dup }, { status: 409 });
       }
     }
+  }
+
+  // ── Batch mark paid for IC members ────────────────────────────
+  const batchAction = clean(body?.action || '');
+  if (batchAction === 'batch_mark_paid') {
+    const ids = Array.isArray(body?.ids) ? body.ids.map(clean).filter(Boolean) : [];
+    const icMemberName = clean(body?.icMemberName || '');
+    if (!ids.length || !icMemberName) {
+      return Response.json({ ok: false, error: 'missing_ids_or_member' }, { status: 400 });
+    }
+    const batchStore = await getStore();
+    const nowStamp = nowIso();
+    const paidRows = [];
+    for (const batchId of ids) {
+      const bIdx = batchStore.findIndex((r) => clean(r.id) === batchId);
+      if (bIdx < 0) continue;
+      const cur = batchStore[bIdx];
+      if (clean(cur.payoutStatus || '').toLowerCase() === 'paid') continue;
+      const gross = roundMoney(Number(cur.payoutAmount || cur.advancePayout || 0) || 0);
+      batchStore[bIdx] = { ...cur, payoutAmount: gross, payoutStatus: 'Paid', payoutPaidAt: nowStamp, payoutPaidBy: 'Kimora', updatedAt: nowStamp };
+      paidRows.push(batchStore[bIdx]);
+    }
+    if (!paidRows.length) {
+      return Response.json({ ok: false, error: 'no_rows_updated' }, { status: 400 });
+    }
+    await writeStore(batchStore);
+    const batchEmail = await sendPayoutBatchEmail(icMemberName, paidRows).catch((e) => ({ ok: false, error: clean(e?.message || 'batch_email_failed') }));
+    if (batchEmail?.ok) {
+      const ts = nowIso();
+      for (const pr of paidRows) {
+        const ei = batchStore.findIndex((r) => clean(r.id) === clean(pr.id));
+        if (ei >= 0) batchStore[ei].payoutEmailSentAt = ts;
+      }
+      await writeStore(batchStore);
+    }
+    return Response.json({ ok: true, updated: paidRows.length, batchEmail });
   }
 
   const id = clean(body?.id);
