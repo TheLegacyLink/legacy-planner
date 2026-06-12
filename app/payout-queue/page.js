@@ -236,23 +236,23 @@ export default function PayoutQueuePage() {
               .filter((r) => sel.has(r.id))
               .reduce((s, r) => s + effectivePayoutAmount(r) * IC_NET_PCT, 0);
             return (
-              <div key={group.name} style={{ marginBottom: 24, background: '#f8fafc', borderRadius: 8, padding: 16 }}>
+              <div key={group.name} style={{ marginBottom: 24, background: '#f1f5f9', borderRadius: 8, padding: 16, color: '#0f172a' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <strong style={{ fontSize: 15 }}>{group.name} — {group.rows.length} payout{group.rows.length !== 1 ? 's' : ''} due today</strong>
+                  <strong style={{ fontSize: 15, color: '#0f172a' }}>{group.name} — {group.rows.length} payout{group.rows.length !== 1 ? 's' : ''} due today</strong>
                   <span style={{ gap: 8, display: 'flex' }}>
                     <button type="button" style={{ fontSize: 12 }} onClick={() => selectAll(group.name, group.rows)}>Select All</button>
                     <button type="button" style={{ fontSize: 12 }} onClick={() => deselectAll(group.name)}>Clear</button>
                   </span>
                 </div>
-                <table className="table" style={{ fontSize: 13 }}>
+                <table style={{ fontSize: 13, width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr>
-                      <th style={{ width: 32 }}></th>
-                      <th>Client</th>
-                      <th>Role</th>
-                      <th style={{ textAlign: 'right' }}>Gross</th>
-                      <th style={{ textAlign: 'right' }}>Less 25%</th>
-                      <th style={{ textAlign: 'right' }}>Net Paid</th>
+                    <tr style={{ borderBottom: '2px solid #cbd5e1' }}>
+                      <th style={{ width: 32, padding: '8px 6px', textAlign: 'left', color: '#475569' }}></th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#0f172a', fontWeight: 700 }}>Client</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#0f172a', fontWeight: 700 }}>Role</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: '#0f172a', fontWeight: 700 }}>Gross</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: '#0f172a', fontWeight: 700 }}>Less 25%</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: '#0f172a', fontWeight: 700 }}>Net Paid</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -261,20 +261,20 @@ export default function PayoutQueuePage() {
                       const net = gross * IC_NET_PCT;
                       const role = icRole(r, group.name);
                       return (
-                        <tr key={r.id}>
-                          <td><input type="checkbox" checked={sel.has(r.id)} onChange={() => toggleBatchId(group.name, r.id)} /></td>
-                          <td style={{ fontWeight: 600 }}>{r.applicantName || '—'}</td>
-                          <td style={{ color: '#475569', fontSize: 12 }}>{role}</td>
-                          <td style={{ textAlign: 'right' }}>${gross.toFixed(2)}</td>
-                          <td style={{ textAlign: 'right', color: '#dc2626' }}>-${(gross * 0.25).toFixed(2)}</td>
-                          <td style={{ textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>${net.toFixed(2)}</td>
+                        <tr key={r.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                          <td style={{ padding: '10px 6px' }}><input type="checkbox" checked={sel.has(r.id)} onChange={() => toggleBatchId(group.name, r.id)} /></td>
+                          <td style={{ padding: '10px 10px', fontWeight: 700, color: '#0f172a' }}>{r.applicantName || '—'}</td>
+                          <td style={{ padding: '10px 10px', color: '#334155', fontSize: 12 }}>{role}</td>
+                          <td style={{ padding: '10px 10px', textAlign: 'right', color: '#0f172a' }}>${gross.toFixed(2)}</td>
+                          <td style={{ padding: '10px 10px', textAlign: 'right', color: '#dc2626' }}>-${(gross * 0.25).toFixed(2)}</td>
+                          <td style={{ padding: '10px 10px', textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>${net.toFixed(2)}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 10 }}>
-                  <span style={{ fontSize: 14 }}>Selected net total: <strong>${totalNet.toFixed(2)}</strong></span>
+                  <span style={{ fontSize: 14, color: '#0f172a' }}>Selected net total: <strong>${totalNet.toFixed(2)}</strong></span>
                   <button
                     type="button"
                     disabled={!allSelected || batchSaving === group.name}
