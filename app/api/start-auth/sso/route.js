@@ -1,3 +1,6 @@
+// 2026-06-12 — PAUSED: Token forwarding to LegacyLink Hub SSO disabled per Link.
+// Re-enable by removing this block and the disabled handler below.
+
 import { createHmac, timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import { resolveProfileByEmail, issueSession } from '../_lib';
@@ -60,7 +63,12 @@ function validateSsoToken(token, secret) {
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
+// SSO DISABLED — return to /start until re-enabled
 export async function GET(request) {
+  return NextResponse.redirect(new URL('/start', request.url));
+}
+
+export async function GET_disabled(request) {
   const { searchParams } = new URL(request.url);
   const token = clean(searchParams.get('token') || '');
   const secret = clean(process.env.SSO_SECRET || '');

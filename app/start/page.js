@@ -546,7 +546,7 @@ function StartPortalPageInner() {
           </div>
 
           {/* New Agent */}
-          <a href="/sponsorship-signup" style={{ ...optionBase, border: '1px solid #C8A96B' }}>
+          <a href="https://legacylinkhub.com" target="_blank" rel="noreferrer" style={{ ...optionBase, border: '1px solid #C8A96B' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
               <span style={{ fontSize: 26, lineHeight: 1 }}>&#x1F31F;</span>
               <div style={{ flex: 1 }}>
@@ -985,14 +985,13 @@ function StartPortalPageInner() {
   );
 }
 
-// ─── Default export: wrapped with SSO redirect gate ──────────────────────────
+// ─── Default export ──────────────────────────────────────────────────────────
+// 2026-06-12: SSO gate removed — token forwarding to LegacyLink Hub paused.
 import { Suspense } from 'react';
 export default function StartPortalPage() {
   return (
     <Suspense>
-      <SsoRedirectGate>
-        <StartPortalPageInner />
-      </SsoRedirectGate>
+      <StartPortalPageInner />
     </Suspense>
   );
 }
