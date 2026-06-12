@@ -1,6 +1,10 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+// 2026-06-12 — Link: suppress all non-payment emails until further notice.
+// Payment emails (sendPayoutPaidEmail, sendPayoutBatchEmail) are unaffected.
+const ONLY_PAYMENT_EMAILS = true;
+
 import nodemailer from 'nodemailer';
 
 // ─── GHL Application Submitted Webhook ──────────────────────────────────────
@@ -561,6 +565,7 @@ function buildProgramOnboardingHtml({
 }
 
 async function sendApprovalEmail(row = {}) {
+  if (ONLY_PAYMENT_EMAILS) return { ok: false, skipped: true, reason: 'non_payment_emails_disabled' };
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
   const from = clean(process.env.GMAIL_FROM) || user;
@@ -617,6 +622,7 @@ function backOfficeRecipients() {
 }
 
 async function sendBackOfficeGhlSetupEmail(row = {}) {
+  if (ONLY_PAYMENT_EMAILS) return { ok: false, skipped: true, reason: 'non_payment_emails_disabled' };
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
   const from = clean(process.env.GMAIL_FROM) || user;
@@ -715,6 +721,7 @@ async function sendPayoutPaidEmail(row = {}) {
 }
 
 async function sendDeclineEmail(row = {}) {
+  if (ONLY_PAYMENT_EMAILS) return { ok: false, skipped: true, reason: 'non_payment_emails_disabled' };
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
   const from = clean(process.env.GMAIL_FROM) || user;
@@ -914,6 +921,7 @@ function upsertAuthUser(authUsers = [], member = {}) {
 }
 
 async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licensed = false, loginName = '', loginPassword = '' } = {}) {
+  if (ONLY_PAYMENT_EMAILS) return { ok: false, skipped: true, reason: 'non_payment_emails_disabled' };
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
   const from = clean(process.env.GMAIL_FROM) || user;
@@ -1001,6 +1009,7 @@ async function sendSopInviteEmail({ to = '', firstName = '', sopLink = '', licen
 }
 
 async function sendUnlicensedStartClassEmail(row = {}) {
+  if (ONLY_PAYMENT_EMAILS) return { ok: false, skipped: true, reason: 'non_payment_emails_disabled' };
   const user = clean(process.env.GMAIL_APP_USER);
   const pass = clean(process.env.GMAIL_APP_PASSWORD);
   const from = clean(process.env.GMAIL_FROM) || user;

@@ -3,6 +3,9 @@ import fs from 'fs';
 import path from 'path';
 import { loadJsonStore, saveJsonStore } from '../../../lib/blobJsonStore';
 
+// 2026-06-12 — Link: suppress all non-payment emails until further notice.
+const ONLY_PAYMENT_EMAILS = true;
+
 const STORE_PATH = 'stores/start-intake.json';
 const CONTRACT_SIGNATURES_PATH = 'stores/contract-signatures.json';
 const DEFAULT_LICENSED_ONBOARDING_PLAYBOOK_RELATIVE_PATH = 'public/docs/onboarding/legacy-link-licensed-onboarding-playbook.pdf';
@@ -100,6 +103,7 @@ async function resolveContractStatus({ email = '', firstName = '', lastName = ''
 
 
 async function sendWelcomeEmailByTrack(row = {}, options = {}) {
+  if (ONLY_PAYMENT_EMAILS) return { ok: false, skipped: true, reason: 'non_payment_emails_disabled' };
   const user = getEnv('GMAIL_APP_USER');
   const pass = getEnv('GMAIL_APP_PASSWORD');
   const from = getEnv('GMAIL_FROM') || user;

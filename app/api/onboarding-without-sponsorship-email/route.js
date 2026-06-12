@@ -101,7 +101,11 @@ function buildHtml({ name = 'there', startUrl = 'https://innercirclelink.com/sta
   </div>`;
 }
 
+// 2026-06-12 — Link: suppress all non-payment emails until further notice.
+const ONLY_PAYMENT_EMAILS = true;
+
 export async function POST(req) {
+  if (ONLY_PAYMENT_EMAILS) return Response.json({ ok: false, skipped: true, reason: 'non_payment_emails_disabled' });
   const body = await req.json().catch(() => ({}));
 
   const to = clean(body?.to);
