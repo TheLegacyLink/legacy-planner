@@ -18,6 +18,49 @@ const GHL_SPONSORSHIP_WEBHOOK_URL = process.env.GHL_SPONSORSHIP_WEBHOOK_URL ||
 const GHL_SPONSORSHIP_SUBMITTED_WEBHOOK_URL = process.env.GHL_SPONSORSHIP_SUBMITTED_WEBHOOK_URL ||
   'https://services.leadconnectorhq.com/hooks/I7bXOorPHk415nKgsFfa/webhook-trigger/827b8a07-61ef-4782-839c-3e78dee978f8';
 
+// ─── Base44 Recruit Webhook ─────────────────────────────────────────────────
+async function fireBase44RecruitWebhook(record = {}) {
+  const url = process.env.LEGACY_LINK_WEBHOOK_URL;
+  const secret = process.env.LEGACY_LINK_WEBHOOK_SECRET;
+  if (!url) return; // env var not set — skip silently
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-webhook-secret': secret || '',
+      },
+      body: JSON.stringify({
+        first_name:               clean(record?.firstName || ''),
+        last_name:                clean(record?.lastName || ''),
+        email:                    clean(record?.email || '').toLowerCase(),
+        phone:                    clean(record?.phone || ''),
+        state:                    clean(record?.state || ''),
+        birthday:                 clean(record?.birthday || ''),
+        age:                      Number(record?.age || 0),
+        has_income:               clean(record?.hasIncome || 'no'),
+        income_source:            clean(record?.incomeSource || ''),
+        is_licensed:              clean(record?.isLicensed || 'no'),
+        licensing_details:        clean(record?.licenseDetails || ''),
+        health_status:            clean(record?.healthStatus || ''),
+        motivation_level:         clean(record?.motivation || ''),
+        hours_per_week:           clean(record?.hoursPerWeek || ''),
+        why_join:                 clean(record?.whyJoin || ''),
+        twelve_month_goal:        clean(record?.goal12Month || ''),
+        ref_code:                 clean(record?.refCode || record?.referralCode || ''),
+        application_score:        Number(record?.application_score || 0),
+        decision:                 clean(record?.decision_bucket || ''),
+        status:                   clean(record?.status || ''),
+        submitted_at:             clean(record?.submitted_at || new Date().toISOString()),
+        agreed_training:          Boolean(record?.agreeTraining),
+        agreed_participation:     Boolean(record?.agreeWeekly),
+        agreed_community_service: Boolean(record?.agreeService),
+        agreed_terms:             Boolean(record?.agreeTerms),
+      }),
+    });
+  } catch { /* non-fatal — never block the response */ }
+}
+
 async function fireGhlSponsorshipWebhook(record = {}, event = 'sponsorship_submitted', webhookUrl = GHL_SPONSORSHIP_WEBHOOK_URL) {
   try {
     const payload = {
@@ -954,6 +997,9 @@ export async function POST(req) {
 
     // Fire GHL webhook on sponsorship form submission (moves contact to Sponsorship Form Submitted stage)
     fireGhlSponsorshipWebhook(record, 'sponsorship_submitted').catch(() => {});
+
+    // Fire Base44 recruit webhook — syncs applicant into Base44 CRM
+    fireBase44RecruitWebhook(record).catch(() => {});
     // NOTE: GHL_SPONSORSHIP_SUBMITTED_WEBHOOK_URL (827b8a07) is intentionally NOT fired here.
     // That webhook is for insurance application submissions (F&G / NLG) only — handled in policy-submissions route.
 
