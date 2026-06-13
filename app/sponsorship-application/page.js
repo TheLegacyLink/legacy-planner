@@ -387,12 +387,12 @@ export default function SponsorshipApplicationPage() {
           </label>
 
           <label style={{ gridColumn: '1 / -1' }}>
-            Referral / Source details
+            {ref ? 'Referred By' : 'Who referred you? (Enter their full name)'}
             <input
               className={validationErrors.referralName ? 'errorInput' : ''}
               value={form.referralName}
               onChange={(e) => update('referralName', e.target.value)}
-              placeholder={ref ? 'Attribution secured via personal link' : 'Agent name or source detail'}
+              placeholder={ref ? 'Attribution secured via personal link' : 'Enter the full name of the person who referred you'}
               disabled={Boolean(ref)}
             />
           </label>

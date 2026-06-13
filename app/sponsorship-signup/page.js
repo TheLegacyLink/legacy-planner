@@ -84,14 +84,14 @@ export default function SponsorshipSignupPage() {
     const sp = new URLSearchParams(window.location.search);
     // Default to Kimora Link if no ref code provided
     const rawRef = sp.get('ref') || '';
-    const refCode = normalizeRef(rawRef || 'kimora_link');
+    const refCode = rawRef.trim() ? normalizeRef(rawRef) : '';
     setRef(refCode);
     setIsPersonalLink(Boolean(rawRef.trim()));
     // Internal analytics tracking
     fetch('/api/sponsorship-analytics', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: 'page_view', refCode, page: 'signup' })
+      body: JSON.stringify({ event: 'page_view', refCode: refCode || 'organic', page: 'signup' })
     }).catch(() => {});
   }, []);
 
