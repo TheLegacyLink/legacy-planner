@@ -241,6 +241,10 @@ function resolveSponsorDisplayName(row = {}, callerLeads = []) {
   const assignedAgent = resolveAssignedAgentByContact(email, phone, callerLeads);
   if (assignedAgent) return assignedAgent;
 
+  // 4. Use "How did you hear about us?" as source attribution before falling back to Unattributed
+  const heardFrom = clean(row?.heardFrom || '');
+  if (heardFrom) return heardFrom;
+
   return 'Unattributed';
 }
 
