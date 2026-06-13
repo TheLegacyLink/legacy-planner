@@ -72,7 +72,8 @@ const AVATAR_COLORS = ['#1d4ed8','#0f766e','#7c3aed','#b45309','#0369a1','#065f4
 export default function SponsorshipSignupPage() {
   const router = useRouter();
   const [ref, setRef] = useState('');
-  const [form, setForm] = useState({ firstName: '', lastName: '', phone: '' });
+  const [isPersonalLink, setIsPersonalLink] = useState(true);
+  const [form, setForm] = useState({ firstName: '', lastName: '', phone: '', heardFrom: '' });
   const [error, setError] = useState('');
   const [activeOverview, setActiveOverview] = useState(false);
   const [activeTestimonial, setActiveTestimonial] = useState(null);
@@ -82,8 +83,10 @@ export default function SponsorshipSignupPage() {
     if (typeof window === 'undefined') return;
     const sp = new URLSearchParams(window.location.search);
     // Default to Kimora Link if no ref code provided
-    const refCode = normalizeRef(sp.get('ref') || 'kimora_link');
+    const rawRef = sp.get('ref') || '';
+    const refCode = normalizeRef(rawRef || 'kimora_link');
     setRef(refCode);
+    setIsPersonalLink(Boolean(rawRef.trim()));
     // Internal analytics tracking
     fetch('/api/sponsorship-analytics', {
       method: 'POST',
@@ -101,12 +104,17 @@ export default function SponsorshipSignupPage() {
       setError('Please complete first name, last name, and a valid phone number.');
       return;
     }
+    if (!isPersonalLink && !form.heardFrom.trim()) {
+      setError('Please let us know how you heard about us.');
+      return;
+    }
 
     const payload = {
       firstName: form.firstName.trim(),
       lastName: form.lastName.trim(),
       phone,
       refCode: ref,
+      heardFrom: form.heardFrom.trim() || (isPersonalLink ? 'Agent Referral' : ''),
       createdAt: new Date().toISOString()
     };
 
@@ -1220,6 +1228,27 @@ export default function SponsorshipSignupPage() {
                   onChange={(e) => update('phone', e.target.value)}
                 />
               </div>
+              {!isPersonalLink && (
+                <div className="sp-form-group full">
+                  <label className="sp-form-label">How did you hear about us? <span style={{ color: '#ef4444' }}>*</span></label>
+                  <select
+                    className="sp-form-input"
+                    value={form.heardFrom}
+                    onChange={(e) => update('heardFrom', e.target.value)}
+                    style={{ appearance: 'auto' }}
+                  >
+                    <option value="">Select an option</option>
+                    <option value="Social Media (Facebook / Instagram)">Social Media (Facebook / Instagram)</option>
+                    <option value="YouTube">YouTube</option>
+                    <option value="Google Search">Google Search</option>
+                    <option value="A Friend or Family Member">A Friend or Family Member</option>
+                    <option value="Someone Reached Out to Me">Someone Reached Out to Me</option>
+                    <option value="Text Message">Text Message</option>
+                    <option value="Email">Email</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              )}
               {error && <div className="sp-form-error">⚠ {error}</div>}
               <button type="submit" className="sp-submit-btn">Yes, if the numbers make sense — I&apos;m in →</button>
               <div className="sp-form-disclaimer">

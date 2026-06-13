@@ -155,7 +155,7 @@ export default function SponsorshipApplicationPage() {
     goal12Month: '',
     motivation: '',
     hoursPerWeek: '',
-    heardFrom: ref ? 'Agent Referral' : '',
+    heardFrom: ref ? 'Agent Referral' : (signupSeed?.heardFrom || ''),
     referralName: '',
     referralOther: '',
     agreeTraining: false,
