@@ -56,6 +56,19 @@ function countdownLabel(urgency) {
   return `${h}h ${m}m`;
 }
 
+function thisWeekFridayIso() {
+  const now = new Date();
+  const day = now.getDay(); // 0 Sun ... 6 Sat
+  const mondayOffset = (day + 6) % 7;
+  const monday = new Date(now);
+  monday.setHours(12, 0, 0, 0);
+  monday.setDate(monday.getDate() - mondayOffset);
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4); // this week's Friday
+  friday.setHours(12, 0, 0, 0);
+  return friday.toISOString();
+}
+
 function urgencyForRow(row, nowMs) {
   const due = new Date(row?.payoutDueAt || 0);
   if (Number.isNaN(due.getTime())) return { level: 'none', label: 'No due date', color: '#64748b', diffMs: 0 };
@@ -91,6 +104,7 @@ export default function PayoutQueuePage() {
   const [msg, setMsg] = useState('');
   const [selectedIds, setSelectedIds] = useState({});
   const [batchSaving, setBatchSaving] = useState('');
+  const [movingId, setMovingId] = useState('');
 
   async function load() {
     setLoading(true);
@@ -181,6 +195,28 @@ export default function PayoutQueuePage() {
 
   function deselectAll(groupName) {
     setSelectedIds((prev) => ({ ...prev, [groupName]: new Set() }));
+  }
+
+  async function moveToThisWeek(row) {
+    setMovingId(row.id);
+    setMsg('');
+    try {
+      const newDue = thisWeekFridayIso();
+      const res = await fetch('/api/policy-submissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: row.id, patch: { payoutDueAt: newDue } })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, ...data.row } : r)));
+        setMsg(`📅 Moved to this week: ${row.applicantName || row.id}`);
+      } else {
+        setMsg(`❌ Could not move: ${data?.error || 'unknown error'}`);
+      }
+    } finally {
+      setMovingId('');
+    }
   }
 
   async function markPaid(row) {
@@ -321,10 +357,21 @@ export default function PayoutQueuePage() {
                   <td>{r.policyWriterName || '-'}</td>
                   <td>{fmtDate(r.payoutDueAt)}</td>
                   <td>{money(effectivePayoutAmount(r))}</td>
-                  <td>
+                  <td style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                     <button type="button" onClick={() => markPaid(r)} disabled={savingId === r.id}>
                       {savingId === r.id ? 'Saving...' : 'Mark Paid'}
                     </button>
+                    {(r.urgency.level === 'next' || r.urgency.level === 'track') && (
+                      <button
+                        type="button"
+                        onClick={() => moveToThisWeek(r)}
+                        disabled={movingId === r.id}
+                        title="Move this payout into the current week"
+                        style={{ background: '#0047AB', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        {movingId === r.id ? '...' : '→ This Week'}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
