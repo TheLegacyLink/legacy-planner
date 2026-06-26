@@ -1151,11 +1151,12 @@ async function sendPayoutBatchEmail(icMemberName, rows = [], allRows = []) {
   let cumulativeNetPaid = 0;
   let remainingBalance = 0;
   if (totalProgramValue > 0 && Array.isArray(allRows) && allRows.length) {
+    const IC_BALANCE_DEDUCT_PCT = 1 - IC_PAYOUT_NET_PCT; // 0.25 — only 25% of gross goes toward balance
     cumulativePolicyPayouts = roundMoney(
       allRows
         .filter((r) => clean(r?.payoutStatus || '').toLowerCase() === 'paid')
         .filter((r) => normalize(r?.referredByName || '') === icNorm || normalize(r?.policyWriterName || '') === icNorm)
-        .reduce((s, r) => s + roundMoney(Number(r?.payoutAmount || 0) * IC_PAYOUT_NET_PCT), 0)
+        .reduce((s, r) => s + roundMoney(Number(r?.payoutAmount || 0) * IC_BALANCE_DEDUCT_PCT), 0)
     );
     cumulativeNetPaid = roundMoney(initialDeposit + cumulativePolicyPayouts);
     remainingBalance = roundMoney(totalProgramValue - cumulativeNetPaid);
@@ -1172,7 +1173,7 @@ async function sendPayoutBatchEmail(icMemberName, rows = [], allRows = []) {
     'YOUR INNER CIRCLE PROGRAM BALANCE',
     `Total Program Value:   $${totalProgramValue.toFixed(2)}`,
     ...(initialDeposit > 0 ? [`Initial Deposit Paid:  -$${initialDeposit.toFixed(2)}`] : []),
-    ...(cumulativePolicyPayouts > 0 ? [`Policy Payouts Paid:   -$${cumulativePolicyPayouts.toFixed(2)}`] : []),
+    ...(cumulativePolicyPayouts > 0 ? [`Policy Payouts Paid (25%): -$${cumulativePolicyPayouts.toFixed(2)}`] : []),
     `Total Paid to Date:    -$${cumulativeNetPaid.toFixed(2)}`,
     `Remaining Balance:     $${remainingBalance.toFixed(2)}`,
     '─'.repeat(50),
@@ -1216,7 +1217,7 @@ async function sendPayoutBatchEmail(icMemberName, rows = [], allRows = []) {
       <table style="width:100%;border-collapse:collapse;font-size:14px;">
         <tr><td style="padding:4px 0;color:#94a3b8;">Total Program Value</td><td style="text-align:right;font-weight:600;">$${totalProgramValue.toFixed(2)}</td></tr>
         ${initialDeposit > 0 ? `<tr><td style="padding:4px 0;color:#94a3b8;">Initial Deposit Paid</td><td style="text-align:right;font-weight:600;color:#f87171;">-$${initialDeposit.toFixed(2)}</td></tr>` : ''}
-        ${cumulativePolicyPayouts > 0 ? `<tr><td style="padding:4px 0;color:#94a3b8;">Policy Payouts Paid</td><td style="text-align:right;font-weight:600;color:#f87171;">-$${cumulativePolicyPayouts.toFixed(2)}</td></tr>` : ''}
+        ${cumulativePolicyPayouts > 0 ? `<tr><td style="padding:4px 0;color:#94a3b8;">Policy Payouts Paid (25%)</td><td style="text-align:right;font-weight:600;color:#f87171;">-$${cumulativePolicyPayouts.toFixed(2)}</td></tr>` : ''}
         <tr><td style="padding:4px 0;color:#94a3b8;">Total Paid to Date</td><td style="text-align:right;font-weight:600;color:#f87171;">-$${cumulativeNetPaid.toFixed(2)}</td></tr>
         <tr style="border-top:1px solid #334155;"><td style="padding:8px 0 4px;font-weight:700;font-size:15px;">Remaining Balance</td><td style="text-align:right;font-weight:800;font-size:16px;color:#4ade80;padding-top:8px;">$${remainingBalance.toFixed(2)}</td></tr>
       </table>
