@@ -96,10 +96,11 @@ function computeIcBalance(memberName, allRows) {
   const config = ELITE_IC_CONFIG.find((c) => normalize(c.name) === normalize(memberName));
   if (!config) return null;
   const icNorm = normalize(memberName);
+  const IC_BALANCE_PCT = 1 - IC_NET_PCT; // 25% — the portion applied toward program balance
   const cumulativePolicyPayouts = allRows
     .filter((r) => String(r.payoutStatus || '').toLowerCase() === 'paid')
     .filter((r) => normalize(r.referredByName || '') === icNorm || normalize(r.policyWriterName || '') === icNorm)
-    .reduce((s, r) => s + (Number(r.payoutAmount || 0) * IC_NET_PCT), 0);
+    .reduce((s, r) => s + (Number(r.payoutAmount || 0) * IC_BALANCE_PCT), 0);
   const totalPaid = config.initialDeposit + cumulativePolicyPayouts;
   const remaining = config.totalProgramValue - totalPaid;
   return {
@@ -311,7 +312,7 @@ export default function PayoutQueuePage() {
                     <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', fontSize: 14 }}>
                       <span>Program Total: <strong>${balance.totalProgramValue.toLocaleString()}</strong></span>
                       <span>Deposit Paid: <strong style={{ color: '#f87171' }}>-${balance.initialDeposit.toLocaleString()}</strong></span>
-                      <span>Policy Payouts (75%): <strong style={{ color: '#f87171' }}>-${balance.cumulativePolicyPayouts.toFixed(2)}</strong></span>
+                      <span>Policy Payouts (25%): <strong style={{ color: '#f87171' }}>-${balance.cumulativePolicyPayouts.toFixed(2)}</strong></span>
                       <span>Total Applied: <strong style={{ color: '#f87171' }}>-${balance.totalPaid.toFixed(2)}</strong></span>
                       <span style={{ borderLeft: '1px solid #334155', paddingLeft: 24 }}>Remaining: <strong style={{ fontSize: 17, color: '#4ade80' }}>${balance.remaining.toFixed(2)}</strong></span>
                     </div>
