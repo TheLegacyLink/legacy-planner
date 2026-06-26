@@ -274,13 +274,8 @@ function StartPortalPageInner() {
         setToken(t);
         setProfile(p);
         // Check if contract is already signed
-        const cr = await fetch('/api/esign-contract', { headers: { Authorization: `Bearer ${t}` }, cache: 'no-store' });
-        const cd = await cr.json().catch(() => ({}));
-        if (cd?.signed) {
-          redirectToBackoffice(p);
-        } else {
-          setStage('contract');
-        }
+        // 2026-06-26: Contract gate bypassed — contracting handled externally.
+        redirectToBackoffice(p);
       } catch { setStage('email'); }
     })();
     return () => { mounted = false; };
@@ -398,10 +393,8 @@ function StartPortalPageInner() {
   }
 
   async function proceedAfterAuth(tok, prof) {
-    const cr = await fetch('/api/esign-contract', { headers: { Authorization: `Bearer ${tok}` }, cache: 'no-store' });
-    const cd = await cr.json().catch(() => ({}));
-    if (cd?.signed) redirectToBackoffice(prof);
-    else setStage('contract');
+    // 2026-06-26: Contract gate bypassed — contracting handled externally.
+    redirectToBackoffice(prof);
   }
 
   async function verifyOtp() {
