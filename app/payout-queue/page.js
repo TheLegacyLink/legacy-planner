@@ -85,7 +85,31 @@ function urgencyForRow(row, nowMs) {
   return { level: 'track', label: 'On Track', color: '#16a34a', diffMs };
 }
 
-const IC_NET_PCT = 0.75; // IC member receives 75%; 25% company cut
+const IC_NET_PCT = 0.75; // IC member receives 75%; 25% goes toward program balance
+
+// Elite IC program config — mirrors ELITE_IC_REFERRERS in api/policy-submissions/route.js
+const ELITE_IC_CONFIG = [
+  { name: 'Leticia Wright', totalProgramValue: 40000, initialDeposit: 3000, effectiveFrom: '2026-06-01' },
+];
+
+function computeIcBalance(memberName, allRows) {
+  const config = ELITE_IC_CONFIG.find((c) => normalize(c.name) === normalize(memberName));
+  if (!config) return null;
+  const icNorm = normalize(memberName);
+  const cumulativePolicyPayouts = allRows
+    .filter((r) => String(r.payoutStatus || '').toLowerCase() === 'paid')
+    .filter((r) => normalize(r.referredByName || '') === icNorm || normalize(r.policyWriterName || '') === icNorm)
+    .reduce((s, r) => s + (Number(r.payoutAmount || 0) * IC_NET_PCT), 0);
+  const totalPaid = config.initialDeposit + cumulativePolicyPayouts;
+  const remaining = config.totalProgramValue - totalPaid;
+  return {
+    totalProgramValue: config.totalProgramValue,
+    initialDeposit: config.initialDeposit,
+    cumulativePolicyPayouts,
+    totalPaid,
+    remaining,
+  };
+}
 
 function icRole(row, memberName) {
   const n = normalize(memberName);
@@ -146,17 +170,23 @@ export default function PayoutQueuePage() {
     return out;
   }, [queue]);
 
-  // Group today's IC-member payouts for batch pay
+  // Group ALL approved+unpaid IC-member payouts (not just today's)
   const icBatchGroups = useMemo(() => {
-    const today = rows
+    const pending = rows
       .filter((r) => String(r.status || '').toLowerCase() === 'approved')
       .filter((r) => String(r.payoutStatus || 'Unpaid').toLowerCase() !== 'paid')
-      .filter((r) => urgencyForRow(r, nowMs).level === 'today')
       .filter((r) => Boolean(r.icPayee));
     const byMember = {};
-    today.forEach((r) => { const m = r.icPayee; if (!byMember[m]) byMember[m] = []; byMember[m].push(r); });
-    return Object.entries(byMember).map(([name, items]) => ({ name, rows: items }));
-  }, [rows, nowMs]);
+    pending.forEach((r) => { const m = r.icPayee; if (!byMember[m]) byMember[m] = []; byMember[m].push(r); });
+    return Object.entries(byMember).map(([name, items]) => ({
+      name,
+      rows: items.slice().sort((a, b) => {
+        const ad = new Date(a.payoutDueAt || 0).getTime() || Number.MAX_SAFE_INTEGER;
+        const bd = new Date(b.payoutDueAt || 0).getTime() || Number.MAX_SAFE_INTEGER;
+        return ad - bd;
+      }),
+    }));
+  }, [rows]);
 
   async function handleBatchPay(group) {
     deselectAll(group.name); // auto-clear immediately on click
@@ -264,18 +294,31 @@ export default function PayoutQueuePage() {
 
       {icBatchGroups.length > 0 && (
         <div className="panel" style={{ border: '2px solid #0047AB' }}>
-          <h3 style={{ marginTop: 0, color: '#0047AB' }}>💰 Inner Circle Batch Pay — Today</h3>
-          <p className="muted" style={{ marginBottom: 16 }}>Select all payouts for an IC member then click &ldquo;Mark All Paid&rdquo; to process and send one consolidated email.</p>
+          <h3 style={{ marginTop: 0, color: '#0047AB' }}>💰 Inner Circle Payout Queue</h3>
+          <p className="muted" style={{ marginBottom: 16 }}>All approved + unpaid payouts for IC members. 25% of each payout is applied toward their program balance. Select all for a member and click &ldquo;Mark All Paid&rdquo; to process and send one consolidated email.</p>
           {icBatchGroups.map((group) => {
             const sel = selectedIds[group.name] || new Set();
             const allSelected = group.rows.every((r) => sel.has(r.id));
             const totalNet = group.rows
               .filter((r) => sel.has(r.id))
               .reduce((s, r) => s + effectivePayoutAmount(r) * IC_NET_PCT, 0);
+            const balance = computeIcBalance(group.name, rows);
             return (
               <div key={group.name} style={{ marginBottom: 24, background: '#f1f5f9', borderRadius: 8, padding: 16, color: '#0f172a' }}>
+                {balance && (
+                  <div style={{ marginBottom: 14, padding: '12px 16px', background: '#0f172a', borderRadius: 8, color: '#f8fafc' }}>
+                    <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: '.8px', color: '#94a3b8', textTransform: 'uppercase', marginBottom: 8 }}>IC Program Balance — {group.name}</div>
+                    <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', fontSize: 14 }}>
+                      <span>Program Total: <strong>${balance.totalProgramValue.toLocaleString()}</strong></span>
+                      <span>Deposit Paid: <strong style={{ color: '#f87171' }}>-${balance.initialDeposit.toLocaleString()}</strong></span>
+                      <span>Policy Payouts (75%): <strong style={{ color: '#f87171' }}>-${balance.cumulativePolicyPayouts.toFixed(2)}</strong></span>
+                      <span>Total Applied: <strong style={{ color: '#f87171' }}>-${balance.totalPaid.toFixed(2)}</strong></span>
+                      <span style={{ borderLeft: '1px solid #334155', paddingLeft: 24 }}>Remaining: <strong style={{ fontSize: 17, color: '#4ade80' }}>${balance.remaining.toFixed(2)}</strong></span>
+                    </div>
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <strong style={{ fontSize: 15, color: '#0f172a' }}>{group.name} — {group.rows.length} payout{group.rows.length !== 1 ? 's' : ''} due today</strong>
+                  <strong style={{ fontSize: 15, color: '#0f172a' }}>{group.name} — {group.rows.length} payout{group.rows.length !== 1 ? 's' : ''} pending</strong>
                   <span style={{ gap: 8, display: 'flex' }}>
                     <button type="button" style={{ fontSize: 12 }} onClick={() => selectAll(group.name, group.rows)}>Select All</button>
                     <button type="button" style={{ fontSize: 12 }} onClick={() => deselectAll(group.name)}>Clear</button>
@@ -286,6 +329,7 @@ export default function PayoutQueuePage() {
                     <tr style={{ borderBottom: '2px solid #cbd5e1' }}>
                       <th style={{ width: 32, padding: '8px 6px', textAlign: 'left', color: '#475569' }}></th>
                       <th style={{ padding: '8px 10px', textAlign: 'left', color: '#0f172a', fontWeight: 700 }}>Client</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#0f172a', fontWeight: 700 }}>Urgency</th>
                       <th style={{ padding: '8px 10px', textAlign: 'left', color: '#0f172a', fontWeight: 700 }}>Role</th>
                       <th style={{ padding: '8px 10px', textAlign: 'right', color: '#0f172a', fontWeight: 700 }}>Gross</th>
                       <th style={{ padding: '8px 10px', textAlign: 'right', color: '#0f172a', fontWeight: 700 }}>Less 25%</th>
@@ -301,6 +345,7 @@ export default function PayoutQueuePage() {
                         <tr key={r.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                           <td style={{ padding: '10px 6px' }}><input type="checkbox" checked={sel.has(r.id)} onChange={() => toggleBatchId(group.name, r.id)} /></td>
                           <td style={{ padding: '10px 10px', fontWeight: 700, color: '#0f172a' }}>{r.applicantName || '—'}</td>
+                          <td style={{ padding: '10px 10px' }}><span style={{ fontWeight: 700, fontSize: 12, color: urgencyForRow(r, nowMs).color }}>{urgencyForRow(r, nowMs).label}</span></td>
                           <td style={{ padding: '10px 10px', color: '#334155', fontSize: 12 }}>{role}</td>
                           <td style={{ padding: '10px 10px', textAlign: 'right', color: '#0f172a' }}>${gross.toFixed(2)}</td>
                           <td style={{ padding: '10px 10px', textAlign: 'right', color: '#dc2626' }}>-${(gross * 0.25).toFixed(2)}</td>
