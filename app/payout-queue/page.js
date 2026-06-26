@@ -154,7 +154,7 @@ export default function PayoutQueuePage() {
   const queue = useMemo(() => {
     const list = rows
       .filter((r) => String(r.status || '').toLowerCase() === 'approved')
-      .filter((r) => String(r.payoutStatus || 'Unpaid').toLowerCase() !== 'paid')
+      .filter((r) => !['paid', 'voided'].includes(String(r.payoutStatus || 'unpaid').toLowerCase()))
       .map((r) => ({ ...r, urgency: urgencyForRow(r, nowMs) }));
 
     list.sort((a, b) => {
@@ -175,7 +175,7 @@ export default function PayoutQueuePage() {
   const icBatchGroups = useMemo(() => {
     const pending = rows
       .filter((r) => String(r.status || '').toLowerCase() === 'approved')
-      .filter((r) => String(r.payoutStatus || 'Unpaid').toLowerCase() !== 'paid')
+      .filter((r) => !['paid', 'voided'].includes(String(r.payoutStatus || 'unpaid').toLowerCase()))
       .filter((r) => Boolean(r.icPayee));
     const byMember = {};
     pending.forEach((r) => { const m = r.icPayee; if (!byMember[m]) byMember[m] = []; byMember[m].push(r); });
@@ -247,6 +247,28 @@ export default function PayoutQueuePage() {
       }
     } finally {
       setMovingId('');
+    }
+  }
+
+  async function handleRemove(row) {
+    if (!window.confirm(`Remove "${row.applicantName || row.id}" from the payout queue?\n\nThis will void the record. It won't be deleted — just removed from the queue.`)) return;
+    setSavingId(row.id);
+    setMsg('');
+    try {
+      const res = await fetch('/api/policy-submissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: row.id, patch: { payoutStatus: 'Voided' } })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, ...data.row } : r)));
+        setMsg(`🗑️ Removed from queue: ${row.applicantName || row.id}`);
+      } else {
+        setMsg(`❌ Could not remove: ${data?.error || 'unknown error'}`);
+      }
+    } finally {
+      setSavingId('');
     }
   }
 
@@ -335,6 +357,7 @@ export default function PayoutQueuePage() {
                       <th style={{ padding: '8px 10px', textAlign: 'right', color: '#0f172a', fontWeight: 700 }}>Gross</th>
                       <th style={{ padding: '8px 10px', textAlign: 'right', color: '#0f172a', fontWeight: 700 }}>Less 25%</th>
                       <th style={{ padding: '8px 10px', textAlign: 'right', color: '#0f172a', fontWeight: 700 }}>Net Paid</th>
+                      <th style={{ padding: '8px 6px', textAlign: 'center', color: '#0f172a', fontWeight: 700 }}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -351,6 +374,15 @@ export default function PayoutQueuePage() {
                           <td style={{ padding: '10px 10px', textAlign: 'right', color: '#0f172a' }}>${gross.toFixed(2)}</td>
                           <td style={{ padding: '10px 10px', textAlign: 'right', color: '#dc2626' }}>-${(gross * 0.25).toFixed(2)}</td>
                           <td style={{ padding: '10px 10px', textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>${net.toFixed(2)}</td>
+                          <td style={{ padding: '10px 6px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              title="Remove from queue"
+                              disabled={savingId === r.id}
+                              onClick={() => handleRemove(r)}
+                              style={{ background: 'transparent', border: '1px solid #dc2626', color: '#dc2626', borderRadius: 6, padding: '3px 8px', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}
+                            >✕ Remove</button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -407,6 +439,13 @@ export default function PayoutQueuePage() {
                     <button type="button" onClick={() => markPaid(r)} disabled={savingId === r.id}>
                       {savingId === r.id ? 'Saving...' : 'Mark Paid'}
                     </button>
+                    <button
+                      type="button"
+                      title="Remove from queue"
+                      disabled={savingId === r.id}
+                      onClick={() => handleRemove(r)}
+                      style={{ background: 'transparent', border: '1px solid #dc2626', color: '#dc2626', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}
+                    >✕</button>
                     {(r.urgency.level === 'next' || r.urgency.level === 'track') && (
                       <button
                         type="button"
