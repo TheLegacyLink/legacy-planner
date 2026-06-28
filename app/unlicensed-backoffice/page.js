@@ -570,7 +570,15 @@ export default function UnlicensedBackofficePage() {
       )}
 
       {profile && token && !icaSigned && !profile?.skipIca && (
-        <ICAContractGate token={token} session={profile} onSigned={() => setIcaSigned(true)} />
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ maxWidth: 480, background: '#0F172A', border: '1px solid #C8A96B', borderRadius: 16, padding: 28, textAlign: 'center' }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
+            <h3 style={{ color: '#fff', marginTop: 0, marginBottom: 8 }}>Complete Your Contract at the Legacy Link Hub</h3>
+            <p style={{ color: '#9CA3AF', marginBottom: 20 }}>Document signing has moved to the Legacy Link Hub. Complete your ICA there to gain full access to your back office.</p>
+            <a href="https://legacylinkhub.com" target="_blank" rel="noreferrer" style={{ display: 'block', background: 'linear-gradient(135deg,#c8a96b,#a78647)', color: '#0b1020', fontWeight: 800, borderRadius: 10, padding: '12px 20px', textDecoration: 'none', marginBottom: 10, fontSize: 15 }}>Go to Legacy Link Hub &rarr;</a>
+            <button type="button" onClick={() => setIcaSigned(true)} style={{ background: 'transparent', border: '1px solid #334155', color: '#9CA3AF', borderRadius: 10, padding: '10px 20px', cursor: 'pointer', width: '100%', fontSize: 14 }}>I&apos;ve Already Signed — Continue to Back Office</button>
+          </div>
+        </div>
       )}
     <main style={{ minHeight: '100vh', background: '#070b14', color: '#E5E7EB', padding: 22 }}>
       <section style={{ maxWidth: 980, margin: '0 auto', display: 'grid', gap: 12 }}>

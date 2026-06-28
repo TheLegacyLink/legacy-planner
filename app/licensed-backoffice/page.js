@@ -1361,7 +1361,15 @@ export default function LicensedBackofficePage() {
   return (
     <>
       {session && authToken && !icaSigned && !session?.skipIca && (
-        <ICAContractGate token={authToken} session={session} onSigned={() => setIcaSigned(true)} />
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ maxWidth: 480, background: '#0F172A', border: '1px solid #C8A96B', borderRadius: 16, padding: 28, textAlign: 'center' }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
+            <h3 style={{ color: '#fff', marginTop: 0, marginBottom: 8 }}>Complete Your Contract at the Legacy Link Hub</h3>
+            <p style={{ color: '#9CA3AF', marginBottom: 20 }}>Document signing has moved to the Legacy Link Hub. Complete your ICA there to gain full access to your back office.</p>
+            <a href="https://legacylinkhub.com" target="_blank" rel="noreferrer" style={{ display: 'block', background: 'linear-gradient(135deg,#c8a96b,#a78647)', color: '#0b1020', fontWeight: 800, borderRadius: 10, padding: '12px 20px', textDecoration: 'none', marginBottom: 10, fontSize: 15 }}>Go to Legacy Link Hub &rarr;</a>
+            <button type="button" onClick={() => setIcaSigned(true)} style={{ background: 'transparent', border: '1px solid #334155', color: '#9CA3AF', borderRadius: 10, padding: '10px 20px', cursor: 'pointer', width: '100%', fontSize: 14 }}>I&apos;ve Already Signed — Continue to Back Office</button>
+          </div>
+        </div>
       )}
     <main style={{ minHeight: '100vh', background: '#070b14', color: '#E5E7EB', padding: 22 }}>
       <section style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gap: 14 }}>
@@ -2078,123 +2086,20 @@ export default function LicensedBackofficePage() {
             ) : null}
 
             {tab === 'submit' ? (
-              <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 14, display: 'grid', gap: 10 }}>
-                <h3 style={{ marginTop: 0, marginBottom: 0 }}>Submit Policy App</h3>
-                <p style={{ color: '#9CA3AF', margin: 0 }}>Same flow structure as Inner Circle App Submit, but inside Licensed Back Office with your writer info prefilled.</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <select value={appForm.appType} onChange={(e) => setAppForm((p) => ({ ...p, appType: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}>
-                    <option value="">Application type *</option>
-                    <option value="Sponsorship App">Sponsorship App</option>
-                    <option value="Bonus Policy">Bonus Policy</option>
-                    {isAdmin ? <option value="Inner Circle App">Inner Circle App</option> : null}
-                    <option value="Regular App">Regular App</option>
-                    <option value="Juvenile App">Juvenile App</option>
-                  </select>
-                  {requiresContract ? (
-                    <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#020617', padding: 10, display: 'grid', gap: 8, gridColumn: '1 / -1' }}>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        {contractStatus.loading ? <span className="pill">Checking contract signature…</span> : null}
-                        {!contractStatus.loading && clean(appForm.applicantEmail) && contractStatus.signed ? (
-                          <span className="pill onpace">Contracting Complete ✅ {contractStatus.signedAt ? `(${new Date(contractStatus.signedAt).toLocaleDateString()})` : ''}</span>
-                        ) : null}
-                        {!contractStatus.loading && clean(appForm.applicantEmail) && !contractStatus.signed ? (
-                          <span className="pill atrisk">Contracting Not Completed</span>
-                        ) : null}
-                        <button type="button" className="ghost" onClick={sendAgreementLinkEmail} disabled={contractEmailBusy || !clean(appForm.applicantEmail) || !clean(appForm.applicantName)}>
-                          {contractEmailBusy ? 'Sending Agreement…' : 'Send Agreement Link to Applicant'}
-                        </button>
-                      </div>
-                      {contractEmailMsg ? <small className="muted">{contractEmailMsg}</small> : null}
-                      {contractLinkInfo.sentAt ? (
-                        <small className="muted">Agreement link last sent: {new Date(contractLinkInfo.sentAt).toLocaleString()}{contractLinkInfo.requestedByName ? ` by ${contractLinkInfo.requestedByName}` : ''}</small>
-                      ) : null}
-                      {contractLastCheckedAt ? (
-                        <small className="muted">Signature status last checked: {new Date(contractLastCheckedAt).toLocaleString()}</small>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  <input value={appForm.applicantName} onChange={(e) => setAppForm((p) => ({ ...p, applicantName: e.target.value }))} placeholder="Client name *" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
-                  <input value={appForm.applicantEmail} onChange={(e) => setAppForm((p) => ({ ...p, applicantEmail: e.target.value }))} placeholder="Applicant email" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
-                  <input value={appForm.applicantPhone} onChange={(e) => setAppForm((p) => ({ ...p, applicantPhone: e.target.value }))} placeholder="Applicant phone" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
-                  {String(appForm.appType || '').toLowerCase().includes('inner circle') ? (
-                    <select value={appForm.applicantEmail || ''} onChange={(e) => {
-                      const selected = (Array.isArray(innerCircleUsers) ? innerCircleUsers : []).find((u) => clean(u?.email).toLowerCase() === clean(e.target.value).toLowerCase());
-                      if (!selected) return;
-                      setAppForm((p) => ({
-                        ...p,
-                        applicantName: clean(selected?.name || selected?.fullName || p.applicantName),
-                        applicantEmail: clean(selected?.email || p.applicantEmail),
-                        referredByName: p.referredByName || clean(selected?.name || selected?.fullName || ''),
-                      }));
-                    }} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}>
-                      <option value="">Select inner circle member *</option>
-                      {(Array.isArray(innerCircleUsers) ? innerCircleUsers : []).map((u) => (
-                        <option key={`ic-${u?.email || u?.name}`} value={u?.email || ''}>{u?.name || u?.fullName} {u?.email ? `(${u.email})` : ''}</option>
-                      ))}
-                    </select>
-                  ) : null}
-                  <select value={appForm.applicantLicensedStatus} onChange={(e) => setAppForm((p) => ({ ...p, applicantLicensedStatus: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}>
-                    <option value="Licensed">Licensed</option>
-                    <option value="Unlicensed">Unlicensed</option>
-                  </select>
-                  <input value={appForm.state} onChange={(e) => setAppForm((p) => ({ ...p, state: e.target.value.toUpperCase() }))} placeholder="State *" maxLength={2} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
-                  <input
-                    list="licensed-agent-options"
-                    value={appForm.referredByName}
-                    onChange={(e) => setAppForm((p) => ({ ...p, referredByName: e.target.value }))}
-                    placeholder="Referred by *"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}
-                  />
-                  <input
-                    list="licensed-agent-options"
-                    value={appForm.policyWriterName}
-                    onChange={(e) => setAppForm((p) => ({ ...p, policyWriterName: e.target.value }))}
-                    placeholder="Policy written by *"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}
-                  />
-                  <datalist id="licensed-agent-options">
-                    {filteredAgentOptions.map((name) => (
-                      <option key={`agent-opt-${name}`} value={name} />
-                    ))}
-                  </datalist>
-                  <input value={appForm.policyNumber} onChange={(e) => setAppForm((p) => ({ ...p, policyNumber: e.target.value }))} placeholder="Policy number (optional)" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
-                  <select value={appForm.productKey || DEFAULT_PRODUCT.key} onChange={(e) => {
-                    const next = productByKey(e.target.value);
-                    setAppForm((p) => ({ ...p, productKey: next.key, carrier: next.carrier, productName: next.productName }));
-                  }} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }}>
-                    {PRODUCT_OPTIONS.map((opt) => (
-                      <option key={opt.key} value={opt.key}>{opt.label}</option>
-                    ))}
-                  </select>
-                  <input value={appForm.carrier || DEFAULT_PRODUCT.carrier} readOnly disabled style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
-                  <input value={appForm.monthlyPremium} onChange={(e) => setAppForm((p) => ({ ...p, monthlyPremium: e.target.value }))} placeholder={String(appForm.appType || '').toLowerCase().includes('regular') || String(appForm.appType || '').toLowerCase().includes('juvenile') ? "Monthly premium (optional)" : "Monthly premium"} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
-                  {(String(appForm.appType || '').toLowerCase().includes('regular') || String(appForm.appType || '').toLowerCase().includes('juvenile')) ? (
-                    <input value={appForm.annualPremium} onChange={(e) => setAppForm((p) => ({ ...p, annualPremium: e.target.value }))} placeholder="Annualized premium (AP)" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#020617', color: '#fff' }} />
-                  ) : null}
+              <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 32, display: 'grid', gap: 20, textAlign: 'center' }}>
+                <div style={{ fontSize: 44 }}>🔗</div>
+                <h3 style={{ color: '#fff', marginTop: 0, marginBottom: 4 }}>Policy Submissions Have Moved</h3>
+                <p style={{ color: '#9CA3AF', margin: '0 auto', maxWidth: 440, lineHeight: 1.6 }}>All policy applications are now submitted through the Legacy Link Hub. Head there to submit an application or track your pipeline.</p>
+                <div>
+                  <a href="https://legacylinkhub.com" target="_blank" rel="noreferrer" style={{ display: 'inline-block', background: 'linear-gradient(135deg,#c8a96b,#a78647)', color: '#0b1020', fontWeight: 800, borderRadius: 10, padding: '13px 28px', textDecoration: 'none', fontSize: 15 }}>Submit Application at Legacy Link Hub &rarr;</a>
                 </div>
-                <div style={{ border: '1px solid #334155', borderRadius: 10, background: '#020617', padding: 10, display: 'grid', gap: 8 }}>
-                  <label style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#E5E7EB' }}>
-                    <input type="checkbox" checked={Boolean(appForm.deliveryRequirementNeeded)} onChange={(e) => setAppForm((p) => ({ ...p, deliveryRequirementNeeded: Boolean(e.target.checked) }))} />
-                    Delivery requirement needed (may delay payout)
-                  </label>
-                  {appForm.deliveryRequirementNeeded ? (
-                    <input value={appForm.deliveryRequirementNote || ''} onChange={(e) => setAppForm((p) => ({ ...p, deliveryRequirementNote: e.target.value }))} placeholder="Optional note (ex: waiting on signed delivery docs)" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#0b1220', color: '#fff' }} />
-                  ) : null}
-                </div>
-                <div style={{ color: '#9CA3AF', fontSize: 13 }}>Estimated Sponsorship Policy payout: <strong style={{ color: '#E5E7EB' }}>{String(appForm.appType || '').toLowerCase().includes('sponsorship') ? `$${isInnerCircleName(clean(appForm.policyWriterName || session?.name || '')) ? 500 : 400}` : 'Based on policy type rules'}</strong></div>
-                <div style={{ color: '#9CA3AF', fontSize: 12 }}>Automatic payout runs as normal. The only standard delay is when Delivery Requirement is marked and documents are still pending.</div>
-                {requiresContract && !contractStatus.signed ? <div style={{ color: '#FCA5A5', fontSize: 12 }}>Policy submit is locked until contracting is completed.</div> : null}
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button type="button" onClick={submitPolicyFromBackoffice} disabled={submitBusy || !canSubmitPolicy} style={{ padding: '10px 14px', borderRadius: 10, border: 0, background: '#C8A96B', color: '#0B1020', fontWeight: 800 }}>
-                    {submitBusy ? 'Submitting…' : 'Submit App'}
-                  </button>
-                  <a href="/inner-circle-app-submit" target="_blank" rel="noreferrer" style={{ color: '#93C5FD' }}>Open full app submit page</a>
-                  {submitMsg ? <span style={{ color: submitMsg.toLowerCase().includes('fail') || submitMsg.toLowerCase().includes('required') ? '#FCA5A5' : '#86EFAC' }}>{submitMsg}</span> : null}
+                <div style={{ border: '1px dashed #334155', borderRadius: 10, padding: '20px', color: '#64748b' }}>
+                  <p style={{ margin: 0, fontSize: 13 }}>📹 How-to video coming soon — Link will add it here when ready.</p>
                 </div>
               </div>
             ) : null}
 
-            {tab === 'academy' ? (
+                        {tab === 'academy' ? (
               <div style={{ border: '1px solid #2A3142', borderRadius: 12, overflow: 'hidden', background: '#0F172A' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center', padding: 10, borderBottom: '1px solid #243046', background: '#0B1220' }}>
                   <div style={{ color: '#9CA3AF', fontSize: 13 }}>If reading feels tight inside this frame, open full page view.</div>

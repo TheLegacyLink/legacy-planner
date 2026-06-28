@@ -3079,7 +3079,7 @@ export default function InnerCircleHubPage() {
                 setMoreMenuOpen(false);
                 if (t.key === 'incentives') { if (typeof window !== 'undefined') window.open('/champions-circle/inner-circle?home=/inner-circle-hub', '_blank', 'noopener,noreferrer'); return; }
                 if (t.key === 'scripts2') { if (typeof window !== 'undefined') window.open('/inner-circle-scripts?home=/inner-circle-hub', '_blank', 'noopener,noreferrer'); return; }
-                if (t.key === 'submitapp') { const me = clean(member?.applicantName || member?.name || ''); const href = `/inner-circle-app-submit?referredBy=${encodeURIComponent(me)}&policyWriter=${encodeURIComponent(me)}&source=inner-circle-hub`; if (typeof window !== 'undefined') window.open(href, '_blank', 'noopener,noreferrer'); return; }
+                if (t.key === 'submitapp') { if (typeof window !== 'undefined') window.open('https://legacylinkhub.com', '_blank', 'noopener,noreferrer'); return; }
                 if (t.key === 'community') { if (typeof window !== 'undefined') window.open('/community-service?home=/inner-circle-hub', '_blank', 'noopener,noreferrer'); return; }
                 setTab(t.key);
               }
@@ -3345,7 +3345,7 @@ export default function InnerCircleHubPage() {
                         ? { border: '1px solid #22c55e', boxShadow: '0 0 0 1px rgba(34,197,94,0.20), 0 0 12px rgba(34,197,94,0.16)' }
                         : { border: '1px solid #1f2937', boxShadow: 'none' };
 
-                      const fngHref = `/inner-circle-app-submit?name=${encodeURIComponent(row?.name || '')}&email=${encodeURIComponent(row?.email || '')}&phone=${encodeURIComponent(row?.phone || '')}&referredBy=${encodeURIComponent(member?.applicantName || '')}`;
+                      const fngHref = 'https://legacylinkhub.com';
                       return (
                         <button
                           key={`${row?.type}_${row?.name}_${idx}`}
@@ -4206,61 +4206,17 @@ export default function InnerCircleHubPage() {
             ) : null}
 
             {tab === 'contracts' ? (
-              <div style={{ display: 'grid', gap: 12 }}>
-                <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#0B1220', padding: 14 }}>
-                  <div className="panelRow" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                    <strong style={{ color: '#fff' }}>Contract Queue (Signed vs Pending)</strong>
-                    <button type="button" className="ghost" onClick={loadStartIntakeQueue} disabled={startIntakeLoading}>
-                      {startIntakeLoading ? 'Refreshing...' : 'Refresh'}
-                    </button>
-                  </div>
-                  <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                    <input
-                      value={startIntakeSearch}
-                      onChange={(e) => setStartIntakeSearch(e.target.value)}
-                      placeholder="Search name, email, phone..."
-                      style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '7px 10px', minWidth: 260 }}
-                    />
-                    <button type="button" className={startIntakeFilter === 'all' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setStartIntakeFilter('all')}>All</button>
-                    <button type="button" className={startIntakeFilter === 'pending' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setStartIntakeFilter('pending')}>Pending</button>
-                    <button type="button" className={startIntakeFilter === 'signed' ? 'publicPrimaryBtn' : 'ghost'} onClick={() => setStartIntakeFilter('signed')}>Signed</button>
-                    <span className="pill neutral">Visible: {filteredStartIntakeRows.length}</span>
-                    <span className="pill onpace">Signed: {(startIntakeRows || []).filter((r) => clean(r?.contractStatus).toLowerCase() === 'signed').length}</span>
-                    <span className="pill atrisk">Pending: {(startIntakeRows || []).filter((r) => clean(r?.contractStatus).toLowerCase() !== 'signed').length}</span>
-                  </div>
-                  {startIntakeNotice ? <small className="muted" style={{ color: '#93c5fd', marginTop: 8, display: 'block' }}>{startIntakeNotice}</small> : null}
-                </div>
-
-                <div style={{ border: '1px solid #334155', borderRadius: 14, background: '#0B1220', padding: 12, display: 'grid', gap: 8 }}>
-                  {(filteredStartIntakeRows || []).slice(0, 200).map((r) => {
-                    const fullName = clean(`${r?.firstName || ''} ${r?.lastName || ''}`) || 'Member';
-                    const signed = clean(r?.contractStatus || '').toLowerCase() === 'signed';
-                    return (
-                      <div key={`start-row-${r?.id || r?.email}`} style={{ border: '1px solid #334155', borderRadius: 10, background: '#111827', padding: '10px 12px', display: 'grid', gap: 8 }}>
-                        <div className="panelRow" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                          <div>
-                            <div style={{ color: '#fff', fontWeight: 700 }}>{fullName}</div>
-                            <small className="muted">{clean(r?.email || '—')} • {clean(r?.phone || '—')} • {clean(r?.trackType || '—')}</small>
-                          </div>
-                          <span className={`pill ${signed ? 'onpace' : 'atrisk'}`}>{signed ? 'Signed' : 'Pending'}</span>
-                        </div>
-                        <small className="muted">Signed At: {r?.contractSignedAt ? new Date(r.contractSignedAt).toLocaleString() : '—'} {r?.contractOverrideAt ? `• Last override: ${new Date(r.contractOverrideAt).toLocaleString()}` : ''}</small>
-                        <div className="panelRow" style={{ gap: 8, flexWrap: 'wrap' }}>
-                          <button type="button" className="publicPrimaryBtn" onClick={() => markStartIntakeContract(r, true)}>Mark Signed</button>
-                          <button type="button" className="ghost" onClick={() => markStartIntakeContract(r, false)}>Mark Pending</button>
-                          <button type="button" className="ghost" onClick={() => checkStartIntakeSignature(r)} disabled={startIntakeCheckingId === clean(r?.id || r?.email || '')}>
-                            {startIntakeCheckingId === clean(r?.id || r?.email || '') ? 'Checking...' : 'Check Signature Log'}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {!(filteredStartIntakeRows || []).length ? <small className="muted">No matching rows.</small> : null}
+              <div style={{ border: '1px solid #2A3142', borderRadius: 12, background: '#0F172A', padding: 32, display: 'grid', gap: 20, textAlign: 'center', maxWidth: 600, margin: '0 auto' }}>
+                <div style={{ fontSize: 44 }}>📝</div>
+                <h3 style={{ color: '#fff', marginTop: 0, marginBottom: 4 }}>Document Signing Has Moved</h3>
+                <p style={{ color: '#9CA3AF', margin: '0 auto', maxWidth: 440, lineHeight: 1.6 }}>Contract signing and document management have moved to the Legacy Link Hub. Send agents there to complete their ICA and any required agreements.</p>
+                <div>
+                  <a href="https://legacylinkhub.com" target="_blank" rel="noreferrer" style={{ display: 'inline-block', background: 'linear-gradient(135deg,#c8a96b,#a78647)', color: '#0b1020', fontWeight: 800, borderRadius: 10, padding: '13px 28px', textDecoration: 'none', fontSize: 15 }}>Go to Legacy Link Hub &rarr;</a>
                 </div>
               </div>
             ) : null}
 
-            {tab === 'production' ? (
+                        {tab === 'production' ? (
               <div style={{ display: 'grid', gap: 14 }}>
                 <div style={{ border: '1px solid #5f4a23', borderRadius: 14, padding: 16, background: 'linear-gradient(135deg,#1f2937 0%,#0b1020 55%,#111827 100%)' }}>
                   <div className="panelRow" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
